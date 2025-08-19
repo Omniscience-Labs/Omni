@@ -1816,7 +1816,7 @@ async def export_agent(agent_id: str, user_id: str = Depends(get_current_user_id
         export_metadata = {}
         if agent.get('metadata'):
             export_metadata = {k: v for k, v in agent['metadata'].items() 
-                             if k not in ['is_suna_default', 'centrally_managed', 'installation_date', 'last_central_update']}
+                             if k not in ['is_suna_default', 'is_omni_default', 'centrally_managed', 'installation_date', 'last_central_update']}
         
         export_data = {
             "tools": sanitized_config['tools'],
@@ -2127,7 +2127,7 @@ async def update_agent(
         existing_data = existing_agent.data
 
         agent_metadata = existing_data.get('metadata', {})
-        is_suna_agent = agent_metadata.get('is_suna_default', False)
+        is_suna_agent = agent_metadata.get('is_suna_default', False) or agent_metadata.get('is_omni_default', False)
         restrictions = agent_metadata.get('restrictions', {})
         
         if is_suna_agent:
@@ -2459,7 +2459,7 @@ async def delete_agent(agent_id: str, user_id: str = Depends(get_current_user_id
         if agent['is_default']:
             raise HTTPException(status_code=400, detail="Cannot delete default agent")
         
-        if agent.get('metadata', {}).get('is_suna_default', False):
+        if agent.get('metadata', {}).get('is_suna_default', False) or agent.get('metadata', {}).get('is_omni_default', False):
             raise HTTPException(status_code=400, detail="Cannot delete Suna default agent")
         
         delete_result = await client.table('agents').delete().eq('agent_id', agent_id).execute()

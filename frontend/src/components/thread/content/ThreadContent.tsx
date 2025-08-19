@@ -342,7 +342,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
         }
 
         // Check if this is a Suna default agent from metadata
-        const isSunaDefaultAgent = agentMetadata?.is_suna_default || false;
+        const isSunaDefaultAgent = agentMetadata?.is_suna_default || agentMetadata?.is_omni_default || false;
 
         // Then check recent messages for agent info
         const recentAssistantWithAgent = [...displayMessages].reverse().find(msg =>

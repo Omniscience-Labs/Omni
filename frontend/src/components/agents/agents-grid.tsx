@@ -33,6 +33,7 @@ interface Agent {
   };
   metadata?: {
     is_suna_default?: boolean;
+    is_omni_default?: boolean;
     centrally_managed?: boolean;
     restrictions?: {
       system_prompt_editable?: boolean;
@@ -81,7 +82,7 @@ const AgentModal: React.FC<AgentModalProps> = ({
 }) => {
   if (!agent) return null;
 
-  const isSunaAgent = agent.metadata?.is_suna_default || false;
+  const isSunaAgent = agent.metadata?.is_suna_default || agent.metadata?.is_omni_default || false;
   
   const truncateDescription = (text?: string, maxLength = 120) => {
     if (!text || text.length <= maxLength) return text || 'Try out this agent';

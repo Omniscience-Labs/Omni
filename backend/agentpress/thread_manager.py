@@ -21,6 +21,7 @@ from agentpress.response_processor import (
     ProcessorConfig
 )
 from services.supabase import DBConnection
+from services.memory_integration import retrieve_relevant_memories
 from utils.logger import logger
 from langfuse.client import StatefulGenerationClient, StatefulTraceClient
 from services.langfuse import langfuse
@@ -446,6 +447,53 @@ When using the tools:
                     logger.debug(f"Retrieved {len(openapi_tool_schemas) if openapi_tool_schemas else 0} OpenAPI tool schemas")
 
                 # print(f"\n\n\n\n prepared_messages: {prepared_messages}\n\n\n\n")
+                
+                # 4.5. Retrieve relevant memories and inject context before LLM call
+                try:
+                    # Extract the latest user message for memory search
+                    latest_user_message: Optional[str] = None
+                    for msg in reversed(prepared_messages):
+                        if msg.get("role") == "user":
+                            content = msg.get("content", "")
+                            # Handle both string content and structured content
+                            if isinstance(content, str):
+                                latest_user_message = content
+                            elif isinstance(content, list) and len(content) > 0:
+                                # For structured content, extract text from first text item
+                                for item in content:
+                                    if isinstance(item, dict) and item.get("type") == "text":
+                                        latest_user_message = item.get("text", "")
+                                        break
+                            break
+                    
+                    if latest_user_message:
+                        memory_context = await retrieve_relevant_memories(
+                            db=self.db,
+                            thread_id=thread_id,
+                            query=latest_user_message,
+                            limit=5
+                        )
+                        
+                        if memory_context:
+                            # Inject memory context into system message
+                            for i, msg in enumerate(prepared_messages):
+                                if msg.get("role") == "system":
+                                    original_content = msg.get("content", "")
+                                    enhanced_content = f"{original_content}\n\n{memory_context}"
+                                    prepared_messages[i]["content"] = enhanced_content
+                                    logger.debug(f"Injected memory context into system message for thread {thread_id}")
+                                    break
+                            else:
+                                # If no system message found, add a new one at the beginning
+                                memory_system_msg = {
+                                    "role": "system",
+                                    "content": memory_context
+                                }
+                                prepared_messages.insert(0, memory_system_msg)
+                                logger.debug(f"Added new system message with memory context for thread {thread_id}")
+                                
+                except Exception as e:
+                    logger.warning(f"Failed to retrieve and inject memory context: {str(e)}")
 
                 prepared_messages = self.context_manager.compress_messages(prepared_messages, llm_model)
 

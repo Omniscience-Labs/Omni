@@ -33,6 +33,7 @@ interface AgentPreviewProps {
   agent: Agent;
   agentMetadata?: {
     is_suna_default?: boolean;
+    is_omni_default?: boolean;
   };
 }
 
@@ -45,7 +46,7 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasStartedConversation, setHasStartedConversation] = useState(false);
 
-  const isSunaAgent = agentMetadata?.is_suna_default || false;
+  const isSunaAgent = agentMetadata?.is_suna_default || agentMetadata?.is_omni_default || false;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputHandles>(null);

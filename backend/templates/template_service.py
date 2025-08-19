@@ -591,7 +591,7 @@ class TemplateService:
     
     def _is_suna_default_agent(self, agent: Dict[str, Any]) -> bool:
         metadata = agent.get('metadata', {})
-        return metadata.get('is_suna_default', False)
+        return metadata.get('is_suna_default', False) or metadata.get('is_omni_default', False)
     
     async def _save_template(self, template: AgentTemplate) -> None:
         client = await self._db.client

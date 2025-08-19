@@ -421,7 +421,7 @@ class AgentRunner:
     async def setup_tools(self):
         tool_manager = ToolManager(self.thread_manager, self.config.project_id, self.config.thread_id)
         
-        if self.config.agent_config and self.config.agent_config.get('is_suna_default', False):
+        if self.config.agent_config and (self.config.agent_config.get('is_suna_default', False) or self.config.agent_config.get('is_omni_default', False)):
             suna_agent_id = self.config.agent_config['agent_id']
             tool_manager.register_agent_builder_tools(suna_agent_id)
         
@@ -433,7 +433,7 @@ class AgentRunner:
             raw_tools = self.config.agent_config['agentpress_tools']
             
             if isinstance(raw_tools, dict):
-                if self.config.agent_config.get('is_suna_default', False) and not raw_tools:
+                if (self.config.agent_config.get('is_suna_default', False) or self.config.agent_config.get('is_omni_default', False)) and not raw_tools:
                     enabled_tools = None
                 else:
                     enabled_tools = raw_tools

@@ -49,18 +49,48 @@ class SunaAgentRepository:
                 batch_agents = [SunaAgentRecord.from_db_row(row) for row in result.data]
                 all_agents.extend(batch_agents)
                 
+                if len(result.data) < page_size:
+                    break
+                    
+                offset += page_size
+            
+            logger.info(f"Found {len(all_agents)} Suna agents")
+            return all_agents
+            
+        except Exception as e:
+            logger.error(f"Error finding Suna agents: {e}")
+            return []
+    
+    async def find_all_omni_agents(self) -> List[SunaAgentRecord]:
+        try:
+            client = await self.db.client
+            all_agents = []
+            page_size = 1000
+            offset = 0
+            
+            while True:
+                result = await client.table('agents').select(
+                    'agent_id, account_id, name, metadata'
+                ).eq('metadata->>is_omni_default', 'true').range(offset, offset + page_size - 1).execute()
+                
+                if not result.data:
+                    break
+                
+                batch_agents = [SunaAgentRecord.from_db_row(row) for row in result.data]
+                all_agents.extend(batch_agents)
+                
                 # If we got less than page_size, we've reached the end
                 if len(result.data) < page_size:
                     break
                 
                 offset += page_size
             
-            logger.info(f"Found {len(all_agents)} existing Suna agents")
+            logger.info(f"Found {len(all_agents)} Omni agents")
             return all_agents
             
         except Exception as e:
-            logger.error(f"Failed to find Suna agents: {e}")
-            raise
+            logger.error(f"Error finding Omni agents: {e}")
+            return []
     
     async def find_suna_agents_needing_sync(self, target_version_tag: str) -> List[SunaAgentRecord]:
         agents = await self.find_all_suna_agents()

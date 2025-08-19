@@ -43,7 +43,7 @@ class OmniDefaultAgentService:
         
         try:
             if replace_existing:
-                agents = await self._sync_service.repository.find_all_suna_agents()
+                agents = await self._sync_service.repository.find_all_omni_agents()
                 existing = next((a for a in agents if a.account_id == account_id), None)
                 if existing:
                     await self._sync_service.repository.delete_agent(existing.agent_id)
@@ -64,7 +64,7 @@ class OmniDefaultAgentService:
     
     async def get_agent_for_user(self, account_id: str) -> Optional[Dict[str, Any]]:
         try:
-            agents = await self._sync_service.repository.find_all_suna_agents()
+            agents = await self._sync_service.repository.find_all_omni_agents()
             user_agent = next((a for a in agents if a.account_id == account_id), None)
             
             if user_agent:

@@ -7,6 +7,7 @@ interface Agent {
   avatar?: string;
   metadata?: {
     is_suna_default?: boolean;
+    is_omni_default?: boolean;
   };
 }
 
@@ -56,7 +57,7 @@ export const useAgentSelectionStore = create<AgentSelectionState>()(
           if (current && agents.some(a => a.agent_id === current)) {
             selectedId = current;
           } else if (agents.length > 0) {
-            const defaultSunaAgent = agents.find(agent => agent.metadata?.is_suna_default);
+            const defaultSunaAgent = agents.find(agent => agent.metadata?.is_suna_default || agent.metadata?.is_omni_default);
             selectedId = defaultSunaAgent ? defaultSunaAgent.agent_id : agents[0].agent_id;
           }
         }
@@ -76,7 +77,7 @@ export const useAgentSelectionStore = create<AgentSelectionState>()(
         if (agents.length === 0 || currentSelectedAgentId) {
           return;
         }
-        const defaultSunaAgent = agents.find(agent => agent.metadata?.is_suna_default);
+        const defaultSunaAgent = agents.find(agent => agent.metadata?.is_suna_default || agent.metadata?.is_omni_default);
         const agentToSelect = defaultSunaAgent || agents[0];
         
         if (agentToSelect) {
@@ -104,7 +105,7 @@ export const useAgentSelectionStore = create<AgentSelectionState>()(
         const currentAgent = selectedAgentId 
           ? agents.find(agent => agent.agent_id === selectedAgentId)
           : null;
-        return currentAgent?.metadata?.is_suna_default || selectedAgentId === undefined;
+        return currentAgent?.metadata?.is_suna_default || currentAgent?.metadata?.is_omni_default || selectedAgentId === undefined;
       },
     }),
     {

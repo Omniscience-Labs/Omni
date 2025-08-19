@@ -103,7 +103,7 @@ export default function AgentConfigurationPage() {
   const handleSave = useCallback(async () => {
     if (!agent || isViewingOldVersion || isSaving) return;
     
-    const isSunaAgent = agent?.metadata?.is_suna_default || false;
+    const isSunaAgent = agent?.metadata?.is_suna_default || agent?.metadata?.is_omni_default || false;
     const restrictions = agent?.metadata?.restrictions || {};
     
     if (isSunaAgent) {
@@ -196,7 +196,7 @@ export default function AgentConfigurationPage() {
       return;
     }
     
-    const isSunaAgent = agent?.metadata?.is_suna_default || false;
+    const isSunaAgent = agent?.metadata?.is_suna_default || agent?.metadata?.is_omni_default || false;
     const restrictions = agent?.metadata?.restrictions || {};
     
     if (isSunaAgent && restrictions.name_editable === false) {
@@ -238,7 +238,7 @@ export default function AgentConfigurationPage() {
       return;
     }
     
-    const isSunaAgent = agent?.metadata?.is_suna_default || false;
+    const isSunaAgent = agent?.metadata?.is_suna_default || agent?.metadata?.is_omni_default || false;
     
     if (isSunaAgent) {
       toast.error("System prompt cannot be edited", {
@@ -328,7 +328,7 @@ export default function AgentConfigurationPage() {
       enabledTools: Array.isArray(mcp.enabledTools) ? mcp.enabledTools : [],
     }));
     
-    const isSunaAgent = agent?.metadata?.is_suna_default || false;
+    const isSunaAgent = agent?.metadata?.is_suna_default || agent?.metadata?.is_omni_default || false;
     
     const saveData = {
       system_prompt: isSunaAgent ? '' : formData.system_prompt,
@@ -363,7 +363,7 @@ export default function AgentConfigurationPage() {
       return;
     }
     
-    const isSunaAgent = agent?.metadata?.is_suna_default || false;
+    const isSunaAgent = agent?.metadata?.is_suna_default || agent?.metadata?.is_omni_default || false;
     const restrictions = agent?.metadata?.restrictions || {};
     
     if (isSunaAgent && restrictions.tools_editable === false) {
@@ -576,7 +576,7 @@ export default function AgentConfigurationPage() {
               </div>
             </div>
             <div className="flex-1 overflow-hidden">
-              {agent?.metadata?.is_suna_default ? (
+              {(agent?.metadata?.is_suna_default || agent?.metadata?.is_omni_default) ? (
                 <ConfigurationTab
                   agentId={agentId}
                   displayData={displayData}
@@ -667,7 +667,7 @@ export default function AgentConfigurationPage() {
               </div>
             </div>
             <div className="flex-1 overflow-hidden">
-              {agent?.metadata?.is_suna_default ? (
+              {(agent?.metadata?.is_suna_default || agent?.metadata?.is_omni_default) ? (
                 <ConfigurationTab
                   agentId={agentId}
                   displayData={displayData}
