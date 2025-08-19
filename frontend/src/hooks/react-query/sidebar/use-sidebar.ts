@@ -1,13 +1,19 @@
-import { createQueryHook } from '@/hooks/use-query';
-import { getThreads, getProjects } from '@/lib/api';
+import { createQueryHook, createMutationHook } from '@/hooks/use-query';
+import { getThreads, getProjects, Thread, Project } from '@/lib/api';
+import { deleteThread } from '../threads/utils';
 import { useCurrentAccount } from '@/hooks/use-current-account';
 import { threadKeys } from '../threads/keys';
+
+// Type for thread combined with project data
+export type ThreadWithProject = Thread & {
+  project?: Project;
+};
 
 export const useThreads = () => {
   const currentAccount = useCurrentAccount();
   
   return createQueryHook(
-    threadKeys.lists(),
+    threadKeys.all,
     async () => {
       const accountId = currentAccount?.account_id;
       console.log('🧵 Fetching threads for account:', currentAccount?.is_team_context ? 'Team:' + currentAccount.name : 'Personal');
@@ -39,4 +45,43 @@ export const useProjects = () => {
       enabled: !!currentAccount?.account_id,
     }
   )();
+};
+
+// Function to combine threads with their project data
+export const processThreadsWithProjects = (threads: Thread[], projects: Project[]): ThreadWithProject[] => {
+  return threads.map(thread => ({
+    ...thread,
+    project: projects.find(p => p.id === thread.project_id)
+  }));
+};
+
+// Hook for deleting a single thread
+export const useDeleteThread = () => {
+  return createMutationHook(
+    ({ threadId, sandboxId }: { threadId: string; sandboxId?: string }) => 
+      deleteThread(threadId, sandboxId),
+    {
+      errorContext: {
+        operation: 'delete thread',
+        resource: 'thread'
+      }
+    }
+  );
+};
+
+// Hook for deleting multiple threads
+export const useDeleteMultipleThreads = () => {
+  return createMutationHook(
+    async ({ threadIds }: { threadIds: string[] }) => {
+      const deletePromises = threadIds.map(threadId => deleteThread(threadId));
+      await Promise.all(deletePromises);
+      return { deletedCount: threadIds.length };
+    },
+    {
+      errorContext: {
+        operation: 'delete multiple threads',
+        resource: 'threads'
+      }
+    }
+  );
 };
