@@ -26,6 +26,12 @@ export const projectsApi = {
     const result = await supabaseClient.execute(
       async () => {
         const supabase = createClient();
+        
+        if (!supabase || !supabase.auth) {
+          console.error('❌ api-enhanced.ts projectsApi.getAll: Supabase client unavailable');
+          return { data: [], error: { message: 'Authentication system unavailable' } };
+        }
+        
         const { data: userData, error: userError } = await supabase.auth.getUser();
         
         if (userError) {
@@ -123,6 +129,11 @@ export const projectsApi = {
     const result = await supabaseClient.execute(
       async () => {
         const supabase = createClient();
+        
+        if (!supabase || !supabase.auth) {
+          console.error('❌ api-enhanced.ts projectsApi.create: Supabase client unavailable');
+          return { data: null, error: { message: 'Authentication system unavailable' } };
+        }
         
         if (!accountId) {
           const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -237,6 +248,12 @@ export const threadsApi = {
     const result = await supabaseClient.execute(
       async () => {
         const supabase = createClient();
+        
+        if (!supabase || !supabase.auth) {
+          console.error('❌ api-enhanced.ts threadsApi.getAll: Supabase client unavailable');
+          return { data: [], error: null };
+        }
+        
         const { data: userData, error: userError } = await supabase.auth.getUser();
         
         if (userError) return { data: null, error: userError };
@@ -290,6 +307,12 @@ export const threadsApi = {
     const result = await supabaseClient.execute(
       async () => {
         const supabase = createClient();
+        
+        if (!supabase || !supabase.auth) {
+          console.error('❌ api-enhanced.ts threadsApi.create: Supabase client unavailable');
+          return { data: null, error: { message: 'Authentication system unavailable' } };
+        }
+        
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
