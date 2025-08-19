@@ -71,13 +71,22 @@ export const TeamSharingDialog: React.FC<TeamSharingDialogProps> = ({
   const { data: myTeams = [], isLoading: teamsLoading } = useQuery({
     queryKey: ['my-teams'],
     queryFn: async () => {
-      const response = await fetch('/api/teams/my-teams', {
-        headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        }
-      });
-      if (!response.ok) throw new Error('Failed to fetch teams');
-      return response.json() as Promise<TeamInfo[]>;
+      try {
+        if (!supabase?.auth) throw new Error('Supabase client not available');
+        const sessionResult = await supabase.auth.getSession();
+        const token = sessionResult?.data?.session?.access_token;
+        
+        const response = await fetch('/api/teams/my-teams', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (!response.ok) throw new Error('Failed to fetch teams');
+        return response.json() as Promise<TeamInfo[]>;
+      } catch (error) {
+        console.error('Error fetching teams:', error);
+        return [];
+      }
     },
     enabled: isOpen
   });
@@ -86,17 +95,27 @@ export const TeamSharingDialog: React.FC<TeamSharingDialogProps> = ({
   const { data: sharedTeams = [], refetch: refetchSharedTeams } = useQuery({
     queryKey: ['agent-shared-teams', agent?.agent_id],
     queryFn: async () => {
-      if (!agent?.agent_id) return [];
-      const response = await fetch(`/api/teams/agents/${agent.agent_id}/shared-teams`, {
-        headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+      try {
+        if (!agent?.agent_id) return [];
+        if (!supabase?.auth) throw new Error('Supabase client not available');
+        
+        const sessionResult = await supabase.auth.getSession();
+        const token = sessionResult?.data?.session?.access_token;
+        
+        const response = await fetch(`/api/teams/agents/${agent.agent_id}/shared-teams`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (!response.ok) {
+          if (response.status === 403) return []; // Not owner, can't see shares
+          throw new Error('Failed to fetch shared teams');
         }
-      });
-      if (!response.ok) {
-        if (response.status === 403) return []; // Not owner, can't see shares
-        throw new Error('Failed to fetch shared teams');
+        return response.json() as Promise<AgentShareInfo[]>;
+      } catch (error) {
+        console.error('Error fetching shared teams:', error);
+        return [];
       }
-      return response.json() as Promise<AgentShareInfo[]>;
     },
     enabled: isOpen && !!agent?.agent_id
   });
@@ -141,8 +160,9 @@ export const TeamSharingDialog: React.FC<TeamSharingDialogProps> = ({
     
     setIsLoading(true);
     try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
+      if (!supabase?.auth) throw new Error('Supabase client not available');
+      const sessionResult = await supabase.auth.getSession();
+      const token = sessionResult?.data?.session?.access_token;
 
       const response = await fetch(`/api/teams/agents/${agent.agent_id}/set-visibility`, {
         method: 'POST',
@@ -181,8 +201,9 @@ export const TeamSharingDialog: React.FC<TeamSharingDialogProps> = ({
     if (!agent) return;
     
     try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
+      if (!supabase?.auth) throw new Error('Supabase client not available');
+      const sessionResult = await supabase.auth.getSession();
+      const token = sessionResult?.data?.session?.access_token;
 
       const response = await fetch(`/api/teams/agents/${agent.agent_id}/unshare-from-team/${teamId}`, {
         method: 'POST',
