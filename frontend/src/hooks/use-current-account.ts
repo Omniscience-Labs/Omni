@@ -19,11 +19,22 @@ export interface CurrentAccount {
 
 export function useCurrentAccount(): CurrentAccount | null {
   const pathname = usePathname();
-  const { data: accounts } = useAccounts();
+  const accountsQuery = useAccounts();
+  const { data: accounts } = accountsQuery;
+  
+  // Only log if there are issues
+  if (accountsQuery.isError) {
+    console.error('❌ useCurrentAccount: accounts query error:', accountsQuery.error?.message);
+  }
 
   return useMemo(() => {
     try {
-      if (!accounts || !Array.isArray(accounts)) return null;
+      if (!accounts || !Array.isArray(accounts)) {
+        if (accounts !== undefined) {
+          console.warn('⚠️ useCurrentAccount: Invalid accounts data:', typeof accounts);
+        }
+        return null;
+      }
 
     // Extract team slug from URL path
     const teamMatch = pathname?.match(/^\/([^\/]+)(?:\/|$)/);

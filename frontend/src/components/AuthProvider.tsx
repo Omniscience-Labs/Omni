@@ -24,6 +24,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const supabase = createClient();
+  
+  if (!supabase) {
+    console.error('❌ CRITICAL: Failed to create Supabase client');
+    return <div>Authentication system unavailable. Please check configuration.</div>;
+  }
+  
+  if (!supabase.auth) {
+    console.error('❌ CRITICAL: Supabase client missing auth module');
+    return <div>Authentication module unavailable.</div>;
+  }
+  
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -93,8 +104,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
+  
   if (context === undefined) {
+    console.error('❌ CRITICAL: useAuth called outside AuthProvider!');
+    console.trace('useAuth call stack:');
     throw new Error('useAuth must be used within an AuthProvider');
   }
+  
+  // Only log if there are issues
+  if (!context.supabase) {
+    console.warn('⚠️ useAuth: No supabase client in context');
+  }
+  
   return context;
 };
