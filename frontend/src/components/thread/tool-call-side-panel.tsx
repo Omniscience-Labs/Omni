@@ -1013,7 +1013,7 @@ export function ToolCallSidePanel({
             overflow: 'hidden',
           }}
         >
-          <div className="flex-1 flex flex-col overflow-hidden bg-card">
+          <div className="flex-1 flex flex-col overflow-scroll bg-card">
             {renderContent()}
           </div>
           {(displayTotalCalls > 1 || (isCurrentToolStreaming && totalCompletedCalls > 0)) && (

@@ -7,6 +7,8 @@ import {
   AlertTriangle,
   CircleDashed,
   RefreshCw,
+  Code2,
+  Eye,
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import {
@@ -21,6 +23,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ImageLoader } from './shared/ImageLoader';
+import { ParsedContent } from '../types';
+import { JsonViewer } from './shared/JsonViewer';
 
 interface BrowserHeaderProps {
   isConnected: boolean;
@@ -104,7 +108,9 @@ export function BrowserToolView({
   let browserStateMessageId: string | undefined;
   let screenshotUrl: string | null = null;
   let screenshotBase64: string | null = null;
-
+  let result: Record<string, string> | null = null;
+  let parameters: Record<string, string> | null = null;
+  const [showContext, setShowContext] = React.useState(false);
   // Add loading states for images
   const [imageLoading, setImageLoading] = React.useState(true);
   const [imageError, setImageError] = React.useState(false);
@@ -196,6 +202,51 @@ export function BrowserToolView({
     }
   }
 
+  if ((!result || !parameters) && messages.length > 0 && browserStateMessageId) {
+
+    // Process browser state messages
+    const latestBrowserStateMessage = messages.filter(
+      (msg) => msg.type === 'browser_state' && msg.message_id === browserStateMessageId
+    );
+
+    for (const msg of latestBrowserStateMessage) {
+      const content = safeJsonParse<ParsedContent>(msg.content, {});
+      if (content) {
+        result = Object.fromEntries(Object.entries(content).filter(([k, v]) => k !== 'input'));
+      }
+      if (content.input) {
+        parameters = content.input;
+      }
+    }
+  }
+  if (!result || !parameters) {
+    const browserToolMessages = messages.filter(
+      m => m.type === 'tool' &&
+      safeJsonParse<ParsedContent>(m.content, {})?.tool_execution?.function_name?.startsWith('browser')
+    );
+
+    let matchingToolMessage = null;
+    const currentToolTimestamp = toolTimestamp;
+    
+    // First try to find exact match by timestamp correlation
+    if (currentToolTimestamp) {
+      matchingToolMessage = browserToolMessages.find((msg) => {
+        const msgTime = new Date(msg.created_at).getTime();
+        const toolTime = new Date(currentToolTimestamp).getTime();
+        return msgTime === toolTime;
+      });
+    }
+    
+    if (matchingToolMessage) {
+      const toolContent = safeJsonParse<ParsedContent>(matchingToolMessage.content, {});
+        if (toolContent?.tool_execution?.result?.output) {
+          result = toolContent.tool_execution.result.output;
+        }
+        if (toolContent?.tool_execution?.arguments) {
+          parameters = toolContent.tool_execution.arguments;
+        }
+    }
+  }
   const isRunning = isStreaming || agentStatus === 'running';
 
   const [progress, setProgress] = React.useState(100);
@@ -297,7 +348,7 @@ export function BrowserToolView({
       <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
         <div className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="relative p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/20">
+            <div className="relative p-2 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/20">
               <MonitorPlay className="w-5 h-5 text-purple-500 dark:text-purple-400" />
             </div>
             <div className='flex items-center gap-2'>
@@ -326,16 +377,40 @@ export function BrowserToolView({
               </Badge>
             )}
             {viewToggle}
-
+            {(result || parameters) && <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowContext(!showContext)}
+              className="h-7 p-2 hover:bg-muted rounded-xl"
+              title={showContext ? "Hide context" : "Show INPUT/OUTPUT context"}
+            >
+              {showContext ? (
+                <Eye className="h-3.5 w-3.5" />
+              ) : (
+                <Code2 className="h-3.5 w-3.5" />
+              )}
+            </Button>}
           </div>
-
-
         </div>
       </CardHeader>
 
       <CardContent className="p-0 flex-1 overflow-hidden relative" style={{ height: 'calc(100vh - 150px)', minHeight: '600px' }}>
         <div className="flex-1 flex h-full items-stretch bg-white dark:bg-black">
-          {(screenshotUrl || screenshotBase64) ? (
+          {showContext ? (
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {parameters && <JsonViewer
+                data={parameters}
+                title="INPUT"
+                defaultExpanded={true}
+              />}
+              {result && <JsonViewer
+                data={result}
+                title="OUTPUT"
+                defaultExpanded={true}
+              />}
+            </div>
+          )
+          :(screenshotUrl || screenshotBase64) ? (
             renderScreenshot()
           ) : (
             <div className="p-8 flex flex-col items-center justify-center w-full bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900 text-zinc-700 dark:text-zinc-400">

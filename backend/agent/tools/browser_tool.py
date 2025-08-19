@@ -233,7 +233,8 @@ class BrowserTool(SandboxToolsBase):
                         except Exception as e:
                             logger.error(f"Failed to process screenshot: {e}")
                             result["image_upload_error"] = str(e)
-
+                    
+                    result["input"] = params
                     added_message = await self.thread_manager.add_message(
                         thread_id=self.thread_id,
                         type="browser_state",
@@ -263,14 +264,13 @@ class BrowserTool(SandboxToolsBase):
                         clean_result["screenshot_issue"] = f"Screenshot processing issue: {result['image_validation_error']}"
                     if result.get("image_upload_error"):
                         clean_result["screenshot_issue"] = f"Screenshot upload issue: {result['image_upload_error']}"
+                    clean_result["message_id"] = added_message.get("message_id")
 
                     if clean_result.get("success"):
                         return self.success_response(clean_result)
                     else:
                         # Handle error responses with helpful context  
                         error_msg = result.get("error", result.get("message", "Unknown error"))
-                        if "Page crashed" in error_msg:
-                            error_msg += "\n\nNote: Browser page crashes in Docker environments can be caused by insufficient browser launch options. Consider using the regular browser automation tool (sb_browser_tool) as an alternative."
                         clean_result["message"] = error_msg
                         return self.fail_response(clean_result)
 
