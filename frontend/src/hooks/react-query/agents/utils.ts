@@ -71,6 +71,7 @@ export type AgentsParams = {
   has_mcp_tools?: boolean;
   has_agentpress_tools?: boolean;
   tools?: string;
+  account_id?: string;
 };
 
 export type ThreadAgentResponse = {
@@ -178,15 +179,12 @@ export const getAgents = async (params: AgentsParams = {}): Promise<AgentsRespon
     if (params.has_agentpress_tools !== undefined) queryParams.append('has_agentpress_tools', params.has_agentpress_tools.toString());
     if (params.tools) queryParams.append('tools', params.tools);
     
-    // Check if we're in team context and add account_id
-    if (typeof window !== 'undefined') {
-      const teamContextStr = localStorage.getItem('currentTeamId');
-      if (teamContextStr) {
-        console.log('🏢 Team context detected, using account_id:', teamContextStr);
-        queryParams.append('account_id', teamContextStr);
-      } else {
-        console.log('👤 Personal context detected, using user_id');
-      }
+    // Add account_id parameter if provided in params
+    if (params.account_id) {
+      queryParams.append('account_id', params.account_id);
+      console.log('🏢 Team context detected, using account_id:', params.account_id);
+    } else {
+      console.log('👤 Personal context detected, using user_id');
     }
 
     const url = `${API_URL}/agents${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;

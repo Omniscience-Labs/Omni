@@ -184,12 +184,7 @@ export function HeroSection() {
       }
 
       // Add team context if in team mode
-      if (typeof window !== 'undefined') {
-        const teamContextStr = localStorage.getItem('currentTeamId');
-        if (teamContextStr) {
-          formData.append('account_id', teamContextStr);
-        }
-      }
+      // Note: Hero section typically runs in personal context, but keeping for completeness
 
       // Add files if any
       files.forEach((file) => {

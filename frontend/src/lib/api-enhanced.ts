@@ -242,16 +242,7 @@ export const threadsApi = {
         if (userError) return { data: null, error: userError };
         if (!userData.user) return { data: [], error: null };
 
-        // Get team context for account_id
-        let account_id = userData.user.id; // Default to personal account
-        if (typeof window !== 'undefined') {
-          const teamContextStr = localStorage.getItem('currentTeamId');
-          if (teamContextStr) {
-            account_id = teamContextStr;
-          }
-        }
-
-        let query = supabase.from('threads').select('*').eq('account_id', account_id);
+        let query = supabase.from('threads').select('*').eq('account_id', userData.user.id);
         
         if (projectId) {
           query = query.eq('project_id', projectId);
@@ -305,20 +296,11 @@ export const threadsApi = {
           return { data: null, error: new Error('You must be logged in to create a thread') };
         }
 
-        // Get team context for account_id
-        let account_id = user.id; // Default to personal account
-        if (typeof window !== 'undefined') {
-          const teamContextStr = localStorage.getItem('currentTeamId');
-          if (teamContextStr) {
-            account_id = teamContextStr;
-          }
-        }
-
         const { data, error } = await supabase
           .from('threads')
           .insert({
             project_id: projectId,
-            account_id: account_id,
+            account_id: user.id,
           })
           .select()
           .single();
