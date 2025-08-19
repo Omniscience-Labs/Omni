@@ -136,7 +136,7 @@ export function CreditPurchaseModal({
             <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <Zap className="h-5 w-5 text-yellow-500" />
+                        <Zap className="h-5 w-5 text-amber-500 dark:text-amber-400" />
                         Purchase Credits
                     </DialogTitle>
                     <DialogDescription>
