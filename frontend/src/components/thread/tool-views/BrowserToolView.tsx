@@ -292,7 +292,7 @@ export function BrowserToolView({
 
     if (screenshotUrl) {
       return (
-        <div className="flex items-center justify-center w-full h-full min-h-[600px] relative p-4 -mt-14" style={{ minHeight: '600px' }}>
+        <div className="flex items-center justify-center w-full h-full min-h-[600px] relative p-4" style={{ minHeight: '600px' }}>
           {imageLoading && (
             <ImageLoader />
           )}
@@ -395,8 +395,8 @@ export function BrowserToolView({
         </div>
       </CardHeader>
 
-      <CardContent className="p-0 flex-1 overflow-hidden relative" style={{ height: 'calc(100vh - 150px)', minHeight: '600px' }}>
-        <div className="flex-1 flex h-full items-stretch bg-white dark:bg-black">
+      <CardContent className="p-0 flex-1 overflow-hidden relative" style={{ height: 'calc(100vh - 150px)'}}>
+        <div className="flex-1 flex h-full items-center bg-white dark:bg-black">
           {showContext ? (
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {parameters && <JsonViewer
