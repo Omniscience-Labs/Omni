@@ -1,4 +1,5 @@
 import DashboardLayoutContent from '@/components/dashboard/layout-content';
+import { TeamContextProvider } from '@/hooks/use-team-context';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -7,5 +8,9 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({
   children,
 }: DashboardLayoutProps) {
-  return <DashboardLayoutContent>{children}</DashboardLayoutContent>;
+  return (
+    <TeamContextProvider>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </TeamContextProvider>
+  );
 }

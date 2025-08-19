@@ -19,8 +19,10 @@ import {
   Sun,
   Moon,
   KeyRound,
+  Loader2,
 } from 'lucide-react';
 import { useAccounts } from '@/hooks/use-accounts';
+import { useTeamContext } from '@/hooks/use-team-context';
 import NewTeamForm from '@/components/basejump/new-team-form';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -65,7 +67,9 @@ export function NavUserWithTeams({
   const router = useRouter();
   const { isMobile } = useSidebar();
   const { data: accounts } = useAccounts();
+  const { currentTeam, isLoading: teamLoading, switchTeam } = useTeamContext();
   const [showNewTeamDialog, setShowNewTeamDialog] = React.useState(false);
+  const [switchingTeam, setSwitchingTeam] = React.useState<string | null>(null);
   const { theme, setTheme } = useTheme();
   const { enabled: customAgentsEnabled, loading: flagLoading } = useFeatureFlag("custom_agents");
 
@@ -132,15 +136,37 @@ export function NavUserWithTeams({
     }
   }, [accounts, activeTeam.account_id]);
 
-  // Handle team selection
-  const handleTeamSelect = (team) => {
+  // Handle team selection with visual feedback
+  const handleTeamSelect = async (team) => {
+    setSwitchingTeam(team.account_id);
     setActiveTeam(team);
-
-    // Navigate to the appropriate dashboard
-    if (team.personal_account) {
-      router.push('/dashboard');
-    } else {
-      router.push(`/${team.slug}`);
+    
+    try {
+      // Create a proper team object for the context
+      const teamData = {
+        account_id: team.account_id,
+        name: team.name,
+        slug: team.slug,
+        personal_account: team.personal_account,
+        created_at: new Date().toISOString(),
+        account_role: 'owner' // This should come from the actual account data
+      };
+      
+      // Use the switchTeam function from context
+      await switchTeam(teamData);
+      
+      // Quick visual feedback
+      const teamSwitcher = document.querySelector('[data-team-switcher]');
+      if (teamSwitcher) {
+        teamSwitcher.classList.add('animate-pulse');
+        setTimeout(() => {
+          teamSwitcher.classList.remove('animate-pulse');
+        }, 300);
+      }
+    } catch (error) {
+      console.error('Error switching team:', error);
+    } finally {
+      setSwitchingTeam(null);
     }
   };
 
@@ -172,6 +198,7 @@ export function NavUserWithTeams({
               <SidebarMenuButton
                 size="lg"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                data-team-switcher
               >
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar} alt={user.name} />
@@ -180,8 +207,13 @@ export function NavUserWithTeams({
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{user.name}</span>
-                  <span className="truncate text-xs">{user.email}</span>
+                  <span className="truncate font-medium flex items-center gap-2">
+                    {currentTeam ? currentTeam.name : user.name}
+                    {(teamLoading || switchingTeam) && <Loader2 className="h-3 w-3 animate-spin" />}
+                  </span>
+                  <span className="truncate text-xs">
+                    {currentTeam ? `Team • ${user.email}` : user.email}
+                  </span>
                 </div>
                 <ChevronsUpDown className="ml-auto size-4" />
               </SidebarMenuButton>
@@ -227,11 +259,17 @@ export function NavUserWithTeams({
                       })
                     }
                     className="gap-2 p-2"
+                    disabled={switchingTeam === personalAccount.account_id}
                   >
                     <div className="flex size-6 items-center justify-center rounded-xs border">
-                      <Command className="size-4 shrink-0" />
+                      {switchingTeam === personalAccount.account_id ? (
+                        <Loader2 className="size-4 shrink-0 animate-spin" />
+                      ) : (
+                        <Command className="size-4 shrink-0" />
+                      )}
                     </div>
                     {personalAccount.name}
+                    {!currentTeam && <BadgeCheck className="ml-auto h-4 w-4 text-green-600" />}
                     <DropdownMenuShortcut>⌘1</DropdownMenuShortcut>
                   </DropdownMenuItem>
                 </>
@@ -256,17 +294,37 @@ export function NavUserWithTeams({
                         })
                       }
                       className="gap-2 p-2"
+                      disabled={switchingTeam === team.account_id}
                     >
                       <div className="flex size-6 items-center justify-center rounded-xs border">
-                        <AudioWaveform className="size-4 shrink-0" />
+                        {switchingTeam === team.account_id ? (
+                          <Loader2 className="size-4 shrink-0 animate-spin" />
+                        ) : (
+                          <AudioWaveform className="size-4 shrink-0" />
+                        )}
                       </div>
                       {team.name}
+                      {currentTeam?.account_id === team.account_id && <BadgeCheck className="ml-auto h-4 w-4 text-green-600" />}
                       <DropdownMenuShortcut>⌘{index + 2}</DropdownMenuShortcut>
                     </DropdownMenuItem>
                   ))}
                 </>
               )}
 
+              {/* Team Settings Link for current team */}
+              {currentTeam && !currentTeam.personal_account && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => router.push(`/${currentTeam.slug}/settings`)}
+                    className="gap-2 p-2 cursor-pointer"
+                  >
+                    <Settings className="size-4" />
+                    <span>Team Settings</span>
+                  </DropdownMenuItem>
+                </>
+              )}
+              
               <DropdownMenuSeparator />
               <DialogTrigger asChild>
                 <DropdownMenuItem 
