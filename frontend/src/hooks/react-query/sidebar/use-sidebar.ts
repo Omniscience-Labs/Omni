@@ -71,14 +71,25 @@ export const useDeleteThread = () =>
 // Hook for deleting multiple threads
 export const useDeleteMultipleThreads = () => 
   createMutationHook(
-    async ({ threadIds, threadSandboxMap }: { 
+    async ({ 
+      threadIds, 
+      threadSandboxMap, 
+      onProgress 
+    }: { 
       threadIds: string[]; 
       threadSandboxMap?: Record<string, string>;
+      onProgress?: (progress: { completed: number; total: number }) => void;
     }) => {
-      const deletePromises = threadIds.map(threadId => {
+      const total = threadIds.length;
+      let completed = 0;
+
+      const deletePromises = threadIds.map(async (threadId) => {
         const sandboxId = threadSandboxMap?.[threadId];
-        return deleteThread(threadId, sandboxId);
+        await deleteThread(threadId, sandboxId);
+        completed++;
+        onProgress?.({ completed, total });
       });
+      
       await Promise.all(deletePromises);
       return { deletedCount: threadIds.length };
     },
