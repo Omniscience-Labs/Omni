@@ -579,6 +579,10 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
             if not self.heygen_api_key:
                 return self.fail_response("HeyGen API key not configured.")
             
+            # Validate video ID format (should be 32 hex chars)
+            if not video_id or len(video_id) != 32 or not all(c in '0123456789abcdef' for c in video_id):
+                return self.fail_response(f"Invalid video ID format: '{video_id}'. Expected 32-character hex string.")
+            
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     f"{self.heygen_base_url}/v1/video_status.get?video_id={video_id}",
