@@ -697,15 +697,8 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         """Smart async polling: starts generation, polls with progress updates, returns final video."""
         logger.info(f"Starting smart async polling for video {video_id}")
         
-        # Initial response - let user know we're processing
-        await self.thread_manager.add_message({
-            "role": "assistant",
-            "content": f"🎬 **Video generation in progress...**\n\n"
-                      f"Video ID: `{video_id}`\n"
-                      f"Text: \"{text}\"\n"
-                      f"Avatar: {avatar_id}\n\n"
-                      f"⏳ Starting HeyGen processing... This typically takes 30-60 seconds."
-        })
+        # Initial response - let user know we're processing (logged instead of messaged)
+        logger.info(f"Starting async video generation for video_id: {video_id}, text: {text[:50]}")
         
         start_time = asyncio.get_event_loop().time()
         check_count = 0
@@ -731,10 +724,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                             # Video is ready! Download it
                             logger.info(f"Video {video_id} completed, downloading...")
                             
-                            await self.thread_manager.add_message({
-                                "role": "assistant", 
-                                "content": f"✅ **Video completed!** Downloading now..."
-                            })
+                            logger.info(f"Video {video_id} completed, downloading to sandbox...")
                             
                             download_path = await self._download_video(video_url, video_title, video_id)
                             if download_path:
@@ -764,10 +754,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                             # Still processing - give progress update every few checks
                             elapsed = int(asyncio.get_event_loop().time() - start_time)
                             if check_count % 3 == 0:  # Every 3rd check (roughly every 30 seconds)
-                                await self.thread_manager.add_message({
-                                    "role": "assistant",
-                                    "content": f"⏳ Still processing... ({elapsed}s elapsed, status: {status})"
-                                })
+                                logger.info(f"Video {video_id} still processing: {elapsed}s elapsed, status: {status}")
                             
                             logger.info(f"Video {video_id} status: {status}, elapsed: {elapsed}s")
                             
