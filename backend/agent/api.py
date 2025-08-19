@@ -1362,8 +1362,7 @@ async def get_agents(
         # Calculate offset
         offset = (page - 1) * limit
         
-        # Get all agents owned by user (including marketplace installs)
-        # Since marketplace installs are copies with user's account_id, this gets everything
+        # Start building the query - simple approach
         query = client.table('agents').select('*', count='exact').eq("account_id", user_id)
         
         # Apply search filter
@@ -1402,6 +1401,10 @@ async def get_agents(
                     "pages": 0
                 }
             }
+        
+        # Post-process for tool filtering and tools_count sorting
+        agents_data = agents_result.data
+        logger.info(f"DEBUG: Found {len(agents_data)} agents after query: {[a['name'] for a in agents_data]}")
         
         # For MCP and AgentPress tools filtering, we'll need to do post-processing
         # since Supabase doesn't have great JSON array/object filtering
@@ -1544,6 +1547,7 @@ async def get_agents(
                 filtered_agents.append(agent)
             
             agents_data = filtered_agents
+            logger.info(f"DEBUG: After tool filtering: {len(agents_data)} agents remain")
         
         # Handle tools_count sorting (post-processing required)
         if sort_by == "tools_count":
@@ -1568,13 +1572,15 @@ async def get_agents(
             
             agents_data.sort(key=get_tools_count, reverse=(sort_order == "desc"))
         
-        # Apply pagination to filtered results if we did post-processing
+        # Apply additional pagination only if we did post-processing filters
         if has_mcp_tools is not None or has_agentpress_tools is not None or tools or sort_by == "tools_count":
+            # We did post-processing, so need to re-paginate
             total_count = len(agents_data)
             agents_data = agents_data[offset:offset + limit]
         
         # Format the response  
         agent_list = []
+        logger.info(f"DEBUG: About to format {len(agents_data)} agents for response")
         for agent in agents_data:
             current_version = None
             # Use already fetched version data from agent_version_map
@@ -1633,7 +1639,8 @@ async def get_agents(
         
         total_pages = (total_count + limit - 1) // limit
         
-        logger.info(f"Found {len(agent_list)} agents for user: {user_id} (page {page}/{total_pages})")
+        logger.info(f"DEBUG: Returning {len(agent_list)} agents to frontend for user: {user_id} (page {page}/{total_pages})")
+        logger.info(f"DEBUG: Agent names being returned: {[a.name for a in agent_list]}")
         return {
             "agents": agent_list,
             "pagination": {
@@ -1670,16 +1677,8 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
         agent_data = agent.data[0]
         
         # Check ownership - only owner can access non-public agents
-        # Also allow access if this is a marketplace install by the user
-        is_owner = agent_data['account_id'] == user_id
-        is_public = agent_data.get('is_public', False)
-        is_marketplace_install = (
-            agent_data.get('metadata', {}).get('marketplace_install') is not None and
-            agent_data['account_id'] == user_id
-        )
-        
-        if not (is_owner or is_public or is_marketplace_install):
-            logger.warning(f"Access denied for agent {agent_id}: owner={is_owner}, public={is_public}, marketplace={is_marketplace_install}, user={user_id}, agent_account={agent_data['account_id']}")
+        if agent_data['account_id'] != user_id and not agent_data.get('is_public', False):
+            logger.warning(f"Access denied for agent {agent_id}: user={user_id}, agent_account={agent_data['account_id']}, is_public={agent_data.get('is_public', False)}")
             raise HTTPException(status_code=403, detail="Access denied")
         
         # Use versioning system to get current version data
