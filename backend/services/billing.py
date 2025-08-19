@@ -1639,14 +1639,14 @@ async def stripe_webhook(request: Request):
                         .execute()
                     
                     if not purchase_update.data:
-                        # If no record found by payment_intent_id, try by session_id in metadata
+                        # If no record found by payment_intent_id, try by session_id in metadata (PostgREST JSON operator requires filter)
                         purchase_update = await client.table('credit_purchases') \
                             .update({
                                 'status': 'completed',
                                 'completed_at': datetime.now(timezone.utc).isoformat(),
                                 'stripe_payment_intent_id': payment_intent_id
                             }) \
-                            .eq('metadata->>session_id', session['id']) \
+                            .filter('metadata->>session_id', 'eq', session['id']) \
                             .execute()
                     
                     # Add credits to user's balance
@@ -2304,7 +2304,9 @@ async def purchase_credits(
             'description': f'Credit purchase via Stripe Checkout',
             'metadata': {
                 'session_id': session.id,
-                'checkout_url': session.url
+                'checkout_url': session.url,
+                'success_url': request.success_url,
+                'cancel_url': request.cancel_url
             }
         }).execute()
         
