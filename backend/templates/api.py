@@ -42,7 +42,7 @@ class CreateTemplateRequest(BaseModel):
     make_public: bool = False
     tags: Optional[List[str]] = None
     sharing_preferences: Optional[SharingPreferences] = Field(default_factory=SharingPreferences)
-    managed_template: bool = False
+    
 
 
 class InstallTemplateRequest(BaseModel):
@@ -56,7 +56,7 @@ class InstallTemplateRequest(BaseModel):
 class PublishTemplateRequest(BaseModel):
     tags: Optional[List[str]] = None
     sharing_preferences: Optional[SharingPreferences] = Field(default_factory=SharingPreferences)
-    managed_template: bool = False
+    
 
 
 class TemplateResponse(BaseModel):
@@ -80,7 +80,6 @@ class TemplateResponse(BaseModel):
     metadata: Dict[str, Any]
     creator_name: Optional[str] = None
     sharing_preferences: Optional[Dict[str, bool]] = None
-    managed_template: bool = False
 
 
 class InstallationResponse(BaseModel):
@@ -207,8 +206,7 @@ async def create_template_from_agent(
             creator_id=user_id,
             make_public=request.make_public,
             tags=request.tags,
-            sharing_preferences=request.sharing_preferences.dict() if request.sharing_preferences else None,
-            managed_template=request.managed_template
+            sharing_preferences=request.sharing_preferences.dict() if request.sharing_preferences else None
         )
         
         logger.info(f"Successfully created template {template_id} from agent {request.agent_id}")
@@ -254,8 +252,7 @@ async def publish_template(
         success = await template_service.publish_template(
             template_id, 
             user_id,
-            sharing_preferences=request.sharing_preferences.dict() if request.sharing_preferences else None,
-            managed_template=request.managed_template
+            sharing_preferences=request.sharing_preferences.dict() if request.sharing_preferences else None
         )
         
         if not success:

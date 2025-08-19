@@ -48,7 +48,7 @@ class AgentTemplate:
     metadata: ConfigType = field(default_factory=dict)
     creator_name: Optional[str] = None
     sharing_preferences: Optional[Dict[str, bool]] = None
-    managed_template: bool = False
+    
     
     def with_public_status(self, is_public: bool, published_at: Optional[datetime] = None) -> 'AgentTemplate':
         return AgentTemplate(
@@ -147,7 +147,7 @@ class TemplateService:
         make_public: bool = False,
         tags: Optional[List[str]] = None,
         sharing_preferences: Optional[Dict[str, bool]] = None,
-        managed_template: bool = False
+        
     ) -> str:
         logger.info(f"Creating template from agent {agent_id} for user {creator_id}")
         
@@ -194,11 +194,9 @@ class TemplateService:
             profile_image_url=agent.get('profile_image_url'),
             metadata={
                 **agent.get('metadata', {}),
-                'original_agent_id': agent_id,  # Store original agent ID for managed templates
                 'created_from_agent': agent_id
             },
-            sharing_preferences=sharing_preferences,
-            managed_template=managed_template
+            sharing_preferences=sharing_preferences
         )
         
         await self._save_template(template)
@@ -307,7 +305,7 @@ class TemplateService:
         template_id: str, 
         creator_id: str,
         sharing_preferences: Optional[Dict[str, bool]] = None,
-        managed_template: bool = False
+        
     ) -> bool:
         logger.info(f"Publishing template {template_id}")
         
@@ -328,8 +326,7 @@ class TemplateService:
             'is_public': True,
             'marketplace_published_at': datetime.now(timezone.utc).isoformat(),
             'updated_at': datetime.now(timezone.utc).isoformat(),
-            'sharing_preferences': sharing_preferences,
-            'managed_template': managed_template
+            'sharing_preferences': sharing_preferences
         }).eq('template_id', template_id)\
           .eq('creator_id', creator_id)\
           .execute()
@@ -615,8 +612,7 @@ class TemplateService:
             'avatar_color': template.avatar_color,
             'profile_image_url': template.profile_image_url,
             'metadata': template.metadata,
-            'sharing_preferences': template.sharing_preferences,
-            'managed_template': template.managed_template
+            'sharing_preferences': template.sharing_preferences
         }
         
         await client.table('agent_templates').insert(template_data).execute()
@@ -642,8 +638,7 @@ class TemplateService:
             profile_image_url=data.get('profile_image_url'),
             metadata=data.get('metadata', {}),
             creator_name=creator_name,
-            sharing_preferences=data.get('sharing_preferences'),
-            managed_template=data.get('managed_template', False)
+            sharing_preferences=data.get('sharing_preferences')
         )
 
 def get_template_service(db_connection: DBConnection) -> TemplateService:

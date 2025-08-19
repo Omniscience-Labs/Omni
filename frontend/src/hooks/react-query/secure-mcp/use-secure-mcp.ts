@@ -106,7 +106,6 @@ export interface CreateTemplateRequest {
   make_public?: boolean;
   tags?: string[];
   sharing_preferences?: SharingPreferences;
-  managed_template?: boolean;
 }
 
 // =====================================================
@@ -344,13 +343,11 @@ export function usePublishTemplate() {
     mutationFn: async ({ 
       template_id, 
       tags,
-      sharing_preferences,
-      managed_template 
+      sharing_preferences
     }: { 
       template_id: string; 
       tags?: string[];
       sharing_preferences?: SharingPreferences;
-      managed_template?: boolean;
     }): Promise<{ message: string }> => {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
@@ -375,8 +372,7 @@ export function usePublishTemplate() {
             include_knowledge_bases: true,
             include_playbooks: true,
             include_triggers: true
-          },
-          managed_template: managed_template || false
+          }
         }),
       });
 

@@ -1365,28 +1365,19 @@ async def get_agents(
         # Get agents owned by user
         owned_result = await client.table('agents').select('*').eq("account_id", user_id).execute()
         
-        # Get marketplace agents installed by user (using metadata)
+        # Get marketplace agents installed by user (unmanaged copies only)
         library_result = None
         try:
-            # Get agents where user is in installed_by_users (managed agents)
-            managed_result = await client.table('agents').select('*')\
-                .contains('metadata', {'installed_by_users': [user_id]}).execute()
-            
-            # Get agents with marketplace_install metadata (unmanaged copies)
-            unmanaged_result = await client.table('agents').select('*')\
+            # Get agents with marketplace_install metadata (template installations)
+            marketplace_result = await client.table('agents').select('*')\
                 .eq('account_id', user_id)\
                 .not_.is_('metadata->marketplace_install', 'null').execute()
             
-            # Combine managed and unmanaged marketplace agents
+            # Format marketplace agents
             library_agents = []
-            if managed_result.data:
-                for agent in managed_result.data:
-                    agent['source'] = 'managed_marketplace'
-                    library_agents.append(agent)
-                    
-            if unmanaged_result.data:
-                for agent in unmanaged_result.data:
-                    agent['source'] = 'unmanaged_marketplace'
+            if marketplace_result.data:
+                for agent in marketplace_result.data:
+                    agent['source'] = 'marketplace'
                     library_agents.append(agent)
             
             library_result = type('Result', (), {'data': library_agents})()

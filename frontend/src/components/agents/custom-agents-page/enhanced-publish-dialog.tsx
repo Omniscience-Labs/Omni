@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
 
 interface SharingPreferences {
   include_system_prompt: boolean;
@@ -33,7 +33,7 @@ interface EnhancedPublishDialogProps {
   publishDialog: { templateId: string; templateName: string } | null;
   templatesActioningId: string | null;
   onClose: () => void;
-  onPublish: (preferences: SharingPreferences & { managed_template: boolean }) => void;
+  onPublish: (preferences: SharingPreferences) => void;
 }
 
 export const EnhancedPublishDialog = ({
@@ -52,7 +52,7 @@ export const EnhancedPublishDialog = ({
     include_triggers: true
   });
 
-  const [managedTemplate, setManagedTemplate] = useState(false);
+
 
   const handlePreferenceChange = (key: keyof SharingPreferences, checked: boolean) => {
     setPreferences(prev => ({ ...prev, [key]: checked }));
@@ -73,10 +73,7 @@ export const EnhancedPublishDialog = ({
   };
 
   const handlePublish = () => {
-    onPublish({
-      ...preferences,
-      managed_template: managedTemplate
-    });
+    onPublish(preferences);
   };
 
   const allSelected = Object.values(preferences).every(Boolean);
@@ -138,34 +135,6 @@ export const EnhancedPublishDialog = ({
         </DialogHeader>
         
         <div className="space-y-6">
-          {/* Template Management Section */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Template Management</Label>
-            <RadioGroup 
-              value={managedTemplate ? "managed" : "unmanaged"}
-              onValueChange={(value) => setManagedTemplate(value === "managed")}
-            >
-              <div className="flex items-start space-x-3 p-3 border rounded-lg">
-                <RadioGroupItem value="unmanaged" id="unmanaged" className="mt-1" />
-                <div className="space-y-1">
-                  <Label htmlFor="unmanaged" className="font-medium">Allow Customization</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Users get their own copy to customize and modify
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3 p-3 border rounded-lg">
-                <RadioGroupItem value="managed" id="managed" className="mt-1" />
-                <div className="space-y-1">
-                  <Label htmlFor="managed" className="font-medium">Managed Template</Label>
-                  <p className="text-xs text-muted-foreground">
-                    You control updates, users get live reference (cannot edit)
-                  </p>
-                </div>
-              </div>
-            </RadioGroup>
-          </div>
-
           {/* Include Components Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">

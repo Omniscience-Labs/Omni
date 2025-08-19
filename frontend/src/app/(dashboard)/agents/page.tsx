@@ -469,7 +469,7 @@ export default function AgentsPage() {
     });
   };
 
-  const handlePublish = async (preferences: SharingPreferences & { managed_template: boolean }) => {
+  const handlePublish = async (preferences: SharingPreferences) => {
     if (!publishDialog) return;
 
     try {
@@ -489,8 +489,7 @@ export default function AgentsPage() {
             include_knowledge_bases: preferences.include_knowledge_bases,
             include_playbooks: preferences.include_playbooks,
             include_triggers: preferences.include_triggers
-          },
-          managed_template: preferences.managed_template
+          }
         });
         
         toast.success(`${publishDialog.templateName} has been published to the marketplace`);
@@ -508,8 +507,7 @@ export default function AgentsPage() {
             include_knowledge_bases: preferences.include_knowledge_bases,
             include_playbooks: preferences.include_playbooks,
             include_triggers: preferences.include_triggers
-          },
-          managed_template: preferences.managed_template
+          }
         });
         
         toast.success(`${publishDialog.templateName} has been published to the marketplace`);
