@@ -89,9 +89,19 @@ const uploadFiles = async (
       formData.append('path', uploadPath);
 
       const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      
+      if (!supabase) {
+        console.error('❌ file-upload-handler: No Supabase client available');
+        throw new Error('Authentication system unavailable');
+      }
+      
+      if (!supabase.auth) {
+        console.error('❌ file-upload-handler: Supabase client missing auth module');
+        throw new Error('Authentication module unavailable');
+      }
+      
+      const sessionResult = await supabase.auth.getSession();
+      const session = sessionResult?.data?.session;
 
       if (!session?.access_token) {
         throw new Error('No access token available');
