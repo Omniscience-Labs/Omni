@@ -58,7 +58,7 @@ export interface PricingTier {
 }
 
 export const siteConfig = {
-  name: 'Omni',
+      name: 'Operator',
   description: 'The Generalist AI Worker that can act on your behalf.',
   cta: 'Start Free',
   url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',

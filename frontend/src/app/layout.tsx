@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     template: `%s - ${siteConfig.name}`,
   },
   description:
-    'Omni is a fully open source generalist AI worker from Omniscience Labs that helps you accomplish real-world tasks with ease. Through natural conversation, Omni becomes your digital companion for research, data analysis, and everyday challenges.',
+    'Operator is a fully open source generalist AI worker from Omniscience Labs that helps you accomplish real-world tasks with ease. Through natural conversation, Operator becomes your digital companion for research, data analysis, and everyday challenges.',
   keywords: [
     'AI',
     'artificial intelligence',
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
   publisher:
     'Omniscience Labs',
   category: 'Technology',
-  applicationName: 'Omni',
+  applicationName: 'Operator',
   formatDetection: {
     telephone: false,
     email: false,
@@ -67,11 +67,11 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: 'Omni - Open Source Generalist AI Worker',
+    title: 'Operator - Open Source Generalist AI Worker',
     description:
-      'Omni is a fully open source AI worker that helps you accomplish real-world tasks with ease through natural conversation.',
+      'Operator is a fully open source AI worker that helps you accomplish real-world tasks with ease through natural conversation.',
     url: siteConfig.url,
-    siteName: 'Omni',
+    siteName: 'Operator',
     images: [
       {
         url: '/banner.png',
@@ -86,9 +86,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Omni - Open Source Generalist AI Worker',
+    title: 'Operator - Open Source Generalist AI Worker',
     description:
-      'Omni is a fully open source AI worker that helps you accomplish real-world tasks with ease through natural conversation.',
+      'Operator is a fully open source AI worker that helps you accomplish real-world tasks with ease through natural conversation.',
     creator: '@omnisciencelabs',
     site: '@omnisciencelabs',
     images: [
