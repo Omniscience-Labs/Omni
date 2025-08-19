@@ -16,7 +16,7 @@ import {
   TrendingUp,
   ArrowRight
 } from 'lucide-react';
-import { useTeamContext } from '@/hooks/use-team-context';
+import { useCurrentAccount } from '@/hooks/use-current-account';
 import { TeamChatHistory } from './team-chat-history';
 import { TeamAgents } from './team-agents';
 import { TeamMembers } from './team-members';
@@ -34,7 +34,7 @@ interface TeamDashboardProps {
 
 export function TeamDashboard({ team }: TeamDashboardProps) {
   const router = useRouter();
-  const { refreshTeamData } = useTeamContext();
+  const currentAccount = useCurrentAccount();
   const [teamStats, setTeamStats] = useState({
     memberCount: 0,
     agentCount: 0,
@@ -45,7 +45,6 @@ export function TeamDashboard({ team }: TeamDashboardProps) {
 
   useEffect(() => {
     loadTeamStats();
-    refreshTeamData();
   }, [team.account_id]);
 
   const loadTeamStats = async () => {
