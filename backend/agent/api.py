@@ -1362,82 +1362,36 @@ async def get_agents(
         # Calculate offset
         offset = (page - 1) * limit
         
-        # Get agents owned by user
-        owned_result = await client.table('agents').select('*').eq("account_id", user_id).execute()
+        # Get all agents owned by user (including marketplace installs)
+        # Since marketplace installs are copies with user's account_id, this gets everything
+        query = client.table('agents').select('*', count='exact').eq("account_id", user_id)
         
-        # Get marketplace agents installed by user (unmanaged copies only)
-        library_result = None
-        try:
-            # Get agents with marketplace_install metadata (template installations)
-            marketplace_result = await client.table('agents').select('*')\
-                .eq('account_id', user_id)\
-                .not_.is_('metadata->marketplace_install', 'null').execute()
-            
-            # Format marketplace agents
-            library_agents = []
-            if marketplace_result.data:
-                for agent in marketplace_result.data:
-                    agent['source'] = 'marketplace'
-                    library_agents.append(agent)
-            
-            library_result = type('Result', (), {'data': library_agents})()
-            
-        except Exception as library_error:
-            # Error getting marketplace agents - just skip them
-            logger.info(f"Skipping marketplace agents lookup for user {user_id}: {str(library_error)}")
-            library_result = None
-        
-        # Combine and deduplicate agents
-        all_agents = {}
-        
-        # Add owned agents
-        for agent in owned_result.data:
-            agent['source'] = 'owned'
-            all_agents[agent['agent_id']] = agent
-        
-        # Add library agents (but don't override owned ones)
-        if library_result and library_result.data:
-            for agent in library_result.data:
-                if agent['agent_id'] not in all_agents:
-                    agent['source'] = 'library'
-                    all_agents[agent['agent_id']] = agent
-        
-        # Convert back to list
-        agents_data = list(all_agents.values())
-        total_count = len(agents_data)
-        
-        # Apply search filter on the combined data
+        # Apply search filter
         if search:
-            search_lower = search.lower()
-            agents_data = [
-                agent for agent in agents_data 
-                if (search_lower in agent.get('name', '').lower()) or
-                   (search_lower in agent.get('description', '').lower())
-            ]
+            search_term = f"%{search}%"
+            query = query.or_(f"name.ilike.{search_term},description.ilike.{search_term}")
         
         # Apply filters
         if has_default is not None:
-            agents_data = [agent for agent in agents_data if agent.get('is_default') == has_default]
+            query = query.eq("is_default", has_default)
         
-        # For MCP and AgentPress tools filtering, we'll need to do post-processing
-        # since Supabase doesn't have great JSON array/object filtering
-        
-        # Apply sorting on the combined data
-        reverse_order = sort_order == "desc"
+        # Apply sorting
         if sort_by == "name":
-            agents_data.sort(key=lambda x: x.get('name', '').lower(), reverse=reverse_order)
+            query = query.order("name", desc=(sort_order == "desc"))
         elif sort_by == "updated_at":
-            agents_data.sort(key=lambda x: x.get('updated_at', ''), reverse=reverse_order)
+            query = query.order("updated_at", desc=(sort_order == "desc"))
         elif sort_by == "created_at":
-            agents_data.sort(key=lambda x: x.get('created_at', ''), reverse=reverse_order)
+            query = query.order("created_at", desc=(sort_order == "desc"))
         else:
             # Default to created_at
-            agents_data.sort(key=lambda x: x.get('created_at', ''), reverse=reverse_order)
+            query = query.order("created_at", desc=(sort_order == "desc"))
         
-        # Update total count after filtering
-        total_count = len(agents_data)
+        # Get paginated data and total count in one request
+        query = query.range(offset, offset + limit - 1)
+        agents_result = await query.execute()
+        total_count = agents_result.count if agents_result.count is not None else 0
         
-        if not agents_data:
+        if not agents_result.data:
             logger.info(f"No agents found for user: {user_id}")
             return {
                 "agents": [],
@@ -1449,13 +1403,13 @@ async def get_agents(
                 }
             }
         
-        # Apply pagination to the filtered and sorted data
-        paginated_agents_data = agents_data[offset:offset + limit]
+        # For MCP and AgentPress tools filtering, we'll need to do post-processing
+        # since Supabase doesn't have great JSON array/object filtering
         
         # First, fetch version data for all agents to ensure we have correct tool info
         # Do this in a single batched query instead of per-agent service calls
         agent_version_map = {}
-        version_ids = list({agent['current_version_id'] for agent in paginated_agents_data if agent.get('current_version_id')})
+        version_ids = list({agent['current_version_id'] for agent in agents_data if agent.get('current_version_id')})
         if version_ids:
             try:
                 versions_result = await client.table('agent_versions').select(
@@ -1540,7 +1494,7 @@ async def get_agents(
                     logger.warning(f"Unexpected tools parameter type: {type(tools)}, value: {tools}")
                     tools_filter = []
             
-            for agent in paginated_agents_data:
+            for agent in agents_data:
                 # Get version data if available and extract configuration
                 version_data = agent_version_map.get(agent['agent_id'])
                 from agent.config_helper import extract_agent_config
@@ -1621,9 +1575,7 @@ async def get_agents(
         
         # Format the response  
         agent_list = []
-        # Use the correct data source - either filtered or paginated
-        final_agents_data = agents_data if (has_mcp_tools is not None or has_agentpress_tools is not None or tools or sort_by == "tools_count") else paginated_agents_data
-        for agent in final_agents_data:
+        for agent in agents_data:
             current_version = None
             # Use already fetched version data from agent_version_map
             version_dict = agent_version_map.get(agent['agent_id'])
@@ -1718,7 +1670,16 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
         agent_data = agent.data[0]
         
         # Check ownership - only owner can access non-public agents
-        if agent_data['account_id'] != user_id and not agent_data.get('is_public', False):
+        # Also allow access if this is a marketplace install by the user
+        is_owner = agent_data['account_id'] == user_id
+        is_public = agent_data.get('is_public', False)
+        is_marketplace_install = (
+            agent_data.get('metadata', {}).get('marketplace_install') is not None and
+            agent_data['account_id'] == user_id
+        )
+        
+        if not (is_owner or is_public or is_marketplace_install):
+            logger.warning(f"Access denied for agent {agent_id}: owner={is_owner}, public={is_public}, marketplace={is_marketplace_install}, user={user_id}, agent_account={agent_data['account_id']}")
             raise HTTPException(status_code=403, detail="Access denied")
         
         # Use versioning system to get current version data
