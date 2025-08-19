@@ -127,12 +127,12 @@ export function VideoAvatarToolView({
 
     const content = parsedResult.toolOutput || '';
     
-    // Look for video file information in the content
-    const videoFileMatch = content.match(/Video saved as:?\s*([^\s\n]+\.mp4)/i);
-    const videoIdMatch = content.match(/Video ID:?\s*([a-f0-9-]+)/i);
+    // Look for video file information in the content - support multiple formats
+    const videoFileMatch = content.match(/(?:Video saved as:?\s*|File:\s*`?)([^\s\n`]+\.mp4)/i);
+    const videoIdMatch = content.match(/Video ID:?\s*`?([a-f0-9-]+)`?/i);
     const titleMatch = content.match(/Title:?\s*([^\n]+)/i);
     const avatarMatch = content.match(/Avatar:?\s*([^\n]+)/i);
-    const textMatch = content.match(/Text:?\s*([^\n]+)/i);
+    const textMatch = content.match(/Text:?\s*"?([^\n"]+)"?/i);
 
     return {
       video_file: videoFileMatch?.[1],
@@ -319,6 +319,7 @@ export function VideoAvatarToolView({
                       onClick={handleDownload}
                       disabled={isDownloading}
                       className="flex-1 bg-violet-600 hover:bg-violet-700 text-white"
+                      size="lg"
                     >
                       {isDownloading ? (
                         <>
@@ -328,10 +329,26 @@ export function VideoAvatarToolView({
                       ) : (
                         <>
                           <Download className="h-4 w-4 mr-2" />
-                          Download "{videoData.title || 'Avatar Video'}"
+                          Download Video ({videoData.video_file})
                         </>
                       )}
                     </Button>
+                  </div>
+                )}
+                
+                {/* Show video ID even if no file yet (for processing videos) */}
+                {!videoData?.video_file && videoData?.video_id && (
+                  <div className="bg-yellow-50 dark:bg-yellow-950/20 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock className="h-4 w-4 text-yellow-600" />
+                      <span className="font-medium text-sm text-yellow-800 dark:text-yellow-200">Video Processing</span>
+                    </div>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                      Video ID: <code className="bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">{videoData.video_id}</code>
+                    </p>
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                      The video is being generated. Download button will appear when ready.
+                    </p>
                   </div>
                 )}
 
