@@ -23,8 +23,14 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  // Always call hooks first - before any conditional logic
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
   const supabase = createClient();
   
+  // Handle client creation errors after hooks
   if (!supabase) {
     console.error('❌ CRITICAL: Failed to create Supabase client');
     return <div>Authentication system unavailable. Please check configuration.</div>;
@@ -34,10 +40,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.error('❌ CRITICAL: Supabase client missing auth module');
     return <div>Authentication module unavailable.</div>;
   }
-  
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const getInitialSession = async () => {
