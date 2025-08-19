@@ -13,18 +13,23 @@ from utils.config import config
 
 class SandboxVideoAvatarTool(SandboxToolsBase):
     """
-    A tool for creating and managing HeyGen interactive video avatars.
+    A tool for creating and generating videos with AI avatars using HeyGen.
     
     This tool provides functionality to:
-    - Create avatar sessions with customizable settings
+    - Generate MP4 video files with AI avatars speaking custom text
+    - Create interactive avatar sessions with customizable settings
     - Make avatars speak with text or conversational responses
     - Manage avatar states (listening, speaking, idle)
     - Handle voice chat interactions
     - Configure avatar appearance and voice settings
-    - Generate downloadable MP4 video files with avatars
+    
+    Use this tool whenever users want to: create videos, make avatar videos, generate content with AI presenters, 
+    create talking avatars, make AI spokespersons, or produce video content with virtual humans.
     """
 
     name: str = "sb_video_avatar_tool"
+    
+    # Keywords that should trigger this tool: video, avatar, generate, create, speech, presentation, content
     
     # Avatar configuration options
     AVATAR_OPTIONS = {
@@ -87,7 +92,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "generate_avatar_video",
-            "description": "Generate a downloadable MP4 video file with an avatar speaking the provided text. This creates an actual video file that can be downloaded and shared, unlike the streaming version.",
+            "description": "Generate and create a downloadable MP4 video file with an AI avatar speaking the provided text. Use this for: making videos, creating content, video generation, avatar videos, AI presenters, virtual speakers, talking avatars, video creation, and content production. This creates an actual video file that can be downloaded and shared.",
             "parameters": {
                 "type": "object",
                 "properties": {
