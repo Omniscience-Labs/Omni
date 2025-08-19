@@ -127,9 +127,9 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                         "default": "medium"
                     },
                     "wait_for_completion": {
-                        "type": "boolean",
-                        "description": "Whether to wait for video generation to complete before returning",
-                        "default": True
+                        "type": "boolean", 
+                        "description": "Whether to wait for video generation to complete before returning. Set to false for faster response.",
+                        "default": False
                     }
                 },
                 "required": ["text"]
@@ -156,7 +156,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         video_title: str = "Avatar Video",
         background_color: str = "#ffffff",
         video_quality: str = "medium",
-        wait_for_completion: bool = True
+        wait_for_completion: bool = False
     ) -> ToolResult:
         """Generate a downloadable MP4 video with an avatar speaking the provided text."""
         try:
@@ -247,9 +247,12 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                         return self.fail_response("Video generation timed out or failed")
                 else:
                     return self.success_response(
-                        f"Avatar video generation started successfully!\n"
+                        f"🎬 Avatar video generation started successfully!\n\n"
                         f"Video ID: {video_id}\n"
-                        f"Use check_video_status with video_id '{video_id}' to check progress."
+                        f"Text: \"{text}\"\n"
+                        f"Avatar: {avatar_id}\n\n" 
+                        f"📹 Your video is now processing (typically takes 30-60 seconds).\n"
+                        f"Use check_video_status('{video_id}') to check progress and download when ready!"
                     )
                     
         except Exception as e:
