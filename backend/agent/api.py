@@ -1404,7 +1404,6 @@ async def get_agents(
         
         # Post-process for tool filtering and tools_count sorting
         agents_data = agents_result.data
-        logger.info(f"DEBUG: Found {len(agents_data)} agents after query: {[a['name'] for a in agents_data]}")
         
         # For MCP and AgentPress tools filtering, we'll need to do post-processing
         # since Supabase doesn't have great JSON array/object filtering
@@ -1547,7 +1546,6 @@ async def get_agents(
                 filtered_agents.append(agent)
             
             agents_data = filtered_agents
-            logger.info(f"DEBUG: After tool filtering: {len(agents_data)} agents remain")
         
         # Handle tools_count sorting (post-processing required)
         if sort_by == "tools_count":
@@ -1580,7 +1578,6 @@ async def get_agents(
         
         # Format the response  
         agent_list = []
-        logger.info(f"DEBUG: About to format {len(agents_data)} agents for response")
         for agent in agents_data:
             current_version = None
             # Use already fetched version data from agent_version_map
@@ -1639,8 +1636,7 @@ async def get_agents(
         
         total_pages = (total_count + limit - 1) // limit
         
-        logger.info(f"DEBUG: Returning {len(agent_list)} agents to frontend for user: {user_id} (page {page}/{total_pages})")
-        logger.info(f"DEBUG: Agent names being returned: {[a.name for a in agent_list]}")
+        logger.info(f"Found {len(agent_list)} agents for user: {user_id} (page {page}/{total_pages})")
         return {
             "agents": agent_list,
             "pagination": {
