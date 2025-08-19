@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Trash2, Star, MessageCircle, Wrench, Globe, GlobeLock, Download, Shield, AlertTriangle, GitBranch } from 'lucide-react';
+import { Settings, Trash2, Star, MessageCircle, Wrench, Globe, GlobeLock, Download, Shield, AlertTriangle, GitBranch, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
@@ -9,6 +9,7 @@ import { useCreateTemplate, useUnpublishTemplate } from '@/hooks/react-query/sec
 import { toast } from 'sonner';
 import { AgentCard } from './custom-agents-page/agent-card';
 import { OmniLogo } from '../sidebar/omni-logo';
+import { TeamSharingDialog } from './team-sharing-dialog';
 
 interface Agent {
   agent_id: string;
@@ -65,6 +66,7 @@ interface AgentModalProps {
   onChat: (agentId: string) => void;
   onPublish: (agentId: string) => void;
   onUnpublish: (agentId: string) => void;
+  onShare: (agent: Agent) => void;
   isPublishing: boolean;
   isUnpublishing: boolean;
 }
@@ -75,10 +77,11 @@ const AgentModal: React.FC<AgentModalProps> = ({
   onClose, 
   onCustomize, 
   onChat, 
-  onPublish, 
-  onUnpublish, 
-  isPublishing, 
-  isUnpublishing 
+  onPublish,
+  onUnpublish,
+  onShare,
+  isPublishing,
+  isUnpublishing
 }) => {
   if (!agent) return null;
 
@@ -151,6 +154,14 @@ const AgentModal: React.FC<AgentModalProps> = ({
             </div>
             {!isSunaAgent && (
               <div className="pt-2">
+                <Button
+                  onClick={() => onShare(agent)}
+                  variant="outline"
+                  className="w-full gap-2 mb-2"
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share with Teams
+                </Button>
                 {agent.is_public ? (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -220,6 +231,7 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
 }) => {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [unpublishingId, setUnpublishingId] = useState<string | null>(null);
+  const [sharingAgent, setSharingAgent] = useState<Agent | null>(null);
   const router = useRouter();
   
   const unpublishAgentMutation = useUnpublishTemplate();
@@ -257,6 +269,11 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
     } finally {
       setUnpublishingId(null);
     }
+  };
+
+  const handleShare = (agent: Agent) => {
+    setSharingAgent(agent);
+    setSelectedAgent(null);
   };
 
 
@@ -364,8 +381,19 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
         onChat={handleChat}
         onPublish={handlePublish}
         onUnpublish={handleUnpublish}
+        onShare={handleShare}
         isPublishing={externalPublishingId === selectedAgent?.agent_id}
         isUnpublishing={unpublishingId === selectedAgent?.agent_id}
+      />
+      
+      <TeamSharingDialog
+        agent={sharingAgent}
+        isOpen={!!sharingAgent}
+        onClose={() => setSharingAgent(null)}
+        onSuccess={() => {
+          setSharingAgent(null);
+          // Optionally refresh agents list
+        }}
       />
     </>
   );

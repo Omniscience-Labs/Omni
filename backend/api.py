@@ -183,6 +183,9 @@ api_router.include_router(triggers_api.router)
 from pipedream import api as pipedream_api
 api_router.include_router(pipedream_api.router)
 
+from teams import api as teams_api
+api_router.include_router(teams_api.router)
+
 # MFA functionality moved to frontend
 
 
