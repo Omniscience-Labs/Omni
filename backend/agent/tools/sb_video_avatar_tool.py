@@ -823,12 +823,22 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
     async def _download_video(self, video_url: str, title: str, video_id: str) -> Optional[str]:
         """Download video to sandbox workspace."""
         try:
-            await self._ensure_sandbox()
+            logger.info(f"Starting video download for {video_id}")
+            
+            # Ensure sandbox is ready
+            try:
+                await self._ensure_sandbox()
+                logger.info(f"Sandbox initialized successfully, ID: {self.sandbox_id}")
+            except Exception as sandbox_error:
+                logger.error(f"Failed to initialize sandbox: {sandbox_error}")
+                raise Exception(f"Sandbox initialization failed: {sandbox_error}")
             
             # Clean filename
             safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
             filename = f"{safe_title}_{video_id}.mp4"
             file_path = f"/workspace/{filename}"
+            
+            logger.info(f"Target file path: {file_path}, filename: {filename}")
             
             # Download video
             logger.info(f"Downloading video from: {video_url[:50]}...")
