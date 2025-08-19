@@ -136,7 +136,7 @@ class SandboxShellTool(SandboxToolsBase):
                 # For blocking execution, use a more reliable approach
                 # Add a unique marker to detect command completion
                 marker = f"COMMAND_DONE_{str(uuid4())[:8]}"
-                completion_command = f"{command} ; echo {marker}"
+                completion_command = self._format_completion_command(command, marker)
                 wrapped_completion_command = completion_command.replace('"', '\\"')
                 
                 # Send the command with completion marker
@@ -392,6 +392,22 @@ class SandboxShellTool(SandboxToolsBase):
                 
         except Exception as e:
             return self.fail_response(f"Error listing commands: {str(e)}")
+
+    def _format_completion_command(self, command: str, marker: str) -> str:
+        """Format command with completion marker, handling heredocs properly."""
+        import re
+        
+        # Check if command contains heredoc syntax
+        # Look for patterns like: << EOF, << 'EOF', << "EOF", <<EOF
+        heredoc_pattern = r'<<\s*[\'"]?\w+[\'"]?'
+        
+        if re.search(heredoc_pattern, command):
+            # For heredoc commands, add the completion marker on a new line
+            # This ensures it executes after the heredoc completes
+            return f"{command}\necho {marker}"
+        else:
+            # For regular commands, use semicolon separator
+            return f"{command} ; echo {marker}"
 
     def _is_command_completed(self, current_output: str, marker: str) -> bool:
         """
