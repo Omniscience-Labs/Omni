@@ -26,15 +26,25 @@ stripe.api_key = config.STRIPE_SECRET_KEY
 # Token price multiplier
 TOKEN_PRICE_MULTIPLIER = 1.5
 
-# Initialize router
+# Minimum credits required to allow a new request when over subscription limit
+CREDIT_MIN_START_DOLLARS = 0.20
+
+# Credit packages with Stripe price IDs
+CREDIT_PACKAGES = {
+    'credits_10': {'amount': 10, 'price': 10, 'stripe_price_id': config.STRIPE_CREDITS_10_PRICE_ID},
+    'credits_25': {'amount': 25, 'price': 25, 'stripe_price_id': config.STRIPE_CREDITS_25_PRICE_ID},
+    # Uncomment these when you create the additional price IDs in Stripe:
+    # 'credits_50': {'amount': 50, 'price': 50, 'stripe_price_id': config.STRIPE_CREDITS_50_PRICE_ID},
+    # 'credits_100': {'amount': 100, 'price': 100, 'stripe_price_id': config.STRIPE_CREDITS_100_PRICE_ID},
+    # 'credits_250': {'amount': 250, 'price': 250, 'stripe_price_id': config.STRIPE_CREDITS_250_PRICE_ID},
+    # 'credits_500': {'amount': 500, 'price': 500, 'stripe_price_id': config.STRIPE_CREDITS_500_PRICE_ID},
+    # 'credits_1000': {'amount': 1000, 'price': 1000, 'stripe_price_id': config.STRIPE_CREDITS_1000_PRICE_ID},
+}
+
 router = APIRouter(prefix="/billing", tags=["billing"])
 
-# Plan validation functions
 def get_plan_info(price_id: str) -> dict:
-    """Get plan information including tier level and type."""
-    # Production plans mapping
     PLAN_TIERS = {
-        # Monthly plans
         config.STRIPE_TIER_2_20_ID: {'tier': 1, 'type': 'monthly', 'name': '2h/$20'},
         config.STRIPE_TIER_6_50_ID: {'tier': 2, 'type': 'monthly', 'name': '6h/$50'},
         config.STRIPE_TIER_12_100_ID: {'tier': 3, 'type': 'monthly', 'name': '12h/$100'},
@@ -163,6 +173,37 @@ class SubscriptionStatus(BaseModel):
     # Subscription data for frontend components
     subscription_id: Optional[str] = None
     subscription: Optional[Dict] = None
+    # Credit information
+    credit_balance: Optional[float] = None
+    can_purchase_credits: bool = False
+
+class PurchaseCreditsRequest(BaseModel):
+    amount_dollars: float  # Amount of credits to purchase in dollars
+    success_url: str
+    cancel_url: str
+
+class CreditBalance(BaseModel):
+    balance_dollars: float
+    total_purchased: float
+    total_used: float
+    last_updated: Optional[datetime] = None
+    can_purchase_credits: bool = False  # True only for highest tier users
+
+class CreditPurchase(BaseModel):
+    id: str
+    amount_dollars: float
+    status: str
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+    stripe_payment_intent_id: Optional[str] = None
+
+class CreditUsage(BaseModel):
+    id: str
+    amount_dollars: float
+    description: Optional[str] = None
+    created_at: datetime
+    thread_id: Optional[str] = None
+    message_id: Optional[str] = None
 
 # Helper functions
 async def get_stripe_customer_id(client: SupabaseClient, user_id: str) -> Optional[str]:
@@ -355,12 +396,12 @@ async def calculate_monthly_usage(client, user_id: str) -> float:
     execution_time = end_time - start_time
     logger.debug(f"Calculate monthly usage took {execution_time:.3f} seconds, total cost: {total_cost}")
     
-    await Cache.set(f"monthly_usage:{user_id}", total_cost, ttl=2 * 60)
+    await Cache.set(f"monthly_usage:{user_id}", total_cost, ttl=5)
     return total_cost
 
 
 async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: int = 1000) -> Dict:
-    """Get detailed usage logs for a user with pagination."""
+    """Get detailed usage logs for a user with pagination, including credit usage info."""
     # Get start of current month in UTC
     now = datetime.now(timezone.utc)
     start_of_month = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
@@ -420,6 +461,37 @@ async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: in
     if not messages_result.data:
         return {"logs": [], "has_more": False}
 
+    # Get the user's subscription tier info for credit checking
+    subscription = await get_user_subscription(user_id)
+    price_id = config.STRIPE_FREE_TIER_ID  # Default to free
+    if subscription and subscription.get('items'):
+        items = subscription['items'].get('data', [])
+        if items:
+            price_id = items[0]['price']['id']
+    
+    tier_info = SUBSCRIPTION_TIERS.get(price_id, SUBSCRIPTION_TIERS[config.STRIPE_FREE_TIER_ID])
+    subscription_limit = tier_info['cost']
+    
+    # Get credit usage records for this month to match with messages
+    credit_usage_result = await client.table('credit_usage') \
+        .select('message_id, amount_dollars, created_at') \
+        .eq('user_id', user_id) \
+        .gte('created_at', start_of_month.isoformat()) \
+        .execute()
+    
+    # Create a map of message_id to credit usage
+    credit_usage_map = {}
+    if credit_usage_result.data:
+        for usage in credit_usage_result.data:
+            if usage.get('message_id'):
+                credit_usage_map[usage['message_id']] = {
+                    'amount': float(usage['amount_dollars']),
+                    'created_at': usage['created_at']
+                }
+    
+    # Track cumulative usage to determine when credits started being used
+    cumulative_cost = 0.0
+    
     # Process messages into usage log entries
     processed_logs = []
     
@@ -444,13 +516,19 @@ async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: in
                 model
             )
             
+            cumulative_cost += estimated_cost
+            
             # Safely extract project_id from threads relationship
             project_id = 'unknown'
             if message.get('threads') and isinstance(message['threads'], list) and len(message['threads']) > 0:
                 project_id = message['threads'][0].get('project_id', 'unknown')
             
-            processed_logs.append({
-                'message_id': message.get('message_id', 'unknown'),
+            # Check if credits were used for this message
+            message_id = message.get('message_id')
+            credit_used = credit_usage_map.get(message_id, {})
+            
+            log_entry = {
+                'message_id': message_id or 'unknown',
                 'thread_id': message.get('thread_id', 'unknown'),
                 'created_at': message.get('created_at', None),
                 'content': {
@@ -462,8 +540,14 @@ async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: in
                 },
                 'total_tokens': total_tokens,
                 'estimated_cost': estimated_cost,
-                'project_id': project_id
-            })
+                'project_id': project_id,
+                # Add credit usage info
+                'credit_used': credit_used.get('amount', 0) if credit_used else 0,
+                'payment_method': 'credits' if credit_used else 'subscription',
+                'was_over_limit': cumulative_cost > subscription_limit if not credit_used else True
+            }
+            
+            processed_logs.append(log_entry)
         except Exception as e:
             logger.warning(f"Error processing usage log entry for message {message.get('message_id', 'unknown')}: {str(e)}")
             continue
@@ -473,7 +557,9 @@ async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: in
     
     return {
         "logs": processed_logs,
-        "has_more": has_more
+        "has_more": has_more,
+        "subscription_limit": subscription_limit,
+        "cumulative_cost": cumulative_cost
     }
 
 
@@ -619,6 +705,7 @@ async def get_subscription_tier(client, user_id: str) -> str:
 async def check_billing_status(client, user_id: str) -> Tuple[bool, str, Optional[Dict]]:
     """
     Check if a user can run agents based on their subscription and usage.
+    Now also checks credit balance if subscription limit is exceeded.
     
     Returns:
         Tuple[bool, str, Optional[Dict]]: (can_run, message, subscription_info)
@@ -658,8 +745,25 @@ async def check_billing_status(client, user_id: str) -> Tuple[bool, str, Optiona
     # Calculate current month's usage
     current_usage = await calculate_monthly_usage(client, user_id)
     
+    # Check if subscription limit is exceeded
     if current_usage >= tier_info['cost']:
-        return False, f"Monthly limit of {tier_info['cost']} dollars reached. Please upgrade your plan or wait until next month.", subscription
+        # Check if user has credits available
+        credit_balance = await get_user_credit_balance(client, user_id)
+        
+        if credit_balance.balance_dollars >= CREDIT_MIN_START_DOLLARS:
+            # User has enough credits cushion; they can continue
+            return True, f"Subscription limit reached, using credits. Balance: ${credit_balance.balance_dollars:.2f}", subscription
+        else:
+            # Not enough credits to safely start a new request
+            if credit_balance.can_purchase_credits:
+                return False, (
+                    f"Monthly limit of ${tier_info['cost']} reached. You need at least ${CREDIT_MIN_START_DOLLARS:.2f} in credits to continue. "
+                    f"Current balance: ${credit_balance.balance_dollars:.2f}."
+                ), subscription
+            else:
+                return False, (
+                    f"Monthly limit of ${tier_info['cost']} reached and credits are unavailable. Please upgrade your plan or wait until next month."
+                ), subscription
     
     return True, "OK", subscription
 
@@ -743,6 +847,194 @@ async def check_subscription_commitment(subscription_id: str) -> dict:
             'has_commitment': False,
             'can_cancel': True
         }
+
+async def is_user_on_highest_tier(user_id: str) -> bool:
+    """Check if user is on the highest subscription tier (200h/$1000)."""
+    try:
+        subscription = await get_user_subscription(user_id)
+        if not subscription:
+            logger.debug(f"User {user_id} has no subscription")
+            return False
+        
+        # Extract price ID from subscription
+        price_id = None
+        if subscription.get('items') and subscription['items'].get('data') and len(subscription['items']['data']) > 0:
+            price_id = subscription['items']['data'][0]['price']['id']
+        
+        logger.info(f"User {user_id} subscription price_id: {price_id}")
+        
+        # Check if it's one of the highest tier price IDs (200h/$1000 only)
+        highest_tier_price_ids = [
+            config.STRIPE_TIER_200_1000_ID,  # Monthly highest tier
+            config.STRIPE_TIER_200_1000_YEARLY_ID,  # Yearly highest tier
+            config.STRIPE_TIER_25_200_ID_STAGING,
+            config.STRIPE_TIER_25_200_YEARLY_ID_STAGING,
+            config.STRIPE_TIER_2_20_ID_STAGING,
+            config.STRIPE_TIER_2_20_YEARLY_ID_STAGING,
+        ]
+        
+        is_highest = price_id in highest_tier_price_ids
+        logger.info(f"User {user_id} is_highest_tier: {is_highest}, price_id: {price_id}, checked against: {highest_tier_price_ids}")
+        
+        return is_highest
+        
+    except Exception as e:
+        logger.error(f"Error checking if user is on highest tier: {str(e)}")
+        return False
+
+async def get_user_credit_balance(client: SupabaseClient, user_id: str) -> CreditBalance:
+    """Get the credit balance for a user."""
+    try:
+        # Get balance from database - use execute() instead of single() to handle no records
+        result = await client.table('credit_balance') \
+            .select('*') \
+            .eq('user_id', user_id) \
+            .execute()
+        
+        if result.data and len(result.data) > 0:
+            data = result.data[0]
+            is_highest_tier = await is_user_on_highest_tier(user_id)
+            return CreditBalance(
+                balance_dollars=float(data.get('balance_dollars', 0)),
+                total_purchased=float(data.get('total_purchased', 0)),
+                total_used=float(data.get('total_used', 0)),
+                last_updated=data.get('last_updated'),
+                can_purchase_credits=is_highest_tier
+            )
+        else:
+            # No balance record exists yet - this is normal for users who haven't purchased credits
+            is_highest_tier = await is_user_on_highest_tier(user_id)
+            return CreditBalance(
+                balance_dollars=0.0,
+                total_purchased=0.0,
+                total_used=0.0,
+                can_purchase_credits=is_highest_tier
+            )
+    except Exception as e:
+        logger.error(f"Error getting credit balance for user {user_id}: {str(e)}")
+        return CreditBalance(
+            balance_dollars=0.0,
+            total_purchased=0.0,
+            total_used=0.0,
+            can_purchase_credits=False
+        )
+
+async def add_credits_to_balance(client: SupabaseClient, user_id: str, amount: float, purchase_id: str = None) -> float:
+    """Add credits to a user's balance."""
+    try:
+        # Use the database function to add credits
+        result = await client.rpc('add_credits', {
+            'p_user_id': user_id,
+            'p_amount': amount,
+            'p_purchase_id': purchase_id
+        }).execute()
+        
+        if result.data is not None:
+            return float(result.data)
+        return 0.0
+    except Exception as e:
+        logger.error(f"Error adding credits for user {user_id}: {str(e)}")
+        raise
+
+async def use_credits_from_balance(
+    client: SupabaseClient, 
+    user_id: str, 
+    amount: float, 
+    description: str = None,
+    thread_id: str = None,
+    message_id: str = None
+) -> bool:
+    """Deduct credits from a user's balance."""
+    try:
+        # Use the database function to use credits
+        result = await client.rpc('use_credits', {
+            'p_user_id': user_id,
+            'p_amount': amount,
+            'p_description': description,
+            'p_thread_id': thread_id,
+            'p_message_id': message_id
+        }).execute()
+        
+        if result.data is not None:
+            return bool(result.data)
+        return False
+    except Exception as e:
+        logger.error(f"Error using credits for user {user_id}: {str(e)}")
+        return False
+
+async def handle_usage_with_credits(
+    client: SupabaseClient,
+    user_id: str,
+    token_cost: float,
+    thread_id: str = None,
+    message_id: str = None,
+    model: str = None
+) -> Tuple[bool, str]:
+    """
+    Handle token usage that may require credits if subscription limit is exceeded.
+    This should be called after each agent response to track and deduct from credits if needed.
+    
+    Returns:
+        Tuple[bool, str]: (success, message)
+    """
+    try:
+        # Get current subscription tier and limits
+        subscription = await get_user_subscription(user_id)
+        
+        # Get tier info
+        price_id = config.STRIPE_FREE_TIER_ID  # Default to free
+        if subscription and subscription.get('items'):
+            items = subscription['items'].get('data', [])
+            if items:
+                price_id = items[0]['price']['id']
+        
+        tier_info = SUBSCRIPTION_TIERS.get(price_id, SUBSCRIPTION_TIERS[config.STRIPE_FREE_TIER_ID])
+        
+        # Get current month's usage
+        current_usage = await calculate_monthly_usage(client, user_id)
+        
+        # Check if this usage would exceed the subscription limit
+        new_total_usage = current_usage + token_cost
+        
+        if new_total_usage > tier_info['cost']:
+            # Calculate overage amount
+            overage_amount = token_cost  # The entire cost if already over limit
+            if current_usage < tier_info['cost']:
+                # If this is the transaction that pushes over the limit
+                overage_amount = new_total_usage - tier_info['cost']
+            
+            # Try to use credits for the overage
+            credit_balance = await get_user_credit_balance(client, user_id)
+            
+            if credit_balance.balance_dollars >= overage_amount:
+                # Deduct from credits
+                success = await use_credits_from_balance(
+                    client,
+                    user_id,
+                    overage_amount,
+                    description=f"Token overage for model {model or 'unknown'}",
+                    thread_id=thread_id,
+                    message_id=message_id
+                )
+                
+                if success:
+                    logger.debug(f"Used ${overage_amount:.4f} credits for user {user_id} overage")
+                    return True, f"Used ${overage_amount:.4f} from credits (Balance: ${credit_balance.balance_dollars - overage_amount:.2f})"
+                else:
+                    return False, "Failed to deduct credits"
+            else:
+                # Insufficient credits
+                if credit_balance.can_purchase_credits:
+                    return False, f"Insufficient credits. Balance: ${credit_balance.balance_dollars:.2f}, Required: ${overage_amount:.4f}. Purchase more credits to continue."
+                else:
+                    return False, f"Monthly limit exceeded and no credits available. Upgrade to the highest tier to purchase credits."
+        
+        # Within subscription limits, no credits needed
+        return True, "Within subscription limits"
+        
+    except Exception as e:
+        logger.error(f"Error handling usage with credits: {str(e)}")
+        return False, f"Error processing usage: {str(e)}"
 
 # API endpoints
 @router.post("/create-checkout-session")
@@ -1171,7 +1463,7 @@ async def create_portal_session(
 async def get_subscription(
     current_user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Get the current subscription status for the current user, including scheduled changes."""
+    """Get the current subscription status for the current user, including scheduled changes and credit balance."""
     try:
         # Get subscription from Stripe (this helper already handles filtering/cleanup)
         subscription = await get_user_subscription(current_user_id)
@@ -1181,6 +1473,9 @@ async def get_subscription(
         db = DBConnection()
         client = await db.client
         current_usage = await calculate_monthly_usage(client, current_user_id)
+        
+        # Get credit balance
+        credit_balance_info = await get_user_credit_balance(client, current_user_id)
 
         if not subscription:
             # Default to free tier status if no active subscription for our product
@@ -1192,7 +1487,9 @@ async def get_subscription(
                 price_id=free_tier_id,
                 minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0,
                 cost_limit=free_tier_info.get('cost') if free_tier_info else 0,
-                current_usage=current_usage
+                current_usage=current_usage,
+                credit_balance=credit_balance_info.balance_dollars,
+                can_purchase_credits=credit_balance_info.can_purchase_credits
             )
         
         # Extract current plan details
@@ -1222,7 +1519,9 @@ async def get_subscription(
                 'cancel_at_period_end': subscription['cancel_at_period_end'],
                 'cancel_at': subscription.get('cancel_at'),
                 'current_period_end': current_item['current_period_end']
-            }
+            },
+            credit_balance=credit_balance_info.balance_dollars,
+            can_purchase_credits=credit_balance_info.can_purchase_credits
         )
 
         # Check for an attached schedule (indicates pending downgrade)
@@ -1265,7 +1564,7 @@ async def get_subscription(
 async def check_status(
     current_user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Check if the user can run agents based on their subscription and usage."""
+    """Check if the user can run agents based on their subscription, usage, and credit balance."""
     try:
         # Get Supabase client
         db = DBConnection()
@@ -1273,10 +1572,15 @@ async def check_status(
         
         can_run, message, subscription = await check_billing_status(client, current_user_id)
         
+        # Get credit balance for additional info
+        credit_balance = await get_user_credit_balance(client, current_user_id)
+        
         return {
             "can_run": can_run,
             "message": message,
-            "subscription": subscription
+            "subscription": subscription,
+            "credit_balance": credit_balance.balance_dollars,
+            "can_purchase_credits": credit_balance.can_purchase_credits
         }
         
     except Exception as e:
@@ -1307,7 +1611,77 @@ async def stripe_webhook(request: Request):
             logger.error(f"Invalid webhook signature: {str(e)}")
             raise HTTPException(status_code=400, detail="Invalid signature")
         
-        # Handle the event
+        # Get database connection
+        db = DBConnection()
+        client = await db.client
+        
+        # Handle credit purchase completion
+        if event.type == 'checkout.session.completed':
+            session = event.data.object
+            
+            # Check if this is a credit purchase
+            if session.get('metadata', {}).get('type') == 'credit_purchase':
+                user_id = session['metadata']['user_id']
+                credit_amount = float(session['metadata']['credit_amount'])
+                payment_intent_id = session.get('payment_intent')
+                
+                logger.debug(f"Processing credit purchase for user {user_id}: ${credit_amount}")
+                
+                try:
+                    # Update the purchase record status
+                    purchase_update = await client.table('credit_purchases') \
+                        .update({
+                            'status': 'completed',
+                            'completed_at': datetime.now(timezone.utc).isoformat(),
+                            'stripe_payment_intent_id': payment_intent_id
+                        }) \
+                        .eq('stripe_payment_intent_id', payment_intent_id) \
+                        .execute()
+                    
+                    if not purchase_update.data:
+                        # If no record found by payment_intent_id, try by session_id in metadata (PostgREST JSON operator requires filter)
+                        purchase_update = await client.table('credit_purchases') \
+                            .update({
+                                'status': 'completed',
+                                'completed_at': datetime.now(timezone.utc).isoformat(),
+                                'stripe_payment_intent_id': payment_intent_id
+                            }) \
+                            .filter('metadata->>session_id', 'eq', session['id']) \
+                            .execute()
+                    
+                    # Add credits to user's balance
+                    purchase_id = purchase_update.data[0]['id'] if purchase_update.data else None
+                    new_balance = await add_credits_to_balance(client, user_id, credit_amount, purchase_id)
+                    
+                    logger.info(f"Successfully added ${credit_amount} credits to user {user_id}. New balance: ${new_balance}")
+                    
+                    # Clear cache for this user
+                    await Cache.delete(f"monthly_usage:{user_id}")
+                    await Cache.delete(f"user_subscription:{user_id}")
+                    
+                except Exception as e:
+                    logger.error(f"Error processing credit purchase: {str(e)}")
+                    # Don't fail the webhook, but log the error
+                
+                return {"status": "success", "message": "Credit purchase processed"}
+        
+        # Handle payment failed for credit purchases
+        if event.type == 'payment_intent.payment_failed':
+            payment_intent = event.data.object
+            
+            # Check if this is related to a credit purchase
+            if payment_intent.get('metadata', {}).get('type') == 'credit_purchase':
+                user_id = payment_intent['metadata']['user_id']
+                
+                # Update purchase record to failed
+                await client.table('credit_purchases') \
+                    .update({'status': 'failed'}) \
+                    .eq('stripe_payment_intent_id', payment_intent['id']) \
+                    .execute()
+                
+                logger.debug(f"Credit purchase failed for user {user_id}")
+        
+        # Handle the existing subscription events
         if event.type in ['customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted']:
             # Extract the subscription and customer information
             subscription = event.data.object
@@ -1316,10 +1690,6 @@ async def stripe_webhook(request: Request):
             if not customer_id:
                 logger.warning(f"No customer ID found in subscription event: {event.type}")
                 return {"status": "error", "message": "No customer ID found"}
-            
-            # Get database connection
-            db = DBConnection()
-            client = await db.client
             
             if event.type == 'customer.subscription.created':
                 # Update customer active status for new subscriptions
@@ -1833,3 +2203,219 @@ async def reactivate_subscription(
     except Exception as e:
         logger.error(f"Error reactivating subscription: {str(e)}")
         raise HTTPException(status_code=500, detail="Error processing reactivation request")
+
+@router.post("/purchase-credits")
+async def purchase_credits(
+    request: PurchaseCreditsRequest,
+    current_user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """
+    Create a Stripe checkout session for purchasing credits.
+    Only available for users on the highest subscription tier.
+    """
+    try:
+        # Check if user is on the highest tier
+        is_highest_tier = await is_user_on_highest_tier(current_user_id)
+        if not is_highest_tier:
+            raise HTTPException(
+                status_code=403,
+                detail="Credit purchases are only available for users on the highest subscription tier ($1000/month)."
+            )
+        
+        # Validate amount
+        if request.amount_dollars < 10:
+            raise HTTPException(status_code=400, detail="Minimum credit purchase is $10")
+        
+        if request.amount_dollars > 5000:
+            raise HTTPException(status_code=400, detail="Maximum credit purchase is $5000")
+        
+        # Get Supabase client
+        db = DBConnection()
+        client = await db.client
+        
+        # Get user email
+        user_result = await client.auth.admin.get_user_by_id(current_user_id)
+        if not user_result:
+            raise HTTPException(status_code=404, detail="User not found")
+        email = user_result.user.email
+        
+        # Get or create Stripe customer
+        customer_id = await get_stripe_customer_id(client, current_user_id)
+        if not customer_id:
+            customer_id = await create_stripe_customer(client, current_user_id, email)
+        
+        # Check if we have a pre-configured price ID for this amount
+        matching_package = None
+        for package_key, package_info in CREDIT_PACKAGES.items():
+            if package_info['amount'] == request.amount_dollars and package_info.get('stripe_price_id'):
+                matching_package = package_info
+                break
+        
+        # Create a checkout session
+        if matching_package and matching_package['stripe_price_id']:
+            # Use pre-configured price ID
+            session = await stripe.checkout.Session.create_async(
+                customer=customer_id,
+                payment_method_types=['card'],
+                line_items=[{
+                    'price': matching_package['stripe_price_id'],
+                    'quantity': 1,
+                }],
+                mode='payment',
+                success_url=request.success_url,
+                cancel_url=request.cancel_url,
+                metadata={
+                    'user_id': current_user_id,
+                    'credit_amount': str(request.amount_dollars),
+                    'type': 'credit_purchase'
+                }
+            )
+        else:
+            session = await stripe.checkout.Session.create_async(
+                customer=customer_id,
+                payment_method_types=['card'],
+                line_items=[{
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': f'Suna AI Credits',
+                            'description': f'${request.amount_dollars:.2f} in usage credits for Suna AI',
+                        },
+                        'unit_amount': int(request.amount_dollars * 100),
+                    },
+                    'quantity': 1,
+                }],
+                mode='payment',
+                success_url=request.success_url,
+                cancel_url=request.cancel_url,
+                metadata={
+                    'user_id': current_user_id,
+                    'credit_amount': str(request.amount_dollars),
+                    'type': 'credit_purchase'
+                }
+            )
+        
+        # Record the pending purchase in database
+        purchase_record = await client.table('credit_purchases').insert({
+            'user_id': current_user_id,
+            'amount_dollars': request.amount_dollars,
+            'status': 'pending',
+            'stripe_payment_intent_id': session.payment_intent,
+            'description': f'Credit purchase via Stripe Checkout',
+            'metadata': {
+                'session_id': session.id,
+                'checkout_url': session.url,
+                'success_url': request.success_url,
+                'cancel_url': request.cancel_url
+            }
+        }).execute()
+        
+        return {
+            "session_id": session.id,
+            "url": session.url,
+            "purchase_id": purchase_record.data[0]['id'] if purchase_record.data else None
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating credit purchase session: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating checkout session: {str(e)}")
+
+@router.get("/credit-balance")
+async def get_credit_balance_endpoint(
+    current_user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Get the current credit balance for the user."""
+    try:
+        db = DBConnection()
+        client = await db.client
+        
+        balance = await get_user_credit_balance(client, current_user_id)
+        
+        return balance
+        
+    except Exception as e:
+        logger.error(f"Error getting credit balance: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error retrieving credit balance")
+
+@router.get("/credit-history")
+async def get_credit_history(
+    page: int = 0,
+    items_per_page: int = 50,
+    current_user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Get credit purchase and usage history for the user."""
+    try:
+        db = DBConnection()
+        client = await db.client
+        
+        # Get purchases
+        purchases_result = await client.table('credit_purchases') \
+            .select('*') \
+            .eq('user_id', current_user_id) \
+            .eq('status', 'completed') \
+            .order('created_at', desc=True) \
+            .range(page * items_per_page, (page + 1) * items_per_page - 1) \
+            .execute()
+        
+        # Get usage
+        usage_result = await client.table('credit_usage') \
+            .select('*') \
+            .eq('user_id', current_user_id) \
+            .order('created_at', desc=True) \
+            .range(page * items_per_page, (page + 1) * items_per_page - 1) \
+            .execute()
+        
+        # Format response
+        purchases = [
+            CreditPurchase(
+                id=p['id'],
+                amount_dollars=float(p['amount_dollars']),
+                status=p['status'],
+                created_at=p['created_at'],
+                completed_at=p.get('completed_at'),
+                stripe_payment_intent_id=p.get('stripe_payment_intent_id')
+            )
+            for p in (purchases_result.data or [])
+        ]
+        
+        usage = [
+            CreditUsage(
+                id=u['id'],
+                amount_dollars=float(u['amount_dollars']),
+                description=u.get('description'),
+                created_at=u['created_at'],
+                thread_id=u.get('thread_id'),
+                message_id=u.get('message_id')
+            )
+            for u in (usage_result.data or [])
+        ]
+        
+        return {
+            "purchases": purchases,
+            "usage": usage,
+            "page": page,
+            "has_more": len(purchases) == items_per_page or len(usage) == items_per_page
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting credit history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error retrieving credit history")
+
+@router.get("/can-purchase-credits")
+async def can_purchase_credits(
+    current_user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Check if the current user can purchase credits (must be on highest tier)."""
+    try:
+        is_highest_tier = await is_user_on_highest_tier(current_user_id)
+        
+        return {
+            "can_purchase": is_highest_tier,
+            "reason": "Credit purchases are available" if is_highest_tier else "Must be on the highest subscription tier ($1000/month) to purchase credits"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error checking credit purchase eligibility: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error checking eligibility")
