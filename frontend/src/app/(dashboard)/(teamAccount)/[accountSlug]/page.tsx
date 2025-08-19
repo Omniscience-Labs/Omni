@@ -1,20 +1,12 @@
-'use client';
-
 import { redirect } from 'next/navigation';
-import React from 'react';
 
-type AccountParams = {
-  accountSlug: string;
-};
+interface TeamPageProps {
+  params: Promise<{ accountSlug: string }>;
+}
 
-export default function AccountRedirect({
-  params,
-}: {
-  params: Promise<AccountParams>;
-}) {
-  const unwrappedParams = React.use(params);
-  const { accountSlug } = unwrappedParams;
-
-  // Redirect to the settings page
-  redirect(`/${accountSlug}/settings`);
+export default async function TeamPage({ params }: TeamPageProps) {
+  const { accountSlug } = await params;
+  
+  // Redirect to team dashboard
+  redirect(`/${accountSlug}/dashboard`);
 }
