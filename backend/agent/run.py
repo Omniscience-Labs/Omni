@@ -135,6 +135,8 @@ class ToolManager:
             self.thread_manager.add_tool(SandboxSheetsTool, project_id=self.project_id, thread_manager=self.thread_manager)
         if safe_tool_check('podcast_tool'):
             self.thread_manager.add_tool(SandboxPodcastTool, project_id=self.project_id, thread_manager=self.thread_manager)
+        if safe_tool_check('sb_video_avatar_tool'):
+            self.thread_manager.add_tool(SandboxVideoAvatarTool, project_id=self.project_id, thread_manager=self.thread_manager)
         # if safe_tool_check('sb_web_dev_tool'):
         #     self.thread_manager.add_tool(SandboxWebDevTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         if config.RAPID_API_KEY and safe_tool_check('data_providers_tool'):
