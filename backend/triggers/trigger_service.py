@@ -84,9 +84,11 @@ class TriggerService:
             updated_at=now
         )
         
-        setup_success = await provider_service.setup_trigger(trigger)
-        if not setup_success:
-            raise ValueError(f"Failed to setup trigger with provider: {provider_id}")
+        # Skip setup_trigger for Composio since triggers are already enabled when created
+        if provider_id != "composio":
+            setup_success = await provider_service.setup_trigger(trigger)
+            if not setup_success:
+                raise ValueError(f"Failed to setup trigger with provider: {provider_id}")
         
         await self._save_trigger(trigger)
         
@@ -283,12 +285,25 @@ class TriggerService:
     async def _log_trigger_event(self, event: TriggerEvent, result: TriggerResult) -> None:
         client = await self._db.client
         
+        
+        # Ensure raw_data is JSON serializable
+        try:
+            if isinstance(event.raw_data, bytes):
+                event_data = event.raw_data.decode('utf-8', errors='replace')
+            elif isinstance(event.raw_data, str):
+                event_data = event.raw_data
+            else:
+                event_data = str(event.raw_data)
+        except Exception as e:
+            logger.warning(f"Failed to serialize raw_data: {e}")
+            event_data = str(event.raw_data) if event.raw_data else "{}"
+        
         await client.table('trigger_event_logs').insert({
             'log_id': str(uuid.uuid4()),
             'trigger_id': event.trigger_id,
             'agent_id': event.agent_id,
             'trigger_type': event.trigger_type.value,
-            'event_data': event.raw_data,
+            'event_data': event_data,
             'success': result.success,
             'should_execute_agent': result.should_execute_agent,
             'should_execute_workflow': result.should_execute_workflow,
