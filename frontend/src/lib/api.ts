@@ -248,20 +248,12 @@ export const getProjects = async (): Promise<Project[]> => {
       return [];
     }
 
-    // Get team context for account_id
-    let account_id = userData.user.id; // Default to personal account
-    if (typeof window !== 'undefined') {
-      const teamContextStr = localStorage.getItem('currentTeamId');
-      if (teamContextStr) {
-        account_id = teamContextStr;
-      }
-    }
-
-    // Query projects where account_id matches the appropriate account (personal or team)
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('account_id', account_id);
+      // Query projects where account_id matches the user's personal account
+  // Note: Project filtering should be handled at the component level using useCurrentAccount
+  const { data, error } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('account_id', userData.user.id);
 
     if (error) {
       // Handle permission errors specifically
@@ -510,7 +502,7 @@ export const deleteProject = async (projectId: string): Promise<void> => {
 };
 
 // Thread APIs
-export const getThreads = async (projectId?: string): Promise<Thread[]> => {
+export const getThreads = async (projectId?: string, accountId?: string): Promise<Thread[]> => {
   const supabase = createClient();
 
   // Get the current user's ID to filter threads
@@ -525,19 +517,13 @@ export const getThreads = async (projectId?: string): Promise<Thread[]> => {
     return [];
   }
 
-  // Get team context for account_id
-  let account_id = userData.user.id; // Default to personal account
-  if (typeof window !== 'undefined') {
-    const teamContextStr = localStorage.getItem('currentTeamId');
-    if (teamContextStr) {
-      account_id = teamContextStr;
-    }
-  }
+  // Use provided accountId or fall back to user's personal account ID
+  const effectiveAccountId = accountId || userData.user.id;
 
   let query = supabase.from('threads').select('*');
 
-  // Filter by the appropriate account ID (personal or team)
-  query = query.eq('account_id', account_id);
+  // Always filter by the effective account ID
+  query = query.eq('account_id', effectiveAccountId);
 
   if (projectId) {
     query = query.eq('project_id', projectId);
@@ -593,20 +579,11 @@ export const createThread = async (projectId: string): Promise<Thread> => {
     throw new Error('You must be logged in to create a thread');
   }
 
-  // Get team context for account_id
-  let account_id = user.id; // Default to personal account
-  if (typeof window !== 'undefined') {
-    const teamContextStr = localStorage.getItem('currentTeamId');
-    if (teamContextStr) {
-      account_id = teamContextStr;
-    }
-  }
-
   const { data, error } = await supabase
     .from('threads')
     .insert({
       project_id: projectId,
-      account_id: account_id,
+      account_id: user.id,
     })
     .select()
     .single();

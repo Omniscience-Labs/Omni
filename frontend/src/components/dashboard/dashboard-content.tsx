@@ -31,6 +31,7 @@ import { useFeatureFlag } from '@/lib/feature-flags';
 import { CustomAgentsSection } from './custom-agents-section';
 import { toast } from 'sonner';
 import { ReleaseBadge } from '../auth/release-badge';
+import { useCurrentAccount } from '@/hooks/use-current-account';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
@@ -44,6 +45,7 @@ export function DashboardContent() {
     initializeFromAgents,
     getCurrentAgent
   } = useAgentSelection();
+  const currentAccount = useCurrentAccount();
   const [initiatedThreadId, setInitiatedThreadId] = useState<string | null>(null);
   const { billingError, handleBillingError, clearBillingError } =
     useBillingError();
@@ -149,14 +151,11 @@ export function DashboardContent() {
       }
 
       // Add team context if in team mode
-      if (typeof window !== 'undefined') {
-        const teamContextStr = localStorage.getItem('currentTeamId');
-        if (teamContextStr) {
-          console.log('🏢 Creating chat with team context:', teamContextStr);
-          formData.append('account_id', teamContextStr);
-        } else {
-          console.log('👤 Creating chat with personal context');
-        }
+      if (currentAccount?.is_team_context) {
+        console.log('🏢 Creating chat with team context:', currentAccount.name, currentAccount.account_id);
+        formData.append('account_id', currentAccount.account_id);
+      } else {
+        console.log('👤 Creating chat with personal context');
       }
 
       files.forEach((file, index) => {

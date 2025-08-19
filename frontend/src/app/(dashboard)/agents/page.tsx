@@ -8,6 +8,7 @@ import { useAgents, useUpdateAgent, useDeleteAgent, useOptimisticAgentUpdate, us
 import { useMarketplaceTemplates, useInstallTemplate, useMyTemplates, useUnpublishTemplate, usePublishTemplate, useCreateTemplate, useDeleteTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { useFeatureFlag } from '@/lib/feature-flags';
 import { useAuth } from '@/components/AuthProvider';
+import { useCurrentAccount } from '@/hooks/use-current-account';
 
 import { StreamlinedInstallDialog } from '@/components/agents/installation/streamlined-install-dialog';
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
@@ -45,6 +46,7 @@ interface PublishDialogData {
 
 export default function AgentsPage() {
   const { user } = useAuth();
+  const currentAccount = useCurrentAccount();
   const { enabled: customAgentsEnabled, loading: agentsFlagLoading } = useFeatureFlag("custom_agents");
   const { enabled: agentMarketplaceEnabled, loading: marketplaceFlagLoading } = useFeatureFlag("agent_marketplace");
   const router = useRouter();
@@ -102,6 +104,7 @@ export default function AgentsPage() {
       search: agentsSearchQuery || undefined,
       sort_by: agentsSortBy,
       sort_order: agentsSortOrder,
+      account_id: currentAccount?.account_id, // Pass current account ID to filter agents
     };
 
     if (agentsFilters.hasDefaultAgent) {
@@ -118,7 +121,7 @@ export default function AgentsPage() {
     }
 
     return params;
-  }, [agentsPage, agentsSearchQuery, agentsSortBy, agentsSortOrder, agentsFilters]);
+  }, [agentsPage, agentsSearchQuery, agentsSortBy, agentsSortOrder, agentsFilters, currentAccount?.account_id]);
 
   const marketplaceQueryParams = useMemo(() => ({
     limit: 20,

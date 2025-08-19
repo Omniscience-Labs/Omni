@@ -22,7 +22,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useAccounts } from '@/hooks/use-accounts';
-import { useTeamContext } from '@/hooks/use-team-context';
+import { useCurrentAccount } from '@/hooks/use-current-account';
 import NewTeamForm from '@/components/basejump/new-team-form';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -67,7 +67,7 @@ export function NavUserWithTeams({
   const router = useRouter();
   const { isMobile } = useSidebar();
   const { data: accounts } = useAccounts();
-  const { currentTeam, isLoading: teamLoading, switchTeam } = useTeamContext();
+  const currentAccount = useCurrentAccount();
   const [showNewTeamDialog, setShowNewTeamDialog] = React.useState(false);
   const [switchingTeam, setSwitchingTeam] = React.useState<string | null>(null);
   const { theme, setTheme } = useTheme();
@@ -136,38 +136,42 @@ export function NavUserWithTeams({
     }
   }, [accounts, activeTeam.account_id]);
 
-  // Handle team selection with visual feedback
-  const handleTeamSelect = async (team) => {
-    setSwitchingTeam(team.account_id);
-    setActiveTeam(team);
+  // Handle team selection with visual feedback  
+  const handleTeamSwitch = (team) => {
+    console.log('Switching to:', team.personal_account ? 'Personal' : `Team: ${team.name}`);
     
-    try {
-      // Create a proper team object for the context
-      const teamData = {
-        account_id: team.account_id,
-        name: team.name,
-        slug: team.slug,
-        personal_account: team.personal_account,
-        created_at: new Date().toISOString(),
-        account_role: 'owner' // This should come from the actual account data
-      };
-      
-      // Use the switchTeam function from context
-      await switchTeam(teamData);
-      
-      // Quick visual feedback
-      const teamSwitcher = document.querySelector('[data-team-switcher]');
-      if (teamSwitcher) {
-        teamSwitcher.classList.add('animate-pulse');
-        setTimeout(() => {
-          teamSwitcher.classList.remove('animate-pulse');
-        }, 300);
+    setSwitchingTeam(team.account_id);
+    
+    // Update sessionStorage to match useCurrentAccount
+    if (!team.personal_account) {
+      // Store team context
+      try {
+        sessionStorage.setItem('team_context', JSON.stringify({
+          account_id: team.account_id,
+          name: team.name,
+          slug: team.slug,
+          timestamp: Date.now()
+        }));
+        console.log('🏢 Stored team context:', team.name);
+      } catch (error) {
+        console.warn('Failed to store team context:', error);
       }
-    } catch (error) {
-      console.error('Error switching team:', error);
-    } finally {
-      setSwitchingTeam(null);
+    } else {
+      // Clear team context for personal account
+      try {
+        sessionStorage.removeItem('team_context');
+        console.log('👤 Cleared team context for personal account');
+      } catch (error) {
+        console.warn('Failed to clear team context:', error);
+      }
     }
+    
+    // Navigate to dashboard first, then reload to ensure everything updates
+    router.push('/dashboard');
+    // Use setTimeout to ensure navigation happens before reload
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
   };
 
   const handleLogout = async () => {
@@ -208,11 +212,11 @@ export function NavUserWithTeams({
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium flex items-center gap-2">
-                    {currentTeam ? currentTeam.name : user.name}
-                    {(teamLoading || switchingTeam) && <Loader2 className="h-3 w-3 animate-spin" />}
+                    {currentAccount?.is_team_context ? currentAccount.name : user.name}
+                    {switchingTeam && <Loader2 className="h-3 w-3 animate-spin" />}
                   </span>
                   <span className="truncate text-xs">
-                    {currentTeam ? `Team • ${user.email}` : user.email}
+                    {currentAccount?.is_team_context ? `Team • ${user.email}` : user.email}
                   </span>
                 </div>
                 <ChevronsUpDown className="ml-auto size-4" />
@@ -249,7 +253,7 @@ export function NavUserWithTeams({
                   <DropdownMenuItem
                     key={personalAccount.account_id}
                     onClick={() =>
-                      handleTeamSelect({
+                      handleTeamSwitch({
                         name: personalAccount.name,
                         logo: Command,
                         plan: 'Personal',
@@ -269,7 +273,7 @@ export function NavUserWithTeams({
                       )}
                     </div>
                     {personalAccount.name}
-                    {!currentTeam && <BadgeCheck className="ml-auto h-4 w-4 text-green-600" />}
+                    {!currentAccount?.is_team_context && <BadgeCheck className="ml-auto h-4 w-4 text-green-600" />}
                     <DropdownMenuShortcut>⌘1</DropdownMenuShortcut>
                   </DropdownMenuItem>
                 </>
@@ -304,7 +308,7 @@ export function NavUserWithTeams({
                         )}
                       </div>
                       {team.name}
-                      {currentTeam?.account_id === team.account_id && <BadgeCheck className="ml-auto h-4 w-4 text-green-600" />}
+                      {currentAccount?.account_id === team.account_id && <BadgeCheck className="ml-auto h-4 w-4 text-green-600" />}
                       <DropdownMenuShortcut>⌘{index + 2}</DropdownMenuShortcut>
                     </DropdownMenuItem>
                   ))}
@@ -312,11 +316,11 @@ export function NavUserWithTeams({
               )}
 
               {/* Team Settings Link for current team */}
-              {currentTeam && !currentTeam.personal_account && (
+              {currentAccount?.is_team_context && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
-                    onClick={() => router.push(`/${currentTeam.slug}/settings`)}
+                    onClick={() => router.push(`/${currentAccount.slug}/settings`)}
                     className="gap-2 p-2 cursor-pointer"
                   >
                     <Settings className="size-4" />

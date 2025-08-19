@@ -245,12 +245,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
       agentFormData.append('enable_context_manager', String(options?.enable_context_manager ?? false));
       
       // Add team context if in team mode
-      if (typeof window !== 'undefined') {
-        const teamContextStr = localStorage.getItem('currentTeamId');
-        if (teamContextStr) {
-          agentFormData.append('account_id', teamContextStr);
-        }
-      }
+      // Note: Agent builder runs within agent configuration context
 
       const result = await initiateAgentMutation.mutateAsync(agentFormData);
 
