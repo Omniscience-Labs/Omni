@@ -248,11 +248,20 @@ export const getProjects = async (): Promise<Project[]> => {
       return [];
     }
 
-    // Query only projects where account_id matches the current user's ID
+    // Get team context for account_id
+    let account_id = userData.user.id; // Default to personal account
+    if (typeof window !== 'undefined') {
+      const teamContextStr = localStorage.getItem('currentTeamId');
+      if (teamContextStr) {
+        account_id = teamContextStr;
+      }
+    }
+
+    // Query projects where account_id matches the appropriate account (personal or team)
     const { data, error } = await supabase
       .from('projects')
       .select('*')
-      .eq('account_id', userData.user.id);
+      .eq('account_id', account_id);
 
     if (error) {
       // Handle permission errors specifically
@@ -516,10 +525,19 @@ export const getThreads = async (projectId?: string): Promise<Thread[]> => {
     return [];
   }
 
+  // Get team context for account_id
+  let account_id = userData.user.id; // Default to personal account
+  if (typeof window !== 'undefined') {
+    const teamContextStr = localStorage.getItem('currentTeamId');
+    if (teamContextStr) {
+      account_id = teamContextStr;
+    }
+  }
+
   let query = supabase.from('threads').select('*');
 
-  // Always filter by the current user's account ID
-  query = query.eq('account_id', userData.user.id);
+  // Filter by the appropriate account ID (personal or team)
+  query = query.eq('account_id', account_id);
 
   if (projectId) {
     query = query.eq('project_id', projectId);
@@ -575,11 +593,20 @@ export const createThread = async (projectId: string): Promise<Thread> => {
     throw new Error('You must be logged in to create a thread');
   }
 
+  // Get team context for account_id
+  let account_id = user.id; // Default to personal account
+  if (typeof window !== 'undefined') {
+    const teamContextStr = localStorage.getItem('currentTeamId');
+    if (teamContextStr) {
+      account_id = teamContextStr;
+    }
+  }
+
   const { data, error } = await supabase
     .from('threads')
     .insert({
       project_id: projectId,
-      account_id: user.id, // Use the current user's ID as the account ID
+      account_id: account_id,
     })
     .select()
     .single();

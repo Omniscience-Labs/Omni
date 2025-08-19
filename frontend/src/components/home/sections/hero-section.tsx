@@ -183,6 +183,14 @@ export function HeroSection() {
         formData.append('agent_id', selectedAgentId);
       }
 
+      // Add team context if in team mode
+      if (typeof window !== 'undefined') {
+        const teamContextStr = localStorage.getItem('currentTeamId');
+        if (teamContextStr) {
+          formData.append('account_id', teamContextStr);
+        }
+      }
+
       // Add files if any
       files.forEach((file) => {
         const normalizedName = normalizeFilenameToNFC(file.name);
