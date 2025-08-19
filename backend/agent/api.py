@@ -968,6 +968,7 @@ async def initiate_agent_with_files(
     stream: Optional[bool] = Form(True),
     enable_context_manager: Optional[bool] = Form(False),
     agent_id: Optional[str] = Form(None),  # Add agent_id parameter
+    account_id: Optional[str] = Form(None),  # Add account_id parameter for team context
     files: List[UploadFile] = File(default=[]),
     is_agent_builder: Optional[bool] = Form(False),
     target_agent_id: Optional[str] = Form(None),
@@ -1000,7 +1001,18 @@ async def initiate_agent_with_files(
 
     logger.info(f"[\033[91mDEBUG\033[0m] Initiating new agent with prompt and {len(files)} files (Instance: {instance_id}), model: {model_name}, enable_thinking: {enable_thinking}")
     client = await db.client
-    account_id = user_id # In Basejump, personal account_id is the same as user_id
+    
+    # Use provided account_id or fall back to user_id (personal context)
+    effective_account_id = account_id if account_id else user_id
+    
+    # If using a different account_id (team context), verify access
+    if account_id and account_id != user_id:
+        # Check if user has access to this team account
+        access_check = await client.table('account_user').select('*').eq('account_id', account_id).eq('user_id', user_id).execute()
+        if not access_check.data:
+            raise HTTPException(status_code=403, detail="Access denied to create threads for this team")
+    
+    logger.info(f"Creating thread for account: {effective_account_id} (user: {user_id})")
     
     # Load agent configuration with version support (same as start_agent endpoint)
     agent_config = None
@@ -1011,7 +1023,7 @@ async def initiate_agent_with_files(
     if agent_id:
         logger.info(f"[AGENT INITIATE] Querying for specific agent: {agent_id}")
         # Get agent
-        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', account_id).execute()
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', effective_account_id).execute()
         logger.info(f"[AGENT INITIATE] Query result: found {len(agent_result.data) if agent_result.data else 0} agents")
         
         if not agent_result.data:
@@ -1116,7 +1128,7 @@ async def initiate_agent_with_files(
         # 1. Create Project
         placeholder_name = f"{prompt[:30]}..." if len(prompt) > 30 else prompt
         project = await client.table('projects').insert({
-            "project_id": str(uuid.uuid4()), "account_id": account_id, "name": placeholder_name,
+            "project_id": str(uuid.uuid4()), "account_id": effective_account_id, "name": placeholder_name,
             "created_at": datetime.now(timezone.utc).isoformat()
         }).execute()
         project_id = project.data[0]['project_id']
@@ -1178,14 +1190,14 @@ async def initiate_agent_with_files(
         thread_data = {
             "thread_id": str(uuid.uuid4()), 
             "project_id": project_id, 
-            "account_id": account_id,
+            "account_id": effective_account_id,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
 
         structlog.contextvars.bind_contextvars(
             thread_id=thread_data["thread_id"],
             project_id=project_id,
-            account_id=account_id,
+            account_id=effective_account_id,
         )
         
         # Don't store agent_id in thread since threads are now agent-agnostic
@@ -1339,6 +1351,7 @@ async def initiate_agent_with_files(
 @router.get("/agents", response_model=AgentsResponse)
 async def get_agents(
     user_id: str = Depends(get_current_user_id_from_jwt),
+    account_id: Optional[str] = Query(None, description="Account ID to filter agents by (defaults to user_id for personal context)"),
     page: Optional[int] = Query(1, ge=1, description="Page number (1-based)"),
     limit: Optional[int] = Query(20, ge=1, le=100, description="Number of items per page"),
     search: Optional[str] = Query(None, description="Search in name and description"),
@@ -1355,15 +1368,26 @@ async def get_agents(
             status_code=403, 
             detail="Custom agents currently disabled. This feature is not available at the moment."
         )
-    logger.info(f"Fetching agents for user: {user_id} with page={page}, limit={limit}, search='{search}', sort_by={sort_by}, sort_order={sort_order}")
+    
+    # Use provided account_id or fall back to user_id (personal context)
+    effective_account_id = account_id if account_id else user_id
+    logger.info(f"Fetching agents for account: {effective_account_id} (user: {user_id}) with page={page}, limit={limit}, search='{search}', sort_by={sort_by}, sort_order={sort_order}")
+    
     client = await db.client
+    
+    # If using a different account_id (team context), verify access
+    if account_id and account_id != user_id:
+        # Check if user has access to this team account
+        access_check = await client.table('account_user').select('*').eq('account_id', account_id).eq('user_id', user_id).execute()
+        if not access_check.data:
+            raise HTTPException(status_code=403, detail="Access denied to this team's agents")
     
     try:
         # Calculate offset
         offset = (page - 1) * limit
         
-        # Start building the query - simple approach
-        query = client.table('agents').select('*', count='exact').eq("account_id", user_id)
+        # Start building the query - use effective_account_id
+        query = client.table('agents').select('*', count='exact').eq("account_id", effective_account_id)
         
         # Apply search filter
         if search:
@@ -1391,7 +1415,7 @@ async def get_agents(
         total_count = agents_result.count if agents_result.count is not None else 0
         
         if not agents_result.data:
-            logger.info(f"No agents found for user: {user_id}")
+            logger.info(f"No agents found for account: {effective_account_id}")
             return {
                 "agents": [],
                 "pagination": {
@@ -1636,7 +1660,7 @@ async def get_agents(
         
         total_pages = (total_count + limit - 1) // limit
         
-        logger.info(f"Found {len(agent_list)} agents for user: {user_id} (page {page}/{total_pages})")
+        logger.info(f"Found {len(agent_list)} agents for account: {effective_account_id} (user: {user_id}, page {page}/{total_pages})")
         return {
             "agents": agent_list,
             "pagination": {
@@ -3178,6 +3202,7 @@ async def get_thread(
 @router.post("/threads", response_model=CreateThreadResponse)
 async def create_thread(
     name: Optional[str] = Form(None),
+    account_id: Optional[str] = Form(None),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """
@@ -3189,14 +3214,25 @@ async def create_thread(
         name = "New Project"
     logger.info(f"Creating new thread with name: {name}")
     client = await db.client
-    account_id = user_id  # In Basejump, personal account_id is the same as user_id
+    
+    # Use provided account_id or fall back to user_id (personal context)
+    effective_account_id = account_id if account_id else user_id
+    
+    # If using a different account_id (team context), verify access
+    if account_id and account_id != user_id:
+        # Check if user has access to this team account
+        access_check = await client.table('account_user').select('*').eq('account_id', account_id).eq('user_id', user_id).execute()
+        if not access_check.data:
+            raise HTTPException(status_code=403, detail="Access denied to create threads for this team")
+    
+    logger.info(f"Creating thread for account: {effective_account_id} (user: {user_id})")
     
     try:
         # 1. Create Project
         project_name = name or "New Project"
         project = await client.table('projects').insert({
             "project_id": str(uuid.uuid4()), 
-            "account_id": account_id, 
+            "account_id": effective_account_id, 
             "name": project_name,
             "created_at": datetime.now(timezone.utc).isoformat()
         }).execute()
@@ -3249,20 +3285,20 @@ async def create_thread(
                     await delete_sandbox(sandbox_id)
                 except Exception as e: 
                     logger.error(f"Error deleting sandbox: {str(e)}")
-            raise Exception("Database update failed")
+                    raise Exception("Database update failed")
 
         # 3. Create Thread
         thread_data = {
             "thread_id": str(uuid.uuid4()), 
             "project_id": project_id, 
-            "account_id": account_id,
+            "account_id": effective_account_id,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
 
         structlog.contextvars.bind_contextvars(
             thread_id=thread_data["thread_id"],
             project_id=project_id,
-            account_id=account_id,
+            account_id=effective_account_id,
         )
         
         thread = await client.table('threads').insert(thread_data).execute()

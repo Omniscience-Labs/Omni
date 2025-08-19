@@ -177,6 +177,14 @@ export const getAgents = async (params: AgentsParams = {}): Promise<AgentsRespon
     if (params.has_mcp_tools !== undefined) queryParams.append('has_mcp_tools', params.has_mcp_tools.toString());
     if (params.has_agentpress_tools !== undefined) queryParams.append('has_agentpress_tools', params.has_agentpress_tools.toString());
     if (params.tools) queryParams.append('tools', params.tools);
+    
+    // Check if we're in team context and add account_id
+    if (typeof window !== 'undefined') {
+      const teamContextStr = localStorage.getItem('currentTeamId');
+      if (teamContextStr) {
+        queryParams.append('account_id', teamContextStr);
+      }
+    }
 
     const url = `${API_URL}/agents${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 

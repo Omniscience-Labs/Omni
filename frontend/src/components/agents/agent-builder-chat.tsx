@@ -243,6 +243,14 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
       agentFormData.append('reasoning_effort', options?.reasoning_effort ?? 'low');
       agentFormData.append('stream', String(options?.stream ?? true));
       agentFormData.append('enable_context_manager', String(options?.enable_context_manager ?? false));
+      
+      // Add team context if in team mode
+      if (typeof window !== 'undefined') {
+        const teamContextStr = localStorage.getItem('currentTeamId');
+        if (teamContextStr) {
+          agentFormData.append('account_id', teamContextStr);
+        }
+      }
 
       const result = await initiateAgentMutation.mutateAsync(agentFormData);
 

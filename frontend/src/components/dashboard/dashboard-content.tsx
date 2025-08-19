@@ -148,6 +148,14 @@ export function DashboardContent() {
         formData.append('agent_id', selectedAgentId);
       }
 
+      // Add team context if in team mode
+      if (typeof window !== 'undefined') {
+        const teamContextStr = localStorage.getItem('currentTeamId');
+        if (teamContextStr) {
+          formData.append('account_id', teamContextStr);
+        }
+      }
+
       files.forEach((file, index) => {
         const normalizedName = normalizeFilenameToNFC(file.name);
         formData.append('files', file, normalizedName);
