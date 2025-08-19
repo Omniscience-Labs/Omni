@@ -10,12 +10,10 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CreditCard, AlertCircle, CheckCircle, Zap } from 'lucide-react';
+import { Loader2, CreditCard, AlertCircle, Zap, AlertCircleIcon } from 'lucide-react';
 import { apiClient, backendApi } from '@/lib/api-client';
 import { toast } from 'sonner';
 
@@ -35,12 +33,11 @@ interface CreditPackage {
 
 const CREDIT_PACKAGES: CreditPackage[] = [
     { amount: 10, price: 10 },
-    { amount: 25, price: 25, popular: true },
-    // Uncomment these when you create the additional price IDs in Stripe:
-    // { amount: 50, price: 50 },
-    // { amount: 100, price: 100 },
-    // { amount: 250, price: 250 },
-    // { amount: 500, price: 500 },
+    { amount: 25, price: 25 },
+    { amount: 50, price: 50 },
+    { amount: 100, price: 100, popular: true },
+    { amount: 250, price: 250 },
+    { amount: 500, price: 500 },
 ];
 
 export function CreditPurchaseModal({ 
@@ -148,9 +145,9 @@ export function CreditPurchaseModal({
                 </DialogHeader>
 
                 {currentBalance > 0 && (
-                    <Alert className="bg-blue-50 border-blue-200">
-                        <CheckCircle className="h-4 w-4 text-blue-600" />
-                        <AlertDescription>
+                    <Alert className="text-purple-600 dark:text-purple-400 bg-purple-50 border-purple-200 dark:bg-purple-950 dark:border-purple-800">
+                        <AlertCircleIcon className="h-4 w-4" />
+                        <AlertDescription className="text-purple-600 dark:text-purple-400">
                             Current balance: <strong>${currentBalance.toFixed(2)}</strong>
                         </AlertDescription>
                     </Alert>
@@ -183,59 +180,11 @@ export function CreditPurchaseModal({
                             ))}
                         </div>
                     </div>
-                    <div>
-                        <Label htmlFor="custom-amount" className="text-base font-semibold mb-2 block">
-                            Or Enter Custom Amount
-                        </Label>
-                        <div className="flex gap-2">
-                            <div className="relative flex-1">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                    $
-                                </span>
-                                <Input
-                                    id="custom-amount"
-                                    type="number"
-                                    min="10"
-                                    max="5000"
-                                    step="0.01"
-                                    placeholder="10.00 - 5000.00"
-                                    value={customAmount}
-                                    onChange={(e) => handleCustomAmountChange(e.target.value)}
-                                    className="pl-7"
-                                />
-                            </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            Minimum: $10 • Maximum: $5,000
-                        </p>
-                    </div>
                     {error && (
                         <Alert variant="destructive">
                             <AlertCircle className="h-4 w-4" />
                             <AlertDescription>{error}</AlertDescription>
                         </Alert>
-                    )}
-                    {(selectedPackage || customAmount) && (
-                        <Card className="bg-gray-50">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-sm">Purchase Summary</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex justify-between items-center">
-                                    <span>Amount:</span>
-                                    <span className="font-semibold">
-                                        ${selectedPackage ? selectedPackage.amount.toFixed(2) : parseFloat(customAmount).toFixed(2)}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center mt-2 text-sm text-muted-foreground">
-                                    <span>Payment method:</span>
-                                    <span className="flex items-center gap-1">
-                                        <CreditCard className="h-3 w-3" />
-                                        Card
-                                    </span>
-                                </div>
-                            </CardContent>
-                        </Card>
                     )}
                 </div>
                 <div className="flex justify-end gap-3 mt-6">
@@ -252,12 +201,12 @@ export function CreditPurchaseModal({
                     >
                         {isProcessing ? (
                             <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                <Loader2 className="h-4 w-4 animate-spin" />
                                 Processing...
                             </>
                         ) : (
                             <>
-                                <CreditCard className="mr-2 h-4 w-4" />
+                                <CreditCard className="h-4 w-4" />
                                 Purchase Credits
                             </>
                         )}

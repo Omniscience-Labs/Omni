@@ -88,12 +88,20 @@ class Configuration:
     STRIPE_TIER_25_170_YEARLY_COMMITMENT_ID_STAGING: str = 'price_1RqYHbG6l1KZGqIrAUVf8KpG'  # $170/month
     
     # Credit package price IDs - Production
-    STRIPE_CREDITS_10_PRICE_ID_PROD: str = 'price_1RxXOvG6l1KZGqIrMqsiYQvk'
-    STRIPE_CREDITS_25_PRICE_ID_PROD: str = 'price_1RxXPNG6l1KZGqIrQprPgDme'
+    STRIPE_CREDITS_10_PRICE_ID_PROD: str = 'price_1RxmQUG6l1KZGqIru453O1zW'
+    STRIPE_CREDITS_25_PRICE_ID_PROD: str = 'price_1RxmQlG6l1KZGqIr3hS5WtGg'
+    STRIPE_CREDITS_50_PRICE_ID_PROD: str = 'price_1RxmQvG6l1KZGqIrLbMZ3D6r'
+    STRIPE_CREDITS_100_PRICE_ID_PROD: str = 'price_1RxmR3G6l1KZGqIrpLwFCGac'
+    STRIPE_CREDITS_250_PRICE_ID_PROD: str = 'price_1RxmRAG6l1KZGqIrtBIMsZAj'
+    STRIPE_CREDITS_500_PRICE_ID_PROD: str = 'price_1RxmRGG6l1KZGqIrSyvl6w1G'
     
     # Credit package price IDs - Staging  
     STRIPE_CREDITS_10_PRICE_ID_STAGING: str = 'price_1RxXOvG6l1KZGqIrMqsiYQvk'
     STRIPE_CREDITS_25_PRICE_ID_STAGING: str = 'price_1RxXPNG6l1KZGqIrQprPgDme'
+    STRIPE_CREDITS_50_PRICE_ID_STAGING: str = 'price_1RxmNhG6l1KZGqIrTq2zPtgi'
+    STRIPE_CREDITS_100_PRICE_ID_STAGING: str = 'price_1RxmNwG6l1KZGqIrnliwPDM6'
+    STRIPE_CREDITS_250_PRICE_ID_STAGING: str = 'price_1RxmO6G6l1KZGqIrBF8Kx87G'
+    STRIPE_CREDITS_500_PRICE_ID_STAGING: str = 'price_1RxmOFG6l1KZGqIrn4wgORnH'
     
     # Computed subscription tier IDs based on environment
     @property
