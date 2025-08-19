@@ -56,7 +56,16 @@ export function TeamContextProvider({ children }: { children: ReactNode }) {
         const team = accounts.find(a => !a.personal_account && a.slug === firstSegment);
         
         if (team) {
-          setCurrentTeam(team);
+          // Convert team to proper TeamAccount type
+          const teamAccount: TeamAccount = {
+            account_id: team.account_id,
+            name: team.name,
+            slug: team.slug,
+            personal_account: team.personal_account,
+            created_at: team.created_at instanceof Date ? team.created_at.toISOString() : String(team.created_at),
+            account_role: team.role
+          };
+          setCurrentTeam(teamAccount);
           localStorage.setItem('currentTeamId', team.account_id);
         } else {
           // Invalid team slug, clear context
