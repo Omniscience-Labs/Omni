@@ -4,13 +4,13 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { 
-  Edit, 
-  Trash2, 
-  ExternalLink, 
-  MessageSquare, 
-  Webhook, 
-  Clock, 
+import {
+  Edit,
+  Trash2,
+  ExternalLink,
+  MessageSquare,
+  Webhook,
+  Clock,
   Mail,
   Github,
   Gamepad2,
@@ -97,51 +97,44 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
         {triggers.map((trigger) => (
           <div
             key={trigger.trigger_id}
-            className={`flex items-start justify-between p-4 rounded-lg border transition-all duration-200 overflow-hidden ${
-              trigger.is_active 
-                ? "bg-card hover:bg-muted/50 border-border" 
-                : "bg-muted/20 hover:bg-muted/30 border-muted-foreground/30"
-            }`}
+            className={`flex items-stretch justify-between p-4 rounded-xl border transition-all duration-200 overflow-hidden ${trigger.is_active
+              ? "bg-card hover:bg-muted/50 border-border"
+              : "bg-muted/20 hover:bg-muted/30 border-muted-foreground/30"
+              }`}
           >
-            <div className="flex items-start space-x-4 flex-1 min-w-0">
-              <div className={`p-2 rounded-lg border transition-colors flex-shrink-0 ${
-                trigger.is_active 
-                  ? "bg-muted border-border" 
-                  : "bg-muted/50 border-muted-foreground/20"
-              }`}>
-                <div className={trigger.is_active ? "" : "opacity-70"}>
-                  {getTriggerIcon(trigger.trigger_type)}
-                </div>
+            <div className="flex items-stretch space-x-4 flex-1 min-w-0">
+              <div className={`h-10 min-h-10 max-h-10 w-10 rounded-xl border transition-colors flex-shrink-0 flex items-center justify-center ${trigger.is_active
+                ? "bg-muted border-border"
+                : "bg-muted/50 border-muted-foreground/20"
+                } ${trigger.is_active ? "" : "opacity-70"}`}>
+                {getTriggerIcon(trigger.trigger_type)}
               </div>
-              
+
               <div className="flex-1 min-w-0 overflow-hidden">
                 <div className="flex items-center space-x-2 mb-1">
-                  <h4 className={`text-sm font-medium truncate transition-colors ${
-                    trigger.is_active ? "text-foreground" : "text-muted-foreground"
-                  }`}>
+                  <h4 className={`text-sm font-medium truncate transition-colors ${trigger.is_active ? "text-foreground" : "text-muted-foreground"
+                    }`}>
                     {trigger.name}
                   </h4>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className={cn('h-2 w-2 rounded-full', trigger.is_active ? 'bg-green-500' : 'bg-red-500')}/>
+                      <div className={cn('h-2 w-2 rounded-full', trigger.is_active ? 'bg-green-500' : 'bg-red-500')} />
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>{trigger.is_active ? 'Active' : 'Inactive'}</p>
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                
+
                 {trigger.description && (
-                  <p className={`text-xs truncate transition-colors ${
-                    trigger.is_active ? "text-muted-foreground" : "text-muted-foreground/80"
-                  }`}>
+                  <p className={`text-xs truncate transition-colors ${trigger.is_active ? "text-muted-foreground" : "text-muted-foreground/80"
+                    }`}>
                     {truncateString(trigger.description, 50)}
                   </p>
                 )}
                 {trigger.trigger_type === 'schedule' && trigger.config && (
-                  <div className={`text-xs mt-1 transition-colors ${
-                    trigger.is_active ? "text-muted-foreground" : "text-muted-foreground/80"
-                  }`}>
+                  <div className={`text-xs mt-1 transition-colors ${trigger.is_active ? "text-muted-foreground" : "text-muted-foreground/80"
+                    }`}>
                     {trigger.config.execution_type === 'agent' && trigger.config.agent_prompt && (
                       <p>Prompt: {truncateString(trigger.config.agent_prompt, 40)}</p>
                     )}
@@ -173,9 +166,8 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
                     size="sm"
                     variant="ghost"
                     onClick={() => onEdit(trigger)}
-                    className={`h-8 w-8 p-0 transition-opacity ${
-                      trigger.is_active ? "" : "opacity-70"
-                    }`}
+                    className={`h-8 w-8 p-0 transition-opacity ${trigger.is_active ? "" : "opacity-70"
+                      }`}
                     disabled={isLoading}
                   >
                     <Edit className="h-4 w-4" />
@@ -185,16 +177,15 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
                   <p>Edit trigger</p>
                 </TooltipContent>
               </Tooltip>
-              
+
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => handleDeleteClick(trigger)}
-                    className={`h-8 w-8 p-0 text-destructive hover:text-destructive transition-opacity ${
-                      trigger.is_active ? "" : "opacity-70"
-                    }`}
+                    className={`h-8 w-8 p-0 text-destructive hover:text-destructive transition-opacity ${trigger.is_active ? "" : "opacity-70"
+                      }`}
                     disabled={isLoading}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -208,7 +199,7 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
           </div>
         ))}
       </div>
-      
+
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
