@@ -126,10 +126,20 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                         "description": "Video quality setting",
                         "default": "medium"
                     },
+                    "async_polling": {
+                        "type": "boolean",
+                        "description": "Use smart async polling - starts generation, polls every 10 seconds, returns final video when ready",
+                        "default": True
+                    },
                     "wait_for_completion": {
                         "type": "boolean", 
-                        "description": "Whether to wait for video generation to complete before returning. Set to false for faster response.",
+                        "description": "Whether to wait for video generation to complete before returning (blocking approach)",
                         "default": False
+                    },
+                    "max_wait_time": {
+                        "type": "integer",
+                        "description": "Maximum time in seconds to wait for video completion (only when wait_for_completion is true)",
+                        "default": 90
                     }
                 },
                 "required": ["text"]
@@ -156,7 +166,9 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         video_title: str = "Avatar Video",
         background_color: str = "#ffffff",
         video_quality: str = "medium",
-        wait_for_completion: bool = False
+        async_polling: bool = True,
+        wait_for_completion: bool = False,
+        max_wait_time: int = 90
     ) -> ToolResult:
         """Generate a downloadable MP4 video with an avatar speaking the provided text."""
         try:
@@ -222,9 +234,13 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 
                 logger.info(f"Video generation started with ID: {video_id}")
                 
-                if wait_for_completion:
-                    # Poll for completion and download when ready
-                    video_url = await self._wait_for_video_completion(video_id)
+                # Smart async polling approach
+                if async_polling:
+                    return await self._async_poll_and_download(video_id, video_title, text, avatar_id, voice_id, max_wait_time)
+                    
+                elif wait_for_completion:
+                    # Traditional blocking approach 
+                    video_url = await self._wait_for_video_completion(video_id, max_wait_time)
                     if video_url:
                         download_path = await self._download_video(video_url, video_title, video_id)
                         if download_path:
@@ -246,6 +262,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                     else:
                         return self.fail_response("Video generation timed out or failed")
                 else:
+                    # Quick return approach
                     return self.success_response(
                         f"🎬 Avatar video generation started successfully!\n\n"
                         f"Video ID: {video_id}\n"
@@ -667,6 +684,110 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
             return self.fail_response(f"Failed to close avatar session cleanly: {str(e)}")
 
     # Helper methods
+
+    async def _async_poll_and_download(
+        self, 
+        video_id: str, 
+        video_title: str, 
+        text: str, 
+        avatar_id: str, 
+        voice_id: str, 
+        max_wait_time: int = 90
+    ) -> ToolResult:
+        """Smart async polling: starts generation, polls with progress updates, returns final video."""
+        logger.info(f"Starting smart async polling for video {video_id}")
+        
+        # Initial response - let user know we're processing
+        await self.thread_manager.add_message({
+            "role": "assistant",
+            "content": f"🎬 **Video generation in progress...**\n\n"
+                      f"Video ID: `{video_id}`\n"
+                      f"Text: \"{text}\"\n"
+                      f"Avatar: {avatar_id}\n\n"
+                      f"⏳ Starting HeyGen processing... This typically takes 30-60 seconds."
+        })
+        
+        start_time = asyncio.get_event_loop().time()
+        check_count = 0
+        
+        while (asyncio.get_event_loop().time() - start_time) < max_wait_time:
+            try:
+                check_count += 1
+                
+                # Check video status
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        f"{self.heygen_base_url}/v1/video_status.get?video_id={video_id}",
+                        headers=self._get_heygen_headers(),
+                        timeout=15.0
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        status = result.get("data", {}).get("status")
+                        video_url = result.get("data", {}).get("video_url")
+                        
+                        if status == "completed" and video_url:
+                            # Video is ready! Download it
+                            logger.info(f"Video {video_id} completed, downloading...")
+                            
+                            await self.thread_manager.add_message({
+                                "role": "assistant", 
+                                "content": f"✅ **Video completed!** Downloading now..."
+                            })
+                            
+                            download_path = await self._download_video(video_url, video_title, video_id)
+                            if download_path:
+                                # Save metadata
+                                await self._save_video_metadata(video_id, video_title, text, avatar_id, voice_id, download_path)
+                                
+                                logger.info(f"Successfully downloaded video: {download_path}")
+                                return self.success_response(
+                                    f"🎉 **Avatar video completed and downloaded!**\n\n"
+                                    f"📁 **File:** `{download_path}`\n"
+                                    f"🎬 **Video ID:** `{video_id}`\n"
+                                    f"📝 **Text:** \"{text}\"\n"
+                                    f"👤 **Avatar:** {avatar_id}\n"
+                                    f"⏱️ **Processing time:** {int(asyncio.get_event_loop().time() - start_time)} seconds\n\n"
+                                    f"Your video is ready for download from the sandbox!",
+                                    attachments=[download_path]
+                                )
+                            else:
+                                logger.error(f"Video {video_id} completed but download failed")
+                                return self.fail_response("Video completed successfully but failed to download to sandbox")
+                                
+                        elif status == "failed":
+                            logger.error(f"Video {video_id} generation failed")
+                            return self.fail_response(f"HeyGen video generation failed for video ID: {video_id}")
+                            
+                        else:
+                            # Still processing - give progress update every few checks
+                            elapsed = int(asyncio.get_event_loop().time() - start_time)
+                            if check_count % 3 == 0:  # Every 3rd check (roughly every 30 seconds)
+                                await self.thread_manager.add_message({
+                                    "role": "assistant",
+                                    "content": f"⏳ Still processing... ({elapsed}s elapsed, status: {status})"
+                                })
+                            
+                            logger.info(f"Video {video_id} status: {status}, elapsed: {elapsed}s")
+                            
+            except Exception as e:
+                logger.error(f"Error polling video status: {e}")
+            
+            # Smart polling intervals: start fast, then slow down
+            if check_count <= 3:
+                await asyncio.sleep(8)   # First 3 checks: every 8 seconds  
+            elif check_count <= 8:
+                await asyncio.sleep(12)  # Next 5 checks: every 12 seconds
+            else:
+                await asyncio.sleep(15)  # After that: every 15 seconds
+        
+        # Timeout reached
+        logger.warning(f"Video {video_id} timed out after {max_wait_time} seconds")
+        return self.fail_response(
+            f"Video generation timed out after {max_wait_time} seconds. "
+            f"Video ID: {video_id} - you can check status manually later."
+        )
 
     async def _wait_for_video_completion(self, video_id: str, max_wait_time: int = 300) -> Optional[str]:
         """Wait for video generation to complete and return the video URL."""
