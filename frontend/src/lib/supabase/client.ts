@@ -15,15 +15,19 @@ export function createClient(): SupabaseClient | null {
   
   try {
     const client = createBrowserClient(url, key);
-    // Only log if there's an issue
+    
     if (!client) {
       console.error('❌ createBrowserClient returned null/undefined');
       return null;
     }
+    
     if (!client.auth) {
-      console.error('❌ Supabase client missing auth module');
+      console.error('❌ Supabase client missing auth module', { 
+        clientKeys: Object.keys(client)
+      });
       return null;
     }
+    
     return client;
   } catch (error) {
     console.error('❌ CRITICAL: Error creating Supabase client:', error);
