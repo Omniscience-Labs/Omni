@@ -78,7 +78,7 @@ export const useDeleteMultipleThreads = () =>
     }: { 
       threadIds: string[]; 
       threadSandboxMap?: Record<string, string>;
-      onProgress?: (progress: { completed: number; total: number }) => void;
+      onProgress?: (completed: number, total: number) => void;
     }) => {
       const total = threadIds.length;
       let completed = 0;
@@ -87,7 +87,7 @@ export const useDeleteMultipleThreads = () =>
         const sandboxId = threadSandboxMap?.[threadId];
         await deleteThread(threadId, sandboxId);
         completed++;
-        onProgress?.({ completed, total });
+        onProgress?.(completed, total);
       });
       
       await Promise.all(deletePromises);
