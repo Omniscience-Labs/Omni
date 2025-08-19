@@ -232,7 +232,7 @@ export type WorkflowEdge = {
 };
 
 // Project APIs
-export const getProjects = async (): Promise<Project[]> => {
+export const getProjects = async (accountId?: string): Promise<Project[]> => {
   try {
     const supabase = createClient();
 
@@ -248,12 +248,14 @@ export const getProjects = async (): Promise<Project[]> => {
       return [];
     }
 
-      // Query projects where account_id matches the user's personal account
-  // Note: Project filtering should be handled at the component level using useCurrentAccount
-  const { data, error } = await supabase
-    .from('projects')
-    .select('*')
-    .eq('account_id', userData.user.id);
+    // Use provided accountId or fall back to user's personal account ID
+    const effectiveAccountId = accountId || userData.user.id;
+
+    // Query projects where account_id matches the effective account ID
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('account_id', effectiveAccountId);
 
     if (error) {
       // Handle permission errors specifically
