@@ -82,16 +82,25 @@ export const useDeleteMultipleThreads = () =>
     }) => {
       const total = threadIds.length;
       let completed = 0;
+      const successful: string[] = [];
+      const failed: string[] = [];
 
       const deletePromises = threadIds.map(async (threadId) => {
-        const sandboxId = threadSandboxMap?.[threadId];
-        await deleteThread(threadId, sandboxId);
-        completed++;
-        onProgress?.(completed, total);
+        try {
+          const sandboxId = threadSandboxMap?.[threadId];
+          await deleteThread(threadId, sandboxId);
+          successful.push(threadId);
+        } catch (error) {
+          console.error(`Failed to delete thread ${threadId}:`, error);
+          failed.push(threadId);
+        } finally {
+          completed++;
+          onProgress?.(completed, total);
+        }
       });
       
       await Promise.all(deletePromises);
-      return { deletedCount: threadIds.length };
+      return { successful, failed, deletedCount: successful.length };
     },
     {
       errorContext: {
