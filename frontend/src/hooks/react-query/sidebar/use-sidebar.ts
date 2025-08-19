@@ -56,8 +56,8 @@ export const processThreadsWithProjects = (threads: Thread[], projects: Project[
 };
 
 // Hook for deleting a single thread
-export const useDeleteThread = () => {
-  return createMutationHook(
+export const useDeleteThread = () => 
+  createMutationHook(
     ({ threadId, sandboxId }: { threadId: string; sandboxId?: string }) => 
       deleteThread(threadId, sandboxId),
     {
@@ -66,12 +66,11 @@ export const useDeleteThread = () => {
         resource: 'thread'
       }
     }
-  );
-};
+  )();
 
 // Hook for deleting multiple threads
-export const useDeleteMultipleThreads = () => {
-  return createMutationHook(
+export const useDeleteMultipleThreads = () => 
+  createMutationHook(
     async ({ threadIds }: { threadIds: string[] }) => {
       const deletePromises = threadIds.map(threadId => deleteThread(threadId));
       await Promise.all(deletePromises);
@@ -83,5 +82,4 @@ export const useDeleteMultipleThreads = () => {
         resource: 'threads'
       }
     }
-  );
-};
+  )();
