@@ -22,7 +22,7 @@ from agent.prompt import get_system_prompt
 
 from utils.logger import logger
 from utils.auth_utils import get_account_id_from_thread
-from services.billing import check_billing_status
+from services.billing import check_billing_status, calculate_token_cost, handle_usage_with_credits
 from agent.tools.sb_vision_tool import SandboxVisionTool
 from agent.tools.sb_image_edit_tool import SandboxImageEditTool
 from agent.tools.sb_presentation_outline_tool import SandboxPresentationOutlineTool
@@ -46,7 +46,7 @@ class AgentConfig:
     stream: bool
     native_max_auto_continues: int = 25
     max_iterations: int = 100
-    model_name: str = "openrouter/moonshotai/kimi-k2"
+    model_name: str = "openai/gpt-5-mini"
     enable_thinking: Optional[bool] = False
     reasoning_effort: Optional[str] = 'low'
     enable_context_manager: bool = True
@@ -438,6 +438,53 @@ class AgentRunner:
     def __init__(self, config: AgentConfig):
         self.config = config
     
+    async def handle_assistant_response_end(self, thread_id: str, message_id: str, content: dict, client):
+        """Handle billing/credit deduction for assistant response end messages.
+        
+        This ensures 100% traceability by linking deductions to specific messages.
+        """
+        try:
+            if not isinstance(content, dict):
+                logger.debug(f"Skipping billing for message {message_id}: content is not a dict")
+                return
+            
+            usage = content.get("usage", {})
+            if not usage:
+                logger.debug(f"Skipping billing for message {message_id}: no usage data")
+                return
+            
+            prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
+            completion_tokens = int(usage.get("completion_tokens", 0) or 0)
+            model = content.get("model")
+            
+            if prompt_tokens == 0 and completion_tokens == 0:
+                logger.debug(f"Skipping billing for message {message_id}: zero tokens")
+                return
+            
+            # Calculate token cost
+            token_cost = calculate_token_cost(prompt_tokens, completion_tokens, model or "unknown")
+            
+            # Get account_id for this thread (equals user_id for personal accounts)
+            thread_row = await client.table('threads').select('account_id').eq('thread_id', thread_id).limit(1).execute()
+            user_id = thread_row.data[0]['account_id'] if thread_row.data and len(thread_row.data) > 0 else None
+            
+            if user_id and token_cost > 0:
+                # Deduct credits if applicable and record usage against this specific message
+                await handle_usage_with_credits(
+                    client,
+                    user_id,
+                    token_cost,
+                    thread_id=thread_id,
+                    message_id=message_id,
+                    model=model or "unknown"
+                )
+                logger.debug(f"💰 Processed billing for message {message_id}: {token_cost} credits (tokens: {prompt_tokens}+{completion_tokens}={prompt_tokens+completion_tokens})")
+            else:
+                logger.debug(f"Skipping billing for message {message_id}: user_id={user_id}, token_cost={token_cost}")
+                
+        except Exception as e:
+            logger.error(f"Error handling billing for message {message_id}: {str(e)}", exc_info=True)
+    
     async def setup(self):
         if not self.config.trace:
             self.config.trace = langfuse.trace(name="run_agent", session_id=self.config.thread_id, metadata={"project_id": self.config.project_id})
@@ -446,7 +493,8 @@ class AgentRunner:
             trace=self.config.trace, 
             is_agent_builder=self.config.is_agent_builder or False, 
             target_agent_id=self.config.target_agent_id, 
-            agent_config=self.config.agent_config
+            agent_config=self.config.agent_config,
+            on_assistant_response_end=self.handle_assistant_response_end
         )
         
         self.client = await self.thread_manager.db.client
@@ -738,7 +786,7 @@ async def run_agent(
     thread_manager: Optional[ThreadManager] = None,
     native_max_auto_continues: int = 25,
     max_iterations: int = 100,
-    model_name: str = "openrouter/moonshotai/kimi-k2",
+    model_name: str = "openai/gpt-5-mini",
     enable_thinking: Optional[bool] = False,
     reasoning_effort: Optional[str] = 'low',
     enable_context_manager: bool = True,
@@ -748,10 +796,10 @@ async def run_agent(
     target_agent_id: Optional[str] = None
 ):
     effective_model = model_name
-    if model_name == "openrouter/moonshotai/kimi-k2" and agent_config and agent_config.get('model'):
+    if model_name == "openai/gpt-5-mini" and agent_config and agent_config.get('model'):
         effective_model = agent_config['model']
         logger.debug(f"Using model from agent config: {effective_model} (no user selection)")
-    elif model_name != "openrouter/moonshotai/kimi-k2":
+    elif model_name != "openai/gpt-5-mini":
         logger.debug(f"Using user-selected model: {effective_model}")
     else:
         logger.debug(f"Using default model: {effective_model}")

@@ -8,7 +8,23 @@ import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-model'
 export const STORAGE_KEY_MODEL = 'suna-preferred-model-v3';
 export const STORAGE_KEY_CUSTOM_MODELS = 'customModels';
 export const DEFAULT_PREMIUM_MODEL_ID = 'claude-sonnet-4';
-export const DEFAULT_FREE_MODEL_ID = 'moonshotai/kimi-k2';
+export const DEFAULT_FREE_MODEL_ID = 'gpt-5-mini';
+
+// Helper to test localStorage functionality
+export const testLocalStorage = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const testKey = 'test-storage';
+    const testValue = 'test-value';
+    localStorage.setItem(testKey, testValue);
+    const retrieved = localStorage.getItem(testKey);
+    localStorage.removeItem(testKey);
+    return retrieved === testValue;
+  } catch (error) {
+    console.error('localStorage test failed:', error);
+    return false;
+  }
+};
 
 export type SubscriptionStatus = 'no_subscription' | 'active';
 
@@ -51,10 +67,16 @@ export const MODELS = {
   // },
 
   // Free tier models (available to all users)
-  'moonshotai/kimi-k2': { 
+  'gpt-5-mini': { 
     tier: 'free', 
     priority: 100,
     recommended: true,
+    lowQuality: false
+  },
+  'moonshotai/kimi-k2': { 
+    tier: 'free', 
+    priority: 90,
+    recommended: false,
     lowQuality: false
   },
   'grok-4': { 
@@ -87,12 +109,7 @@ export const MODELS = {
     recommended: false,
     lowQuality: false
   },
-  'gpt-5-mini': { 
-    tier: 'premium', 
-    priority: 98,
-    recommended: false,
-    lowQuality: false
-  },
+
   'gemini-2.5-flash:thinking': { 
     tier: 'premium', 
     priority: 84,
@@ -160,8 +177,9 @@ export const getCustomModels = (): CustomModel[] => {
 const saveModelPreference = (modelId: string): void => {
   try {
     localStorage.setItem(STORAGE_KEY_MODEL, modelId);
+    console.log('✅ useModelSelection: Saved model preference to localStorage:', modelId);
   } catch (error) {
-    console.warn('Failed to save model preference to localStorage:', error);
+    console.warn('❌ useModelSelection: Failed to save model preference to localStorage:', error);
   }
 };
 
@@ -201,7 +219,7 @@ export const useModelSelection = () => {
       models = [
         { 
           id: DEFAULT_FREE_MODEL_ID, 
-          label: 'DeepSeek', 
+          label: 'GPT-5 Mini', 
           requiresSubscription: false,
           priority: MODELS[DEFAULT_FREE_MODEL_ID]?.priority || 50
         },
@@ -295,46 +313,100 @@ export const useModelSelection = () => {
   // Initialize selected model from localStorage ONLY ONCE
   useEffect(() => {
     if (typeof window === 'undefined' || hasInitialized) return;
+    
+    console.log('🔧 useModelSelection: Initializing model selection...');
+    console.log('🔧 useModelSelection: isLoadingModels:', isLoadingModels);
+    console.log('🔧 useModelSelection: subscriptionStatus:', subscriptionStatus);
+    console.log('🔧 useModelSelection: localStorage test passed:', testLocalStorage());
+    
     try {
       const savedModel = localStorage.getItem(STORAGE_KEY_MODEL);
+      console.log('🔧 useModelSelection: Saved model from localStorage:', savedModel);
       
       // If we have a saved model, validate it's still available and accessible
       if (savedModel) {
         // Wait for models to load before validating
         if (isLoadingModels) {
+          console.log('🔧 useModelSelection: Models still loading, waiting...');
           return;
         }
         
+        console.log('🔧 useModelSelection: Available MODEL_OPTIONS:', MODEL_OPTIONS.map(m => ({ id: m.id, requiresSubscription: m.requiresSubscription })));
+        
         const modelOption = MODEL_OPTIONS.find(option => option.id === savedModel);
         const isCustomModel = isLocalMode() && customModels.some(model => model.id === savedModel);
+        
+        console.log('🔧 useModelSelection: modelOption found:', modelOption);
+        console.log('🔧 useModelSelection: isCustomModel:', isCustomModel);
         
         // Check if saved model is still valid and accessible
         if (modelOption || isCustomModel) {
           const isAccessible = isLocalMode() || 
             canAccessModel(subscriptionStatus, modelOption?.requiresSubscription ?? false);
           
+          console.log('🔧 useModelSelection: isAccessible:', isAccessible);
+          
           if (isAccessible) {
+            console.log('✅ useModelSelection: Using saved model:', savedModel);
             setSelectedModel(savedModel);
             setHasInitialized(true);
             return;
+          } else {
+            console.warn('⚠️ useModelSelection: Saved model not accessible with current subscription');
           }
+        } else {
+          console.warn('⚠️ useModelSelection: Saved model not found in available options');
         }
       }
       
       // Fallback to default model
       const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+      console.log('🔧 useModelSelection: Using default model:', defaultModel);
+      console.log('🔧 useModelSelection: Subscription status:', subscriptionStatus, '-> Default:', subscriptionStatus === 'active' ? 'PREMIUM (Claude Sonnet 4)' : 'FREE (GPT-5 Mini)');
       setSelectedModel(defaultModel);
       saveModelPreference(defaultModel);
       setHasInitialized(true);
       
     } catch (error) {
-      console.warn('Failed to load preferences from localStorage:', error);
+      console.warn('❌ useModelSelection: Failed to load preferences from localStorage:', error);
       const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+      console.log('🔧 useModelSelection: Using fallback default model:', defaultModel);
+      console.log('🔧 useModelSelection: Subscription status:', subscriptionStatus, '-> Fallback:', subscriptionStatus === 'active' ? 'PREMIUM (Claude Sonnet 4)' : 'FREE (GPT-5 Mini)');
       setSelectedModel(defaultModel);
       saveModelPreference(defaultModel);
       setHasInitialized(true);
     }
-  }, [subscriptionStatus, MODEL_OPTIONS, isLoadingModels, customModels, hasInitialized]);
+  }, [subscriptionStatus, isLoadingModels, hasInitialized]);
+
+  // Re-validate current model when subscription status changes
+  useEffect(() => {
+    if (!hasInitialized || typeof window === 'undefined') return;
+    
+    console.log('🔧 useModelSelection: Subscription status changed, re-validating current model...');
+    console.log('🔧 useModelSelection: Current selected model:', selectedModel);
+    console.log('🔧 useModelSelection: New subscription status:', subscriptionStatus);
+    
+    // Skip validation if models are still loading
+    if (isLoadingModels) return;
+    
+    // Check if current model is still accessible
+    const modelOption = MODEL_OPTIONS.find(option => option.id === selectedModel);
+    const isCustomModel = isLocalMode() && customModels.some(model => model.id === selectedModel);
+    
+    if (modelOption && !isCustomModel && !isLocalMode()) {
+      const isAccessible = canAccessModel(subscriptionStatus, modelOption.requiresSubscription);
+      
+      if (!isAccessible) {
+        console.warn('⚠️ useModelSelection: Current model no longer accessible, switching to default');
+        const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+        console.log('🔧 useModelSelection: Subscription-based default switch:', subscriptionStatus === 'active' ? 'PREMIUM (Claude Sonnet 4)' : 'FREE (GPT-5 Mini)');
+        setSelectedModel(defaultModel);
+        saveModelPreference(defaultModel);
+      } else {
+        console.log('✅ useModelSelection: Current model still accessible');
+      }
+    }
+  }, [subscriptionStatus, selectedModel, hasInitialized, isLoadingModels]);
 
   // Handle model selection change
   const handleModelChange = (modelId: string) => {
@@ -374,9 +446,10 @@ export const useModelSelection = () => {
       return;
     }
     
-    console.log('🔧 useModelSelection: Setting model to:', modelId);
+    console.log('✅ useModelSelection: Setting model to:', modelId);
     setSelectedModel(modelId);
     saveModelPreference(modelId);
+    console.log('✅ useModelSelection: Model change completed successfully');
   };
 
   // Get the actual model ID to send to the backend
@@ -403,6 +476,18 @@ export const useModelSelection = () => {
     },
     isSubscriptionRequired: (modelId: string) => {
       return MODEL_OPTIONS.find(m => m.id === modelId)?.requiresSubscription || false;
+    },
+    // Debug utility to check current state
+    debugState: () => {
+      console.log('🔧 useModelSelection Debug State:');
+      console.log('  selectedModel:', selectedModel);
+      console.log('  hasInitialized:', hasInitialized);
+      console.log('  subscriptionStatus:', subscriptionStatus);
+      console.log('  isLoadingModels:', isLoadingModels);
+      console.log('  localStorage value:', localStorage.getItem(STORAGE_KEY_MODEL));
+      console.log('  localStorage test passes:', testLocalStorage());
+      console.log('  defaultModel would be:', subscriptionStatus === 'active' ? `${DEFAULT_PREMIUM_MODEL_ID} (Claude Sonnet 4)` : `${DEFAULT_FREE_MODEL_ID} (GPT-5 Mini)`);
+      console.log('  availableModels:', availableModels.map(m => ({ id: m.id, requiresSubscription: m.requiresSubscription })));
     }
   };
 };

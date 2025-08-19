@@ -84,7 +84,7 @@ export function AgentModelSelector({
   }, [customModels]);
   
   const normalizeModelId = (modelId?: string): string => {
-    if (!modelId) return isLocalMode() ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+    if (!modelId) return subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
     
     if (modelsData?.models) {
       const exactMatch = modelsData.models.find(m => m.short_name === modelId);
@@ -306,7 +306,7 @@ export function AgentModelSelector({
     setCustomModels(updatedCustomModels);
     
     if (selectedModel === modelId) {
-      const defaultModel = isLocalMode() ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+      const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
       onChange(defaultModel);
     }
   };

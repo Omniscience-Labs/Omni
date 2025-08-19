@@ -25,7 +25,7 @@ from utils.logger import logger
 from langfuse.client import StatefulGenerationClient, StatefulTraceClient
 from services.langfuse import langfuse
 from litellm.utils import token_counter
-from services.billing import calculate_token_cost, handle_usage_with_credits
+
 import re
 from datetime import datetime, timezone, timedelta
 import aiofiles
@@ -42,7 +42,7 @@ class ThreadManager:
     XML-based tool execution patterns.
     """
 
-    def __init__(self, trace: Optional[StatefulTraceClient] = None, is_agent_builder: bool = False, target_agent_id: Optional[str] = None, agent_config: Optional[dict] = None):
+    def __init__(self, trace: Optional[StatefulTraceClient] = None, is_agent_builder: bool = False, target_agent_id: Optional[str] = None, agent_config: Optional[dict] = None, on_assistant_response_end: Optional[callable] = None):
         """Initialize ThreadManager.
 
         Args:
@@ -50,6 +50,7 @@ class ThreadManager:
             is_agent_builder: Whether this is an agent builder session
             target_agent_id: ID of the agent being built (if in agent builder mode)
             agent_config: Optional agent configuration with version information
+            on_assistant_response_end: Optional callback for handling assistant response end events (e.g., billing)
         """
         self.db = DBConnection()
         self.tool_registry = ToolRegistry()
@@ -57,6 +58,7 @@ class ThreadManager:
         self.is_agent_builder = is_agent_builder
         self.target_agent_id = target_agent_id
         self.agent_config = agent_config
+        self.on_assistant_response_end = on_assistant_response_end
         if not self.trace:
             self.trace = langfuse.trace(name="anonymous:thread_manager")
         self.response_processor = ResponseProcessor(
@@ -174,30 +176,19 @@ class ThreadManager:
 
             if result.data and len(result.data) > 0 and isinstance(result.data[0], dict) and 'message_id' in result.data[0]:
                 saved_message = result.data[0]
-                # If this is an assistant_response_end, attempt to deduct credits if over limit
-                if type == "assistant_response_end" and isinstance(content, dict):
+                
+                # Trigger callback for assistant_response_end if callback is provided
+                if type == "assistant_response_end" and self.on_assistant_response_end:
                     try:
-                        usage = content.get("usage", {}) if isinstance(content, dict) else {}
-                        prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
-                        completion_tokens = int(usage.get("completion_tokens", 0) or 0)
-                        model = content.get("model") if isinstance(content, dict) else None
-                        # Compute token cost
-                        token_cost = calculate_token_cost(prompt_tokens, completion_tokens, model or "unknown")
-                        # Fetch account_id for this thread, which equals user_id for personal accounts
-                        thread_row = await client.table('threads').select('account_id').eq('thread_id', thread_id).limit(1).execute()
-                        user_id = thread_row.data[0]['account_id'] if thread_row.data and len(thread_row.data) > 0 else None
-                        if user_id and token_cost > 0:
-                            # Deduct credits if applicable and record usage against this message
-                            await handle_usage_with_credits(
-                                client,
-                                user_id,
-                                token_cost,
-                                thread_id=thread_id,
-                                message_id=saved_message['message_id'],
-                                model=model or "unknown"
-                            )
-                    except Exception as billing_e:
-                        logger.error(f"Error handling credit usage for message {saved_message.get('message_id')}: {str(billing_e)}", exc_info=True)
+                        await self.on_assistant_response_end(
+                            thread_id=thread_id,
+                            message_id=saved_message['message_id'],
+                            content=content,
+                            client=client
+                        )
+                    except Exception as callback_e:
+                        logger.error(f"Error in assistant_response_end callback: {str(callback_e)}", exc_info=True)
+                
                 return saved_message
             else:
                 logger.error(f"Insert operation failed or did not return expected data structure for thread {thread_id}. Result data: {result.data}")
