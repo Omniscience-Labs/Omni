@@ -152,7 +152,10 @@ export function DashboardContent() {
       if (typeof window !== 'undefined') {
         const teamContextStr = localStorage.getItem('currentTeamId');
         if (teamContextStr) {
+          console.log('🏢 Creating chat with team context:', teamContextStr);
           formData.append('account_id', teamContextStr);
+        } else {
+          console.log('👤 Creating chat with personal context');
         }
       }
 

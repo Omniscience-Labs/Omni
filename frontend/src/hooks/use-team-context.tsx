@@ -48,11 +48,18 @@ export function TeamContextProvider({ children }: { children: ReactNode }) {
       const pathSegments = pathname.split('/').filter(Boolean);
       const firstSegment = pathSegments[0];
       
-      // Check if we're in a team context
-      const nonTeamRoutes = ['dashboard', 'agents', 'chat', 'settings', 'auth', 'legal', 'monitoring', 'share', 'invitation', 'api'];
+      // Routes that should clear team context (auth flows, etc.)
+      const clearContextRoutes = ['auth', 'legal', 'monitoring', 'share', 'invitation', 'api'];
+      // Routes that can work with team context (preserve existing context)
+      const globalRoutes = ['dashboard', 'agents', 'chat', 'settings'];
       
-      if (firstSegment && !nonTeamRoutes.includes(firstSegment)) {
-        // Potential team route - verify it's a valid team
+      if (clearContextRoutes.includes(firstSegment)) {
+        // Clear team context for auth/system routes
+        console.log('🔄 Clearing team context for system route:', firstSegment);
+        setCurrentTeam(null);
+        localStorage.removeItem('currentTeamId');
+      } else if (firstSegment && !globalRoutes.includes(firstSegment)) {
+        // Potential team-specific route - verify it's a valid team
         const team = accounts.find(a => !a.personal_account && a.slug === firstSegment);
         
         if (team) {
@@ -65,17 +72,62 @@ export function TeamContextProvider({ children }: { children: ReactNode }) {
             created_at: team.created_at instanceof Date ? team.created_at.toISOString() : String(team.created_at),
             account_role: team.role
           };
+          console.log('🏢 Setting team context from URL:', team.name, team.account_id);
           setCurrentTeam(teamAccount);
           localStorage.setItem('currentTeamId', team.account_id);
         } else {
-          // Invalid team slug, clear context
-          setCurrentTeam(null);
-          localStorage.removeItem('currentTeamId');
+          // Invalid team slug, fallback to preserved context or clear
+          const savedTeamId = localStorage.getItem('currentTeamId');
+          if (savedTeamId) {
+            // Try to restore team from saved context
+            const savedTeam = accounts.find(a => a.account_id === savedTeamId);
+            if (savedTeam) {
+              const teamAccount: TeamAccount = {
+                account_id: savedTeam.account_id,
+                name: savedTeam.name,
+                slug: savedTeam.slug,
+                personal_account: savedTeam.personal_account,
+                created_at: savedTeam.created_at instanceof Date ? savedTeam.created_at.toISOString() : String(savedTeam.created_at),
+                account_role: savedTeam.role
+              };
+              setCurrentTeam(teamAccount);
+            } else {
+              setCurrentTeam(null);
+              localStorage.removeItem('currentTeamId');
+            }
+          } else {
+            setCurrentTeam(null);
+          }
         }
       } else {
-        // Not in team context
-        setCurrentTeam(null);
-        localStorage.removeItem('currentTeamId');
+        // Global routes (/dashboard, /agents, etc.) - preserve existing team context
+        const savedTeamId = localStorage.getItem('currentTeamId');
+        console.log('🌐 Global route detected:', firstSegment || 'root', 'savedTeamId:', savedTeamId);
+        if (savedTeamId) {
+          // Restore team context from localStorage
+          const savedTeam = accounts.find(a => a.account_id === savedTeamId);
+          if (savedTeam) {
+            const teamAccount: TeamAccount = {
+              account_id: savedTeam.account_id,
+              name: savedTeam.name,
+              slug: savedTeam.slug,
+              personal_account: savedTeam.personal_account,
+              created_at: savedTeam.created_at instanceof Date ? savedTeam.created_at.toISOString() : String(savedTeam.created_at),
+              account_role: savedTeam.role
+            };
+            console.log('🏢 Restoring team context from localStorage:', savedTeam.name);
+            setCurrentTeam(teamAccount);
+          } else {
+            // Saved team no longer exists, clear context
+            console.log('❌ Saved team no longer exists, clearing context');
+            setCurrentTeam(null);
+            localStorage.removeItem('currentTeamId');
+          }
+        } else {
+          // No saved context, clear current team
+          console.log('👤 No saved team context, using personal context');
+          setCurrentTeam(null);
+        }
       }
     } catch (error) {
       console.error('Error loading team context:', error);
