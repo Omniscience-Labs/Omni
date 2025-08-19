@@ -42,42 +42,66 @@ export function TeamAgents({ teamId, limit = 3 }: TeamAgentsProps) {
 
       if (teamError) throw teamError;
 
-      // Get agents shared with the team
-      const { data: sharedAgents, error: sharedError } = await supabase
-        .from('team_agents')
-        .select(`
-          agent_id,
-          agents!inner(
+      // Get agents shared with the team (if table exists)
+      let sharedAgents: any[] = [];
+      try {
+        const { data, error } = await supabase
+          .from('team_agents')
+          .select(`
             agent_id,
-            name,
-            description,
-            is_public,
-            created_at
-          )
-        `)
-        .eq('team_account_id', teamId)
-        .limit(Math.max(0, limit - (teamAgents?.length || 0)));
+            agents!inner(
+              agent_id,
+              name,
+              description,
+              is_public,
+              created_at
+            )
+          `)
+          .eq('team_account_id', teamId)
+          .limit(Math.max(0, limit - (teamAgents?.length || 0)));
+        
+        if (!error && data) {
+          sharedAgents = data.map((sa: any) => ({
+            agent_id: sa.agents.agent_id,
+            name: sa.agents.name,
+            description: sa.agents.description,
+            is_public: sa.agents.is_public,
+            created_at: sa.agents.created_at
+          }));
+        }
+      } catch (err) {
+        // Table might not exist yet, that's okay
+        console.log('team_agents table not available');
+      }
 
-      if (sharedError) throw sharedError;
-
-      // Combine and format agents
+      // Combine agents
       const allAgents = [
         ...(teamAgents || []),
-        ...(sharedAgents?.map(sa => sa.agents) || [])
+        ...sharedAgents
       ];
 
-      // Check visibility settings for each agent
+      // Check visibility settings for each agent (if table exists)
       const agentsWithVisibility = await Promise.all(
         allAgents.map(async (agent) => {
-          const { data: visibilityData } = await supabase
-            .from('agent_visibility_settings')
-            .select('visibility')
-            .eq('agent_id', agent.agent_id)
-            .single();
+          let visibility = agent.is_public ? 'public' : 'private';
+          
+          try {
+            const { data: visibilityData } = await supabase
+              .from('agent_visibility_settings')
+              .select('visibility')
+              .eq('agent_id', agent.agent_id)
+              .single();
+            
+            if (visibilityData?.visibility) {
+              visibility = visibilityData.visibility;
+            }
+          } catch (err) {
+            // Table might not exist yet, use default
+          }
 
           return {
             ...agent,
-            visibility: visibilityData?.visibility || (agent.is_public ? 'public' : 'private')
+            visibility
           };
         })
       );
