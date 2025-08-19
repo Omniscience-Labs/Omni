@@ -137,7 +137,14 @@ export function NavUserWithTeams({
   }, [accounts, activeTeam.account_id]);
 
   // Handle team selection with visual feedback  
-  const handleTeamSwitch = (team) => {
+  const handleTeamSwitch = (team: { 
+    account_id: string; 
+    name: string; 
+    slug: string; 
+    personal_account: boolean; 
+    logo?: any; 
+    plan?: string; 
+  }) => {
     console.log('Switching to:', team.personal_account ? 'Personal' : `Team: ${team.name}`);
     
     setSwitchingTeam(team.account_id);
@@ -288,7 +295,7 @@ export function NavUserWithTeams({
                     <DropdownMenuItem
                       key={team.account_id}
                       onClick={() =>
-                        handleTeamSelect({
+                        handleTeamSwitch({
                           name: team.name,
                           logo: AudioWaveform,
                           plan: 'Team',
