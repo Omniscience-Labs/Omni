@@ -126,12 +126,11 @@ class SandboxShellTool(SandboxToolsBase):
             session_exists = "not_exists" not in check_session.get("output", "")
             
             if not session_exists:
-                # Create a new tmux session
-                await self._execute_raw_command(f"tmux new-session -d -s {session_name}")
-                
-            # Ensure we're in the correct directory and send command to tmux
-            full_command = f"cd {cwd} && {command}"
-            wrapped_command = full_command.replace('"', '\\"')  # Escape double quotes
+                # Create a new tmux session with the specified working directory
+                await self._execute_raw_command(f"tmux new-session -d -s {session_name} -c {cwd}")
+            
+            # Escape double quotes for the command
+            wrapped_command = command.replace('"', '\\"')
             
             if blocking:
                 # For blocking execution, use a more reliable approach
@@ -141,7 +140,7 @@ class SandboxShellTool(SandboxToolsBase):
                 wrapped_completion_command = completion_command.replace('"', '\\"')
                 
                 # Send the command with completion marker
-                await self._execute_raw_command(f'tmux send-keys -t {session_name} "cd {cwd} && {wrapped_completion_command}" Enter')
+                await self._execute_raw_command(f'tmux send-keys -t {session_name} "{wrapped_completion_command}" Enter')
                 
                 start_time = time.time()
                 final_output = ""
