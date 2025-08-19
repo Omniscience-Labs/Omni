@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { PricingSection } from '@/components/home/sections/pricing-section';
+import { CreditBalanceDisplay, CreditPurchaseModal } from '@/components/billing/credit-purchase';
 import { isLocalMode } from '@/lib/config';
 import {
     getSubscription,
@@ -32,6 +33,7 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isManaging, setIsManaging] = useState(false);
+    const [showCreditPurchaseModal, setShowCreditPurchaseModal] = useState(false);
 
     useEffect(() => {
         async function fetchSubscription() {
@@ -141,6 +143,17 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
                             </div>
                         )}
 
+                        {/* Credit Balance Display - Only show for users who can purchase credits */}
+                        {subscriptionData?.can_purchase_credits && (
+                            <div className="mb-6">
+                                <CreditBalanceDisplay 
+                                    balance={subscriptionData.credit_balance || 0}
+                                    canPurchase={subscriptionData.can_purchase_credits}
+                                    onPurchaseClick={() => setShowCreditPurchaseModal(true)}
+                                />
+                            </div>
+                        )}
+
                         <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} />
 
                         {subscriptionData && (
@@ -155,6 +168,19 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
                     </>
                 )}
             </DialogContent>
+            
+            {/* Credit Purchase Modal */}
+            <CreditPurchaseModal
+                open={showCreditPurchaseModal}
+                onOpenChange={setShowCreditPurchaseModal}
+                currentBalance={subscriptionData?.credit_balance || 0}
+                canPurchase={subscriptionData?.can_purchase_credits || false}
+                onPurchaseComplete={() => {
+                    // Refresh subscription data
+                    getSubscription().then(setSubscriptionData);
+                    setShowCreditPurchaseModal(false);
+                }}
+            />
         </Dialog>
     );
 } 

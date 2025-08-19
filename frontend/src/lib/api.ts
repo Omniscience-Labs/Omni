@@ -1601,6 +1601,9 @@ export interface SubscriptionStatus {
     cancel_at_period_end: boolean;
     current_period_end: number; // timestamp
   };
+  // Credit information
+  credit_balance?: number;
+  can_purchase_credits?: boolean;
 }
 
 export interface CommitmentInfo {
@@ -1668,8 +1671,12 @@ export interface UsageLogEntry {
     model: string;
   };
   total_tokens: number;
-  estimated_cost: number;
+  estimated_cost: number | string;
   project_id: string;
+  // Credit usage fields
+  credit_used?: number;
+  payment_method?: 'credits' | 'subscription';
+  was_over_limit?: boolean;
 }
 
 // Usage logs response interface
@@ -1677,6 +1684,8 @@ export interface UsageLogsResponse {
   logs: UsageLogEntry[];
   has_more: boolean;
   message?: string;
+  subscription_limit?: number;
+  cumulative_cost?: number;
 }
 
 export interface BillingStatusResponse {
