@@ -3,6 +3,25 @@ import { isFlagEnabled } from "@/lib/feature-flags";
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
+// Helper function to safely get authenticated session
+const getAuthenticatedSession = async () => {
+  const supabase = createClient();
+  
+  if (!supabase || !supabase.auth) {
+    console.error('❌ Supabase client unavailable');
+    throw new Error('Authentication system unavailable');
+  }
+  
+  const sessionResult = await supabase.auth.getSession();
+  const session = sessionResult?.data?.session;
+  
+  if (!session) {
+    throw new Error('You must be logged in');
+  }
+  
+  return session;
+};
+
 export type Agent = {
   agent_id: string;
   account_id: string;
@@ -161,12 +180,7 @@ export const getAgents = async (params: AgentsParams = {}): Promise<AgentsRespon
     if (!agentPlaygroundEnabled) {
       throw new Error('Custom agents is not enabled');
     }
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new Error('You must be logged in to get agents');
-    }
+    const session = await getAuthenticatedSession();
 
     const queryParams = new URLSearchParams();
     if (params.page) queryParams.append('page', params.page.toString());
@@ -216,12 +230,7 @@ export const getAgent = async (agentId: string): Promise<Agent> => {
     if (!agentPlaygroundEnabled) {
       throw new Error('Custom agents is not enabled');
     }
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new Error('You must be logged in to get agent details');
-    }
+    const session = await getAuthenticatedSession();
 
     const response = await fetch(`${API_URL}/agents/${agentId}`, {
       method: 'GET',
@@ -250,12 +259,7 @@ export const createAgent = async (agentData: AgentCreateRequest): Promise<Agent>
     if (!agentPlaygroundEnabled) {
       throw new Error('Custom agents is not enabled');
     }
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new Error('You must be logged in to create an agent');
-    }
+    const session = await getAuthenticatedSession();
 
     const response = await fetch(`${API_URL}/agents`, {
       method: 'POST',
@@ -296,12 +300,7 @@ export const updateAgent = async (agentId: string, agentData: AgentUpdateRequest
     if (!agentPlaygroundEnabled) {
       throw new Error('Custom agents is not enabled');
     }
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new Error('You must be logged in to update an agent');
-    }
+    const session = await getAuthenticatedSession();
 
     const response = await fetch(`${API_URL}/agents/${agentId}`, {
       method: 'PUT',
@@ -331,12 +330,7 @@ export const deleteAgent = async (agentId: string): Promise<void> => {
     if (!agentPlaygroundEnabled) {
       throw new Error('Custom agents is not enabled');
     }
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new Error('You must be logged in to delete an agent');
-    }
+    const session = await getAuthenticatedSession();
 
     const response = await fetch(`${API_URL}/agents/${agentId}`, {
       method: 'DELETE',
@@ -362,12 +356,7 @@ export const getThreadAgent = async (threadId: string): Promise<ThreadAgentRespo
     if (!agentPlaygroundEnabled) {
       throw new Error('Custom agents is not enabled');
     }
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new Error('You must be logged in to get thread agent');
-    }
+    const session = await getAuthenticatedSession();
 
     const response = await fetch(`${API_URL}/thread/${threadId}/agent`, {
       method: 'GET',
@@ -396,12 +385,7 @@ export const getAgentBuilderChatHistory = async (agentId: string): Promise<{mess
     if (!agentPlaygroundEnabled) {
       throw new Error('Custom agents is not enabled');
     }
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new Error('You must be logged in to get agent builder chat history');
-    }
+    const session = await getAuthenticatedSession();
 
     const response = await fetch(`${API_URL}/agents/${agentId}/builder-chat-history`, {
       method: 'GET',
@@ -464,12 +448,7 @@ export const startAgentBuilderChat = async (
     if (!agentPlaygroundEnabled) {
       throw new Error('Custom agents is not enabled');
     }
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new Error('You must be logged in to use the agent builder');
-    }
+    const session = await getAuthenticatedSession();
 
     const response = await fetch(`${API_URL}/agents/builder/chat/${request.agent_id}`, {
       method: 'POST',
@@ -532,12 +511,7 @@ export const getAgentVersions = async (agentId: string): Promise<AgentVersion[]>
     if (!agentPlaygroundEnabled) {
       throw new Error('Custom agents is not enabled');
     }
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new Error('You must be logged in to get agent versions');
-    }
+    const session = await getAuthenticatedSession();
 
     const response = await fetch(`${API_URL}/agents/${agentId}/versions`, {
       headers: {
@@ -567,12 +541,7 @@ export const createAgentVersion = async (
     if (!agentPlaygroundEnabled) {
       throw new Error('Custom agents is not enabled');
     }
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new Error('You must be logged in to create agent version');
-    }
+    const session = await getAuthenticatedSession();
 
     const response = await fetch(`${API_URL}/agents/${agentId}/versions`, {
       method: 'POST',
@@ -605,12 +574,7 @@ export const activateAgentVersion = async (
     if (!agentPlaygroundEnabled) {
       throw new Error('Custom agents is not enabled');
     }
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new Error('You must be logged in to activate agent version');
-    }
+    const session = await getAuthenticatedSession();
 
     const response = await fetch(
       `${API_URL}/agents/${agentId}/versions/${versionId}/activate`,
@@ -641,12 +605,7 @@ export const getAgentVersion = async (
     if (!agentPlaygroundEnabled) {
       throw new Error('Custom agents is not enabled');
     }
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new Error('You must be logged in to get agent version');
-    }
+    const session = await getAuthenticatedSession();
 
     const response = await fetch(
       `${API_URL}/agents/${agentId}/versions/${versionId}`,
