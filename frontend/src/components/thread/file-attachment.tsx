@@ -156,6 +156,7 @@ interface FileAttachmentProps {
      */
     collapsed?: boolean;
     project?: Project;
+    isSingleItemGrid?: boolean; // New prop to detect single item in grid
 }
 
 // Cache fetched content between mounts to avoid duplicate fetches
@@ -172,7 +173,8 @@ export function FileAttachment({
     localPreviewUrl,
     customStyle,
     collapsed = true,
-    project
+    project,
+    isSingleItemGrid = false
 }: FileAttachmentProps) {
     // Authentication 
     const { session } = useAuth();
@@ -265,7 +267,8 @@ export function FileAttachment({
                     )}
                     style={{
                         maxWidth: "100%",
-                        height: isGridLayout ? imageHeight : 'auto',
+                        height: isSingleItemGrid && isGridLayout ? 'auto' : (isGridLayout ? imageHeight : 'auto'),
+                        maxHeight: isSingleItemGrid && isGridLayout ? '800px' : undefined,
                         ...customStyle
                     }}
                     title={filename}
@@ -291,7 +294,8 @@ export function FileAttachment({
                     )}
                     style={{
                         maxWidth: "100%",
-                        height: isGridLayout ? imageHeight : 'auto',
+                        height: isSingleItemGrid && isGridLayout ? 'auto' : (isGridLayout ? imageHeight : 'auto'),
+                        maxHeight: isSingleItemGrid && isGridLayout ? '800px' : undefined,
                         ...customStyle
                     }}
                     title={filename}
@@ -316,7 +320,8 @@ export function FileAttachment({
                 )}
                 style={{
                     maxWidth: "100%", // Ensure doesn't exceed container width
-                    height: isGridLayout ? imageHeight : 'auto',
+                    height: isSingleItemGrid && isGridLayout ? 'auto' : (isGridLayout ? imageHeight : 'auto'),
+                    maxHeight: isSingleItemGrid && isGridLayout ? '800px' : undefined,
                     ...customStyle
                 }}
                 title={filename}
@@ -325,13 +330,13 @@ export function FileAttachment({
                     src={sandboxId && session?.access_token ? imageUrl : (fileUrl || '')}
                     alt={filename}
                     className={cn(
-                        "max-h-full", // Respect parent height constraint
-                        isGridLayout ? "w-full h-full object-cover" : "w-auto" // Full width & height in grid with object-cover
+                        "max-h-full max-w-full", // Respect parent constraints
+                        isSingleItemGrid ? "object-contain" : isGridLayout ? "w-full h-full object-cover" : "w-auto"
                     )}
                     style={{
-                        height: imageHeight,
+                        height: isSingleItemGrid ? 'auto' : imageHeight,
                         objectPosition: "center",
-                        objectFit: isGridLayout ? "cover" : "contain"
+                        objectFit: isSingleItemGrid ? "contain" : isGridLayout ? "cover" : "contain"
                     }}
                     onLoad={() => {
                     }}
@@ -400,19 +405,28 @@ export function FileAttachment({
                     "border",
                     "bg-card",
                     "overflow-hidden",
-                    isPdf ? "h-[500px]" : "h-[300px]",
+                    isPdf ? "!min-h-[200px] sm:min-h-0 sm:h-[400px] max-h-[500px]  sm:!min-w-[300px]" : "h-[300px]",
                     "pt-10", // Room for header
                     className
                 )}
                 style={{
                     gridColumn: "1 / -1", // Make it take full width in grid
                     width: "100%",        // Ensure full width
+                    minWidth: 0,          // Prevent flex shrinking issues
                     ...customStyle
                 }}
                 onClick={hasError ? handleClick : undefined} // Make clickable if error
             >
                 {/* Content area */}
-                <div className="h-full w-full relative">
+                <div
+                    className="h-full w-full relative"
+                    style={{
+                        minWidth: 0,
+                        width: '100%',
+                        containIntrinsicSize: isPdf ? '100% 500px' : undefined,
+                        contain: isPdf ? 'layout size' : undefined
+                    }}
+                >
                     {/* Render PDF or text-based previews */}
                     {!hasError && (
                         <>

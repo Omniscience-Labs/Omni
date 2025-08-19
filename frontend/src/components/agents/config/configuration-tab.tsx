@@ -333,12 +333,12 @@ export function ConfigurationTab({
                 </div>
               </button>
               <div
-                className={`overflow-hidden transition-all duration-300 ease-out ${openAccordion === 'knowledge'
+                className={`transition-all duration-300 ease-out ${openAccordion === 'knowledge'
                   ? 'max-h-[600px] opacity-100'
                   : 'max-h-0 opacity-0'
                   }`}
               >
-                <div className="px-6 pb-6 pt-2">
+                <div className="px-6 pb-6 pt-2 overflow-y-auto max-h-[600px]">
                   <div className="pt-4">
                     <AgentKnowledgeBaseManager
                       agentId={agentId}
