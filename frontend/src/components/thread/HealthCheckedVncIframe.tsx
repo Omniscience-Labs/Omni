@@ -31,9 +31,9 @@ export function HealthCheckedVncIframe({ sandbox, className }: HealthCheckedVncI
   // VNC URL received but preloading in progress
   if (status === 'loading') {
     return (
-      <div className={`overflow-hidden m-2 sm:m-4 ${className || ''}`}>
+      <div className={`overflow-hidden m-2 sm:m-4 relative ${className || ''}`}>
         <Card className="p-0 overflow-hidden border">
-          <div className='flex flex-col items-center justify-center p-4 sm:p-8 bg-amber-50 dark:bg-amber-950/30'>
+          <div className='relative w-full aspect-[4/3] sm:aspect-[5/3] md:aspect-[16/11] overflow-hidden bg-amber-50 dark:bg-amber-950/30 flex flex-col items-center justify-center'>
             <Loader2 className="h-8 w-8 animate-spin text-amber-600 mb-3" />
             <p className="text-sm font-medium text-center mb-2">Connecting to browser...</p>
             <p className="text-xs text-muted-foreground mb-2 text-center">
@@ -53,9 +53,9 @@ export function HealthCheckedVncIframe({ sandbox, className }: HealthCheckedVncI
   // VNC preload failed after retries
   if (status === 'error') {
     return (
-      <div className={`overflow-hidden m-2 sm:m-4 ${className || ''}`}>
+      <div className={`overflow-hidden m-2 sm:m-4 relative ${className || ''}`}>
         <Card className="p-0 overflow-hidden border">
-          <div className='flex flex-col items-center justify-center p-4 sm:p-8 bg-destructive/10'>
+          <div className='relative w-full aspect-[4/3] sm:aspect-[5/3] md:aspect-[16/11] overflow-hidden bg-destructive/10 flex flex-col items-center justify-center'>
             <AlertCircle className="h-8 w-8 text-destructive mb-3" />
             <p className="text-sm font-medium text-center mb-2">Connection Failed</p>
             <p className="text-xs text-muted-foreground mb-4 text-center">

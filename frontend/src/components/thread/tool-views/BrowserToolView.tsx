@@ -8,7 +8,7 @@ import {
   CircleDashed,
   RefreshCw,
   Code2,
-  Eye,
+  ImageIcon,
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import {
@@ -240,7 +240,8 @@ export function BrowserToolView({
     if (matchingToolMessage) {
       const toolContent = safeJsonParse<ParsedContent>(matchingToolMessage.content, {});
         if (toolContent?.tool_execution?.result?.output) {
-          result = toolContent.tool_execution.result.output;
+          // result = toolContent.tool_execution.result.output;
+          result = Object.fromEntries(Object.entries(toolContent.tool_execution.result.output).filter(([k, v]) => k !== 'message_id')) as Record<string, string>;
         }
         if (toolContent?.tool_execution?.arguments) {
           parameters = toolContent.tool_execution.arguments;
@@ -344,7 +345,7 @@ export function BrowserToolView({
   };
 
   return (
-    <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card">
+    <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-scroll bg-card">
       <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
         <div className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
@@ -381,11 +382,11 @@ export function BrowserToolView({
               variant="ghost"
               size="sm"
               onClick={() => setShowContext(!showContext)}
-              className="h-7 p-2 hover:bg-muted rounded-xl"
-              title={showContext ? "Hide context" : "Show INPUT/OUTPUT context"}
+              className="h-7 w-7 hover:bg-muted rounded-xl"
+              title={showContext ? "Show screenshot" : "Show INPUT/OUTPUT context"}
             >
               {showContext ? (
-                <Eye className="h-3.5 w-3.5" />
+                <ImageIcon className="h-3.5 w-3.5" />
               ) : (
                 <Code2 className="h-3.5 w-3.5" />
               )}
