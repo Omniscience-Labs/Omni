@@ -835,12 +835,23 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
             file_path = f"/workspace/{filename}"
             
             # Download video
+            logger.info(f"Downloading video from: {video_url[:50]}...")
             async with httpx.AsyncClient() as client:
                 response = await client.get(video_url, timeout=120.0)
                 response.raise_for_status()
                 
-                # Save to sandbox
-                await self.sandbox.files.write(file_path, response.content)
+                # Log download success
+                content_size = len(response.content)
+                logger.info(f"Downloaded {content_size} bytes from HeyGen")
+                
+                # Save to sandbox with detailed error handling
+                try:
+                    await self.sandbox.fs.upload_file(response.content, file_path)
+                    logger.info(f"Successfully wrote video to sandbox: {file_path}")
+                except Exception as write_error:
+                    logger.error(f"Sandbox file write failed: {write_error}")
+                    logger.error(f"Attempted to write {content_size} bytes to {file_path}")
+                    raise Exception(f"Sandbox write failed: {write_error}")
                 
                 logger.info(f"Video downloaded successfully: {file_path}")
                 return filename  # Return relative path for attachment
@@ -866,7 +877,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
             }
             
             metadata_path = f"/workspace/{title.replace(' ', '_')}_{video_id}_metadata.json"
-            await self.sandbox.files.write(metadata_path, json.dumps(metadata, indent=2))
+            await self.sandbox.fs.upload_file(json.dumps(metadata, indent=2).encode(), metadata_path)
             
             logger.info(f"Video metadata saved: {metadata_path}")
             
@@ -879,7 +890,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
             await self._ensure_sandbox()
             
             metadata_path = f"/workspace/avatar_session_{session_name}_metadata.json"
-            await self.sandbox.files.write(metadata_path, json.dumps(session_data, indent=2))
+            await self.sandbox.fs.upload_file(json.dumps(session_data, indent=2).encode(), metadata_path)
             
             logger.info(f"Session metadata saved: {metadata_path}")
             
