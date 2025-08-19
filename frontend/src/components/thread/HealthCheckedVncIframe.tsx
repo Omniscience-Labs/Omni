@@ -85,8 +85,6 @@ export function HealthCheckedVncIframe({ sandbox, className }: HealthCheckedVncI
               src={`${sandbox.vnc_preview}/vnc_lite.html?password=${sandbox.pass}&autoconnect=true&scale=local`}
               title="Browser preview"
               className="absolute inset-0 w-full h-full border-0 md:w-[102%] md:h-[130%] md:-translate-y-[4.4rem] lg:-translate-y-[4.7rem] xl:-translate-y-[5.4rem] md:left-0 md:-translate-x-2"
-              onLoad={() => console.log('✅ VNC iframe displayed')}
-              onError={() => console.log('❌ VNC iframe error')}
             />
           </div>
         </Card>

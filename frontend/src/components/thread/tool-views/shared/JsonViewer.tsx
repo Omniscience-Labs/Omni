@@ -127,7 +127,7 @@ export const JsonViewer: React.FC<JsonViewerProps> = ({
       
       {isExpanded && (
         <div className="p-3">
-          <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto bg-background/50 p-3 rounded border">
+          <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto bg-background/50 p-3 rounded border max-h-24 md:max-h-48">
             {formatJson(data)}
           </pre>
         </div>
