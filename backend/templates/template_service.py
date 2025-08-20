@@ -3,6 +3,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 from uuid import uuid4
+import secrets
+import string
 
 from services.supabase import DBConnection
 from utils.logger import logger
@@ -645,6 +647,101 @@ class TemplateService:
             metadata=data.get('metadata', {}),
             creator_name=creator_name
         )
+    
+    def _generate_share_id(self) -> str:
+        alphabet = string.ascii_lowercase + string.digits
+        alphabet = alphabet.replace('0', '').replace('o', '').replace('1', '').replace('l', '').replace('i', '')
+        return ''.join(secrets.choice(alphabet) for _ in range(10))
+    
+    async def create_share_link(self, template_id: str, creator_id: str) -> str:
+        logger.debug(f"Creating share link for template {template_id} by user {creator_id}")
+        
+        template = await self.get_template(template_id)
+        if not template:
+            raise TemplateNotFoundError("Template not found")
+        
+        if template.creator_id != creator_id:
+            raise TemplateAccessDeniedError("You can only create share links for your own templates")
+        
+        client = await self._db.client
+        
+        existing = await client.table('template_share_links')\
+            .select('share_id')\
+            .eq('template_id', template_id)\
+            .eq('created_by', creator_id)\
+            .maybe_single()\
+            .execute()
+        
+        if existing and existing.data:
+            logger.debug(f"Returning existing share link {existing.data['share_id']} for template {template_id}")
+            return existing.data['share_id']
+        
+        max_attempts = 10
+        for _ in range(max_attempts):
+            share_id = self._generate_share_id()
+            
+            try:
+                result = await client.table('template_share_links').insert({
+                    'share_id': share_id,
+                    'template_id': template_id,
+                    'created_by': creator_id
+                }).execute()
+                
+                logger.debug(f"Created share link {share_id} for template {template_id}")
+                return share_id
+            except Exception as e:
+                if 'duplicate key' in str(e).lower():
+                    continue
+                raise
+        
+        raise Exception("Failed to generate unique share ID after multiple attempts")
+    
+    async def get_template_by_share_id(self, share_id: str) -> Optional[AgentTemplate]:
+        logger.debug(f"Getting template by share ID {share_id}")
+        
+        client = await self._db.client
+        
+        share_link = await client.table('template_share_links')\
+            .select('template_id')\
+            .eq('share_id', share_id)\
+            .maybe_single()\
+            .execute()
+        
+        if not share_link or not share_link.data:
+            logger.debug(f"Share link {share_id} not found")
+            return None
+        
+        current = await client.table('template_share_links')\
+            .select('views_count')\
+            .eq('share_id', share_id)\
+            .single()\
+            .execute()
+        
+        views_count = 0
+        if current and current.data:
+            views_count = (current.data.get('views_count', 0) or 0)
+        
+        await client.table('template_share_links')\
+            .update({
+                'views_count': views_count + 1,
+                'last_viewed_at': datetime.now(timezone.utc).isoformat()
+            })\
+            .eq('share_id', share_id)\
+            .execute()
+        
+        template = await self.get_template(share_link.data['template_id'])
+        return template
+    
+    async def get_share_links_for_user(self, user_id: str) -> List[Dict[str, Any]]:
+        client = await self._db.client
+        
+        result = await client.table('template_share_links')\
+            .select('share_id, template_id, created_at, views_count, last_viewed_at')\
+            .eq('created_by', user_id)\
+            .order('created_at', desc=True)\
+            .execute()
+        
+        return result.data if result.data else []
 
 def get_template_service(db_connection: DBConnection) -> TemplateService:
     return TemplateService(db_connection) 

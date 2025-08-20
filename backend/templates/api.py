@@ -477,4 +477,92 @@ async def get_template(
         raise HTTPException(status_code=403, detail="Access denied to template")
     except Exception as e:
         logger.error(f"Error getting template {template_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+class CreateShareLinkResponse(BaseModel):
+    share_id: str
+    share_url: str
+
+
+class ShareLinkInfo(BaseModel):
+    share_id: str
+    template_id: str
+    created_at: str
+    views_count: int
+    last_viewed_at: Optional[str]
+    share_url: str
+
+
+@router.post("/{template_id}/share", response_model=CreateShareLinkResponse)
+async def create_share_link(
+    template_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    try:
+        template_service = get_template_service(db)
+        share_id = await template_service.create_share_link(template_id, user_id)
+        
+        share_url = f"/marketplace/templates/{share_id}"
+        
+        logger.info(f"Created share link {share_id} for template {template_id} by user {user_id}")
+        
+        return CreateShareLinkResponse(
+            share_id=share_id,
+            share_url=share_url
+        )
+        
+    except TemplateNotFoundError:
+        raise HTTPException(status_code=404, detail="Template not found")
+    except TemplateAccessDeniedError:
+        raise HTTPException(status_code=403, detail="You can only create share links for your own templates")
+    except Exception as e:
+        logger.error(f"Error creating share link for template {template_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/share/{share_id}", response_model=TemplateResponse)
+async def get_template_by_share_id(share_id: str):
+    try:
+        template_service = get_template_service(db)
+        template = await template_service.get_template_by_share_id(share_id)
+        
+        if not template:
+            raise HTTPException(status_code=404, detail="Share link not found or expired")
+        
+        logger.debug(f"Accessed template via share link {share_id}")
+        
+        return TemplateResponse(**format_template_for_response(template))
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting template by share ID {share_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/my/share-links", response_model=List[ShareLinkInfo])
+async def get_my_share_links(
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    try:
+        template_service = get_template_service(db)
+        share_links = await template_service.get_share_links_for_user(user_id)
+        
+        result = []
+        for link in share_links:
+            result.append(ShareLinkInfo(
+                share_id=link['share_id'],
+                template_id=link['template_id'],
+                created_at=link['created_at'],
+                views_count=link.get('views_count', 0),
+                last_viewed_at=link.get('last_viewed_at'),
+                share_url=f"/marketplace/templates/{link['share_id']}"
+            ))
+        
+        logger.debug(f"Retrieved {len(result)} share links for user {user_id}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error getting share links for user {user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") 
