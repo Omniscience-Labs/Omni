@@ -103,7 +103,7 @@ const ViewToggle: React.FC<ViewToggleProps> = ({ currentView, onViewChange }) =>
             ? 'text-black'
             : 'text-gray-500 dark:text-gray-400'
         }`}
-        title="Tools"
+        title="Switch to Tool View"
       >
         <Wrench className="h-3.5 w-3.5" />
       </Button>
@@ -116,7 +116,7 @@ const ViewToggle: React.FC<ViewToggleProps> = ({ currentView, onViewChange }) =>
             ? 'text-black'
             : 'text-gray-500 dark:text-gray-400'
         }`}
-        title="Browser"
+        title="Switch to Browser View"
       >
         <Globe className="h-3.5 w-3.5" />
       </Button>
@@ -297,11 +297,10 @@ export function ToolCallSidePanel({
             vnc_preview: sandbox.vnc_preview,
             pass: sandbox.pass
           }}
-          viewToggle={<ViewToggle currentView={currentView} onViewChange={setCurrentView} />}
         />
       </div>
     );
-  }, [sandbox, vncRefreshKey, currentView]);
+  }, [sandbox, vncRefreshKey]);
 
   // Helper function to check if a tool is browser-related
   const isBrowserTool = React.useCallback((toolName: string | undefined): boolean => {
@@ -898,9 +897,9 @@ export function ToolCallSidePanel({
           {/* Always render VNC iframe to maintain connection when available */}
           {persistentVncIframe && (
             <div className={`${currentView === 'browser' ? 'h-full flex flex-col' : 'hidden'}`}>
-              <BrowserHeader isConnected={true} onRefresh={handleVncRefresh} />
+              <BrowserHeader isConnected={true} onRefresh={handleVncRefresh} viewToggle={<ViewToggle currentView={currentView} onViewChange={setCurrentView} />} />
               {/* VNC iframe container - unchanged */}
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden grid items-center">
                 {persistentVncIframe}
               </div>
             </div>
@@ -909,7 +908,7 @@ export function ToolCallSidePanel({
           {/* Show browser not available message when no VNC and browser tab is selected */}
           {!persistentVncIframe && currentView === 'browser' && (
             <div className="h-full flex flex-col">
-              <BrowserHeader isConnected={false} />
+              <BrowserHeader isConnected={false} viewToggle={<ViewToggle currentView={currentView} onViewChange={setCurrentView} />} />
               
               {/* Message content */}
               <div className="flex-1 flex flex-col items-center justify-center p-8 bg-zinc-50 dark:bg-zinc-900/50">
@@ -1014,7 +1013,7 @@ export function ToolCallSidePanel({
             overflow: 'hidden',
           }}
         >
-          <div className="flex-1 flex flex-col overflow-hidden bg-card">
+          <div className="flex-1 flex flex-col overflow-scroll bg-card">
             {renderContent()}
           </div>
           {(displayTotalCalls > 1 || (isCurrentToolStreaming && totalCompletedCalls > 0)) && (

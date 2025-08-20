@@ -87,9 +87,25 @@ class Configuration:
     STRIPE_TIER_6_42_YEARLY_COMMITMENT_ID_STAGING: str = 'price_1RqYH1G6l1KZGqIrWDKh8xIU'  # $42.50/month
     STRIPE_TIER_25_170_YEARLY_COMMITMENT_ID_STAGING: str = 'price_1RqYHbG6l1KZGqIrAUVf8KpG'  # $170/month
     
+    # Credit package price IDs - Production
+    STRIPE_CREDITS_10_PRICE_ID_PROD: str = 'price_1RxmQUG6l1KZGqIru453O1zW'
+    STRIPE_CREDITS_25_PRICE_ID_PROD: str = 'price_1RxmQlG6l1KZGqIr3hS5WtGg'
+    STRIPE_CREDITS_50_PRICE_ID_PROD: str = 'price_1RxmQvG6l1KZGqIrLbMZ3D6r'
+    STRIPE_CREDITS_100_PRICE_ID_PROD: str = 'price_1RxmR3G6l1KZGqIrpLwFCGac'
+    STRIPE_CREDITS_250_PRICE_ID_PROD: str = 'price_1RxmRAG6l1KZGqIrtBIMsZAj'
+    STRIPE_CREDITS_500_PRICE_ID_PROD: str = 'price_1RxmRGG6l1KZGqIrSyvl6w1G'
+    
+    # Credit package price IDs - Staging  
+    STRIPE_CREDITS_10_PRICE_ID_STAGING: str = 'price_1RxXOvG6l1KZGqIrMqsiYQvk'
+    STRIPE_CREDITS_25_PRICE_ID_STAGING: str = 'price_1RxXPNG6l1KZGqIrQprPgDme'
+    STRIPE_CREDITS_50_PRICE_ID_STAGING: str = 'price_1RxmNhG6l1KZGqIrTq2zPtgi'
+    STRIPE_CREDITS_100_PRICE_ID_STAGING: str = 'price_1RxmNwG6l1KZGqIrnliwPDM6'
+    STRIPE_CREDITS_250_PRICE_ID_STAGING: str = 'price_1RxmO6G6l1KZGqIrBF8Kx87G'
+    STRIPE_CREDITS_500_PRICE_ID_STAGING: str = 'price_1RxmOFG6l1KZGqIrn4wgORnH'
+    
     # Computed subscription tier IDs based on environment
     @property
-    def STRIPE_FREE_TIER_ID(self) -> str:
+    def STRIPE_FREE_TIER_ID(self) -> str:   
         if self.ENV_MODE == EnvMode.STAGING:
             return self.STRIPE_FREE_TIER_ID_STAGING
         return self.STRIPE_FREE_TIER_ID_PROD
@@ -198,6 +214,19 @@ class Configuration:
             return self.STRIPE_TIER_25_170_YEARLY_COMMITMENT_ID_STAGING
         return self.STRIPE_TIER_25_170_YEARLY_COMMITMENT_ID_PROD
     
+    # Credit package price ID properties
+    @property
+    def STRIPE_CREDITS_10_PRICE_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_CREDITS_10_PRICE_ID_STAGING
+        return self.STRIPE_CREDITS_10_PRICE_ID_PROD
+    
+    @property
+    def STRIPE_CREDITS_25_PRICE_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_CREDITS_25_PRICE_ID_STAGING
+        return self.STRIPE_CREDITS_25_PRICE_ID_PROD
+    
     # LLM API keys
     ANTHROPIC_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
@@ -251,8 +280,8 @@ class Configuration:
     STRIPE_PRODUCT_ID_STAGING: str = 'prod_SCgIj3G7yPOAWY'
     
     # Sandbox configuration
-    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.3.4"
-    SANDBOX_SNAPSHOT_NAME = "kortix/suna:0.1.3.4"
+    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.3.5"
+    SANDBOX_SNAPSHOT_NAME = "kortix/suna:0.1.3.5"
     SANDBOX_ENTRYPOINT = "/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf"
 
     # LangFuse configuration

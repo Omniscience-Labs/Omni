@@ -50,7 +50,7 @@ MODELS = {
             "output_cost_per_million_tokens": 3.00
         },
         "context_window": 200_000,  # 200k tokens
-        "tier_availability": ["free", "paid"]
+        "tier_availability": ["paid"]
     },
     "xai/grok-4": {
         "aliases": ["grok-4", "x-ai/grok-4"],
@@ -104,7 +104,7 @@ MODELS = {
             "output_cost_per_million_tokens": 2.00
         },
         "context_window": 400_000,  # 400k tokens
-        "tier_availability": ["paid"]
+        "tier_availability": ["free", "paid"]
     },
     # "openai/gpt-4.1-mini": {
     #     "aliases": ["gpt-4.1-mini"],

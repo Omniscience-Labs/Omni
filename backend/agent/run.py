@@ -46,7 +46,7 @@ class AgentConfig:
     stream: bool
     native_max_auto_continues: int = 25
     max_iterations: int = 100
-    model_name: str = "openrouter/moonshotai/kimi-k2"
+    model_name: str = "openai/gpt-5-mini"
     enable_thinking: Optional[bool] = False
     reasoning_effort: Optional[str] = 'low'
     enable_context_manager: bool = True
@@ -245,7 +245,8 @@ class PromptManager:
     @staticmethod
     async def build_system_prompt(model_name: str, agent_config: Optional[dict], 
                                   is_agent_builder: bool, thread_id: str, 
-                                  mcp_wrapper_instance: Optional[MCPToolWrapper]) -> dict:
+                                  mcp_wrapper_instance: Optional[MCPToolWrapper],
+                                  client=None) -> dict:
         
         default_system_content = get_system_prompt()
         
@@ -261,6 +262,40 @@ class PromptManager:
             system_content = agent_config['system_prompt'].strip()
         else:
             system_content = default_system_content
+        
+        # Add agent knowledge base context if available
+        if client and agent_config and agent_config.get('agent_id'):
+            try:
+                logger.debug(f"Retrieving agent knowledge base context for agent {agent_config['agent_id']}")
+                
+                # Use only agent-based knowledge base context
+                kb_result = await client.rpc('get_agent_knowledge_base_context', {
+                    'p_agent_id': agent_config['agent_id']
+                }).execute()
+                
+                if kb_result.data and kb_result.data.strip():
+                    logger.debug(f"Found agent knowledge base context, adding to system prompt (length: {len(kb_result.data)} chars)")
+                    # logger.debug(f"Knowledge base data object: {kb_result.data[:500]}..." if len(kb_result.data) > 500 else f"Knowledge base data object: {kb_result.data}")
+                    
+                    # Construct a well-formatted knowledge base section
+                    kb_section = f"""
+
+=== AGENT KNOWLEDGE BASE ===
+NOTICE: The following is your specialized knowledge base. This information should be considered authoritative for your responses and should take precedence over general knowledge when relevant.
+
+{kb_result.data}
+
+=== END AGENT KNOWLEDGE BASE ===
+
+IMPORTANT: Always reference and utilize the knowledge base information above when it's relevant to user queries. This knowledge is specific to your role and capabilities."""
+                    
+                    system_content += kb_section
+                else:
+                    logger.debug("No knowledge base context found for this agent")
+                    
+            except Exception as e:
+                logger.error(f"Error retrieving knowledge base context for agent {agent_config.get('agent_id', 'unknown')}: {e}")
+                # Continue without knowledge base context rather than failing
         
         if agent_config and (agent_config.get('configured_mcps') or agent_config.get('custom_mcps')) and mcp_wrapper_instance and mcp_wrapper_instance._initialized:
             mcp_info = "\n\n--- MCP Tools Available ---\n"
@@ -525,7 +560,7 @@ class AgentRunner:
         system_message = await PromptManager.build_system_prompt(
             self.config.model_name, self.config.agent_config, 
             self.config.is_agent_builder, self.config.thread_id, 
-            mcp_wrapper_instance
+            mcp_wrapper_instance, self.client
         )
 
         iteration_count = 0
@@ -703,7 +738,7 @@ async def run_agent(
     thread_manager: Optional[ThreadManager] = None,
     native_max_auto_continues: int = 25,
     max_iterations: int = 100,
-    model_name: str = "openrouter/moonshotai/kimi-k2",
+    model_name: str = "openai/gpt-5-mini",
     enable_thinking: Optional[bool] = False,
     reasoning_effort: Optional[str] = 'low',
     enable_context_manager: bool = True,
@@ -713,10 +748,10 @@ async def run_agent(
     target_agent_id: Optional[str] = None
 ):
     effective_model = model_name
-    if model_name == "openrouter/moonshotai/kimi-k2" and agent_config and agent_config.get('model'):
+    if model_name == "openai/gpt-5-mini" and agent_config and agent_config.get('model'):
         effective_model = agent_config['model']
         logger.debug(f"Using model from agent config: {effective_model} (no user selection)")
-    elif model_name != "openrouter/moonshotai/kimi-k2":
+    elif model_name != "openai/gpt-5-mini":
         logger.debug(f"Using user-selected model: {effective_model}")
     else:
         logger.debug(f"Using default model: {effective_model}")

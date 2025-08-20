@@ -254,6 +254,7 @@ export function AttachmentGroup({
                                 }
                                 collapsed={collapsed} // Pass collapsed prop
                                 project={project} // Pass project to FileAttachment
+                                isSingleItemGrid={uniqueFiles.length === 1} // Pass single item detection
                             />
                             {onRemove && (
                                 <div
@@ -457,6 +458,7 @@ export function AttachmentGroup({
                                         customStyle={item.customStyle}
                                         collapsed={true} // Force collapsed for all in modal
                                         project={project}
+                                        isSingleItemGrid={uniqueFiles.length === 1} // Pass single item detection to modal too
                                     />
                                     {onRemove && (
                                         <div
