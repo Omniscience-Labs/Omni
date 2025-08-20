@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
 import { useComposioToolkitIcon } from '@/hooks/react-query/composio/use-composio';
 import { useRouter } from 'next/navigation';
+import { backendApi } from '@/lib/api-client';
 
 interface MarketplaceAgentPreviewDialogProps {
   agent: MarketplaceTemplate | null;
@@ -92,6 +93,7 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
   isInstalling = false
 }) => {
   const router = useRouter();
+  const [isGeneratingShareLink, setIsGeneratingShareLink] = React.useState(false);
   
   if (!agent) return null;
 
@@ -115,16 +117,21 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
     onInstall(agent);
   };
 
-  const handleShare = () => {
-    const currentUrl = new URL(window.location.href);
-    currentUrl.searchParams.set('agent', agent.id);
-    currentUrl.searchParams.set('tab', 'marketplace');
-    
-    navigator.clipboard.writeText(currentUrl.toString()).then(() => {
+  const handleShare = async () => {
+    setIsGeneratingShareLink(true);
+    try {
+      const response = await backendApi.post(`/templates/${agent.template_id}/share`);
+      const data = response.data;
+      const shareUrl = `${window.location.origin}/templates/${data.share_id}`;
+      
+      await navigator.clipboard.writeText(shareUrl);
       toast.success('Share link copied to clipboard!');
-    }).catch(() => {
-      toast.error('Failed to copy link to clipboard');
-    });
+    } catch (error) {
+      console.error('Failed to generate share link:', error);
+      toast.error('Failed to generate share link');
+    } finally {
+      setIsGeneratingShareLink(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -352,8 +359,12 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
                   </>
                 )}
               </Button>
-              <Button variant="outline" onClick={handleShare}>
-                <Share className="h-4 w-4" />
+              <Button variant="outline" onClick={handleShare} disabled={isGeneratingShareLink}>
+                {isGeneratingShareLink ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Share className="h-4 w-4" />
+                )}
                 Share
               </Button>
               <Button variant="outline" onClick={onClose}>

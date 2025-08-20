@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
 from uuid import uuid4
-from utils.auth_utils import get_current_user_id_from_jwt
+from utils.auth_utils import get_current_user_id_from_jwt, get_optional_current_user_id_from_jwt
 from utils.logger import logger
 from services.supabase import DBConnection
 from datetime import datetime
@@ -516,7 +516,7 @@ async def discover_tools_post(
 @router.get("/toolkits/{toolkit_slug}/icon")
 async def get_toolkit_icon(
     toolkit_slug: str,
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: Optional[str] = Depends(get_optional_current_user_id_from_jwt)
 ):
     try:
         toolkit_service = ToolkitService()

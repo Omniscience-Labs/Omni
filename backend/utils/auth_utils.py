@@ -384,6 +384,9 @@ async def get_optional_user_id(request: Request) -> Optional[str]:
     except PyJWTError:
         return None
 
+# Alias for consistency with other auth functions
+get_optional_current_user_id_from_jwt = get_optional_user_id
+
 async def verify_admin_api_key(x_admin_api_key: Optional[str] = Header(None)):
     if not config.KORTIX_ADMIN_API_KEY:
         raise HTTPException(

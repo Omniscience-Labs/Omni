@@ -65,6 +65,7 @@
     "cmdk": "^0.2.1",
     "cobe": "^0.6.3",
     "color-bits": "^1.1.0",
+    "colorthief": "^2.6.0",
     "comment-json": "^4.2.5",
     "date-fns": "^3.6.0",
     "diff": "^7.0.0",
@@ -119,6 +120,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4.1.4",
+    "@types/colorthief": "^2.6.0",
     "@types/diff": "^7.0.2",
     "@types/jju": "^1.4.5",
     "@types/lodash": "^4.17.16",
