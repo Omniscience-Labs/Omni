@@ -150,7 +150,7 @@ class BrowserTool(SandboxToolsBase):
                         return True
                     else:
                         # If the browser api is not healthy, we need to restart the browser api
-                        model_api_key = config.ANTHROPIC_API_KEY
+                        model_api_key = config.OPENAI_API_KEY
 
                         response = await self.sandbox.process.exec(f"curl -X POST 'http://localhost:8004/api/init' -H 'Content-Type: application/json' -d '{{\"api_key\": \"{model_api_key}\"}}'", timeout=90)
                         if response.exit_code == 0:

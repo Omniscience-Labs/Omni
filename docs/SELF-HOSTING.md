@@ -127,8 +127,8 @@ As part of the setup, you'll need to:
 1. Create a Daytona account
 2. Generate an API key
 3. Create a Snapshot:
-   - Name: `kortix/suna:0.1.3.5`
-   - Image name: `kortix/suna:0.1.3.5`
+   - Name: `kortix/suna:0.1.3.6`
+   - Image name: `kortix/suna:0.1.3.6`
    - Entrypoint: `/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf`
 
 ## Manual Configuration

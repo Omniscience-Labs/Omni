@@ -19,12 +19,10 @@ class BrowserAutomation {
 
     private stagehand: Stagehand | null;
     public browserInitialized: boolean;
-    private currentApiKey: string | null;
     private page: Page | null;
     constructor() {
         this.router = express.Router();
         this.browserInitialized = false;
-        this.currentApiKey = null;
         this.stagehand = null;
         this.page = null;
 
@@ -38,7 +36,6 @@ class BrowserAutomation {
     async init(apiKey: string): Promise<{status: string, message: string}> {
         try{
             if (!this.browserInitialized) {
-                this.currentApiKey = apiKey;
                 console.log("Initializing browser with api key");
                 this.stagehand = new Stagehand({
                     env: "LOCAL",
@@ -47,7 +44,7 @@ class BrowserAutomation {
                     logger: (logLine: LogLine) => {
                         console.log(`[${logLine.category}] ${logLine.message}`);
                     },
-                    modelName: "claude-3-7-sonnet-20250219",
+                    modelName: "openai/gpt-5",
                     modelClientOptions: {
                         apiKey
                     },
@@ -129,7 +126,6 @@ class BrowserAutomation {
         this.stagehand?.close();
         this.stagehand = null;
         this.page = null;
-        this.currentApiKey = null;
         return {
             status: "shutdown",
             message: "Browser shutdown"
