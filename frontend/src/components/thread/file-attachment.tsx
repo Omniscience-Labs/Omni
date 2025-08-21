@@ -314,11 +314,14 @@ export function FileAttachment({
                         maxWidth: "100%",
                         height: isSingleItemGrid && isGridLayout ? 'auto' : (isGridLayout ? imageHeight : 'auto'),
                         maxHeight: isSingleItemGrid && isGridLayout ? '800px' : undefined,
+                        minHeight: isGridLayout ? imageHeight : '54px',
                         ...customStyle
                     }}
                     title={filename}
                 >
-                    <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                    <div className="absolute inset-0 flex items-end justify-center pb-4">
+                        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                    </div>
                 </button>
             );
         }
@@ -524,14 +527,14 @@ export function FileAttachment({
 
                     {/* Loading state */}
                     {fileContentLoading && !isPdf && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-                            <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                        <div className="absolute inset-0 flex items-end justify-center bg-background/50 z-10 pb-8">
+                            <Loader2 className="h-8 w-8 text-primary animate-spin" />
                         </div>
                     )}
 
                     {isPdf && pdfLoading && !pdfBlobUrl && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-                            <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                        <div className="absolute inset-0 flex items-end justify-center bg-background/50 z-10 pb-8">
+                            <Loader2 className="h-8 w-8 text-primary animate-spin" />
                         </div>
                     )}
 
