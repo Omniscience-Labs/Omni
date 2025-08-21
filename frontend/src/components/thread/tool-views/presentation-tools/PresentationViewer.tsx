@@ -229,8 +229,8 @@ export function PresentationViewer({
   const refreshTimestamp = useMemo(() => Date.now(), [metadata]);
 
   // Memoized slide iframe component to prevent unnecessary re-renders
-  const SlideIframe = useMemo(() => 
-    React.memo(({ slide }: { slide: SlideMetadata & { number: number } }) => {
+  const SlideIframe = useMemo(() => {
+    const SlideIframeComponent = React.memo(({ slide }: { slide: SlideMetadata & { number: number } }) => {
       const [containerRef, setContainerRef] = useState<HTMLDivElement | null>(null);
       const [scale, setScale] = useState(1);
 
@@ -324,8 +324,11 @@ export function PresentationViewer({
       // Custom comparison function - only re-render if slide number or file_path changes
       return prevProps.slide.number === nextProps.slide.number && 
              prevProps.slide.file_path === nextProps.slide.file_path;
-    })
-  , [project?.sandbox?.sandbox_url, refreshTimestamp]);
+    });
+    
+    SlideIframeComponent.displayName = 'SlideIframeComponent';
+    return SlideIframeComponent;
+  }, [project?.sandbox?.sandbox_url, refreshTimestamp]);
 
   // Render individual slide using the original approach
   const renderSlidePreview = useCallback((slide: SlideMetadata & { number: number }) => {
