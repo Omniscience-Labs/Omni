@@ -23,6 +23,7 @@ class SunaConfig:
         "sb_files_tool": True,
         "podcast_tool": True,
         "sb_video_avatar_tool": True,
+        "audio_transcription_tool": True,
     }
     
     DEFAULT_MCPS = []
