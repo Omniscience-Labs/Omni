@@ -65,6 +65,7 @@ export function getToolTitle(toolName: string): string {
     'export-presentation': 'Export Presentation',
     'create-presentation-outline': 'Create Presentation Outline',
     'list-presentation-templates': 'List Presentation Templates',
+    'upload-file': 'Upload File',
 
     'generic-tool': 'Tool',
     'default': 'Tool',
@@ -1285,6 +1286,10 @@ export function getToolComponent(toolName: string): string {
     //Deploy
     case 'deploy':
       return 'DeployToolView';
+
+    // Upload operations
+    case 'upload-file':
+      return 'UploadFileToolView';
 
     // Port operations
     case 'expose-port':

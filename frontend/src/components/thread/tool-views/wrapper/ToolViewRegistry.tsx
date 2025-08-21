@@ -38,6 +38,7 @@ import { PresentationStylesToolView } from '../presentation-tools/PresentationSt
 import { SheetsToolView } from '../sheets-tools/sheets-tool-view';
 import { GetProjectStructureView } from '../web-dev/GetProjectStructureView';
 import { ImageEditGenerateToolView } from '../image-edit-generate-tool/ImageEditGenerateToolView';
+import { UploadFileToolView } from '../UploadFileToolView';
 
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
@@ -115,6 +116,8 @@ const defaultRegistry: ToolViewRegistryType = {
 
   'get-project-structure': GetProjectStructureView,
   'list-web-projects': GenericToolView,
+
+  'upload-file': UploadFileToolView,
 
   'default': GenericToolView,
 };
