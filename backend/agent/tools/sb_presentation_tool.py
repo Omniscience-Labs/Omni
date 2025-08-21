@@ -6,6 +6,7 @@ import json
 import os
 from datetime import datetime
 import re
+from .presentation_styles_config import get_style_config, get_all_styles
 
 class SandboxPresentationTool(SandboxToolsBase):
     """
@@ -41,8 +42,15 @@ class SandboxPresentationTool(SandboxToolsBase):
         """Convert presentation name to safe filename"""
         return "".join(c for c in name if c.isalnum() or c in "-_").lower()
 
-    def _create_slide_html(self, slide_content: str, slide_number: int, total_slides: int, presentation_title: str) -> str:
+    def _get_style_config(self, style_name: str) -> Dict:
+        """Get style configuration for a given style name"""
+        return get_style_config(style_name)
+
+    def _create_slide_html(self, slide_content: str, slide_number: int, total_slides: int, presentation_title: str, style: str = "default") -> str:
         """Create a complete HTML document for a single slide with proper 1920x1080 dimensions"""
+        
+        # Get style configuration
+        style_config = self._get_style_config(style)
         
         html_template = f"""<!DOCTYPE html>
 <html lang="en">
@@ -51,6 +59,7 @@ class SandboxPresentationTool(SandboxToolsBase):
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{presentation_title} - Slide {slide_number}</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="{style_config['font_import']}" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1"></script>
@@ -63,9 +72,9 @@ class SandboxPresentationTool(SandboxToolsBase):
         }}
         
         body {{
-            font-family: 'Roboto', Arial, sans-serif;
+            font-family: {style_config['font_family']};
             background: #000000;
-            color: #333333;
+            color: {style_config['text_color']};
             display: flex;
             align-items: center;
             justify-content: center;
@@ -80,8 +89,8 @@ class SandboxPresentationTool(SandboxToolsBase):
             max-width: 100vw;
             max-height: 100vh;
             position: relative;
-            background: #FFFFFF;
-            color: #333333;
+            background: {style_config['background']};
+            color: {style_config['text_color']};
             overflow: hidden;
             
             /* Auto-scale to fit viewport while maintaining aspect ratio */
@@ -95,36 +104,60 @@ class SandboxPresentationTool(SandboxToolsBase):
             bottom: 30px;
             right: 30px;
             font-size: 18px;
-            color: #666666;
+            color: {style_config['text_color']};
+            opacity: 0.7;
             font-weight: 500;
             z-index: 1000;
         }}
         
-        /* Common presentation elements */
+        /* Common presentation elements with style theming */
         .slide-title {{
             font-size: 48px;
             font-weight: bold;
             margin-bottom: 30px;
-            color: #005A9C;
+            color: {style_config['primary_color']};
         }}
         
         .slide-subtitle {{
             font-size: 32px;
             margin-bottom: 40px;
-            color: #333333;
+            color: {style_config['text_color']};
         }}
         
         .slide-content {{
             font-size: 24px;
             line-height: 1.6;
-            color: #333333;
+            color: {style_config['text_color']};
         }}
         
         .accent-bar {{
             width: 100px;
             height: 4px;
-            background-color: #FF6B00;
+            background-color: {style_config['accent_color']};
             margin: 20px 0;
+        }}
+        
+        /* Primary color elements */
+        .primary-color {{
+            color: {style_config['primary_color']};
+        }}
+        
+        .primary-bg {{
+            background-color: {style_config['primary_color']};
+        }}
+        
+        /* Accent color elements */
+        .accent-color {{
+            color: {style_config['accent_color']};
+        }}
+        
+        .accent-bg {{
+            background-color: {style_config['accent_color']};
+        }}
+        
+        /* Style-aware text color */
+        .text-color {{
+            color: {style_config['text_color']};
         }}
         
         /* Responsive images */
@@ -144,6 +177,23 @@ class SandboxPresentationTool(SandboxToolsBase):
             margin: 10px 0;
             font-size: 20px;
             line-height: 1.5;
+            color: {style_config['text_color']};
+        }}
+        
+        /* Style-specific enhancements */
+        .card {{
+            background: {'rgba(255, 255, 255, 0.1)' if 'gradient' in style_config['background'] or style_config['background'].startswith('#1') or style_config['background'].startswith('#0') else 'rgba(0, 0, 0, 0.05)'};
+            border-radius: 12px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }}
+        
+        .highlight {{
+            background: {style_config['accent_color']};
+            color: {'#FFFFFF' if style_config['accent_color'].startswith('#') else style_config['text_color']};
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-weight: 600;
         }}
     </style>
 </head>
@@ -183,7 +233,7 @@ class SandboxPresentationTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "create_slide",
-            "description": "Create or update a single slide in a presentation. Each slide is saved as a standalone HTML file with 1920x1080 dimensions (16:9 aspect ratio). Perfect for iterative slide creation and editing.",
+            "description": "Create or update a single slide in a presentation. Each slide is saved as a standalone HTML file with 1920x1080 dimensions (16:9 aspect ratio). Perfect for iterative slide creation and editing. Use 'presentation_styles' tool first to see available styles.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -201,12 +251,17 @@ class SandboxPresentationTool(SandboxToolsBase):
                     },
                     "content": {
                                     "type": "string",
-                        "description": "HTML content for the slide body. Should include all styling within the content. The content will be placed inside a 1920x1080 slide container with CSS frameworks (Tailwind, FontAwesome, D3, Chart.js) available. Use professional styling with good typography, spacing, and visual hierarchy."
+                        "description": "HTML content for the slide body. Should include all styling within the content. The content will be placed inside a 1920x1080 slide container with CSS frameworks (Tailwind, FontAwesome, D3, Chart.js) available. Use professional styling with good typography, spacing, and visual hierarchy. You can use style-aware CSS classes: .primary-color, .primary-bg, .accent-color, .accent-bg, .text-color, .card, .highlight"
                                 },
                     "presentation_title": {
                                     "type": "string",
                         "description": "Main title of the presentation (used in HTML title and navigation)",
                         "default": "Presentation"
+                    },
+                    "style": {
+                        "type": "string",
+                        "description": "Visual style theme for the slide. Use 'presentation_styles' tool to see all available options. Examples: 'velvet', 'glacier', 'ember', 'sage', 'obsidian', 'coral', 'platinum', 'aurora', 'midnight', 'citrus', or 'default'",
+                        "default": "default"
                     }
                 },
                 "required": ["presentation_name", "slide_number", "slide_title", "content"]
@@ -251,7 +306,8 @@ This approach allows you to:
         slide_number: int,
         slide_title: str,
         content: str,
-        presentation_title: str = "Presentation"
+        presentation_title: str = "Presentation",
+        style: str = "default"
     ) -> ToolResult:
         """Create or update a single slide in a presentation"""
         try:
@@ -285,7 +341,8 @@ This approach allows you to:
                 slide_content=content,
                 slide_number=slide_number,
                 total_slides=0,  # Will be updated when regenerating navigation
-                presentation_title=presentation_title
+                presentation_title=presentation_title,
+                style=style
             )
             
             # Save slide file
@@ -302,6 +359,7 @@ This approach allows you to:
                 "filename": slide_filename,
                 "file_path": f"{self.presentations_dir}/{safe_name}/{slide_filename}",
                 "preview_url": f"/workspace/{self.presentations_dir}/{safe_name}/{slide_filename}",
+                "style": style,
                 "created_at": datetime.now().isoformat()
             }
             
@@ -309,13 +367,14 @@ This approach allows you to:
             await self._save_presentation_metadata(presentation_path, metadata)
             
             return self.success_response({
-                "message": f"Slide {slide_number} '{slide_title}' created/updated successfully",
+                "message": f"Slide {slide_number} '{slide_title}' created/updated successfully with '{style}' style",
                 "presentation_name": presentation_name,
                 "presentation_path": f"{self.presentations_dir}/{safe_name}",
                 "slide_number": slide_number,
                 "slide_title": slide_title,
                 "slide_file": f"{self.presentations_dir}/{safe_name}/{slide_filename}",
                 "preview_url": f"/workspace/{self.presentations_dir}/{safe_name}/{slide_filename}",
+                "style": style,
                 "total_slides": len(metadata["slides"]),
                 "note": "Slide saved as standalone HTML file with 1920x1080 dimensions"
             })
@@ -457,6 +516,32 @@ This approach allows you to:
             return self.fail_response(f"Failed to delete slide: {str(e)}")
 
 
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "presentation_styles",
+            "description": "Get available presentation styles with their descriptions and visual characteristics. Use this to show users different style options before creating slides.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    })
+    async def presentation_styles(self) -> ToolResult:
+        """Get available presentation styles with descriptions and examples"""
+        try:
+            styles = get_all_styles()
+            
+            return self.success_response({
+                "message": f"Found {len(styles)} presentation styles available",
+                "styles": styles,
+                "usage_tip": "Choose a style and use it with the 'style' parameter in create_slide"
+            })
+            
+        except Exception as e:
+            return self.fail_response(f"Failed to get presentation styles: {str(e)}")
 
     @openapi_schema({
         "type": "function",

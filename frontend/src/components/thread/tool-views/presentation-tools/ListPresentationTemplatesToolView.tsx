@@ -2,8 +2,8 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Palette, Layout, Sparkles, Building2, Brush } from 'lucide-react';
-import { ToolViewProps } from './types';
-import { extractToolData } from './utils';
+import { ToolViewProps } from '../types';
+import { extractToolData } from '../utils';
 
 interface ColorScheme {
   name: string;

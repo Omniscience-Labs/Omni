@@ -18,9 +18,9 @@ import {
   Calendar,
   FolderOpen,
 } from 'lucide-react';
-import { ToolViewProps } from './types';
-import { formatTimestamp, extractToolData } from './utils';
-import { LoadingState } from './shared/LoadingState';
+import { ToolViewProps } from '../types';
+import { formatTimestamp, extractToolData } from '../utils';
+import { LoadingState } from '../shared/LoadingState';
 
 interface PresentationInfo {
   folder: string;
@@ -242,20 +242,8 @@ export function ListPresentationsToolView({
         )}
       </CardContent>
 
-      <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
-        <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-          {!isStreaming && presentationsData && (
-            <>
-              <Badge variant="outline" className="h-6 py-0.5 bg-zinc-50 dark:bg-zinc-900">
-                {presentationsData.presentations.length} presentations
-              </Badge>
-              <Badge variant="outline" className="h-6 py-0.5 bg-zinc-50 dark:bg-zinc-900">
-                {presentationsData.presentations.reduce((sum, p) => sum + p.total_slides, 0)} total slides
-              </Badge>
-            </>
-          )}
-        </div>
-        <div className="h-full flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500">
+      <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-end items-center">
+        <div className="flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500">
           <Clock className="h-3 w-3" />
           <span>
             {formatTimestamp(toolTimestamp)}
