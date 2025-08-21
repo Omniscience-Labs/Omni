@@ -36,6 +36,7 @@ interface AttachmentGroupProps {
     collapsed?: boolean; // Add new collapsed prop
     project?: Project; // Add project prop
     standalone?: boolean; // Add standalone prop for minimal styling
+    alignRight?: boolean; // Add alignRight prop
 }
 
 export function AttachmentGroup({
@@ -50,7 +51,8 @@ export function AttachmentGroup({
     gridImageHeight = 180, // Increased from 120 for better visibility
     collapsed = true, // By default, HTML/MD files are collapsed
     project, // Add project prop
-    standalone = false // Add standalone prop
+    standalone = false, // Add standalone prop
+    alignRight = false // Add alignRight prop
 }: AttachmentGroupProps) {
     // State for modal
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -263,6 +265,7 @@ export function AttachmentGroup({
                                 project={project} // Pass project to FileAttachment
                                 isSingleItemGrid={uniqueFiles.length === 1} // Pass single item detection
                                 standalone={standalone} // Pass standalone prop
+                                alignRight={alignRight} // Pass alignRight prop
                             />
                             {onRemove && (
                                 <div
@@ -304,6 +307,7 @@ export function AttachmentGroup({
                                 showPreview={showPreviews}
                                 localPreviewUrl={getLocalPreviewUrl(item.file)}
                                 collapsed={true} // Always collapsed in inline mode
+                                alignRight={alignRight} // Pass alignRight prop
                             />
                             {onRemove && (
                                 <div
@@ -471,6 +475,7 @@ export function AttachmentGroup({
                                         project={project}
                                         isSingleItemGrid={uniqueFiles.length === 1} // Pass single item detection to modal too
                                         standalone={false} // Never standalone in modal
+                                        alignRight={false} // Never align right in modal
                                     />
                                     {onRemove && (
                                         <div

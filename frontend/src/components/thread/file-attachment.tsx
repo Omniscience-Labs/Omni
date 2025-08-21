@@ -159,6 +159,7 @@ interface FileAttachmentProps {
     project?: Project;
     isSingleItemGrid?: boolean; // New prop to detect single item in grid
     standalone?: boolean; // New prop for minimal standalone styling
+    alignRight?: boolean; // New prop to control right alignment
 }
 
 // Cache fetched content between mounts to avoid duplicate fetches
@@ -177,7 +178,8 @@ export function FileAttachment({
     collapsed = true,
     project,
     isSingleItemGrid = false,
-    standalone = false
+    standalone = false,
+    alignRight = false
 }: FileAttachmentProps) {
     // Authentication 
     const { session } = useAuth();
@@ -577,7 +579,7 @@ export function FileAttachment({
     delete safeStyle.height;
     delete (safeStyle as any)['--attachment-height'];
 
-    return (
+    const fileButton = (
         <button
             onClick={handleClick}
             className={cn(
@@ -612,6 +614,19 @@ export function FileAttachment({
             </div>
         </button>
     );
+
+    // Wrap with alignment container if alignRight is true
+    if (alignRight) {
+        return (
+            <div className="w-full flex justify-end">
+                <div className="max-w-[85%]">
+                    {fileButton}
+                </div>
+            </div>
+        );
+    }
+
+    return fileButton;
 }
 
 interface FileAttachmentGridProps {
@@ -623,6 +638,7 @@ interface FileAttachmentGridProps {
     collapsed?: boolean;
     project?: Project;
     standalone?: boolean;
+    alignRight?: boolean;
 }
 
 export function FileAttachmentGrid({
@@ -633,14 +649,15 @@ export function FileAttachmentGrid({
     showPreviews = true,
     collapsed = false,
     project,
-    standalone = false
+    standalone = false,
+    alignRight = false
 }: FileAttachmentGridProps) {
     if (!attachments || attachments.length === 0) return null;
 
     // For standalone rendering, always expand previews to show content
     const shouldCollapse = standalone ? false : collapsed;
 
-    return (
+    const content = (
         <AttachmentGroup
             files={attachments}
             onFileClick={onFileClick}
@@ -652,6 +669,20 @@ export function FileAttachmentGrid({
             collapsed={shouldCollapse}
             project={project}
             standalone={standalone}
+            alignRight={alignRight}
         />
     );
+
+    // Wrap with alignment container if alignRight is true
+    if (alignRight) {
+        return (
+            <div className="w-full flex justify-end">
+                <div className="max-w-[85%]">
+                    {content}
+                </div>
+            </div>
+        );
+    }
+
+    return content;
 } 

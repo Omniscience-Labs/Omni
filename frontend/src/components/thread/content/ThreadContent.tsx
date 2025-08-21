@@ -29,17 +29,16 @@ export function renderStandaloneAttachments(attachments: string[], fileViewerHan
     if (validAttachments.length === 0) return null;
 
     return (
-        <div className={`w-full my-4 ${alignRight ? 'flex justify-end' : ''}`}>
-            <div className={alignRight ? 'max-w-[85%] w-full' : 'w-full'}>
-                <FileAttachmentGrid
-                    attachments={validAttachments}
-                    onFileClick={fileViewerHandler}
-                    showPreviews={true}
-                    sandboxId={sandboxId}
-                    project={project}
-                    standalone={true}
-                />
-            </div>
+        <div className="w-full my-4">
+            <FileAttachmentGrid
+                attachments={validAttachments}
+                onFileClick={fileViewerHandler}
+                showPreviews={true}
+                sandboxId={sandboxId}
+                project={project}
+                standalone={true}
+                alignRight={alignRight}
+            />
         </div>
     );
 }

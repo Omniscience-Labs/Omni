@@ -383,7 +383,7 @@ export function CreateSlideToolView({
             iconColor="text-blue-500 dark:text-blue-400"
             bgColor="bg-gradient-to-b from-blue-100 to-blue-50 shadow-inner dark:from-blue-800/40 dark:to-blue-900/60 dark:shadow-blue-950/20"
             title="Creating slide"
-            filePath="Generating HTML..."
+            filePath="Creating Slide..."
             showProgress={true}
           />
         ) : error || (!slideData && !fileContent) ? (
