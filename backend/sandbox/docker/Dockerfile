@@ -71,6 +71,8 @@ RUN apt-get update && apt-get install -y \
     # OCR Tools
     tesseract-ocr \
     tesseract-ocr-eng \
+    # Audio Processing Tools
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js, npm, pnpm (via corepack) and useful global CLIs
@@ -121,9 +123,10 @@ RUN mkdir -p /opt/templates && \
     npx shadcn@latest add button card form input dropdown-menu dialog tabs sheet badge alert && \
     pnpm install --prefer-offline
 
-# Copy server script
+# Copy server script and audio processor
 COPY . /app
 COPY server.py /app/server.py
+COPY audio_processor.py /app/audio_processor.py
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1

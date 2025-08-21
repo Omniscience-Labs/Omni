@@ -3,7 +3,6 @@ import json
 import tempfile
 import openai
 from typing import Optional, List, Tuple
-from pydub import AudioSegment
 from agentpress.tool import Tool, ToolResult, openapi_schema
 from agentpress.thread_manager import ThreadManager
 from sandbox.tool_base import SandboxToolsBase
@@ -154,37 +153,57 @@ class AudioTranscriptionTool(SandboxToolsBase):
             raise
     
     async def _transcribe_chunked(self, file_path: str, language: Optional[str] = None, prompt: Optional[str] = None) -> str:
-        """Transcribe a large audio file by chunking it into smaller segments."""
+        """Transcribe a large audio file by chunking it into smaller segments using sandbox."""
         try:
-            # Load audio file
-            logger.info(f"Loading audio file for chunking: {file_path}")
-            audio = AudioSegment.from_file(file_path)
-            duration_ms = len(audio)
-            duration_min = duration_ms / (1000 * 60)
-            logger.info(f"Audio duration: {duration_min:.2f} minutes")
+            # Upload the file to sandbox for processing
+            logger.info(f"Uploading audio file to sandbox for chunking: {file_path}")
             
-            # Calculate number of chunks
-            num_chunks = (duration_ms + self.chunk_duration - 1) // self.chunk_duration
-            logger.info(f"Splitting into {num_chunks} chunks")
+            # Read the local file and upload to sandbox
+            with open(file_path, 'rb') as f:
+                file_content = f.read()
+            
+            sandbox_file_path = f"{self.workspace_path}/temp_audio{os.path.splitext(file_path)[1]}"
+            self.sandbox.fs.upload_file(file_content, sandbox_file_path)
+            
+            # Create chunks directory in sandbox
+            chunks_dir = f"{self.workspace_path}/audio_chunks"
+            await self.sandbox.process.exec(f"mkdir -p {chunks_dir}")
+            
+            # Run audio processing in sandbox to chunk the file
+            chunk_cmd = f"cd {self.workspace_path} && python /app/audio_processor.py chunk {sandbox_file_path} {chunks_dir} {self.chunk_duration}"
+            response = await self.sandbox.process.exec(chunk_cmd, timeout=300)
+            
+            if response.exit_code != 0:
+                raise Exception(f"Audio chunking failed: {response.result}")
+            
+            # Parse the chunking result
+            import json
+            chunk_result = json.loads(response.result)
+            
+            if not chunk_result.get("success"):
+                raise Exception(f"Audio chunking failed: {chunk_result.get('error')}")
+            
+            chunks = chunk_result["chunks"]
+            duration_min = chunk_result["total_duration_ms"] / (1000 * 60)
+            logger.info(f"Audio duration: {duration_min:.2f} minutes, created {len(chunks)} chunks")
             
             transcripts = []
             context_prompt = prompt or ""
             
-            for i in range(num_chunks):
-                start_ms = i * self.chunk_duration
-                end_ms = min(start_ms + self.chunk_duration, duration_ms)
+            for i, chunk_info in enumerate(chunks):
+                # Download chunk from sandbox
+                chunk_content = self.sandbox.fs.download_file(chunk_info["path"])
                 
-                # Extract chunk
-                chunk = audio[start_ms:end_ms]
-                
-                # Export chunk to temporary file
+                # Create temporary file for transcription
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as chunk_file:
+                    chunk_file.write(chunk_content)
                     chunk_path = chunk_file.name
-                    chunk.export(chunk_path, format="mp3", bitrate="128k")
                 
                 try:
                     # Transcribe chunk with context from previous chunks
-                    logger.info(f"Transcribing chunk {i+1}/{num_chunks} ({start_ms/1000:.1f}s - {end_ms/1000:.1f}s)")
+                    start_s = chunk_info["start_ms"] / 1000
+                    end_s = chunk_info["end_ms"] / 1000
+                    logger.info(f"Transcribing chunk {i+1}/{len(chunks)} ({start_s:.1f}s - {end_s:.1f}s)")
                     
                     # Use the last part of previous transcript as context
                     if i > 0 and transcripts:
@@ -199,11 +218,17 @@ class AudioTranscriptionTool(SandboxToolsBase):
                     transcripts.append(chunk_transcript.strip())
                     
                 finally:
-                    # Clean up chunk file
+                    # Clean up local chunk file
                     try:
                         os.unlink(chunk_path)
                     except Exception as e:
                         logger.warning(f"Failed to delete chunk file {chunk_path}: {e}")
+            
+            # Clean up sandbox files
+            try:
+                await self.sandbox.process.exec(f"rm -rf {sandbox_file_path} {chunks_dir}")
+            except Exception as e:
+                logger.warning(f"Failed to clean up sandbox files: {e}")
             
             # Merge transcripts with proper spacing
             full_transcript = "\n\n".join(transcripts)
