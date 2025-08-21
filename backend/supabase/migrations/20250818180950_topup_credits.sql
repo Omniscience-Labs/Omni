@@ -48,6 +48,13 @@ ALTER TABLE public.credit_purchases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.credit_balance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.credit_usage ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own credit purchases" ON public.credit_purchases;
+DROP POLICY IF EXISTS "Service role can manage all credit purchases" ON public.credit_purchases;
+DROP POLICY IF EXISTS "Users can view their own credit balance" ON public.credit_balance;
+DROP POLICY IF EXISTS "Service role can manage all credit balances" ON public.credit_balance;
+DROP POLICY IF EXISTS "Users can view their own credit usage" ON public.credit_usage;
+DROP POLICY IF EXISTS "Service role can manage all credit usage" ON public.credit_usage;
+
 CREATE POLICY "Users can view their own credit purchases" ON public.credit_purchases
     FOR SELECT USING (auth.uid() = user_id);
 
