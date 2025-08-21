@@ -23,7 +23,7 @@ class SandboxUploadFileTool(SandboxToolsBase):
     @openapi_schema({
         "type": "function",
         "function": {
-            "name": "sb_upload_file",
+            "name": "upload_file",
             "description": "Securely upload a file from the sandbox workspace to private cloud storage (Supabase S3). Returns a secure signed URL that expires after 24 hours for access control and security.",
             "parameters": {
                 "type": "object",
