@@ -20,21 +20,34 @@ import { ComposioUrlDetector } from './composio-url-detector';
 import { HIDE_STREAMING_XML_TAGS } from '@/components/thread/utils';
 
 
-// Helper function to render attachments (keeping original implementation for now)
-export function renderAttachments(attachments: string[], fileViewerHandler?: (filePath?: string, filePathList?: string[]) => void, sandboxId?: string, project?: Project) {
+// Helper function to render all attachments as standalone messages
+export function renderStandaloneAttachments(attachments: string[], fileViewerHandler?: (filePath?: string, filePathList?: string[]) => void, sandboxId?: string, project?: Project, alignRight: boolean = false) {
     if (!attachments || attachments.length === 0) return null;
 
     // Filter out empty strings and check if we have any valid attachments
     const validAttachments = attachments.filter(attachment => attachment && attachment.trim() !== '');
     if (validAttachments.length === 0) return null;
 
-    return <FileAttachmentGrid
-        attachments={validAttachments}
-        onFileClick={fileViewerHandler}
-        showPreviews={true}
-        sandboxId={sandboxId}
-        project={project}
-    />;
+    return (
+        <div className={`w-full my-4 ${alignRight ? 'flex justify-end' : ''}`}>
+            <div className={alignRight ? 'max-w-[85%] w-full' : 'w-full'}>
+                <FileAttachmentGrid
+                    attachments={validAttachments}
+                    onFileClick={fileViewerHandler}
+                    showPreviews={true}
+                    sandboxId={sandboxId}
+                    project={project}
+                    standalone={true}
+                />
+            </div>
+        </div>
+    );
+}
+
+// Helper function for legacy compatibility (now just returns null since all files are standalone)
+export function renderAttachments(attachments: string[], fileViewerHandler?: (filePath?: string, filePathList?: string[]) => void, sandboxId?: string, project?: Project) {
+    // All attachments are now rendered as standalone, so this returns null
+    return null;
 }
 
 // Render Markdown content while preserving XML tags that should be displayed as tool calls
@@ -97,6 +110,16 @@ export function renderMarkdownContent(
                             {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
                         </div>
                     );
+                    
+                    // Also render standalone attachments outside the message
+                    const standaloneAttachments = renderStandaloneAttachments(attachmentArray, fileViewerHandler, sandboxId, project);
+                    if (standaloneAttachments) {
+                        contentParts.push(
+                            <div key={`ask-func-attachments-${match.index}-${index}`}>
+                                {standaloneAttachments}
+                            </div>
+                        );
+                    }
                 } else if (toolName === 'complete') {
                     // Handle complete tool specially - extract text and attachments
                     const completeText = toolCall.parameters.text || '';
@@ -113,6 +136,16 @@ export function renderMarkdownContent(
                             {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
                         </div>
                     );
+                    
+                    // Also render standalone attachments outside the message
+                    const standaloneAttachments = renderStandaloneAttachments(attachmentArray, fileViewerHandler, sandboxId, project);
+                    if (standaloneAttachments) {
+                        contentParts.push(
+                            <div key={`complete-func-attachments-${match.index}-${index}`}>
+                                {standaloneAttachments}
+                            </div>
+                        );
+                    }
                 } else {
                     const IconComponent = getToolIcon(toolName);
 
@@ -206,6 +239,16 @@ export function renderMarkdownContent(
                     {renderAttachments(attachments, fileViewerHandler, sandboxId, project)}
                 </div>
             );
+            
+            // Also render standalone attachments outside the message
+            const standaloneAttachments = renderStandaloneAttachments(attachments, fileViewerHandler, sandboxId, project);
+            if (standaloneAttachments) {
+                contentParts.push(
+                    <div key={`ask-attachments-${match.index}`}>
+                        {standaloneAttachments}
+                    </div>
+                );
+            }
         } else if (toolName === 'complete') {
             // Extract attachments from the XML attributes
             const attachmentsMatch = rawXml.match(/attachments=["']([^"']*)["']/i);
@@ -224,6 +267,16 @@ export function renderMarkdownContent(
                     {renderAttachments(attachments, fileViewerHandler, sandboxId, project)}
                 </div>
             );
+            
+            // Also render standalone attachments outside the message
+            const standaloneAttachments = renderStandaloneAttachments(attachments, fileViewerHandler, sandboxId, project);
+            if (standaloneAttachments) {
+                contentParts.push(
+                    <div key={`complete-attachments-${match.index}`}>
+                        {standaloneAttachments}
+                    </div>
+                );
+            }
         } else {
             const IconComponent = getToolIcon(toolName);
             const paramDisplay = extractPrimaryParam(toolName, rawXml);
@@ -713,15 +766,20 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         const cleanContent = messageContent.replace(/\[Uploaded File: .*?\]/g, '').trim();
 
                                         return (
-                                            <div key={group.key} className="flex justify-end">
-                                                <div className="flex max-w-[85%] rounded-3xl rounded-br-lg bg-card border px-4 py-3 break-words overflow-hidden">
-                                                    <div className="space-y-3 min-w-0 flex-1">
-                                                        {cleanContent && (
-                                                            <ComposioUrlDetector content={cleanContent} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere" />
-                                                        )}
+                                            <div key={group.key} className="space-y-3">
+                                                {/* All file attachments rendered outside message bubble */}
+                                                {renderStandaloneAttachments(attachments as string[], handleOpenFileViewer, sandboxId, project, true)}
+                                                
+                                                <div className="flex justify-end">
+                                                    <div className="flex max-w-[85%] rounded-3xl rounded-br-lg bg-card border px-4 py-3 break-words overflow-hidden">
+                                                        <div className="space-y-3 min-w-0 flex-1">
+                                                            {cleanContent && (
+                                                                <ComposioUrlDetector content={cleanContent} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere" />
+                                                            )}
 
-                                                        {/* Use the helper function to render user attachments */}
-                                                        {renderAttachments(attachments as string[], handleOpenFileViewer, sandboxId, project)}
+                                                            {/* Use the helper function to render regular (non-spreadsheet) attachments */}
+                                                            {renderAttachments(attachments as string[], handleOpenFileViewer, sandboxId, project)}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>

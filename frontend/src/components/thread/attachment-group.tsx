@@ -35,6 +35,7 @@ interface AttachmentGroupProps {
     gridImageHeight?: number; // New prop for grid image height
     collapsed?: boolean; // Add new collapsed prop
     project?: Project; // Add project prop
+    standalone?: boolean; // Add standalone prop for minimal styling
 }
 
 export function AttachmentGroup({
@@ -48,7 +49,8 @@ export function AttachmentGroup({
     maxHeight = '216px',
     gridImageHeight = 180, // Increased from 120 for better visibility
     collapsed = true, // By default, HTML/MD files are collapsed
-    project // Add project prop
+    project, // Add project prop
+    standalone = false // Add standalone prop
 }: AttachmentGroupProps) {
     // State for modal
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -133,6 +135,8 @@ export function AttachmentGroup({
     // This ensures hooks aren't conditionally called
     const maxVisibleFiles = isMobile ? 2 : 5;
     let visibleCount = Math.min(maxVisibleFiles, uniqueFiles.length);
+    
+    // Use standalone mode to optimize grid layout for all file types
     let moreCount = uniqueFiles.length - visibleCount;
 
     // If there's just a single file more on desktop, show it
@@ -211,9 +215,11 @@ export function AttachmentGroup({
             return (
                 <div className={cn(
                     "grid gap-3",
-                    uniqueFiles.length === 1 ? "grid-cols-1" :
-                        uniqueFiles.length > 4 ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" :
-                            "grid-cols-1 sm:grid-cols-2",
+                    // Force single column for standalone files to maximize width
+                    standalone && !collapsed ? "grid-cols-1 w-full min-w-[300px] sm:min-w-[500px] max-w-[1000px]" :
+                        uniqueFiles.length === 1 ? "grid-cols-1" :
+                            uniqueFiles.length > 4 ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" :
+                                "grid-cols-1 sm:grid-cols-2",
                     className
                 )}>
                     {sortedFilesWithMeta.map((item, index) => (
@@ -233,7 +239,7 @@ export function AttachmentGroup({
                                     "w-full",
                                     // Apply appropriate height based on file type
                                     item.isImage ? "h-auto min-h-[54px]" :
-                                        (item.isPreviewFile && !collapsed) ? "min-h-[240px] max-h-[400px] overflow-auto" : "h-[54px]"
+                                        (item.isPreviewFile && !collapsed) ? "min-h-[400px] max-h-[600px] overflow-auto" : "h-[54px]"
                                 )}
                                 // Pass customStyle for both images and previewable files
                                 customStyle={
@@ -244,7 +250,8 @@ export function AttachmentGroup({
                                     } :
                                         (item.isPreviewFile && !collapsed) ? {
                                             gridColumn: '1 / -1', // Explicit grid styling for previewable files
-
+                                            minWidth: '300px', // Reasonable minimum width for all previewable files
+                                            width: '100%'
                                         } :
                                             item.shouldSpanFull ? {
                                                 gridColumn: '1 / -1' // Explicit grid styling for last item if odd count
@@ -255,6 +262,7 @@ export function AttachmentGroup({
                                 collapsed={collapsed} // Pass collapsed prop
                                 project={project} // Pass project to FileAttachment
                                 isSingleItemGrid={uniqueFiles.length === 1} // Pass single item detection
+                                standalone={standalone} // Pass standalone prop
                             />
                             {onRemove && (
                                 <div
@@ -375,7 +383,10 @@ export function AttachmentGroup({
                     </DialogHeader>
 
                     <div className={cn(
-                        "grid gap-3 sm:justify-start justify-center sm:max-w-full max-w-[300px] mx-auto sm:mx-0",
+                        "grid gap-3 sm:justify-start justify-center sm:mx-0",
+                        // Force single column for standalone files in modal too with better width constraints
+                        standalone && !collapsed ? "grid-cols-1 w-full min-w-[300px] sm:min-w-[600px] max-w-[1200px] mx-auto" :
+                            "sm:max-w-full max-w-[300px] mx-auto",
                         uniqueFiles.length === 1 ? "grid-cols-1" :
                             uniqueFiles.length > 4 ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" :
                                 "grid-cols-1 sm:grid-cols-2",
@@ -459,6 +470,7 @@ export function AttachmentGroup({
                                         collapsed={true} // Force collapsed for all in modal
                                         project={project}
                                         isSingleItemGrid={uniqueFiles.length === 1} // Pass single item detection to modal too
+                                        standalone={false} // Never standalone in modal
                                     />
                                     {onRemove && (
                                         <div

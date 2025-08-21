@@ -31,6 +31,11 @@ import { PresentationOutlineToolView } from '../PresentationOutlineToolView';
 import { PresentationToolView } from '../PresentationToolView';
 import { PresentationToolV2View } from '../PresentationToolV2View';
 import { ListPresentationTemplatesToolView } from '../ListPresentationTemplatesToolView';
+import { CreateSlideToolView } from '../CreateSlideToolView';
+import { ListSlidesToolView } from '../ListSlidesToolView';
+import { ListPresentationsToolView } from '../ListPresentationsToolView';
+import { DeleteSlideToolView } from '../DeleteSlideToolView';
+import { DeletePresentationToolView } from '../DeletePresentationToolView';
 import { SheetsToolView } from '../sheets-tools/sheets-tool-view';
 import { GetProjectStructureView } from '../web-dev/GetProjectStructureView';
 import { ImageEditGenerateToolView } from '../image-edit-generate-tool/ImageEditGenerateToolView';
@@ -95,6 +100,13 @@ const defaultRegistry: ToolViewRegistryType = {
   'create-presentation': PresentationToolV2View,
   'export-presentation': PresentationToolV2View,
   'list-presentation-templates': ListPresentationTemplatesToolView,
+  
+  // New per-slide presentation tools
+  'create-slide': CreateSlideToolView,
+  'list-slides': ListSlidesToolView,
+  'list-presentations': ListPresentationsToolView,
+  'delete-slide': DeleteSlideToolView,
+  'delete-presentation': DeletePresentationToolView,
   
   'create-sheet': SheetsToolView,
   'update-sheet': SheetsToolView,

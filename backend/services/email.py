@@ -186,7 +186,7 @@ Thanks again, and welcome to the Suna community 🌞
 Go to the platform: https://www.suna.so/
 
 ---
-© 2024 Suna. All rights reserved.
+© 2025 Suna. All rights reserved.
 You received this email because you signed up for a Suna account."""
 
 email_service = EmailService() 
