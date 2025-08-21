@@ -1428,7 +1428,8 @@ export function FileViewerModal({
                         key={selectedFilePath}
                         content={isBinaryFile ? null : textContentForRenderer}
                         binaryUrl={blobUrlForRenderer}
-                        fileName={selectedFilePath}
+                        fileName={selectedFilePath?.split('/').pop() || selectedFilePath}
+                        filePath={selectedFilePath}
                         className="h-full w-full"
                         project={projectWithSandbox}
                         markdownRef={

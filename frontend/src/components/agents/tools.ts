@@ -9,7 +9,7 @@ export const AGENTPRESS_TOOL_DEFINITIONS: Record<string, { enabled: boolean; des
     'sb_image_edit_tool': { enabled: true, description: 'Generate new images or edit existing images using OpenAI GPT Image 1', icon: '🎨', color: 'bg-purple-100 dark:bg-purple-800/50' },
     'sb_presentation_outline_tool': { enabled: false, description: 'Create structured presentation outlines with slide descriptions and speaker notes', icon: '📋', color: 'bg-purple-100 dark:bg-purple-800/50' },
     'sb_presentation_tool': { enabled: false, description: 'Create professional presentations with HTML slides, preview, and export capabilities', icon: '📊', color: 'bg-violet-100 dark:bg-violet-800/50' },
-    'sb_presentation_tool_v2': { enabled: false, description: 'Enhanced presentation tool with advanced formatting and export options', icon: '📊', color: 'bg-violet-100 dark:bg-violet-800/50' },
+
     'sb_sheets_tool': { enabled: true, description: 'Create, view, update, analyze, visualize, and format spreadsheets (XLSX/CSV) with Luckysheet viewer', icon: '📊', color: 'bg-purple-100 dark:bg-purple-800/50' },
     'sb_web_dev_tool': { enabled: false, description: 'Create Next.js projects with shadcn/ui pre-installed, manage dependencies, build and deploy modern web applications', icon: '⚛️', color: 'bg-cyan-100 dark:bg-cyan-800/50' },
     
@@ -44,7 +44,7 @@ export const getToolDisplayName = (toolName: string): string => {
       'sb_image_edit_tool': 'Image Editor',
       'sb_presentation_outline_tool': 'Presentation Outline',
       'sb_presentation_tool': 'Presentation Creator',
-      'sb_presentation_tool_v2': 'Presentation Creator V2',
+
       'sb_sheets_tool': 'Spreadsheets',
       'sb_web_dev_tool': 'Web Development',
       

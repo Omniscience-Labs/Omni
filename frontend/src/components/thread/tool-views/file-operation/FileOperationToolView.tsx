@@ -24,6 +24,7 @@ import {
   processUnicodeContent,
 } from '@/components/file-renderers/markdown-renderer';
 import { CsvRenderer } from '@/components/file-renderers/csv-renderer';
+import { XlsxRenderer } from '@/components/file-renderers/xlsx-renderer';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { CodeBlockCode } from '@/components/ui/code-block';
@@ -141,6 +142,7 @@ export function FileOperationToolView({
   const isMarkdown = isFileType.markdown(fileExtension);
   const isHtml = isFileType.html(fileExtension);
   const isCsv = isFileType.csv(fileExtension);
+  const isXlsx = isFileType.xlsx(fileExtension);
 
   const language = getLanguageFromFileName(fileName);
   const hasHighlighting = hasLanguageHighlighting(language);
@@ -207,6 +209,21 @@ export function FileOperationToolView({
         <div className="h-full w-full p-4">
           <div className="h-[calc(100vh-17rem)] w-full bg-muted/20 border rounded-xl overflow-auto">
             <CsvRenderer content={processUnicodeContent(fileContent)} />
+          </div>
+        </div>
+      );
+    }
+
+    if (isXlsx) {
+      return (
+        <div className="h-full w-full p-4">
+          <div className="h-[calc(100vh-17rem)] w-full bg-muted/20 border rounded-xl overflow-auto">
+            <XlsxRenderer 
+              content={fileContent}
+              filePath={processedFilePath}
+              fileName={fileName}
+              project={project}
+            />
           </div>
         </div>
       );
@@ -300,7 +317,7 @@ export function FileOperationToolView({
 
   return (
     <Card className="flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card">
-      <Tabs defaultValue={isMarkdown || isHtml ? 'preview' : 'code'} className="w-full h-full">
+      <Tabs defaultValue={isMarkdown || isHtml || isCsv || isXlsx ? 'preview' : 'code'} className="w-full h-full">
         <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2 mb-0">
           <div className="flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">

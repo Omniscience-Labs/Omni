@@ -10,8 +10,6 @@ import { parseToolResult } from '../tool-result-parser';
 import { FileAttachment } from '../../file-attachment';
 import { LuckysheetViewer } from './luckysheet-viewer';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchFileContent } from '@/hooks/react-query/files/use-file-queries';
 
@@ -78,7 +76,7 @@ export function SheetsToolView({
     (primaryXlsx ? primaryXlsx.replace(/\.xlsx$/i, '.csv') : null)
   );
 
-  const [showFormatted, setShowFormatted] = useState<boolean>(false);
+
 
   const sheetTitle = useMemo(() => {
     switch (toolName) {
@@ -166,13 +164,6 @@ export function SheetsToolView({
             </CardTitle>
           </div>
           <div className="flex items-center gap-2">
-            {primaryXlsx && (
-              <div className="flex items-center gap-2">
-                <Label>CSV</Label>
-                <Switch checked={showFormatted} onCheckedChange={setShowFormatted} />
-                <Label>XLSX</Label>
-              </div>
-            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="outline">
@@ -210,13 +201,13 @@ export function SheetsToolView({
           <div className="flex-1 min-w-0">
             <ScrollArea className="h-full">
               <div className="p-4 flex flex-col h-full space-y-4">
-                {showFormatted && primaryXlsx ? (
+                {primaryXlsx ? (
                   <LuckysheetViewer xlsxPath={primaryXlsx} sandboxId={project?.sandbox?.id} className="w-full" height={520} />
                 ) : primaryCsv ? (
                   <div className="space-y-3 h-full">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Table className="h-4 w-4" />
-                      Preview (CSV mirror)
+                      Preview (CSV data)
                     </div>
                     <FileAttachment
                       filepath={primaryCsv}
