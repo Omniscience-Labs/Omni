@@ -170,6 +170,8 @@ export default function TemplateSharePage() {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isPromptExpanded, setIsPromptExpanded] = useState(false);
   const [activeSection, setActiveSection] = useState('');
+  const { scrollY } = useScroll();
+  const [hasScrolled, setHasScrolled] = useState(false);
 
   // Helper functions and variables for navigation
   const scrollToSection = (sectionId: string) => {
@@ -180,6 +182,14 @@ export default function TemplateSharePage() {
       window.scrollTo({ top: y, behavior: 'smooth' });
     }
   };
+
+  // Scroll detection for navbar
+  useEffect(() => {
+    const unsubscribe = scrollY.on('change', (latest) => {
+      setHasScrolled(latest > 10);
+    });
+    return unsubscribe;
+  }, [scrollY]);
 
   // Navigation state management
   useEffect(() => {
@@ -329,7 +339,7 @@ export default function TemplateSharePage() {
   // Navigation helper variables
   const hasIntegrations = integrations.length > 0;
   const hasTriggers = triggerRequirements.length > 0;
-  const hasTools = customTools.length > 0;
+  const hasTools = customTools.length > 0 || agentpressTools.length > 0;
 
   const getDefaultAvatar = () => {
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD'];
@@ -362,43 +372,59 @@ export default function TemplateSharePage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="w-full max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center">
-              <img 
-                src={resolvedTheme === 'dark' ? '/kortix-logo-white.svg' : '/kortix-logo.svg'} 
-                alt="Kortix" 
-                className="h-6"
-              />
-            </Link>
-            <div className="flex items-center space-x-3">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-                className="h-9 w-9 rounded-lg"
-              >
-                <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                <span className="sr-only">Toggle theme</span>
-              </Button>
-              <Button 
-                variant="outline"
-                size="icon"
-                onClick={handleShare}
-                className="h-9 w-9 rounded-lg"
-              >
-                <Share2 className="h-4 w-4" />
-                <span className="sr-only">Share</span>
-              </Button>
-              <Button 
-                onClick={handleInstall}
-                className="rounded-lg"
-              >
-                <Sparkles className="h-4 w-4 mr-2" />
-                Install Agent
-              </Button>
+      <header
+        className={cn(
+          'sticky z-50 flex justify-center transition-all duration-300',
+          hasScrolled ? 'top-6 mx-4 md:mx-0' : 'top-4 mx-2 md:mx-0',
+        )}
+      >
+        <div className="w-full max-w-7xl">
+          <div
+            className={cn(
+              'mx-auto rounded-2xl transition-all duration-300',
+              hasScrolled
+                ? 'px-2 md:px-4 border border-border backdrop-blur-lg bg-background/75'
+                : 'shadow-none px-3 md:px-6',
+            )}
+          >
+            <div className="flex h-14 items-center">
+              <div className="flex items-center">
+                <Link href="/" className="flex items-center">
+                  <img 
+                    src={resolvedTheme === 'dark' ? '/kortix-logo-white.svg' : '/kortix-logo.svg'} 
+                    alt="Kortix" 
+                    className="h-6 opacity-70"
+                  />
+                </Link>
+              </div>
+              <div className="flex items-center space-x-3 ml-auto">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                  className="h-8 w-8 rounded-md"
+                >
+                  <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                  <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                  <span className="sr-only">Toggle theme</span>
+                </Button>
+                <Button 
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleShare}
+                  className="h-8 w-8 rounded-md"
+                >
+                  <Share2 className="h-4 w-4" />
+                  <span className="sr-only">Share</span>
+                </Button>
+                <Button 
+                  onClick={handleInstall}
+                  className="bg-secondary h-8 flex items-center justify-center text-sm font-normal tracking-wide rounded-full text-primary-foreground dark:text-secondary-foreground w-fit px-4 shadow-[inset_0_1px_2px_rgba(255,255,255,0.25),0_3px_3px_-1.5px_rgba(16,24,40,0.06),0_1px_1px_rgba(16,24,40,0.08)] border border-white/[0.12]"
+                >
+                  <Sparkles className="h-3 w-3 mr-2" />
+                  Install Agent
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -509,15 +535,7 @@ export default function TemplateSharePage() {
                       Triggers
                     </button>
                   )}
-                  {hasTools && (
-                    <button
-                      onClick={() => scrollToSection('tools')}
-                      className="w-full px-3 py-2 text-sm rounded-lg transition-colors text-left flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                    >
-                      <Wrench className="w-4 h-4" />
-                      Tools
-                    </button>
-                  )}
+
                 </nav>
               </div>
             </div>
