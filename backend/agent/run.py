@@ -26,7 +26,8 @@ from services.billing import check_billing_status
 from agent.tools.sb_vision_tool import SandboxVisionTool
 from agent.tools.sb_image_edit_tool import SandboxImageEditTool
 from agent.tools.sb_presentation_outline_tool import SandboxPresentationOutlineTool
-from agent.tools.sb_presentation_tool_v2 import SandboxPresentationToolV2
+from agent.tools.sb_presentation_tool import SandboxPresentationTool
+
 from services.langfuse import langfuse
 from langfuse.client import StatefulTraceClient
 
@@ -108,7 +109,8 @@ class ToolManager:
             ('sb_vision_tool', SandboxVisionTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
             ('sb_image_edit_tool', SandboxImageEditTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
             ('sb_presentation_outline_tool', SandboxPresentationOutlineTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('sb_presentation_tool_v2', SandboxPresentationToolV2, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_presentation_tool', SandboxPresentationTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+
             ('sb_sheets_tool', SandboxSheetsTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_web_dev_tool', SandboxWebDevTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
         ]
@@ -529,7 +531,7 @@ class AgentRunner:
         
         # Special handling for presentation tools
         if 'sb_presentation_tool' in disabled_tools:
-            disabled_tools.extend(['sb_presentation_outline_tool', 'sb_presentation_tool_v2'])
+            disabled_tools.extend(['sb_presentation_outline_tool'])
         
         logger.debug(f"Disabled tools from config: {disabled_tools}")
         return disabled_tools
