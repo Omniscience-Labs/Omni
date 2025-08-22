@@ -169,8 +169,74 @@ class AudioTranscriptionTool(SandboxToolsBase):
             chunks_dir = f"{self.workspace_path}/audio_chunks"
             await self.sandbox.process.exec(f"mkdir -p {chunks_dir}")
             
+            # First, ensure ffmpeg and pydub are installed in the sandbox
+            ffmpeg_check = await self.sandbox.process.exec("which ffmpeg", timeout=30)
+            if ffmpeg_check.exit_code != 0:
+                logger.info("Installing ffmpeg in sandbox...")
+                ffmpeg_install = await self.sandbox.process.exec("sudo apt-get update && sudo apt-get install -y ffmpeg", timeout=180)
+                if ffmpeg_install.exit_code != 0:
+                    logger.warning(f"Failed to install ffmpeg: {ffmpeg_install.result}")
+            
+            install_cmd = "pip install pydub==0.25.1"
+            install_response = await self.sandbox.process.exec(install_cmd, timeout=120)
+            if install_response.exit_code != 0:
+                logger.warning(f"Failed to install pydub in sandbox: {install_response.result}")
+            
+            # Create the audio processor script in the sandbox
+            audio_processor_script = '''#!/usr/bin/env python3
+import os
+import sys
+import json
+import tempfile
+from pydub import AudioSegment
+
+def chunk_audio(input_file, output_dir, chunk_duration_ms=600000):
+    try:
+        audio = AudioSegment.from_file(input_file)
+        duration_ms = len(audio)
+        num_chunks = (duration_ms + chunk_duration_ms - 1) // chunk_duration_ms
+        chunk_files = []
+        
+        for i in range(num_chunks):
+            start_ms = i * chunk_duration_ms
+            end_ms = min(start_ms + chunk_duration_ms, duration_ms)
+            chunk = audio[start_ms:end_ms]
+            chunk_filename = f"chunk_{i:03d}.mp3"
+            chunk_path = os.path.join(output_dir, chunk_filename)
+            chunk.export(chunk_path, format="mp3", bitrate="128k")
+            chunk_files.append({
+                "path": chunk_path,
+                "start_ms": start_ms,
+                "end_ms": end_ms,
+                "duration_ms": end_ms - start_ms
+            })
+        
+        return {
+            "success": True,
+            "total_duration_ms": duration_ms,
+            "num_chunks": num_chunks,
+            "chunks": chunk_files
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+if len(sys.argv) >= 4 and sys.argv[1] == "chunk":
+    input_file = sys.argv[2]
+    output_dir = sys.argv[3]
+    chunk_duration_ms = int(sys.argv[4]) if len(sys.argv) > 4 else 600000
+    os.makedirs(output_dir, exist_ok=True)
+    result = chunk_audio(input_file, output_dir, chunk_duration_ms)
+    print(json.dumps(result))
+else:
+    print(json.dumps({"success": False, "error": "Usage: python audio_processor.py chunk <input_file> <output_dir> [chunk_duration_ms]"}))
+'''
+            
+            # Upload the script to sandbox
+            script_path = f"{self.workspace_path}/audio_processor.py"
+            self.sandbox.fs.upload_file(audio_processor_script.encode(), script_path)
+            
             # Run audio processing in sandbox to chunk the file
-            chunk_cmd = f"cd {self.workspace_path} && python /app/audio_processor.py chunk {sandbox_file_path} {chunks_dir} {self.chunk_duration}"
+            chunk_cmd = f"cd {self.workspace_path} && python audio_processor.py chunk {sandbox_file_path} {chunks_dir} {self.chunk_duration}"
             response = await self.sandbox.process.exec(chunk_cmd, timeout=300)
             
             if response.exit_code != 0:
