@@ -1,5 +1,54 @@
 from typing import Dict, Any, Optional, List
 from utils.logger import logger
+from services.supabase import DBConnection
+
+
+async def get_agent_llamacloud_knowledge_bases(agent_id: str) -> List[Dict[str, Any]]:
+    """Fetch LlamaCloud knowledge bases for an agent"""
+    try:
+        db = DBConnection()
+        client = await db.client
+        
+        result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
+            'p_agent_id': agent_id,
+            'p_include_inactive': False
+        }).execute()
+        
+        if not result.data:
+            return []
+        
+        # Transform database results to the format expected by KnowledgeSearchTool
+        knowledge_bases = []
+        for kb_data in result.data:
+            kb = {
+                'name': kb_data['name'],
+                'index_name': kb_data['index_name'],
+                'description': kb_data.get('description', '')
+            }
+            knowledge_bases.append(kb)
+        
+        logger.info(f"Loaded {len(knowledge_bases)} LlamaCloud knowledge bases for agent {agent_id}")
+        return knowledge_bases
+        
+    except Exception as e:
+        logger.error(f"Failed to load LlamaCloud knowledge bases for agent {agent_id}: {e}")
+        return []
+
+
+async def enrich_agent_config_with_llamacloud_kb(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Enrich agent config with LlamaCloud knowledge bases"""
+    if not config.get('agent_id'):
+        return config
+    
+    try:
+        llamacloud_knowledge_bases = await get_agent_llamacloud_knowledge_bases(config['agent_id'])
+        if llamacloud_knowledge_bases:
+            config['llamacloud_knowledge_bases'] = llamacloud_knowledge_bases
+            logger.info(f"Enriched agent {config['agent_id']} config with {len(llamacloud_knowledge_bases)} LlamaCloud knowledge bases")
+    except Exception as e:
+        logger.error(f"Failed to enrich agent config with LlamaCloud knowledge bases: {e}")
+    
+    return config
 
 
 def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -240,3 +289,105 @@ def _extract_agentpress_tools_for_run(agentpress_config: Dict[str, Any]) -> Dict
     return run_tools
 
 
+def extract_tools_for_agent_run(config: Dict[str, Any]) -> Dict[str, Any]:
+    logger.warning("extract_tools_for_agent_run is deprecated, using config-based extraction")
+    tools = config.get('tools', {})
+    return _extract_agentpress_tools_for_run(tools.get('agentpress', {}))
+
+
+def get_mcp_configs(config: Dict[str, Any]) -> List[Dict[str, Any]]:
+    tools = config.get('tools', {})
+    all_mcps = []
+    
+    if 'configured_mcps' in config and config['configured_mcps']:
+        for mcp in config['configured_mcps']:
+            if mcp not in all_mcps:
+                all_mcps.append(mcp)
+    
+    if 'custom_mcps' in config and config['custom_mcps']:
+        for mcp in config['custom_mcps']:
+            if mcp not in all_mcps:
+                all_mcps.append(mcp)
+    
+    mcp_list = tools.get('mcp', [])
+    if mcp_list:
+        for mcp in mcp_list:
+            if mcp not in all_mcps:
+                all_mcps.append(mcp)
+    
+    custom_mcp_list = tools.get('custom_mcp', [])
+    if custom_mcp_list:
+        for mcp in custom_mcp_list:
+            if mcp not in all_mcps:
+                all_mcps.append(mcp)
+    
+    return all_mcps
+
+
+def is_suna_default_agent(config: Dict[str, Any]) -> bool:
+    return config.get('is_suna_default', False)
+
+
+def get_agent_restrictions(config: Dict[str, Any]) -> Dict[str, bool]:
+    return config.get('restrictions', {})
+
+
+def can_edit_field(config: Dict[str, Any], field_name: str) -> bool:
+    if not is_suna_default_agent(config):
+        return True
+    
+    restrictions = get_agent_restrictions(config)
+    return restrictions.get(field_name, True)
+
+
+def get_default_system_prompt_for_suna_agent() -> str:
+    from agent.suna.config import SunaConfig
+    return SunaConfig.get_system_prompt()
+
+
+async def get_agent_llamacloud_knowledge_bases(agent_id: str) -> List[Dict[str, Any]]:
+    """Fetch LlamaCloud knowledge bases for an agent"""
+    try:
+        db = DBConnection()
+        client = await db.client
+        
+        result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
+            'p_agent_id': agent_id,
+            'p_include_inactive': False
+        }).execute()
+        
+        if not result.data:
+            return []
+        
+        # Transform database results to the format expected by KnowledgeSearchTool
+        knowledge_bases = []
+        for kb_data in result.data:
+            kb = {
+                'name': kb_data['name'],
+                'index_name': kb_data['index_name'],
+                'description': kb_data.get('description', '')
+            }
+            knowledge_bases.append(kb)
+        
+        logger.info(f"Loaded {len(knowledge_bases)} LlamaCloud knowledge bases for agent {agent_id}")
+        return knowledge_bases
+        
+    except Exception as e:
+        logger.error(f"Failed to load LlamaCloud knowledge bases for agent {agent_id}: {e}")
+        return []
+
+
+async def enrich_agent_config_with_llamacloud_kb(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Enrich agent config with LlamaCloud knowledge bases"""
+    if not config.get('agent_id'):
+        return config
+    
+    try:
+        llamacloud_knowledge_bases = await get_agent_llamacloud_knowledge_bases(config['agent_id'])
+        if llamacloud_knowledge_bases:
+            config['llamacloud_knowledge_bases'] = llamacloud_knowledge_bases
+            logger.info(f"Enriched agent {config['agent_id']} config with {len(llamacloud_knowledge_bases)} LlamaCloud knowledge bases")
+    except Exception as e:
+        logger.error(f"Failed to enrich agent config with LlamaCloud knowledge bases: {e}")
+    
+    return config

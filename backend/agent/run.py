@@ -54,6 +54,8 @@ class AgentConfig:
     enable_context_manager: bool = True
     agent_config: Optional[dict] = None
     trace: Optional[StatefulTraceClient] = None
+    is_agent_builder: Optional[bool] = False
+    target_agent_id: Optional[str] = None
 
 
 class ToolManager:
@@ -442,6 +444,14 @@ class AgentRunner:
             logger.debug(f"No sandbox found for project {self.config.project_id}; will create lazily when needed")
     
     async def setup_tools(self):
+        # Enrich agent config with LlamaCloud knowledge bases if agent exists
+        if self.config.agent_config and self.config.agent_config.get('agent_id'):
+            try:
+                from agent.config_helper import enrich_agent_config_with_llamacloud_kb
+                self.config.agent_config = await enrich_agent_config_with_llamacloud_kb(self.config.agent_config)
+            except Exception as e:
+                logger.error(f"Failed to enrich agent config with LlamaCloud knowledge bases: {e}")
+        
         tool_manager = ToolManager(self.thread_manager, self.config.project_id, self.config.thread_id)
         
         # Use agent ID from agent config if available (for any agent with builder tools enabled)
@@ -456,6 +466,9 @@ class AgentRunner:
         
         # Register all tools with exclusions
         tool_manager.register_all_tools(agent_id=agent_id, disabled_tools=disabled_tools)
+        
+        # Register LlamaCloud knowledge search tool
+        await self._register_llamacloud_knowledge_tool()
     
     def _get_disabled_tools_from_config(self) -> List[str]:
         """Convert agent config to list of disabled tools."""
@@ -508,6 +521,22 @@ class AgentRunner:
         
         logger.debug(f"Disabled tools from config: {disabled_tools}")
         return disabled_tools
+    
+    async def _register_llamacloud_knowledge_tool(self):
+        """Register LlamaCloud knowledge search tool if agent has LlamaCloud knowledge bases configured"""
+        if self.config.agent_config and self.config.agent_config.get('llamacloud_knowledge_bases'):
+            try:
+                from agent.tools.knowledge_search_tool import KnowledgeSearchTool
+                logger.info(f"Registering LlamaCloud knowledge search tool with {len(self.config.agent_config['llamacloud_knowledge_bases'])} knowledge bases")
+                self.thread_manager.add_tool(
+                    KnowledgeSearchTool, 
+                    thread_manager=self.thread_manager, 
+                    knowledge_bases=self.config.agent_config['llamacloud_knowledge_bases']
+                )
+            except ImportError as e:
+                logger.error(f"Failed to import KnowledgeSearchTool: {e}")
+            except Exception as e:
+                logger.error(f"Failed to register LlamaCloud knowledge search tool: {e}")
     
     async def setup_mcp_tools(self) -> Optional[MCPToolWrapper]:
         if not self.config.agent_config:
@@ -722,7 +751,9 @@ async def run_agent(
     reasoning_effort: Optional[str] = 'low',
     enable_context_manager: bool = True,
     agent_config: Optional[dict] = None,    
-    trace: Optional[StatefulTraceClient] = None
+    trace: Optional[StatefulTraceClient] = None,
+    is_agent_builder: Optional[bool] = False,
+    target_agent_id: Optional[str] = None
 ):
     effective_model = model_name
     is_tier_default = model_name in ["Kimi K2", "Claude Sonnet 4", "openai/gpt-5-mini"]
@@ -746,7 +777,9 @@ async def run_agent(
         reasoning_effort=reasoning_effort,
         enable_context_manager=enable_context_manager,
         agent_config=agent_config,
-        trace=trace
+        trace=trace,
+        is_agent_builder=is_agent_builder,
+        target_agent_id=target_agent_id
     )
     
     runner = AgentRunner(config)
