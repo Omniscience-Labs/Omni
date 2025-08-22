@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import React, { useEffect, useState } from 'react';
 import { codeToHtml } from 'shiki';
 import { useTheme } from 'next-themes';
+import { MermaidRenderer } from './mermaid-renderer';
 
 export type CodeBlockProps = {
   children?: React.ReactNode;
@@ -34,12 +35,19 @@ function CodeBlockCode({
 }: CodeBlockCodeProps) {
   const { resolvedTheme } = useTheme();
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
+  const [mermaidFailed, setMermaidFailed] = useState(false);
 
   // Use github-dark when in dark mode, github-light when in light mode
   const theme =
     propTheme || (resolvedTheme === 'dark' ? 'github-dark' : 'github-light');
 
+  // Regular syntax highlighting effect
   useEffect(() => {
+    // Skip syntax highlighting for successful mermaid renders
+    if (language === 'mermaid' && !mermaidFailed) {
+      return;
+    }
+
     async function highlight() {
       if (!code || typeof code !== 'string') {
         setHighlightedHtml(null);
@@ -62,11 +70,23 @@ function CodeBlockCode({
       setHighlightedHtml(html);
     }
     highlight();
-  }, [code, language, theme]);
+  }, [code, language, theme, mermaidFailed]);
 
   const classNames = cn('[&_pre]:!bg-background/95 [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:!overflow-x-auto [&_pre]:!w-px [&_pre]:!flex-grow [&_pre]:!min-w-0 [&_pre]:!box-border [&_.shiki]:!overflow-x-auto [&_.shiki]:!w-px [&_.shiki]:!flex-grow [&_.shiki]:!min-w-0 [&_code]:!min-w-0 [&_code]:!whitespace-pre', 'w-px flex-grow min-w-0 overflow-hidden flex w-full', className);
 
-  // SSR fallback: render plain code if not hydrated yet
+  // Handle Mermaid rendering
+  if (language === 'mermaid' && !mermaidFailed) {
+    return (
+      <MermaidRenderer 
+        code={code}
+        className={className}
+        onRenderFailed={() => setMermaidFailed(true)}
+        {...props}
+      />
+    );
+  }
+
+  // Regular code rendering (including failed Mermaid)
   return highlightedHtml ? (
     <div
       className={classNames}
