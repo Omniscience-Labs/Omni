@@ -1,4 +1,4 @@
-from daytona_sdk import AsyncDaytona, DaytonaConfig, CreateSandboxFromSnapshotParams, AsyncSandbox, SessionExecuteRequest, Resources, SandboxState
+from daytona_sdk import AsyncDaytona, DaytonaConfig, CreateSandboxFromImageParams, AsyncSandbox, SessionExecuteRequest, Resources, SandboxState
 from dotenv import load_dotenv
 from utils.logger import logger
 from utils.config import config
@@ -90,8 +90,8 @@ async def create_sandbox(password: str, project_id: str = None) -> AsyncSandbox:
         logger.debug(f"Using sandbox_id as label: {project_id}")
         labels = {'id': project_id}
         
-    params = CreateSandboxFromSnapshotParams(
-        snapshot=Configuration.SANDBOX_SNAPSHOT_NAME,
+    params = CreateSandboxFromImageParams(
+        image=Configuration.SANDBOX_IMAGE_NAME,
         public=True,
         labels=labels,
         env_vars={
