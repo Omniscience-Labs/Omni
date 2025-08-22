@@ -684,6 +684,7 @@ class AgentRunner:
 
                 except Exception as e:
                     error_msg = f"Error during response streaming: {str(e)}"
+                    logger.error(f"Response streaming error: {error_msg}", exc_info=True)
                     if generation:
                         generation.end(output=full_response, status_message=error_msg, level="ERROR")
                     yield {
@@ -695,6 +696,7 @@ class AgentRunner:
                     
             except Exception as e:
                 error_msg = f"Error running thread: {str(e)}"
+                logger.error(f"Thread execution error: {error_msg}", exc_info=True)
                 yield {
                     "type": "status",
                     "status": "error",

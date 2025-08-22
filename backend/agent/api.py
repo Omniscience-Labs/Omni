@@ -1422,9 +1422,30 @@ async def get_agents(
                 if isinstance(tools, str):
                     tools_filter = [tool.strip() for tool in tools.split(',') if tool.strip()]
                 elif isinstance(tools, dict):
-                    # If tools is a dict, log the issue and skip filtering
-                    logger.warning(f"Received tools parameter as dict instead of string: {tools}")
+                    # If tools is a dict, try to extract meaningful tool names
+                    logger.debug(f"Received tools parameter as dict, attempting to extract tool names: {tools}")
                     tools_filter = []
+                    
+                    # Handle different dict structures
+                    if 'agentpress' in tools and isinstance(tools['agentpress'], dict):
+                        # Extract enabled agentpress tools
+                        for tool_name, enabled in tools['agentpress'].items():
+                            is_enabled = enabled if isinstance(enabled, bool) else enabled.get('enabled', False) if isinstance(enabled, dict) else False
+                            if is_enabled:
+                                tools_filter.append(tool_name)
+                    
+                    # Handle MCP tools if present
+                    if 'mcp' in tools and isinstance(tools['mcp'], list):
+                        for mcp_tool in tools['mcp']:
+                            if isinstance(mcp_tool, dict) and mcp_tool.get('name'):
+                                tools_filter.append(mcp_tool['name'])
+                    
+                    if 'custom_mcp' in tools and isinstance(tools['custom_mcp'], list):
+                        for mcp_tool in tools['custom_mcp']:
+                            if isinstance(mcp_tool, dict) and mcp_tool.get('name'):
+                                tools_filter.append(mcp_tool['name'])
+                                
+                    logger.debug(f"Extracted {len(tools_filter)} tools from dict: {tools_filter}")
                 elif isinstance(tools, list):
                     # If tools is a list, use it directly
                     tools_filter = [str(tool).strip() for tool in tools if str(tool).strip()]

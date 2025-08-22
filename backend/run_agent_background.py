@@ -279,9 +279,38 @@ async def run_agent_background(
         error_message = str(e)
         traceback_str = traceback.format_exc()
         duration = (datetime.now(timezone.utc) - start_time).total_seconds()
-        logger.error(f"Error in agent run {agent_run_id} after {duration:.2f}s: {error_message}\n{traceback_str} (Instance: {instance_id})")
+        
+        # Enhanced error categorization for better debugging
+        error_category = "unknown"
+        if "ModuleNotFoundError" in error_message:
+            error_category = "missing_module"
+        elif "ImportError" in error_message:
+            error_category = "import_error"
+        elif "AnthropicException" in error_message or "overloaded" in error_message.lower():
+            error_category = "llm_api_error"
+        elif "ToolResult" in error_message or "tool" in error_message.lower():
+            error_category = "tool_execution_error"
+        elif "connection" in error_message.lower() or "timeout" in error_message.lower():
+            error_category = "connection_error"
+        elif "permission" in error_message.lower() or "access" in error_message.lower():
+            error_category = "permission_error"
+            
+        logger.error(
+            f"Agent run failed [{error_category}]",
+            extra={
+                "agent_run_id": agent_run_id,
+                "duration": duration,
+                "error_category": error_category,
+                "error_message": error_message,
+                "instance_id": instance_id,
+                "thread_id": thread_id,
+                "project_id": project_id,
+            }
+        )
+        logger.debug(f"Full traceback for agent run {agent_run_id}: {traceback_str}")
+        
         final_status = "failed"
-        trace.span(name="agent_run_failed").end(status_message=error_message, level="ERROR")
+        trace.span(name="agent_run_failed").end(status_message=f"[{error_category}] {error_message}", level="ERROR")
 
         # Store conversation memory if there was meaningful conversation before the error
         if total_responses > 0:
