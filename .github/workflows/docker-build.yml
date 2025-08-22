@@ -6,6 +6,8 @@ on:
       - main
       - PRODUCTION
   workflow_dispatch:
+  repository_dispatch:
+    types: [production-updated]
 
 permissions:
   contents: read
@@ -16,11 +18,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'repository_dispatch' && 'PRODUCTION' || github.ref }}
 
       - name: Get tag name
         shell: bash
         run: |
-          if [[ "${GITHUB_REF#refs/heads/}" == "main" ]]; then
+          echo "Event name: ${{ github.event_name }}"
+          echo "Current ref: ${{ github.ref }}"
+          echo "Branch: ${GITHUB_REF#refs/heads/}"
+          
+          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            echo "Triggered by repository dispatch - setting prod environment"
+            echo "branch=prod" >> $GITHUB_OUTPUT
+            echo "environment=prod" >> $GITHUB_OUTPUT
+          elif [[ "${GITHUB_REF#refs/heads/}" == "main" ]]; then
             echo "branch=latest" >> $GITHUB_OUTPUT
             echo "environment=staging" >> $GITHUB_OUTPUT
           elif [[ "${GITHUB_REF#refs/heads/}" == "PRODUCTION" ]]; then
