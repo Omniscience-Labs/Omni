@@ -29,12 +29,14 @@ from .config_helper import extract_agent_config, build_unified_config
 from .utils import check_agent_run_limit
 from .versioning.version_service import get_version_service
 from .versioning.api import router as version_router, initialize as initialize_versioning
+from .tools.sb_presentation_tool import SandboxPresentationTool
 
 # Helper for version service
 async def _get_version_service():
     return await get_version_service()
 from utils.omni_default_agent_service import OmniDefaultAgentService
 from .tools.sb_presentation_tool_v2 import SandboxPresentationToolV2
+
 
 router = APIRouter()
 router.include_router(version_router)
@@ -121,7 +123,6 @@ class AgentUpdateRequest(BaseModel):
 
 class AgentResponse(BaseModel):
     agent_id: str
-    account_id: str
     name: str
     description: Optional[str] = None
     system_prompt: str
@@ -324,12 +325,9 @@ async def start_agent(
     model_name = body.model_name
     logger.debug(f"Original model_name from request: {model_name}")
 
-    # if model_name is None:
-    #     model_name = "openrouter/moonshotai/kimi-k2"
-    #     logger.debug(f"Using default model: {model_name}")
-
-    # Log the model name after alias resolution
-    resolved_model = MODEL_NAME_ALIASES.get(model_name, model_name)
+    # Log the model name after alias resolution using new model manager
+    from models import model_manager
+    resolved_model = model_manager.resolve_model_id(model_name)
     logger.debug(f"Resolved model name: {resolved_model}")
 
     # Update model_name to use the resolved version
@@ -356,13 +354,6 @@ async def start_agent(
         account_id=account_id,
         thread_metadata=thread_metadata,
     )
-    
-    # Check if this is an agent builder thread
-    is_agent_builder = thread_metadata.get('is_agent_builder', False)
-    target_agent_id = thread_metadata.get('target_agent_id')
-    
-    if is_agent_builder:
-        logger.debug(f"Thread {thread_id} is in agent builder mode, target_agent_id: {target_agent_id}")
     
     # Load agent configuration with version support
     agent_config = None
@@ -524,8 +515,6 @@ async def start_agent(
         enable_thinking=body.enable_thinking, reasoning_effort=body.reasoning_effort,
         stream=body.stream, enable_context_manager=body.enable_context_manager,
         agent_config=agent_config,  # Pass agent configuration
-        is_agent_builder=is_agent_builder,
-        target_agent_id=target_agent_id,
         request_id=request_id,
     )
 
@@ -692,7 +681,6 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
         return {
             "agent": AgentResponse(
                 agent_id=agent_data['agent_id'],
-                account_id=agent_data['account_id'],
                 name=agent_data['name'],
                 description=agent_data.get('description'),
                 system_prompt=system_prompt,
@@ -971,8 +959,6 @@ async def initiate_agent_with_files(
     enable_context_manager: Optional[bool] = Form(False),
     agent_id: Optional[str] = Form(None),  # Add agent_id parameter
     files: List[UploadFile] = File(default=[]),
-    is_agent_builder: Optional[bool] = Form(False),
-    target_agent_id: Optional[str] = Form(None),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """
@@ -988,17 +974,16 @@ async def initiate_agent_with_files(
     logger.debug(f"Original model_name from request: {model_name}")
 
     if model_name is None:
-        model_name = "openrouter/moonshotai/kimi-k2"
+        model_name = "openai/gpt-5-mini"
         logger.debug(f"Using default model: {model_name}")
 
-    # Log the model name after alias resolution
-    resolved_model = MODEL_NAME_ALIASES.get(model_name, model_name)
+    from models import model_manager
+    # Log the model name after alias resolution using new model manager
+    resolved_model = model_manager.resolve_model_id(model_name)
     logger.debug(f"Resolved model name: {resolved_model}")
 
     # Update model_name to use the resolved version
     model_name = resolved_model
-
-    logger.debug(f"Starting new agent in agent builder mode: {is_agent_builder}, target_agent_id: {target_agent_id}")
 
     logger.debug(f"[\033[91mDEBUG\033[0m] Initiating new agent with prompt and {len(files)} files (Instance: {instance_id}), model: {model_name}, enable_thinking: {enable_thinking}")
     client = await db.client
@@ -1198,17 +1183,6 @@ async def initiate_agent_with_files(
                 agent_id=agent_config['agent_id'],
             )
         
-        # Store agent builder metadata if this is an agent builder session
-        if is_agent_builder:
-            thread_data["metadata"] = {
-                "is_agent_builder": True,
-                "target_agent_id": target_agent_id
-            }
-            logger.debug(f"Storing agent builder metadata in thread: target_agent_id={target_agent_id}")
-            structlog.contextvars.bind_contextvars(
-                target_agent_id=target_agent_id,
-            )
-        
         thread = await client.table('threads').insert(thread_data).execute()
         thread_id = thread.data[0]['thread_id']
         logger.debug(f"Created new thread: {thread_id}")
@@ -1324,8 +1298,6 @@ async def initiate_agent_with_files(
             enable_thinking=enable_thinking, reasoning_effort=reasoning_effort,
             stream=stream, enable_context_manager=enable_context_manager,
             agent_config=agent_config,  # Pass agent configuration
-            is_agent_builder=is_agent_builder,
-            target_agent_id=target_agent_id,
             request_id=request_id,
         )
 
@@ -1570,7 +1542,6 @@ async def get_agents(
             
             agent_list.append(AgentResponse(
                 agent_id=agent['agent_id'],
-                account_id=agent['account_id'],
                 name=agent['name'],
                 description=agent.get('description'),
                 system_prompt=system_prompt,
@@ -1696,7 +1667,6 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
         
         return AgentResponse(
             agent_id=agent_data['agent_id'],
-            account_id=agent_data['account_id'],
             name=agent_data['name'],
             description=agent_data.get('description'),
             system_prompt=system_prompt,
@@ -1968,15 +1938,23 @@ async def create_agent(
         try:
             version_service = await _get_version_service()
             from agent.suna_config import SUNA_CONFIG
+            from agent.config_helper import _get_default_agentpress_tools
+            from models import model_manager
+            
             system_prompt = SUNA_CONFIG["system_prompt"]
+            
+            agentpress_tools = agent_data.agentpress_tools if agent_data.agentpress_tools else _get_default_agentpress_tools()
+            
+            default_model = await model_manager.get_default_model_for_user(client, user_id)
             
             version = await version_service.create_version(
                 agent_id=agent['agent_id'],
                 user_id=user_id,
                 system_prompt=system_prompt,
+                model=default_model,
                 configured_mcps=agent_data.configured_mcps or [],
                 custom_mcps=agent_data.custom_mcps or [],
-                agentpress_tools=agent_data.agentpress_tools or {},
+                agentpress_tools=agentpress_tools,
                 version_name="v1",
                 change_description="Initial version"
             )
@@ -2010,7 +1988,6 @@ async def create_agent(
         logger.debug(f"Created agent {agent['agent_id']} with v1 for user: {user_id}")
         return AgentResponse(
             agent_id=agent['agent_id'],
-            account_id=agent['account_id'],
             name=agent['name'],
             description=agent.get('description'),
             system_prompt=version.system_prompt,
@@ -2387,7 +2364,6 @@ async def update_agent(
         
         return AgentResponse(
             agent_id=agent['agent_id'],
-            account_id=agent['account_id'],
             name=agent['name'],
             description=agent.get('description'),
             system_prompt=system_prompt,
@@ -2484,56 +2460,6 @@ async def delete_agent(agent_id: str, user_id: str = Depends(get_current_user_id
         logger.error(f"Error deleting agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.get("/agents/{agent_id}/builder-chat-history")
-async def get_agent_builder_chat_history(
-    agent_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
-):
-    if not await is_enabled("custom_agents"):
-        raise HTTPException(
-            status_code=403, 
-            detail="Custom agents currently disabled. This feature is not available at the moment."
-        )
-    
-    logger.debug(f"Fetching agent builder chat history for agent: {agent_id}")
-    client = await db.client
-    
-    try:
-        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
-        if not agent_result.data:
-            raise HTTPException(status_code=404, detail="Agent not found or access denied")
-        
-        threads_result = await client.table('threads').select('thread_id, created_at, metadata').eq('account_id', user_id).order('created_at', desc=True).execute()
-        
-        agent_builder_threads = []
-        for thread in threads_result.data:
-            metadata = thread.get('metadata', {})
-            if (metadata.get('is_agent_builder') and 
-                metadata.get('target_agent_id') == agent_id):
-                agent_builder_threads.append({
-                    'thread_id': thread['thread_id'],
-                    'created_at': thread['created_at']
-                })
-        
-        if not agent_builder_threads:
-            logger.debug(f"No agent builder threads found for agent {agent_id}")
-            return {"messages": [], "thread_id": None}
-        
-        latest_thread_id = agent_builder_threads[0]['thread_id']
-        logger.debug(f"Found {len(agent_builder_threads)} agent builder threads, using latest: {latest_thread_id}")
-        messages_result = await client.table('messages').select('*').eq('thread_id', latest_thread_id).neq('type', 'status').neq('type', 'summary').order('created_at', desc=False).execute()
-        
-        logger.debug(f"Found {len(messages_result.data)} messages for agent builder chat history")
-        return {
-            "messages": messages_result.data,
-            "thread_id": latest_thread_id
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error fetching agent builder chat history for agent {agent_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch chat history: {str(e)}")
 
 @router.get("/agents/{agent_id}/pipedream-tools/{profile_id}")
 async def get_pipedream_tools_for_agent(
@@ -3056,7 +2982,6 @@ async def get_user_threads(
                     "project_id": project['project_id'],
                     "name": project.get('name', ''),
                     "description": project.get('description', ''),
-                    "account_id": project['account_id'],
                     "sandbox": project.get('sandbox', {}),
                     "is_public": project.get('is_public', False),
                     "created_at": project['created_at'],
@@ -3065,7 +2990,6 @@ async def get_user_threads(
             
             mapped_thread = {
                 "thread_id": thread['thread_id'],
-                "account_id": thread['account_id'],
                 "project_id": thread.get('project_id'),
                 "metadata": thread.get('metadata', {}),
                 "is_public": thread.get('is_public', False),
@@ -3126,7 +3050,6 @@ async def get_thread(
                     "project_id": project['project_id'],
                     "name": project.get('name', ''),
                     "description": project.get('description', ''),
-                    "account_id": project['account_id'],
                     "sandbox": project.get('sandbox', {}),
                     "is_public": project.get('is_public', False),
                     "created_at": project['created_at'],
@@ -3155,7 +3078,6 @@ async def get_thread(
         # Map thread data for frontend (matching actual DB structure)
         mapped_thread = {
             "thread_id": thread['thread_id'],
-            "account_id": thread['account_id'],
             "project_id": thread.get('project_id'),
             "metadata": thread.get('metadata', {}),
             "is_public": thread.get('is_public', False),
@@ -3560,7 +3482,7 @@ async def export_presentation(
         
         thread_manager = ThreadManager()
         
-        presentation_tool = SandboxPresentationToolV2(
+        presentation_tool = SandboxPresentationTool(
             project_id=project_id,
             thread_manager=thread_manager
         )

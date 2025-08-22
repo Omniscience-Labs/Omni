@@ -19,12 +19,10 @@ import { cn } from '@/lib/utils';
 import { 
   useModelSelection, 
   MODELS,
-  STORAGE_KEY_CUSTOM_MODELS,
-  formatModelName,
-  getCustomModels,
   DEFAULT_FREE_MODEL_ID,
   DEFAULT_PREMIUM_MODEL_ID
 } from '@/components/thread/chat-input/_use-model-selection';
+import { formatModelName, getPrefixedModelId } from '@/lib/stores/model-store';
 import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-billing';
 import { isLocalMode } from '@/lib/config';
 import { CustomModelDialog, CustomModelFormData } from '@/components/thread/chat-input/custom-model-dialog';
@@ -52,39 +50,36 @@ export function AgentModelSelector({
   variant = 'default',
   className,
 }: AgentModelSelectorProps) {
-  const { allModels, canAccessModel, subscriptionStatus } = useModelSelection();
+  const { 
+    allModels, 
+    canAccessModel, 
+    subscriptionStatus,
+    selectedModel: storeSelectedModel,
+    handleModelChange: storeHandleModelChange,
+    customModels: storeCustomModels,
+    addCustomModel: storeAddCustomModel,
+    updateCustomModel: storeUpdateCustomModel,
+    removeCustomModel: storeRemoveCustomModel 
+  } = useModelSelection();
   const { data: modelsData } = useAvailableModels();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const searchInputRef = useRef<HTMLInputElement>(null);
   
-  // Paywall and billing states
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [lockedModel, setLockedModel] = useState<string | null>(null);
   const [billingModalOpen, setBillingModalOpen] = useState(false);
   
-  // Custom model states for local mode
-  const [customModels, setCustomModels] = useState<CustomModel[]>([]);
   const [isCustomModelDialogOpen, setIsCustomModelDialogOpen] = useState(false);
   const [dialogInitialData, setDialogInitialData] = useState<CustomModelFormData>({ id: '', label: '' });
   const [dialogMode, setDialogMode] = useState<'add' | 'edit'>('add');
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isLocalMode()) {
-      setCustomModels(getCustomModels());
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isLocalMode() && customModels.length > 0) {
-      localStorage.setItem(STORAGE_KEY_CUSTOM_MODELS, JSON.stringify(customModels));
-    }
-  }, [customModels]);
+  const customModels = storeCustomModels;
   
   const normalizeModelId = (modelId?: string): string => {
-    if (!modelId) return isLocalMode() ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+    if (!modelId) return subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
     
     if (modelsData?.models) {
       const exactMatch = modelsData.models.find(m => m.short_name === modelId);
@@ -103,17 +98,45 @@ export function AgentModelSelector({
     return modelId;
   };
   
-  const selectedModel = normalizeModelId(value);
+  const normalizedValue = normalizeModelId(value);
+  
+  useEffect(() => {
+    if (normalizedValue && normalizedValue !== storeSelectedModel) {
+      storeHandleModelChange(normalizedValue);
+    }
+  }, [normalizedValue, storeSelectedModel, storeHandleModelChange]);
+  
+  const selectedModel = storeSelectedModel;
 
   const enhancedModelOptions = useMemo(() => {
     const modelMap = new Map();
 
-    allModels.forEach(model => {
-      modelMap.set(model.id, {
-        ...model,
-        isCustom: false
+    if (modelsData?.models) {
+      modelsData.models.forEach(model => {
+        const shortName = model.short_name || model.id;
+        const displayName = model.display_name || shortName;
+        
+        modelMap.set(shortName, {
+          id: shortName,
+          label: displayName,
+          requiresSubscription: model.requires_subscription || false,
+          priority: model.priority || 0,
+          recommended: model.recommended || false,
+          top: (model.priority || 0) >= 90,
+          capabilities: model.capabilities || [],
+          contextWindow: model.context_window || 128000,
+          isCustom: false
+        });
       });
-    });
+    } else {
+      // Fallback to allModels if API data not available
+      allModels.forEach(model => {
+        modelMap.set(model.id, {
+          ...model,
+          isCustom: false
+        });
+      });
+    }
 
     if (isLocalMode()) {
       customModels.forEach(model => {
@@ -136,7 +159,7 @@ export function AgentModelSelector({
     }
 
     return Array.from(modelMap.values());
-  }, [allModels, customModels]);
+  }, [modelsData?.models, allModels, customModels]);
   
   const selectedModelDisplay = useMemo(() => {
     const model = enhancedModelOptions.find(m => m.id === selectedModel);
@@ -162,7 +185,7 @@ export function AgentModelSelector({
   const freeModels = sortedModels.filter(m => !m.requiresSubscription);
   const premiumModels = sortedModels.filter(m => m.requiresSubscription);
 
-  const shouldDisplayAll = (!isLocalMode() && subscriptionStatus === 'no_subscription') && premiumModels.length > 0;
+  const shouldDisplayAll = !isLocalMode() && premiumModels.length > 0;
 
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
@@ -176,20 +199,18 @@ export function AgentModelSelector({
   }, [isOpen]);
 
   const handleSelect = (modelId: string) => {
-    console.log('🔧 AgentModelSelector: Selecting model:', modelId);
-    console.log('🔧 AgentModelSelector: Current selectedModel (normalized):', selectedModel);
-    console.log('🔧 AgentModelSelector: Current value prop:', value);
-    
     const isCustomModel = customModels.some(model => model.id === modelId);
     
     if (isCustomModel && isLocalMode()) {
+      storeHandleModelChange(modelId);
       onChange(modelId);
       setIsOpen(false);
       return;
     }
     
-    if (isLocalMode() || canAccessModel(modelId)) {
-      // Don't transform the modelId - pass it as-is to match what useModelSelection expects
+    const hasAccess = isLocalMode() || canAccessModel(modelId);
+    if (hasAccess) {
+      storeHandleModelChange(modelId);
       onChange(modelId);
       setIsOpen(false);
     } else {
@@ -262,22 +283,16 @@ export function AgentModelSelector({
     closeCustomModelDialog();
     const newModel = { id: modelId, label: modelLabel };
 
-    const updatedModels = dialogMode === 'add'
-      ? [...customModels, newModel]
-      : customModels.map(model => model.id === editingModelId ? newModel : model);
-
-    try {
-      localStorage.setItem(STORAGE_KEY_CUSTOM_MODELS, JSON.stringify(updatedModels));
-    } catch (error) {
-      console.error('Failed to save custom models to localStorage:', error);
-    }
-
-    setCustomModels(updatedModels);
-
     if (dialogMode === 'add') {
+      storeAddCustomModel(newModel);
+      storeHandleModelChange(modelId);
       onChange(modelId);
-    } else if (selectedModel === editingModelId) {
-      onChange(modelId);
+    } else {
+      storeUpdateCustomModel(editingModelId!, newModel);
+      if (selectedModel === editingModelId) {
+        storeHandleModelChange(modelId);
+        onChange(modelId);
+      }
     }
     
     setIsOpen(false);
@@ -293,20 +308,11 @@ export function AgentModelSelector({
     e?.stopPropagation();
     e?.preventDefault();
 
-    const updatedCustomModels = customModels.filter(model => model.id !== modelId);
-    
-    if (isLocalMode() && typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(STORAGE_KEY_CUSTOM_MODELS, JSON.stringify(updatedCustomModels));
-      } catch (error) {
-        console.error('Failed to update custom models in localStorage:', error);
-      }
-    }
-    
-    setCustomModels(updatedCustomModels);
+    storeRemoveCustomModel(modelId);
     
     if (selectedModel === modelId) {
-      const defaultModel = isLocalMode() ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+      const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+      storeHandleModelChange(defaultModel);
       onChange(defaultModel);
     }
   };
@@ -461,7 +467,7 @@ export function AgentModelSelector({
         </TooltipProvider>
         <DropdownMenuContent
           align={variant === 'menu-item' ? 'end' : 'start'}
-          className="w-72 p-0 overflow-hidden"
+          className="w-76 p-0 overflow-hidden"
           sideOffset={variant === 'menu-item' ? 8 : 4}
         >
           <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent w-full">
@@ -535,58 +541,77 @@ export function AgentModelSelector({
                       <div className="mt-4 border-t border-border pt-2">
                         <div className="px-3 py-1.5 text-xs font-medium text-blue-500 flex items-center">
                           <Crown className="h-3.5 w-3.5 mr-1.5" />
-                          Additional Models
+                          {subscriptionStatus === 'active' ? 'Premium Models' : 'Additional Models'}
                         </div>
-                        <div className="relative h-40 overflow-hidden px-2">
-                          {premiumModels.slice(0, 3).map((model, index) => (
-                            <TooltipProvider key={`premium-${model.id}-${index}`}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className='w-full'>
-                                    <DropdownMenuItem
-                                      className="text-sm px-3 rounded-lg py-2 mx-2 my-0.5 flex items-center justify-between opacity-70 cursor-pointer pointer-events-none"
-                                    >
-                                      <div className="flex items-center">
-                                        <span className="font-medium">{model.label}</span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        {MODELS[model.id]?.recommended && (
-                                          <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium whitespace-nowrap">
-                                            Recommended
-                                          </span>
+                        <div className="relative overflow-hidden" style={{ maxHeight: subscriptionStatus === 'active' ? 'none' : '160px' }}>
+                          {(subscriptionStatus === 'active' ? premiumModels : premiumModels.slice(0, 3)).map((model, index) => {
+                            const canAccess = isLocalMode() || canAccessModel(model.id);
+                            const isRecommended = model.recommended;
+                            
+                            return (
+                              <TooltipProvider key={`premium-${model.id}-${index}`}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className='w-full'>
+                                      <DropdownMenuItem
+                                        className={cn(
+                                          "text-sm px-3 rounded-lg py-2 mx-2 my-0.5 flex items-center justify-between cursor-pointer",
+                                          !canAccess && "opacity-70"
                                         )}
-                                        <Crown className="h-3.5 w-3.5 text-blue-500" />
-                                      </div>
-                                    </DropdownMenuItem>
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent side="left" className="text-xs max-w-xs">
-                                  <p>Requires subscription to access premium model</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ))}
-                          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/95 to-transparent flex items-end justify-center">
-                            <div className="w-full p-3">
-                              <div className="rounded-xl bg-gradient-to-br from-blue-50/80 to-blue-200/70 dark:from-blue-950/40 dark:to-blue-900/30 shadow-sm border border-blue-200/50 dark:border-blue-800/50 p-3">
-                                <div className="flex flex-col space-y-2">
-                                  <div className="flex items-center">
-                                    <Crown className="h-4 w-4 text-blue-500 mr-2 flex-shrink-0" />
-                                    <div>
-                                      <p className="text-sm font-medium">Unlock all models + higher limits</p>
+                                        onClick={() => handleSelect(model.id)}
+                                      >
+                                        <div className="flex items-center">
+                                          <span className="font-medium">{model.label}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          {isRecommended && (
+                                            <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium whitespace-nowrap">
+                                              Recommended
+                                            </span>
+                                          )}
+                                          {!canAccess && <Crown className="h-3.5 w-3.5 text-blue-500" />}
+                                          {selectedModel === model.id && (
+                                            <Check className="h-4 w-4 text-blue-500" />
+                                          )}
+                                        </div>
+                                      </DropdownMenuItem>
                                     </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="left" className="text-xs max-w-xs">
+                                    <p>
+                                      {canAccess 
+                                        ? (isRecommended ? 'Recommended for optimal performance' : 'Premium model') 
+                                        : 'Requires subscription to access premium model'
+                                      }
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            );
+                          })}
+                          {subscriptionStatus !== 'active' && (
+                            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/95 to-transparent flex items-end justify-center">
+                              <div className="w-full p-3">
+                                <div className="rounded-xl bg-gradient-to-br from-blue-50/80 to-blue-200/70 dark:from-blue-950/40 dark:to-blue-900/30 shadow-sm border border-blue-200/50 dark:border-blue-800/50 p-3">
+                                  <div className="flex flex-col space-y-2">
+                                    <div className="flex items-center">
+                                      <Crown className="h-4 w-4 text-blue-500 mr-2 flex-shrink-0" />
+                                      <div>
+                                        <p className="text-sm font-medium">Unlock all models + higher limits</p>
+                                      </div>
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      className="w-full h-8 font-medium"
+                                      onClick={handleUpgradeClick}
+                                    >
+                                      Upgrade now
+                                    </Button>
                                   </div>
-                                  <Button
-                                    size="sm"
-                                    className="w-full h-8 font-medium"
-                                    onClick={handleUpgradeClick}
-                                  >
-                                    Upgrade now
-                                  </Button>
                                 </div>
                               </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </>

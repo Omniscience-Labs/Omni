@@ -360,7 +360,20 @@ class AgentExecutor:
         trigger_variables: Dict[str, Any]
     ) -> str:
         client = await self._db.client
-        model_name = agent_config.get('model') or "openrouter/moonshotai/kimi-k2"
+        
+        # Debug: Log the agent config to see what model is set
+        logger.debug(f"Agent config for trigger execution: model='{agent_config.get('model')}', keys={list(agent_config.keys())}")
+        
+        model_name = agent_config.get('model')
+        logger.debug(f"Model from agent config: '{model_name}' (type: {type(model_name)})")
+        
+        if not model_name:
+            account_id = agent_config.get('account_id')
+            if account_id:
+                from models import model_manager
+                model_name = await model_manager.get_default_model_for_user(client, account_id)
+            else:
+                model_name = "Kimi K2"
         
         account_id = agent_config.get('account_id')
         if not account_id:
@@ -407,8 +420,6 @@ class AgentExecutor:
             stream=False,
             enable_context_manager=True,
             agent_config=agent_config,
-            is_agent_builder=False,
-            target_agent_id=None,
             request_id=structlog.contextvars.get_contextvars().get('request_id'),
         )
         
@@ -441,7 +452,7 @@ class WorkflowExecutor:
             agent_config, account_id = await self._get_agent_data(agent_id)
             
             enhanced_agent_config = await self._enhance_agent_config_for_workflow(
-                agent_config, workflow_config, steps_json, workflow_input, account_id
+                agent_config, workflow_config, steps_json, workflow_input, account_id, trigger_result
             )
             
             thread_id, project_id = await self._session_manager.create_workflow_session(
@@ -530,7 +541,8 @@ class WorkflowExecutor:
         workflow_config: Dict[str, Any],
         steps_json: list,
         workflow_input: Dict[str, Any],
-        account_id: str = None
+        account_id: str = None,
+        trigger_result: Optional[TriggerResult] = None
     ) -> Dict[str, Any]:
         available_tools = self._get_available_tools(agent_config)
         workflow_prompt = format_workflow_for_llm(
@@ -548,6 +560,13 @@ class WorkflowExecutor:
         
         if account_id:
             enhanced_config['account_id'] = account_id
+        
+        # Check for user-specified model in trigger execution variables
+        if trigger_result and hasattr(trigger_result, 'execution_variables'):
+            user_model = trigger_result.execution_variables.get('model_name')
+            if user_model:
+                enhanced_config['model'] = user_model
+                logger.debug(f"Using user-specified model for workflow: {user_model}")
         
         return enhanced_config
     
@@ -591,7 +610,8 @@ class WorkflowExecutor:
         from services.billing import check_billing_status, can_use_model
         
         client = await self._db.client
-        model_name = "openrouter/moonshotai/kimi-k2"
+        from models import model_manager
+        model_name = await model_manager.get_default_model_for_user(client, account_id)
         
         can_use, model_message, _ = await can_use_model(client, account_id, model_name)
         if not can_use:
@@ -638,7 +658,25 @@ class WorkflowExecutor:
         agent_config: Dict[str, Any]
     ) -> str:
         client = await self._db.client
-        model_name = agent_config.get('model') or "openrouter/moonshotai/kimi-k2"
+        
+        # Debug: Log the agent config to see what model is set
+        logger.debug(f"Agent config for workflow execution: model='{agent_config.get('model')}', keys={list(agent_config.keys())}")
+        
+        model_name = agent_config.get('model')
+        logger.debug(f"Model from agent config: '{model_name}' (type: {type(model_name)})")
+        
+        if not model_name:
+            account_id = agent_config.get('account_id')
+            if not account_id:
+                thread_result = await client.table('threads').select('account_id').eq('thread_id', thread_id).execute()
+                if thread_result.data:
+                    account_id = thread_result.data[0]['account_id']
+            
+            if account_id:
+                from models import model_manager
+                model_name = await model_manager.get_default_model_for_user(client, account_id)
+            else:
+                model_name = "Kimi K2"
         
         account_id = agent_config.get('account_id')
         if not account_id:
@@ -688,8 +726,6 @@ class WorkflowExecutor:
             stream=False,
             enable_context_manager=True,
             agent_config=agent_config,
-            is_agent_builder=False,
-            target_agent_id=None,
             request_id=None,
         )
         

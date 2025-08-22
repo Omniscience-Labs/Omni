@@ -2,7 +2,7 @@ import React from 'react';
 import {
     FileText, FileImage, FileCode, FileSpreadsheet, FileVideo,
     FileAudio, FileType, Database, Archive, File, ExternalLink,
-    Loader2
+    Loader2, Download
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AttachmentGroup } from './attachment-group';
@@ -10,6 +10,7 @@ import { HtmlRenderer } from './preview-renderers/html-renderer';
 import { MarkdownRenderer } from './preview-renderers/markdown-renderer';
 import { CsvRenderer } from './preview-renderers/csv-renderer';
 import { PdfRenderer as PdfPreviewRenderer } from './preview-renderers/pdf-renderer';
+
 import { useFileContent, useImageContent } from '@/hooks/react-query/files';
 import { useAuth } from '@/components/AuthProvider';
 import { Project } from '@/lib/api';
@@ -157,6 +158,8 @@ interface FileAttachmentProps {
     collapsed?: boolean;
     project?: Project;
     isSingleItemGrid?: boolean; // New prop to detect single item in grid
+    standalone?: boolean; // New prop for minimal standalone styling
+    alignRight?: boolean; // New prop to control right alignment
 }
 
 // Cache fetched content between mounts to avoid duplicate fetches
@@ -174,7 +177,9 @@ export function FileAttachment({
     customStyle,
     collapsed = true,
     project,
-    isSingleItemGrid = false
+    isSingleItemGrid = false,
+    standalone = false,
+    alignRight = false
 }: FileAttachmentProps) {
     // Authentication 
     const { session } = useAuth();
@@ -195,6 +200,7 @@ export function FileAttachment({
     const isImage = fileType === 'image';
     const isHtmlOrMd = extension === 'html' || extension === 'htm' || extension === 'md' || extension === 'markdown';
     const isCsv = extension === 'csv' || extension === 'tsv';
+    const isXlsx = extension === 'xlsx' || extension === 'xls';
     const isPdf = extension === 'pdf';
     const isGridLayout = customStyle?.gridColumn === '1 / -1' || Boolean(customStyle && ('--attachment-height' in customStyle));
     // Define isInlineMode early, before any hooks
@@ -202,13 +208,15 @@ export function FileAttachment({
     const shouldShowPreview = (isHtmlOrMd || isCsv || isPdf) && showPreview && collapsed === false;
 
     // Use the React Query hook to fetch file content
+    // For CSV files, always try to load content for better preview experience
+    const shouldLoadContent = (isHtmlOrMd || isCsv) && (shouldShowPreview || isCsv);
     const {
         data: fileContent,
         isLoading: fileContentLoading,
         error: fileContentError
     } = useFileContent(
-        (isHtmlOrMd || isCsv) && shouldShowPreview ? sandboxId : undefined,
-        (isHtmlOrMd || isCsv) && shouldShowPreview ? filepath : undefined
+        shouldLoadContent ? sandboxId : undefined,
+        shouldLoadContent ? filepath : undefined
     );
 
     // Use the React Query hook to fetch image content with authentication
@@ -244,6 +252,43 @@ export function FileAttachment({
         }
     };
 
+    const handleDownload = async (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent triggering the main click handler
+        
+        try {
+            if (!sandboxId || !session?.access_token) {
+                // Fallback: open file URL in new tab
+                window.open(fileUrl, '_blank');
+                return;
+            }
+
+            // Use the same fetch logic as other components
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/sandboxes/${sandboxId}/files/content?path=${encodeURIComponent(filepath)}`, {
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Download failed: ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Download failed:', error);
+            // Fallback: try to open the file URL
+            window.open(fileUrl, '_blank');
+        }
+    };
+
     // Images are displayed with their natural aspect ratio
     if (isImage && showPreview) {
         // Use custom height for images if provided through CSS variable
@@ -269,11 +314,14 @@ export function FileAttachment({
                         maxWidth: "100%",
                         height: isSingleItemGrid && isGridLayout ? 'auto' : (isGridLayout ? imageHeight : 'auto'),
                         maxHeight: isSingleItemGrid && isGridLayout ? '800px' : undefined,
+                        minHeight: isGridLayout ? imageHeight : '54px',
                         ...customStyle
                     }}
                     title={filename}
                 >
-                    <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                    <div className="absolute inset-0 flex items-end justify-center pb-4">
+                        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                    </div>
                 </button>
             );
         }
@@ -401,12 +449,10 @@ export function FileAttachment({
         return (
             <div
                 className={cn(
-                    "group relative rounded-xl w-full",
-                    "border",
-                    "bg-card",
-                    "overflow-hidden",
-                    isPdf ? "!min-h-[200px] sm:min-h-0 sm:h-[400px] max-h-[500px]  sm:!min-w-[300px]" : "h-[300px]",
-                    "pt-10", // Room for header
+                    "group relative w-full",
+                    "rounded-xl border bg-card overflow-hidden pt-10", // Consistent card styling with header space
+                    isPdf ? "!min-h-[200px] sm:min-h-0 sm:h-[400px] max-h-[500px] sm:!min-w-[300px]" : 
+                    standalone ? "min-h-[300px] h-auto" : "h-[300px]", // Better height handling for standalone
                     className
                 )}
                 style={{
@@ -444,7 +490,6 @@ export function FileAttachment({
                                     content={fileContent}
                                     previewUrl={fileUrl}
                                     className="h-full w-full"
-                                    project={project}
                                 />
                             )}
                         </>
@@ -461,25 +506,35 @@ export function FileAttachment({
                                     </div>
                                 )}
                             </div>
-                            <button
-                                onClick={handleClick}
-                                className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 rounded-md text-sm"
-                            >
-                                Open in viewer
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleDownload}
+                                    className="px-3 py-1.5 bg-secondary/10 hover:bg-secondary/20 rounded-md text-sm flex items-center gap-1"
+                                >
+                                    <Download size={14} />
+                                    Download
+                                </button>
+                                <button
+                                    onClick={handleClick}
+                                    className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 rounded-md text-sm flex items-center gap-1"
+                                >
+                                    <ExternalLink size={14} />
+                                    Open in viewer
+                                </button>
+                            </div>
                         </div>
                     )}
 
                     {/* Loading state */}
                     {fileContentLoading && !isPdf && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-                            <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                        <div className="absolute inset-0 flex items-end justify-center bg-background/50 z-10 pb-8">
+                            <Loader2 className="h-8 w-8 text-primary animate-spin" />
                         </div>
                     )}
 
                     {isPdf && pdfLoading && !pdfBlobUrl && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-                            <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                        <div className="absolute inset-0 flex items-end justify-center bg-background/50 z-10 pb-8">
+                            <Loader2 className="h-8 w-8 text-primary animate-spin" />
                         </div>
                     )}
 
@@ -499,14 +554,24 @@ export function FileAttachment({
                 {/* Header with filename */}
                 <div className="absolute top-0 left-0 right-0 bg-accent p-2 z-10 flex items-center justify-between">
                     <div className="text-sm font-medium truncate">{filename}</div>
-                    {onClick && (
+                    <div className="flex items-center gap-1">
                         <button
-                            onClick={handleClick}
+                            onClick={handleDownload}
                             className="cursor-pointer p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10"
+                            title="Download file"
                         >
-                            <ExternalLink size={14} />
+                            <Download size={14} />
                         </button>
-                    )}
+                        {onClick && (
+                            <button
+                                onClick={handleClick}
+                                className="cursor-pointer p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10"
+                                title="Open in viewer"
+                            >
+                                <ExternalLink size={14} />
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         );
@@ -517,7 +582,7 @@ export function FileAttachment({
     delete safeStyle.height;
     delete (safeStyle as any)['--attachment-height'];
 
-    return (
+    const fileButton = (
         <button
             onClick={handleClick}
             className={cn(
@@ -552,6 +617,19 @@ export function FileAttachment({
             </div>
         </button>
     );
+
+    // Wrap with alignment container if alignRight is true
+    if (alignRight) {
+        return (
+            <div className="w-full flex justify-end">
+                <div className="max-w-[85%]">
+                    {fileButton}
+                </div>
+            </div>
+        );
+    }
+
+    return fileButton;
 }
 
 interface FileAttachmentGridProps {
@@ -562,6 +640,8 @@ interface FileAttachmentGridProps {
     showPreviews?: boolean;
     collapsed?: boolean;
     project?: Project;
+    standalone?: boolean;
+    alignRight?: boolean;
 }
 
 export function FileAttachmentGrid({
@@ -571,11 +651,16 @@ export function FileAttachmentGrid({
     sandboxId,
     showPreviews = true,
     collapsed = false,
-    project
+    project,
+    standalone = false,
+    alignRight = false
 }: FileAttachmentGridProps) {
     if (!attachments || attachments.length === 0) return null;
 
-    return (
+    // For standalone rendering, always expand previews to show content
+    const shouldCollapse = standalone ? false : collapsed;
+
+    const content = (
         <AttachmentGroup
             files={attachments}
             onFileClick={onFileClick}
@@ -583,9 +668,24 @@ export function FileAttachmentGrid({
             sandboxId={sandboxId}
             showPreviews={showPreviews}
             layout="grid"
-            gridImageHeight={150} // Use larger height for grid layout
-            collapsed={collapsed}
+            gridImageHeight={standalone ? 500 : 150} // Larger height for standalone files
+            collapsed={shouldCollapse}
             project={project}
+            standalone={standalone}
+            alignRight={alignRight}
         />
     );
+
+    // Wrap with alignment container if alignRight is true
+    if (alignRight) {
+        return (
+            <div className="w-full flex justify-end">
+                <div className="max-w-[85%]">
+                    {content}
+                </div>
+            </div>
+        );
+    }
+
+    return content;
 } 

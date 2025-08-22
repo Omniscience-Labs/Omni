@@ -121,6 +121,7 @@ class WorkflowUpdateRequest(BaseModel):
 
 class WorkflowExecuteRequest(BaseModel):
     input_data: Optional[Dict[str, Any]] = None
+    model_name: Optional[str] = None
 
 
 WorkflowStepRequest.model_rebuild()
@@ -761,6 +762,7 @@ async def execute_agent_workflow(
     execution_data: WorkflowExecuteRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    print("DEBUG: Executing workflow", workflow_id, "for agent", agent_id)
     await verify_agent_access(agent_id, user_id)
     
     client = await db.client
@@ -782,11 +784,13 @@ async def execute_agent_workflow(
     from agent.versioning.version_service import get_version_service
     version_service = await get_version_service()
     active_version = await version_service.get_active_version(agent_id, "system")
-    
+
     if active_version and active_version.model:
         model_name = active_version.model
     else:
-        model_name = "openrouter/moonshotai/kimi-k2"
+        from models import model_manager
+        model_name = await model_manager.get_default_model_for_user(client, account_id)
+        print("DEBUG: Using tier-based default model:", model_name)
     
     can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
     if not can_use:
@@ -807,7 +811,8 @@ async def execute_agent_workflow(
             'triggered_by': 'manual',
             'execution_timestamp': datetime.now(timezone.utc).isoformat(),
             'user_id': user_id,
-            'execution_source': 'workflow_api'
+            'execution_source': 'workflow_api',
+            'model_name': model_name  # Use the model from agent version config
         }
     )
     

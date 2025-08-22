@@ -6,7 +6,7 @@ SUNA_CONFIG = {
     "description": "Suna is your AI assistant with access to various tools and integrations to help you with tasks across domains.",
     "avatar": "🌞",
     "avatar_color": "#F59E0B",
-    "model": "openrouter/moonshotai/kimi-k2",
+    "model": "openai/gpt-5-mini",
     "system_prompt": SYSTEM_PROMPT,
     "configured_mcps": [],
     "custom_mcps": [],
@@ -20,7 +20,7 @@ SUNA_CONFIG = {
         "sb_image_edit_tool": True,
         "sb_presentation_outline_tool": False,
         "sb_presentation_tool": False,
-        "sb_presentation_tool_v2": False,
+
         "sb_sheets_tool": True,
         "sb_web_dev_tool": False,
         "browser_tool": True,

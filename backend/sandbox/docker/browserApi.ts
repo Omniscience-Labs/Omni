@@ -19,12 +19,10 @@ class BrowserAutomation {
 
     private stagehand: Stagehand | null;
     public browserInitialized: boolean;
-    private currentApiKey: string | null;
     private page: Page | null;
     constructor() {
         this.router = express.Router();
         this.browserInitialized = false;
-        this.currentApiKey = null;
         this.stagehand = null;
         this.page = null;
 
@@ -38,7 +36,6 @@ class BrowserAutomation {
     async init(apiKey: string): Promise<{status: string, message: string}> {
         try{
             if (!this.browserInitialized) {
-                this.currentApiKey = apiKey;
                 console.log("Initializing browser with api key");
                 this.stagehand = new Stagehand({
                     env: "LOCAL",
@@ -47,7 +44,7 @@ class BrowserAutomation {
                     logger: (logLine: LogLine) => {
                         console.log(`[${logLine.category}] ${logLine.message}`);
                     },
-                    modelName: "claude-3-7-sonnet-20250219",
+                    modelName: "google/gemini-2.5-pro",
                     modelClientOptions: {
                         apiKey
                     },
@@ -129,7 +126,6 @@ class BrowserAutomation {
         this.stagehand?.close();
         this.stagehand = null;
         this.page = null;
-        this.currentApiKey = null;
         return {
             status: "shutdown",
             message: "Browser shutdown"
@@ -265,13 +261,13 @@ class BrowserAutomation {
     async extract(req: express.Request, res: express.Response): Promise<void> {
         try {
             if (this.page && this.browserInitialized) {
-                const { instruction, iframes, selector } = req.body;
-                const result = await this.page.extract({ instruction, iframes, selector });
+                const { instruction, iframes } = req.body;
+                const result = await this.page.extract({ instruction, iframes });
                 const page_info = await this.get_stagehand_state();
                 const response: BrowserActionResult = {
                     success: result.success,
-                    message: result.message,
-                    action: result.action,
+                    message: `Extracted result for: ${instruction}`,
+                    action: result.extraction,
                     url: page_info.url,
                     title: page_info.title,
                     screenshot_base64: page_info.screenshot_base64,

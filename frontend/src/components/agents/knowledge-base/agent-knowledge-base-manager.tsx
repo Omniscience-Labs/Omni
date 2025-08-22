@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,8 +8,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Plus, 
   Edit2, 
@@ -30,7 +28,8 @@ import {
   File as FileIcon,
   BookOpen,
   PenTool,
-  X
+  X,
+  ArrowLeft
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -285,7 +284,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [addDialogTab, setAddDialogTab] = useState<'manual' | 'files' | 'repo'>('manual');
+  const [addDialogMode, setAddDialogMode] = useState<'selection' | 'manual' | 'files'>('selection');
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -297,13 +296,34 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
     usage_context: 'always',
   });
 
-  const { data: knowledgeBase, isLoading, error } = useAgentKnowledgeBaseEntries(agentId);
-  const { data: processingJobsData } = useAgentProcessingJobs(agentId);
+  const { data: knowledgeBase, isLoading, error, refetch } = useAgentKnowledgeBaseEntries(agentId);
+  const { data: processingJobsData, refetch: refetchJobs } = useAgentProcessingJobs(agentId);
   const createMutation = useCreateAgentKnowledgeBaseEntry();
   const updateMutation = useUpdateKnowledgeBaseEntry();
   const deleteMutation = useDeleteKnowledgeBaseEntry();
   const uploadMutation = useUploadAgentFiles();
   const cloneMutation = useCloneGitRepository();
+
+  // Auto-refresh data when there are processing jobs
+  useEffect(() => {
+    if (processingJobsData?.jobs && processingJobsData.jobs.length > 0) {
+      const hasProcessingJobs = processingJobsData.jobs.some(job => job.status === 'processing');
+      const hasRecentlyCompleted = processingJobsData.jobs.some(job => 
+        job.status === 'completed' && 
+        job.completed_at && 
+        new Date(job.completed_at).getTime() > Date.now() - 10000 // Completed in last 10 seconds
+      );
+      
+      if (hasProcessingJobs || hasRecentlyCompleted) {
+        const interval = setInterval(() => {
+          refetchJobs();
+          refetch();
+        }, hasProcessingJobs ? 2000 : 5000); // More frequent refresh while processing
+        
+        return () => clearInterval(interval);
+      }
+    }
+  }, [processingJobsData?.jobs, refetch, refetchJobs]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -325,8 +345,8 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
     }
   }, []);
 
-  const handleOpenAddDialog = (tab: 'manual' | 'files' | 'repo' = 'manual') => {
-    setAddDialogTab(tab);
+  const handleOpenAddDialog = (mode: 'selection' | 'manual' | 'files' = 'selection') => {
+    setAddDialogMode(mode);
     setAddDialogOpen(true);
     setFormData({
       name: '',
@@ -350,6 +370,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
   const handleCloseDialog = () => {
     setEditDialog({ isOpen: false });
     setAddDialogOpen(false);
+    setAddDialogMode('selection');
     setFormData({
       name: '',
       description: '',
@@ -511,7 +532,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
     if (newFiles.length > 0) {
       setUploadedFiles(prev => [...prev, ...newFiles]);
       if (!addDialogOpen) {
-        setAddDialogTab('files');
+        setAddDialogMode('files');
         setAddDialogOpen(true);
       }
     }
@@ -522,6 +543,9 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
       f.status === 'pending' && 
       (f.isFromZip || !f.file.name.toLowerCase().endsWith('.zip'))
     );
+    
+    let allSuccessful = true;
+    
     for (const uploadedFile of filesToUpload) {
       try {
         setUploadedFiles(prev => prev.map(f => 
@@ -534,6 +558,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
           f.id === uploadedFile.id ? { ...f, status: 'success' as const } : f
         ));
       } catch (error) {
+        allSuccessful = false;
         setUploadedFiles(prev => prev.map(f => 
           f.id === uploadedFile.id ? { 
             ...f, 
@@ -544,12 +569,25 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
       }
     }
     
-    setTimeout(() => {
-      const nonZipFiles = uploadedFiles.filter(f => !f.file.name.toLowerCase().endsWith('.zip') || f.isFromZip);
-      if (nonZipFiles.every(f => f.status === 'success')) {
+    // Auto-close dialog and show success message if all uploads succeeded
+    if (allSuccessful && filesToUpload.length > 0) {
+      // Trigger immediate refetch to show processing jobs
+      refetchJobs();
+      
+      setTimeout(() => {
+        toast.success(
+          `Successfully uploaded ${filesToUpload.length} file${filesToUpload.length > 1 ? 's' : ''}. ` +
+          `Knowledge entries will appear below once processing is complete.`
+        );
         handleCloseDialog();
-      }
-    }, 1000);
+        
+        // Trigger another refetch after closing dialog
+        setTimeout(() => {
+          refetch();
+          refetchJobs();
+        }, 500);
+      }, 1000);
+    }
   };
 
   const removeFile = (fileId: string) => {
@@ -628,17 +666,17 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
           </div>
         </div>
       )}
-      <div className="flex items-center gap-3 w-full">
-        <div className="relative flex-1">
+      <div className="flex items-center justify-between">
+        <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search..."
+            placeholder="Search knowledge..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 w-full"
+            className="pl-9 h-9"
           />
         </div>
-        <Button onClick={() => handleOpenAddDialog()} size="sm" className="gap-2 flex-shrink-0">
+        <Button onClick={() => handleOpenAddDialog()} size="sm" className="gap-2">
           <Plus className="h-4 w-4" />
           Add Knowledge
         </Button>
@@ -646,12 +684,13 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
       {entries.length === 0 ? (
         <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
           <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
-            <Bot className="h-8 w-8 text-muted-foreground" />
+            <BookOpen className="h-6 w-6 text-muted-foreground" />
           </div>
-          <h4 className="text-sm font-semibold text-foreground mb-2">No knowledge entries</h4>
+          <h4 className="text-sm font-semibold text-foreground mb-2">
+            No knowledge entries yet
+          </h4>
           <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-            Add knowledge entries to provide <span className="font-medium">{agentName}</span> with specialized context, 
-            guidelines, and information it should always remember.
+            Add knowledge entries to provide {agentName} with specialized context and information
           </p>
         </div>
       ) : (
@@ -677,47 +716,46 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
               return (
                 <div
                   key={entry.entry_id}
-                  className="flex items-start justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors group"
+                  className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors group"
                 >
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <h4 className="text-sm font-medium truncate">{entry.name}</h4>
-                      {entry.source_type && entry.source_type !== 'manual' && (
-                        <Badge variant="outline" className="text-xs">
-                          {entry.source_type === 'git_repo' ? 'Git' : 
-                           entry.source_type === 'zip_extracted' ? 'ZIP' : 'File'}
-                        </Badge>
-                      )}
+                  <div className="flex items-center space-x-4 flex-1 min-w-0">
+                    <div className="p-2 rounded-lg bg-muted border">
+                      <SourceIcon className="h-4 w-4" />
                     </div>
-                    {entry.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-1">
-                        {entry.description}
-                      </p>
-                    )}
-                    <p className="text-xs text-foreground/80 line-clamp-2 leading-relaxed">
-                      {entry.content}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2 mb-1 min-w-0">
+                        <h4 className="text-sm font-medium truncate w-full">{entry.name}</h4>
+                        {/* Show NEW badge for recently created entries */}
+                        {new Date(entry.created_at).getTime() > Date.now() - 300000 && ( // 5 minutes
+                          <Badge variant="default" className="text-xs flex-shrink-0 bg-green-600 hover:bg-green-600">
+                            NEW
+                          </Badge>
+                        )}
+                        {entry.source_type && entry.source_type !== 'manual' && (
+                          <Badge variant="outline" className="text-xs flex-shrink-0">
+                            {entry.source_type === 'git_repo' ? 'Git' : 
+                             entry.source_type === 'zip_extracted' ? 'ZIP' : 'File'}
+                          </Badge>
+                        )}
+                      </div>
+                      {entry.description && (
+                        <p className="text-xs text-muted-foreground truncate w-full mb-1">
+                          {entry.description}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <Badge variant="outline" className={cn("text-xs gap-1", contextConfig.color)}>
                           <ContextIcon className="h-3 w-3" />
                           {contextConfig.label}
                         </Badge>
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {new Date(entry.created_at).toLocaleDateString()}
                         </span>
-                        {entry.file_size && (
-                          <span className="text-xs text-muted-foreground">
-                            {(entry.file_size / 1024).toFixed(1)}KB
-                          </span>
+                        {entry.content_tokens && (
+                          <span>~{entry.content_tokens.toLocaleString()} tokens</span>
                         )}
                       </div>
-                      {entry.content_tokens && (
-                        <span className="text-xs text-muted-foreground">
-                          ~{entry.content_tokens.toLocaleString()} tokens
-                        </span>
-                      )}
                     </div>
                   </div>
                   <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
@@ -726,6 +764,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                       variant="ghost" 
                       className="h-8 w-8 p-0"
                       onClick={() => handleOpenEditDialog(entry)}
+                      aria-label="Edit knowledge entry"
                     >
                       <Edit2 className="h-4 w-4" />
                     </Button>
@@ -734,6 +773,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                       variant="ghost" 
                       className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                       onClick={() => setDeleteEntryId(entry.entry_id)}
+                      aria-label="Delete knowledge entry"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -747,48 +787,53 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
 
       {/* Processing Jobs */}
       {processingJobs.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <RefreshCw className="h-4 w-4" />
-              Processing Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Processing Status
+          </h3>
+          <div className="space-y-2">
             {processingJobs.map((job) => {
               const StatusIcon = getJobStatusIcon(job.status);
               const statusColor = getJobStatusColor(job.status);
               
               return (
-                <div key={job.job_id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <StatusIcon className={cn("h-4 w-4", statusColor, job.status === 'processing' && 'animate-spin')} />
-                    <div>
-                      <p className="text-sm font-medium">
-                        {job.job_type === 'file_upload' ? 'File Upload' :
-                         job.job_type === 'git_clone' ? 'Git Repository' : 'Processing'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
+                <div key={job.job_id} className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 rounded-lg bg-muted border">
+                      <StatusIcon className={cn("h-4 w-4", statusColor, job.status === 'processing' && 'animate-spin')} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <h4 className="text-sm font-medium">
+                          {job.job_type === 'file_upload' ? 'File Upload' :
+                           job.job_type === 'git_clone' ? 'Git Repository' : 'Processing'}
+                        </h4>
+                        <Badge variant={job.status === 'completed' ? 'default' : 
+                                     job.status === 'failed' ? 'destructive' : 'secondary'} className="text-xs">
+                          {job.status}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
                         {job.source_info.filename || job.source_info.git_url || 'Unknown source'}
                       </p>
+                      {job.status === 'completed' && job.entries_created > 0 && (
+                        <p className="text-xs text-green-600 dark:text-green-400 font-medium">
+                          ✓ {job.entries_created} knowledge entries created
+                        </p>
+                      )}
+                      {job.status === 'failed' && (
+                        <p className="text-xs text-red-600 dark:text-red-400">
+                          {job.error_message || 'Upload failed'}
+                        </p>
+                      )}
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <Badge variant={job.status === 'completed' ? 'default' : 
-                                 job.status === 'failed' ? 'destructive' : 'secondary'} className="text-xs">
-                      {job.status}
-                    </Badge>
-                    {job.status === 'completed' && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {job.entries_created} entries created
-                      </p>
-                    )}
                   </div>
                 </div>
               );
             })}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
       <input
         ref={fileInputRef}
@@ -802,30 +847,89 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-blue-600" />
-              Add Knowledge to {agentName}
+              {addDialogMode === 'selection' && (
+                <>
+                  <BookOpen className="h-5 w-5" />
+                  Add Knowledge to {agentName}
+                </>
+              )}
+              {addDialogMode === 'manual' && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAddDialogMode('selection')}
+                    className="p-0 h-6 w-6 mr-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <PenTool className="h-5 w-5" />
+                  Write Knowledge Entry
+                </>
+              )}
+              {addDialogMode === 'files' && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAddDialogMode('selection')}
+                    className="p-0 h-6 w-6 mr-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <Upload className="h-5 w-5" />
+                  Upload Files
+                </>
+              )}
             </DialogTitle>
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto">
-            <Tabs value={addDialogTab} onValueChange={(value) => setAddDialogTab(value as any)} className="w-full">
-              <TabsList className="grid w-80 grid-cols-2">
-                <TabsTrigger value="manual" className="gap-2">
-                  <PenTool className="h-4 w-4" />
-                  Write Knowledge
-                </TabsTrigger>
-                <TabsTrigger value="files" className="gap-2">
-                  <Upload className="h-4 w-4" />
-                  Upload Files
-                  {uploadedFiles.length > 0 && (
-                    <Badge variant="outline" className="ml-1">
-                      {uploadedFiles.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-              </TabsList>
+            {addDialogMode === 'selection' && (
+              <div className="space-y-6 p-6">
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Choose how you'd like to add knowledge to {agentName}
+                  </p>
+                </div>
+                
+                <div className="grid gap-3">
+                  <button
+                    className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
+                    onClick={() => setAddDialogMode('manual')}
+                  >
+                    <div className="p-2 rounded-lg bg-muted border">
+                      <PenTool className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold mb-1">Write Knowledge Entry</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Manually write custom knowledge, guidelines, or instructions
+                      </p>
+                    </div>
+                  </button>
+                  
+                  <button
+                    className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
+                    onClick={() => setAddDialogMode('files')}
+                  >
+                    <div className="p-2 rounded-lg bg-muted border">
+                      <Upload className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold mb-1">Upload Files</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Upload documents (.txt, .pdf, .docx) or ZIP archives
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
 
-              <TabsContent value="manual" className="space-y-6 mt-6">
+            {addDialogMode === 'manual' && (
+
+              <div className="space-y-6 p-6">
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="name" className="text-sm font-medium">Name *</Label>
@@ -908,9 +1012,11 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                     </Button>
                   </div>
                 </form>
-              </TabsContent>
+              </div>
+            )}
 
-              <TabsContent value="files" className="space-y-6 mt-6">
+            {addDialogMode === 'files' && (
+              <div className="space-y-6 p-6">
                 <div className="space-y-4">
                   {uploadedFiles.length === 0 && (
                     <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
@@ -1066,8 +1172,8 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                     </div>
                   )}
                 </div>
-              </TabsContent>
-            </Tabs>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -1075,7 +1181,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
-              <Edit2 className="h-5 w-5 text-blue-600" />
+              <Edit2 className="h-5 w-5" />
               Edit Knowledge Entry
             </DialogTitle>
           </DialogHeader>

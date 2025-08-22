@@ -285,11 +285,13 @@ class ProviderService:
         self._db = db_connection
         self._providers: Dict[str, TriggerProvider] = {}
         self._initialize_providers()
-    
+
     def _initialize_providers(self):
         self._providers["schedule"] = ScheduleProvider()
         self._providers["webhook"] = WebhookProvider()
-        self._providers["composio"] = ComposioEventProvider()
+        composio_provider = ComposioEventProvider()
+        composio_provider.set_db(self._db)
+        self._providers["composio"] = composio_provider
     
     async def get_available_providers(self) -> List[Dict[str, Any]]:
         providers = []
@@ -446,6 +448,45 @@ class ComposioEventProvider(TriggerProvider):
         super().__init__("composio", TriggerType.WEBHOOK)
         self._api_base = os.getenv("COMPOSIO_API_BASE", "https://backend.composio.dev")
         self._api_key = os.getenv("COMPOSIO_API_KEY", "")
+        self._db: Optional[DBConnection] = None
+
+    def set_db(self, db: DBConnection):
+        """Set database connection for provider"""
+        self._db = db
+
+    async def _count_triggers_with_composio_id(self, composio_trigger_id: str, exclude_trigger_id: Optional[str] = None) -> int:
+        """Count how many triggers use the same composio_trigger_id (excluding specified trigger)"""
+        if not self._db:
+            return 0
+        client = await self._db.client
+        
+        # Use PostgreSQL JSON operator for exact match
+        query = client.table('agent_triggers').select('trigger_id', count='exact').eq('trigger_type', 'webhook').eq('config->>composio_trigger_id', composio_trigger_id)
+        
+        if exclude_trigger_id:
+            query = query.neq('trigger_id', exclude_trigger_id)
+            
+        result = await query.execute()
+        count = result.count or 0
+        
+        return count
+
+    async def _count_active_triggers_with_composio_id(self, composio_trigger_id: str, exclude_trigger_id: Optional[str] = None) -> int:
+        """Count how many ACTIVE triggers use the same composio_trigger_id (excluding specified trigger)"""
+        if not self._db:
+            return 0
+        client = await self._db.client
+        
+        # Use PostgreSQL JSON operator for exact match
+        query = client.table('agent_triggers').select('trigger_id', count='exact').eq('trigger_type', 'webhook').eq('is_active', True).eq('config->>composio_trigger_id', composio_trigger_id)
+        
+        if exclude_trigger_id:
+            query = query.neq('trigger_id', exclude_trigger_id)
+            
+        result = await query.execute()
+        count = result.count or 0
+        
+        return count
 
     def _headers(self) -> Dict[str, str]:
         return {"x-api-key": self._api_key, "Content-Type": "application/json"}
@@ -482,14 +523,23 @@ class ComposioEventProvider(TriggerProvider):
         return config
 
     async def setup_trigger(self, trigger: Trigger) -> bool:
-        # Re-enable the Composio trigger instance if present
+        # Enable in Composio only if this will be the first active trigger with this composio_trigger_id
         try:
-            trigger_id = trigger.config.get("composio_trigger_id")
-            if not trigger_id:
+            composio_trigger_id = trigger.config.get("composio_trigger_id")
+            if not composio_trigger_id or not self._api_key:
                 return True
-            if not self._api_key:
+            
+            # Check if other ACTIVE triggers are using this composio_trigger_id
+            other_active_count = await self._count_active_triggers_with_composio_id(composio_trigger_id, trigger.trigger_id)
+            logger.debug(f"Setup trigger {trigger.trigger_id}: other_active_count={other_active_count} for composio_id={composio_trigger_id}")
+            
+            if other_active_count > 0:
+                # Other active triggers exist, don't touch Composio - just mark our trigger as active locally
+                logger.debug(f"Skipping Composio enable - {other_active_count} other active triggers exist")
                 return True
-            # Use canonical payload first per Composio API; include tolerant fallbacks
+            
+            # We're the first/only active trigger, enable in Composio
+            logger.debug(f"Enabling trigger in Composio - first active trigger for {composio_trigger_id}")
             payload_candidates: List[Dict[str, Any]] = [
                 {"status": "enable"},
                 {"status": "enabled"},
@@ -497,11 +547,12 @@ class ComposioEventProvider(TriggerProvider):
             ]
             async with httpx.AsyncClient(timeout=10) as client:
                 for api_base in self._api_bases():
-                    url = f"{api_base}/api/v3/trigger_instances/manage/{trigger_id}"
+                    url = f"{api_base}/api/v3/trigger_instances/manage/{composio_trigger_id}"
                     for body in payload_candidates:
                         try:
                             resp = await client.patch(url, headers=self._headers(), json=body)
                             if resp.status_code in (200, 204):
+                                logger.debug(f"Successfully enabled trigger in Composio: {composio_trigger_id}")
                                 return True
                         except Exception:
                             continue
@@ -510,14 +561,23 @@ class ComposioEventProvider(TriggerProvider):
             return True
 
     async def teardown_trigger(self, trigger: Trigger) -> bool:
-        # Disable the Composio trigger instance so it stops sending webhooks
+        # Disable in Composio only if this was the last active trigger with this composio_trigger_id
         try:
-            trigger_id = trigger.config.get("composio_trigger_id")
-            if not trigger_id:
+            composio_trigger_id = trigger.config.get("composio_trigger_id")
+            
+            if not composio_trigger_id or not self._api_key:
+                logger.info(f"TEARDOWN: Skipping - no composio_id or api_key")
                 return True
-            if not self._api_key:
+            
+            # Check if other ACTIVE triggers are using this composio_trigger_id
+            other_active_count = await self._count_active_triggers_with_composio_id(composio_trigger_id, trigger.trigger_id)
+            
+            if other_active_count > 0:
+                # Other active triggers exist, don't touch Composio - just mark our trigger as inactive locally
+                logger.info(f"TEARDOWN: Skipping Composio disable - {other_active_count} other active triggers exist")
                 return True
-            # Use canonical payload first per Composio API; include tolerant fallbacks
+            
+            # We're the last active trigger, disable in Composio
             payload_candidates: List[Dict[str, Any]] = [
                 {"status": "disable"},
                 {"status": "disabled"},
@@ -525,29 +585,38 @@ class ComposioEventProvider(TriggerProvider):
             ]
             async with httpx.AsyncClient(timeout=10) as client:
                 for api_base in self._api_bases():
-                    url = f"{api_base}/api/v3/trigger_instances/manage/{trigger_id}"
+                    url = f"{api_base}/api/v3/trigger_instances/manage/{composio_trigger_id}"
                     for body in payload_candidates:
                         try:
                             resp = await client.patch(url, headers=self._headers(), json=body)
                             if resp.status_code in (200, 204):
                                 return True
-                        except Exception:
+                        except Exception as e:
+                            logger.warning(f"TEARDOWN: Failed to disable with body {body}: {e}")
                             continue
+            logger.warning(f"TEARDOWN: Failed to disable trigger in Composio: {composio_trigger_id}")
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"TEARDOWN: Exception in teardown_trigger: {e}")
             return True
 
     async def delete_remote_trigger(self, trigger: Trigger) -> bool:
-        # Permanently remove the remote Composio trigger instance
+        # Only permanently remove the remote Composio trigger if this is the last trigger using it
         try:
-            trigger_id = trigger.config.get("composio_trigger_id")
-            if not trigger_id:
+            composio_trigger_id = trigger.config.get("composio_trigger_id")
+            if not composio_trigger_id or not self._api_key:
                 return True
-            if not self._api_key:
+            
+            # Check if other triggers are using this composio_trigger_id
+            other_count = await self._count_triggers_with_composio_id(composio_trigger_id, trigger.trigger_id)
+            if other_count > 0:
+                # Other triggers exist, don't delete from Composio - just remove our local trigger
                 return True
+            
+            # We're the last trigger, permanently delete from Composio
             async with httpx.AsyncClient(timeout=10) as client:
                 for api_base in self._api_bases():
-                    url = f"{api_base}/api/v3/trigger_instances/manage/{trigger_id}"
+                    url = f"{api_base}/api/v3/trigger_instances/manage/{composio_trigger_id}"
                     try:
                         resp = await client.delete(url, headers=self._headers())
                         if resp.status_code in (200, 204):

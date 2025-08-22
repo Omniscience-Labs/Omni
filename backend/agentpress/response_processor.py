@@ -86,7 +86,7 @@ class ProcessorConfig:
 class ResponseProcessor:
     """Processes LLM responses, extracting and executing tool calls."""
     
-    def __init__(self, tool_registry: ToolRegistry, add_message_callback: Callable, trace: Optional[StatefulTraceClient] = None, is_agent_builder: bool = False, target_agent_id: Optional[str] = None, agent_config: Optional[dict] = None):
+    def __init__(self, tool_registry: ToolRegistry, add_message_callback: Callable, trace: Optional[StatefulTraceClient] = None, agent_config: Optional[dict] = None):
         """Initialize the ResponseProcessor.
         
         Args:
@@ -100,8 +100,8 @@ class ResponseProcessor:
         self.trace = trace or langfuse.trace(name="anonymous:response_processor")
         # Initialize the XML parser
         self.xml_parser = XMLToolParser()
-        self.is_agent_builder = is_agent_builder
-        self.target_agent_id = target_agent_id
+        self.is_agent_builder = False  # Deprecated - keeping for compatibility
+        self.target_agent_id = None  # Deprecated - keeping for compatibility
         self.agent_config = agent_config
 
     async def _yield_message(self, message_obj: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:

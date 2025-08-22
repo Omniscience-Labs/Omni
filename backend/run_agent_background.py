@@ -57,17 +57,15 @@ async def check_health(key: str):
 async def run_agent_background(
     agent_run_id: str,
     thread_id: str,
-    instance_id: str, # Use the global instance ID passed during initialization
+    instance_id: str,
     project_id: str,
-    model_name: str,
-    enable_thinking: Optional[bool],
-    reasoning_effort: Optional[str],
-    stream: bool,
-    enable_context_manager: bool,
+    model_name: str = "openai/gpt-5-mini",
+    enable_thinking: Optional[bool] = False,
+    reasoning_effort: Optional[str] = 'low',
+    stream: bool = True,
+    enable_context_manager: bool = True,
     agent_config: Optional[dict] = None,
-    is_agent_builder: Optional[bool] = False,
-    target_agent_id: Optional[str] = None,
-    request_id: Optional[str] = None,
+    request_id: Optional[str] = None
 ):
     """Run the agent in the background using Redis for state."""
     structlog.contextvars.clear_contextvars()
@@ -112,24 +110,21 @@ async def run_agent_background(
         "stream": stream,
         "enable_context_manager": enable_context_manager,
         "agent_config": agent_config,
-        "is_agent_builder": is_agent_builder,
-        "target_agent_id": target_agent_id,
     })
     
-    effective_model = model_name
-    if model_name == "openrouter/moonshotai/kimi-k2" and agent_config and agent_config.get('model'):
+    from models import model_manager
+    is_tier_default = model_name in ["Kimi K2", "Claude Sonnet 4", "openai/gpt-5-mini"]
+    
+    if is_tier_default and agent_config and agent_config.get('model'):
         agent_model = agent_config['model']
-        from utils.constants import MODEL_NAME_ALIASES
-        resolved_agent_model = MODEL_NAME_ALIASES.get(agent_model, agent_model)
-        effective_model = resolved_agent_model
-        logger.debug(f"Using model from agent config: {agent_model} -> {effective_model} (no user selection)")
+        effective_model = model_manager.resolve_model_id(agent_model)
+        logger.debug(f"Using model from agent config: {agent_model} -> {effective_model} (tier default was {model_name})")
     else:
-        from utils.constants import MODEL_NAME_ALIASES
-        effective_model = MODEL_NAME_ALIASES.get(model_name, model_name)
-        if model_name != "openrouter/moonshotai/kimi-k2":
+        effective_model = model_manager.resolve_model_id(model_name)
+        if not is_tier_default:
             logger.debug(f"Using user-selected model: {model_name} -> {effective_model}")
         else:
-            logger.debug(f"Using default model: {effective_model}")
+            logger.debug(f"Using tier default model: {model_name} -> {effective_model}")
     
     logger.debug(f"🚀 Using model: {effective_model} (thinking: {enable_thinking}, reasoning_effort: {reasoning_effort})")
     if agent_config:
@@ -198,8 +193,6 @@ async def run_agent_background(
             enable_context_manager=enable_context_manager,
             agent_config=agent_config,
             trace=trace,
-            is_agent_builder=is_agent_builder,
-            target_agent_id=target_agent_id
         )
 
         final_status = "running"

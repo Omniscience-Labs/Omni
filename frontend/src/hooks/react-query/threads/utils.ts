@@ -4,7 +4,6 @@ const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export type Thread = {
     thread_id: string;
-    account_id: string | null;
     project_id?: string | null;
     is_public?: boolean;
     created_at: string;
@@ -15,7 +14,7 @@ export type Thread = {
       workflow_run_name?: string;
       is_workflow_execution?: boolean;
       agent_id?: string;
-      is_agent_builder?: boolean;
+    
       [key: string]: any;
     };
     [key: string]: any;
@@ -25,7 +24,6 @@ export type Thread = {
     id: string;
     name: string;
     description: string;
-    account_id: string;
     created_at: string;
     updated_at?: string;
     sandbox: {
@@ -224,7 +222,6 @@ export const getPublicProjects = async (): Promise<Project[]> => {
         id: project.project_id,
         name: project.name || '',
         description: project.description || '',
-        account_id: project.account_id,
         created_at: project.created_at,
         updated_at: project.updated_at,
         sandbox: project.sandbox || {
@@ -307,7 +304,6 @@ export const getPublicProjects = async (): Promise<Project[]> => {
         id: data.project_id,
         name: data.name || '',
         description: data.description || '',
-        account_id: data.account_id,
         is_public: data.is_public || false,
         created_at: data.created_at,
         sandbox: data.sandbox || {
@@ -374,7 +370,6 @@ export const getPublicProjects = async (): Promise<Project[]> => {
       id: updatedData.project_id,
       name: updatedData.name,
       description: updatedData.description || '',
-      account_id: updatedData.account_id,
       created_at: updatedData.created_at,
       sandbox: updatedData.sandbox || {
         id: '',

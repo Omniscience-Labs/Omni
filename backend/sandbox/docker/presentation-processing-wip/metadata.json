@@ -1,0 +1,30 @@
+{
+  "presentation_name": "elon_musk",
+  "title": "Elon Musk: Visionary Entrepreneur",
+  "description": "",
+  "slides": {
+    "1": {
+      "title": "Title Slide",
+      "filename": "slide_01.html",
+      "file_path": "presentations/elon_musk/slide_01.html",
+      "preview_url": "/workspace/presentations/elon_musk/slide_01.html",
+      "created_at": "2025-08-20T23:16:46.862281"
+    },
+    "2": {
+      "title": "Early Life & Background",
+      "filename": "slide_02.html",
+      "file_path": "presentations/elon_musk/slide_02.html",
+      "preview_url": "/workspace/presentations/elon_musk/slide_02.html",
+      "created_at": "2025-08-20T23:17:02.255166"
+    },
+    "3": {
+      "title": "First Ventures",
+      "filename": "slide_03.html",
+      "file_path": "presentations/elon_musk/slide_03.html",
+      "preview_url": "/workspace/presentations/elon_musk/slide_03.html",
+      "created_at": "2025-08-20T23:17:22.873481"
+    }
+  },
+  "created_at": "2025-08-20T23:16:46.285519",
+  "updated_at": "2025-08-20T23:20:04.399832"
+}

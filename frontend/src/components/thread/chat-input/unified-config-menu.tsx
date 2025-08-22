@@ -29,6 +29,7 @@ import { useAgentWorkflows } from '@/hooks/react-query/agents/use-agent-workflow
 import { PlaybookExecuteDialog } from '@/components/playbooks/playbook-execute-dialog';
 import { AgentAvatar } from '@/components/thread/content/agent-avatar';
 import { AgentModelSelector } from '@/components/agents/config/model-selector';
+import { useRouter } from 'next/navigation';
 
 type UnifiedConfigMenuProps = {
     isLoggedIn?: boolean;
@@ -58,6 +59,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     subscriptionStatus,
     onUpgradeRequest,
 }) => {
+    const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -121,6 +123,15 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
 
     const handleAgentClick = (agentId: string | undefined) => {
         onAgentSelect?.(agentId);
+        setIsOpen(false);
+    };
+
+    const handleQuickAction = (action: 'instructions' | 'knowledge' | 'triggers') => {
+        if (!selectedAgentId && !displayAgent?.agent_id) {
+            return;
+        }
+        const agentId = selectedAgentId || displayAgent?.agent_id;
+        router.push(`/agents/config/${agentId}?tab=configuration&accordion=${action}`);
         setIsOpen(false);
     };
 
@@ -242,9 +253,27 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
 
                     <DropdownMenuSeparator />
 
-                    {/* Playbooks submenu (current agent) */}
-                    {onAgentSelect && (
+                    {/* Quick Actions */}
+                    {onAgentSelect && (selectedAgentId || displayAgent?.agent_id) && (
                         <div className="px-1.5">
+                            <DropdownMenuItem
+                                className="text-sm px-3 py-2 mx-0 my-0.5 flex items-center gap-2 cursor-pointer rounded-lg"
+                                onClick={() => handleQuickAction('instructions')}
+                            >
+                                <span className="font-medium">Instructions</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                className="text-sm px-3 py-2 mx-0 my-0.5 flex items-center gap-2 cursor-pointer rounded-lg"
+                                onClick={() => handleQuickAction('knowledge')}
+                            >
+                                <span className="font-medium">Knowledge</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                className="text-sm px-3 py-2 mx-0 my-0.5 flex items-center gap-2 cursor-pointer rounded-lg"
+                                onClick={() => handleQuickAction('triggers')}
+                            >
+                                <span className="font-medium">Triggers</span>
+                            </DropdownMenuItem>
                             <DropdownMenuSub>
                                 <DropdownMenuSubTrigger className="flex items-center rounded-lg gap-2 px-3 py-2 mx-0 my-0.5">
                                     <span className="font-medium">Playbooks</span>
@@ -269,12 +298,6 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
                                     </DropdownMenuSubContent>
                                 </DropdownMenuPortal>
                             </DropdownMenuSub>
-                        </div>
-                    )}
-
-                    {/* Quick Integrations */}
-                    {(
-                        <div className="px-1.5 pb-1.5">
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>

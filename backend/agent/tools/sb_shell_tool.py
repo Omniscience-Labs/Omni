@@ -126,22 +126,21 @@ class SandboxShellTool(SandboxToolsBase):
             session_exists = "not_exists" not in check_session.get("output", "")
             
             if not session_exists:
-                # Create a new tmux session
-                await self._execute_raw_command(f"tmux new-session -d -s {session_name}")
-                
-            # Ensure we're in the correct directory and send command to tmux
-            full_command = f"cd {cwd} && {command}"
-            wrapped_command = full_command.replace('"', '\\"')  # Escape double quotes
+                # Create a new tmux session with the specified working directory
+                await self._execute_raw_command(f"tmux new-session -d -s {session_name} -c {cwd}")
+            
+            # Escape double quotes for the command
+            wrapped_command = command.replace('"', '\\"')
             
             if blocking:
                 # For blocking execution, use a more reliable approach
                 # Add a unique marker to detect command completion
                 marker = f"COMMAND_DONE_{str(uuid4())[:8]}"
-                completion_command = f"{command} ; echo {marker}"
+                completion_command = self._format_completion_command(command, marker)
                 wrapped_completion_command = completion_command.replace('"', '\\"')
                 
                 # Send the command with completion marker
-                await self._execute_raw_command(f'tmux send-keys -t {session_name} "cd {cwd} && {wrapped_completion_command}" Enter')
+                await self._execute_raw_command(f'tmux send-keys -t {session_name} "{wrapped_completion_command}" Enter')
                 
                 start_time = time.time()
                 final_output = ""
@@ -393,6 +392,22 @@ class SandboxShellTool(SandboxToolsBase):
                 
         except Exception as e:
             return self.fail_response(f"Error listing commands: {str(e)}")
+
+    def _format_completion_command(self, command: str, marker: str) -> str:
+        """Format command with completion marker, handling heredocs properly."""
+        import re
+        
+        # Check if command contains heredoc syntax
+        # Look for patterns like: << EOF, << 'EOF', << "EOF", <<EOF
+        heredoc_pattern = r'<<\s*[\'"]?\w+[\'"]?'
+        
+        if re.search(heredoc_pattern, command):
+            # For heredoc commands, add the completion marker on a new line
+            # This ensures it executes after the heredoc completes
+            return f"{command}\necho {marker}"
+        else:
+            # For regular commands, use semicolon separator
+            return f"{command} ; echo {marker}"
 
     def _is_command_completed(self, current_output: str, marker: str) -> bool:
         """

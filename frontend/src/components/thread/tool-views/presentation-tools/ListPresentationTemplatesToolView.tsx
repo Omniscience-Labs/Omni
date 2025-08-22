@@ -2,8 +2,8 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Palette, Layout, Sparkles, Building2, Brush } from 'lucide-react';
-import { ToolViewProps } from './types';
-import { extractToolData } from './utils';
+import { ToolViewProps } from '../types';
+import { extractToolData } from '../utils';
 
 interface ColorScheme {
   name: string;
@@ -50,7 +50,7 @@ export function ListPresentationTemplatesToolView({ toolContent }: ToolViewProps
   let error: string | null = null;
 
   try {
-    if (toolResult && toolResult.toolOutput) {
+    if (toolResult && toolResult.toolOutput && toolResult.toolOutput !== 'STREAMING') {
       const output = toolResult.toolOutput;
       if (typeof output === 'string') {
         try {

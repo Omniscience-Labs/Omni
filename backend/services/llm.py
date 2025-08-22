@@ -199,7 +199,7 @@ def _configure_kimi_k2(params: Dict[str, Any], model_name: str) -> None:
         return
     
     params["provider"] = {
-        "order": ["together/fp8", "novita/fp8", "baseten/fp8", "moonshotai", "groq"]
+        "order": ["groq", "moonshotai"] #, "groq", "together/fp8", "novita/fp8", "baseten/fp8", 
     }
 
 def _configure_thinking(params: Dict[str, Any], model_name: str, enable_thinking: Optional[bool], reasoning_effort: Optional[str]) -> None:
@@ -257,9 +257,12 @@ def prepare_params(
     enable_thinking: Optional[bool] = False,
     reasoning_effort: Optional[str] = 'low'
 ) -> Dict[str, Any]:
-    """Prepare parameters for the API call."""
+    from models import model_manager
+    resolved_model_name = model_manager.resolve_model_id(model_name)
+    logger.debug(f"Model resolution: '{model_name}' -> '{resolved_model_name}'")
+    
     params = {
-        "model": model_name,
+        "model": resolved_model_name,
         "messages": messages,
         "temperature": temperature,
         "response_format": response_format,
@@ -276,22 +279,22 @@ def prepare_params(
         params["model_id"] = model_id
 
     # Handle token limits
-    _configure_token_limits(params, model_name, max_tokens)
+    _configure_token_limits(params, resolved_model_name, max_tokens)
     # Add tools if provided
     _add_tools_config(params, tools, tool_choice)
     # Add Anthropic-specific parameters
-    _configure_anthopic(params, model_name, params["messages"])
+    _configure_anthopic(params, resolved_model_name, params["messages"])
     # Add OpenRouter-specific parameters
-    _configure_openrouter(params, model_name)
+    _configure_openrouter(params, resolved_model_name)
     # Add Bedrock-specific parameters
-    _configure_bedrock(params, model_name, model_id)
+    _configure_bedrock(params, resolved_model_name, model_id)
     
-    _add_fallback_model(params, model_name, messages)
+    _add_fallback_model(params, resolved_model_name, messages)
     # Add OpenAI GPT-5 specific parameters
-    _configure_openai_gpt5(params, model_name)
+    _configure_openai_gpt5(params, resolved_model_name)
     # Add Kimi K2-specific parameters
-    _configure_kimi_k2(params, model_name)
-    _configure_thinking(params, model_name, enable_thinking, reasoning_effort)
+    _configure_kimi_k2(params, resolved_model_name)
+    _configure_thinking(params, resolved_model_name, enable_thinking, reasoning_effort)
 
     return params
 

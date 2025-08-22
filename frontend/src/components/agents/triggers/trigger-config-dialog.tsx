@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { 
+import {
   Activity,
   Copy,
   ExternalLink,
@@ -171,7 +171,7 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
 
   return (
     <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-      <DialogHeader>
+      <DialogHeader className='px-2'>
         <DialogTitle className="flex items-center space-x-3">
           <div className="p-2 rounded-lg bg-muted border">
             {getDialogIcon(provider.trigger_type)}
@@ -184,7 +184,7 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
           {provider.description}
         </DialogDescription>
       </DialogHeader>
-      <div className="flex-1 overflow-y-auto space-y-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+      <div className="flex-1 px-2 overflow-y-auto space-y-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
         {renderProviderSpecificConfig()}
         {provider.webhook_enabled && existingConfig?.webhook_url && (
           <div className="border-t pt-6">
@@ -219,7 +219,7 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
           </div>
         )}
       </div>
-      <DialogFooter>
+      <DialogFooter className="px-2">
         <Button variant="outline" onClick={onCancel} disabled={isLoading}>
           Cancel
         </Button>

@@ -51,6 +51,8 @@ export function AskToolView({
     assistantTimestamp
   );
 
+
+
   const isImageFile = (filePath: string): boolean => {
     const filename = filePath.split('/').pop() || '';
     return filename.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i) !== null;

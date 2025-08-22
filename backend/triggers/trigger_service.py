@@ -84,9 +84,11 @@ class TriggerService:
             updated_at=now
         )
         
-        setup_success = await provider_service.setup_trigger(trigger)
-        if not setup_success:
-            raise ValueError(f"Failed to setup trigger with provider: {provider_id}")
+        # Skip setup_trigger for Composio since triggers are already enabled when created
+        if provider_id != "composio":
+            setup_success = await provider_service.setup_trigger(trigger)
+            if not setup_success:
+                raise ValueError(f"Failed to setup trigger with provider: {provider_id}")
         
         await self._save_trigger(trigger)
         
@@ -143,6 +145,10 @@ class TriggerService:
         config_changed = config is not None
         activation_toggled = (is_active is not None) and (previous_is_active != trigger.is_active)
 
+
+        # UPDATE DATABASE FIRST so provider methods see correct state
+        await self._update_trigger(trigger)
+
         if config_changed or activation_toggled:
             from .provider_service import get_provider_service
             provider_service = get_provider_service(self._db)
@@ -154,16 +160,14 @@ class TriggerService:
                     setup_success = await provider_service.setup_trigger(trigger)
                     if not setup_success:
                         raise ValueError(f"Failed to update trigger setup: {trigger_id}")
-            else:
-                # Only activation toggled; call the minimal required action
+            elif activation_toggled:
+                # Only activation toggled; call the appropriate action
                 if trigger.is_active:
                     setup_success = await provider_service.setup_trigger(trigger)
                     if not setup_success:
                         raise ValueError(f"Failed to enable trigger: {trigger_id}")
                 else:
                     await provider_service.teardown_trigger(trigger)
-        
-        await self._update_trigger(trigger)
         
         logger.debug(f"Updated trigger {trigger_id}")
         return trigger
@@ -173,9 +177,17 @@ class TriggerService:
         if not trigger:
             return False
         
+        # DELETE FROM DATABASE FIRST so provider methods see correct state  
+        client = await self._db.client
+        result = await client.table('agent_triggers').delete().eq('trigger_id', trigger_id).execute()
+        
+        success = len(result.data) > 0
+        if not success:
+            return False
+        
         from .provider_service import get_provider_service
         provider_service = get_provider_service(self._db)
-        # First disable remotely so webhooks stop quickly
+        # Now disable remotely so webhooks stop quickly
         try:
             await provider_service.teardown_trigger(trigger)
         except Exception:
@@ -185,13 +197,6 @@ class TriggerService:
             await provider_service.delete_remote_trigger(trigger)
         except Exception:
             pass
-        
-        client = await self._db.client
-        result = await client.table('agent_triggers').delete().eq('trigger_id', trigger_id).execute()
-        
-        success = len(result.data) > 0
-        if success:
-            logger.debug(f"Deleted trigger {trigger_id}")
         
         return success
     
@@ -283,12 +288,25 @@ class TriggerService:
     async def _log_trigger_event(self, event: TriggerEvent, result: TriggerResult) -> None:
         client = await self._db.client
         
+        
+        # Ensure raw_data is JSON serializable
+        try:
+            if isinstance(event.raw_data, bytes):
+                event_data = event.raw_data.decode('utf-8', errors='replace')
+            elif isinstance(event.raw_data, str):
+                event_data = event.raw_data
+            else:
+                event_data = str(event.raw_data)
+        except Exception as e:
+            logger.warning(f"Failed to serialize raw_data: {e}")
+            event_data = str(event.raw_data) if event.raw_data else "{}"
+        
         await client.table('trigger_event_logs').insert({
             'log_id': str(uuid.uuid4()),
             'trigger_id': event.trigger_id,
             'agent_id': event.agent_id,
             'trigger_type': event.trigger_type.value,
-            'event_data': event.raw_data,
+            'event_data': event_data,
             'success': result.success,
             'should_execute_agent': result.should_execute_agent,
             'should_execute_workflow': result.should_execute_workflow,

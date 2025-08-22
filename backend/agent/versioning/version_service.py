@@ -320,14 +320,25 @@ class VersionService:
         
         client = await self._get_client()
         
-        result = await client.table('agent_versions').select('*').eq(
-            'agent_id', agent_id
-        ).eq('is_active', True).execute()
-        
-        if not result.data:
+        agent_result = await client.table('agents').select('current_version_id').eq('agent_id', agent_id).execute()
+        if not agent_result.data or not agent_result.data[0].get('current_version_id'):
+            logger.warning(f"No current_version_id found for agent {agent_id}")
             return None
         
-        return self._version_from_db_row(result.data[0])
+        current_version_id = agent_result.data[0]['current_version_id']
+        logger.debug(f"Agent {agent_id} current_version_id: {current_version_id}")
+        
+        result = await client.table('agent_versions').select('*').eq(
+            'version_id', current_version_id
+        ).eq('agent_id', agent_id).execute()
+        
+        if not result.data:
+            logger.warning(f"Current version {current_version_id} not found for agent {agent_id}")
+            return None
+        
+        version = self._version_from_db_row(result.data[0])
+        logger.debug(f"Retrieved active version for agent {agent_id}: model='{version.model}', version_name='{version.version_name}'")
+        return version
     
     async def get_all_versions(self, agent_id: str, user_id: str) -> List[AgentVersion]:
         is_owner, is_public = await self._verify_agent_access(agent_id, user_id)
