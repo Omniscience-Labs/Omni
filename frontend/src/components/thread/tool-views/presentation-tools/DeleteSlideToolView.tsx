@@ -42,7 +42,7 @@ export function DeleteSlideToolView({
   let error: string | null = null;
 
   try {
-    if (toolResult && toolResult.toolOutput) {
+    if (toolResult && toolResult.toolOutput && toolResult.toolOutput !== 'STREAMING') {
       const output = toolResult.toolOutput;
       if (typeof output === 'string') {
         try {

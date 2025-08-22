@@ -58,12 +58,20 @@ export function FullScreenPresentationViewer({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showControls, setShowControls] = useState(true);
+  
+  // Create a stable refresh timestamp when metadata changes (like PresentationViewer)
+  const refreshTimestamp = useMemo(() => Date.now(), [metadata]);
 
   const slides = metadata ? Object.entries(metadata.slides)
     .map(([num, slide]) => ({ number: parseInt(num), ...slide }))
     .sort((a, b) => a.number - b.number) : [];
 
   const totalSlides = slides.length;
+
+  // Helper function to sanitize filename (matching backend logic)
+  const sanitizeFilename = (name: string): string => {
+    return name.replace(/[^a-zA-Z0-9\-_]/g, '').toLowerCase();
+  };
 
   // Load metadata
   const loadMetadata = useCallback(async () => {
@@ -73,9 +81,12 @@ export function FullScreenPresentationViewer({
     setError(null);
     
     try {
+      // Sanitize the presentation name to match backend directory creation
+      const sanitizedPresentationName = sanitizeFilename(presentationName);
+      
       const metadataUrl = constructHtmlPreviewUrl(
         sandboxUrl, 
-        `presentations/${presentationName}/metadata.json`
+        `presentations/${sanitizedPresentationName}/metadata.json`
       );
       
       const response = await fetch(`${metadataUrl}?t=${Date.now()}`, {
@@ -172,12 +183,12 @@ export function FullScreenPresentationViewer({
     if (!currentSlideData || !sandboxUrl) return null;
 
     const slideUrl = constructHtmlPreviewUrl(sandboxUrl, currentSlideData.file_path);
-    const slideUrlWithCacheBust = `${slideUrl}?t=${Date.now()}`;
+    const slideUrlWithCacheBust = `${slideUrl}?t=${refreshTimestamp}`;
 
     return (
       <div className="w-full h-full flex items-center justify-center bg-white dark:bg-zinc-900">
         <iframe
-          key={`slide-${currentSlide}-${Date.now()}`}
+          key={`slide-${currentSlide}-${refreshTimestamp}`}
           src={slideUrlWithCacheBust}
           title={`Slide ${currentSlide}: ${currentSlideData.title}`}
           className="w-full h-full border-0"
@@ -186,7 +197,7 @@ export function FullScreenPresentationViewer({
         />
       </div>
     );
-  }, [currentSlideData, sandboxUrl, currentSlide]);
+  }, [currentSlideData, sandboxUrl, currentSlide, refreshTimestamp]);
 
   if (!isOpen) return null;
 

@@ -83,7 +83,7 @@ export function PresentationViewer({
   let currentSlideNumber: number | undefined;
   let presentationTitle: string | undefined;
 
-  if (toolResult && toolResult.toolOutput) {
+  if (toolResult && toolResult.toolOutput && toolResult.toolOutput !== 'STREAMING') {
     try {
       const output = typeof toolResult.toolOutput === 'string' 
         ? JSON.parse(toolResult.toolOutput) 
@@ -101,6 +101,11 @@ export function PresentationViewer({
   // Get tool title for display
   const toolTitle = getToolTitle(name || 'presentation-viewer');
 
+  // Helper function to sanitize filename (matching backend logic)
+  const sanitizeFilename = (name: string): string => {
+    return name.replace(/[^a-zA-Z0-9\-_]/g, '').toLowerCase();
+  };
+
   // Load metadata.json for the presentation
   const loadMetadata = async () => {
     if (!extractedPresentationName || !project?.sandbox?.sandbox_url) return;
@@ -109,9 +114,12 @@ export function PresentationViewer({
     setError(null);
     
     try {
+      // Sanitize the presentation name to match backend directory creation
+      const sanitizedPresentationName = sanitizeFilename(extractedPresentationName);
+      
       const metadataUrl = constructHtmlPreviewUrl(
         project.sandbox.sandbox_url, 
-        `presentations/${extractedPresentationName}/metadata.json`
+        `presentations/${sanitizedPresentationName}/metadata.json`
       );
       
       // Add cache-busting parameter to ensure fresh data
@@ -123,6 +131,7 @@ export function PresentationViewer({
           'Cache-Control': 'no-cache'
         }
       });
+      
       if (response.ok) {
         const data = await response.json();
         setMetadata(data);
@@ -182,6 +191,7 @@ export function PresentationViewer({
     setVisibleSlide(slides[0].number);
 
     const handleScroll = () => {
+      
       const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]');
       if (!scrollArea || slides.length === 0) return;
 

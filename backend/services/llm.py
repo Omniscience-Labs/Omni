@@ -199,7 +199,7 @@ def _configure_kimi_k2(params: Dict[str, Any], model_name: str) -> None:
         return
     
     params["provider"] = {
-        "order": ["together/fp8", "novita/fp8", "baseten/fp8", "moonshotai", "groq"]
+        "order": ["groq", "moonshotai"] #, "groq", "together/fp8", "novita/fp8", "baseten/fp8", 
     }
 
 def _configure_thinking(params: Dict[str, Any], model_name: str, enable_thinking: Optional[bool], reasoning_effort: Optional[str]) -> None:
