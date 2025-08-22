@@ -133,3 +133,44 @@ export const sortThreads = (
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 };
+
+export type GroupedThreads = {
+  [dateGroup: string]: ThreadWithProject[];
+};
+
+export const groupThreadsByDate = (
+  threadsList: ThreadWithProject[]
+): GroupedThreads => {
+  const sortedThreads = sortThreads(threadsList);
+  const grouped: GroupedThreads = {};
+  const now = new Date();
+  
+  sortedThreads.forEach(thread => {
+    const threadDate = new Date(thread.updatedAt);
+    const diffInMs = now.getTime() - threadDate.getTime();
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    let dateGroup: string;
+    
+    if (diffInDays === 0) {
+      dateGroup = 'Today';
+    } else if (diffInDays === 1) {
+      dateGroup = 'Yesterday';
+    } else if (diffInDays <= 7) {
+      dateGroup = 'This Week';
+    } else if (diffInDays <= 30) {
+      dateGroup = 'This Month';
+    } else if (diffInDays <= 90) {
+      dateGroup = 'Last 3 Months';
+    } else {
+      dateGroup = 'Older';
+    }
+    
+    if (!grouped[dateGroup]) {
+      grouped[dateGroup] = [];
+    }
+    grouped[dateGroup].push(thread);
+  });
+  
+  return grouped;
+};
