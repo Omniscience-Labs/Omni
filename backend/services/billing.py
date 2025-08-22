@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import Optional, Dict, Tuple
 import stripe
 from datetime import datetime, timezone, timedelta
+from dateutil import parser as dateutil_parser
 
 from supabase import Client as SupabaseClient
 from utils.cache import Cache
@@ -19,6 +20,7 @@ from pydantic import BaseModel
 from utils.constants import MODEL_ACCESS_TIERS, MODEL_NAME_ALIASES, HARDCODED_MODEL_PRICES
 from litellm.cost_calculator import cost_per_token
 import time
+import json
 
 # Initialize Stripe
 stripe.api_key = config.STRIPE_SECRET_KEY
@@ -904,11 +906,26 @@ async def get_user_credit_balance(client: SupabaseClient, user_id: str) -> Credi
         if result.data and len(result.data) > 0:
             data = result.data[0]
             is_highest_tier = await is_user_on_highest_tier(user_id)
+            
+            # Safely handle last_updated datetime conversion
+            last_updated = None
+            if data.get('last_updated'):
+                try:
+                    # If it's already a datetime object, use it
+                    if isinstance(data['last_updated'], datetime):
+                        last_updated = data['last_updated']
+                    else:
+                        # Try to parse it as a string
+                        last_updated = dateutil_parser.parse(data['last_updated'])
+                except Exception as dt_error:
+                    logger.warning(f"Error parsing last_updated datetime for user {user_id}: {dt_error}")
+                    last_updated = None
+            
             return CreditBalance(
                 balance_dollars=float(data.get('balance_dollars', 0)),
                 total_purchased=float(data.get('total_purchased', 0)),
                 total_used=float(data.get('total_used', 0)),
-                last_updated=data.get('last_updated'),
+                last_updated=last_updated,
                 can_purchase_credits=is_highest_tier
             )
         else:
@@ -1475,20 +1492,51 @@ async def get_subscription(
 ):
     """Get the current subscription status for the current user, including scheduled changes and credit balance."""
     try:
-        # Get subscription from Stripe (this helper already handles filtering/cleanup)
-        subscription = await get_user_subscription(current_user_id)
-        # print("Subscription data for status:", subscription)
+        logger.debug(f"Getting subscription status for user {current_user_id}")
         
-        # Calculate current usage
-        db = DBConnection()
-        client = await db.client
-        current_usage = await calculate_monthly_usage(client, current_user_id)
+        # Initialize default values with safe fallbacks
+        subscription = None
+        current_usage = 0.0
+        credit_balance_info = None
         
-        # Get credit balance
-        credit_balance_info = await get_user_credit_balance(client, current_user_id)
+        # Get subscription from Stripe with error handling
+        try:
+            subscription = await get_user_subscription(current_user_id)
+            logger.debug(f"Retrieved subscription data for user {current_user_id}: {subscription is not None}")
+        except Exception as sub_error:
+            logger.error(f"Error retrieving subscription for user {current_user_id}: {str(sub_error)}")
+            # Continue with None subscription - will default to free tier
+        
+        # Calculate current usage with error handling
+        try:
+            db = DBConnection()
+            client = await db.client
+            current_usage = await calculate_monthly_usage(client, current_user_id)
+            logger.debug(f"Retrieved usage for user {current_user_id}: {current_usage}")
+        except Exception as usage_error:
+            logger.error(f"Error calculating usage for user {current_user_id}: {str(usage_error)}")
+            current_usage = 0.0  # Default to 0 if calculation fails
+        
+        # Get credit balance with error handling
+        try:
+            if 'client' not in locals():
+                db = DBConnection()
+                client = await db.client
+            credit_balance_info = await get_user_credit_balance(client, current_user_id)
+            logger.debug(f"Retrieved credit balance for user {current_user_id}: {credit_balance_info.balance_dollars if credit_balance_info else 'None'}")
+        except Exception as balance_error:
+            logger.error(f"Error getting credit balance for user {current_user_id}: {str(balance_error)}")
+            # Create safe fallback credit balance
+            credit_balance_info = CreditBalance(
+                balance_dollars=0.0,
+                total_purchased=0.0,
+                total_used=0.0,
+                can_purchase_credits=False
+            )
 
+        # Return free tier if no subscription
         if not subscription:
-            # Default to free tier status if no active subscription for our product
+            logger.debug(f"No subscription found for user {current_user_id}, returning free tier")
             free_tier_id = config.STRIPE_FREE_TIER_ID
             free_tier_info = SUBSCRIPTION_TIERS.get(free_tier_id)
             return SubscriptionStatus(
@@ -1498,77 +1546,181 @@ async def get_subscription(
                 minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0,
                 cost_limit=free_tier_info.get('cost') if free_tier_info else 0,
                 current_usage=current_usage,
-                credit_balance=credit_balance_info.balance_dollars,
-                can_purchase_credits=credit_balance_info.can_purchase_credits
+                credit_balance=credit_balance_info.balance_dollars if credit_balance_info else 0.0,
+                can_purchase_credits=credit_balance_info.can_purchase_credits if credit_balance_info else False
             )
         
-        # Extract current plan details
-        current_item = subscription['items']['data'][0]
-        current_price_id = current_item['price']['id']
-        current_tier_info = SUBSCRIPTION_TIERS.get(current_price_id)
-        if not current_tier_info:
-            # Fallback if somehow subscribed to an unknown price within our product
-            logger.warning(f"User {current_user_id} subscribed to unknown price {current_price_id}. Defaulting info.")
-            current_tier_info = {'name': 'unknown', 'minutes': 0}
-        
-        status_response = SubscriptionStatus(
-            status=subscription['status'], # 'active', 'trialing', etc.
-            plan_name=subscription['plan'].get('nickname') or current_tier_info['name'],
-            price_id=current_price_id,
-            current_period_end=datetime.fromtimestamp(current_item['current_period_end'], tz=timezone.utc),
-            cancel_at_period_end=subscription['cancel_at_period_end'],
-            trial_end=datetime.fromtimestamp(subscription['trial_end'], tz=timezone.utc) if subscription.get('trial_end') else None,
-            minutes_limit=current_tier_info['minutes'],
-            cost_limit=current_tier_info['cost'],
-            current_usage=current_usage,
-            has_schedule=False, # Default
-            subscription_id=subscription['id'],
-            subscription={
-                'id': subscription['id'],
-                'status': subscription['status'],
-                'cancel_at_period_end': subscription['cancel_at_period_end'],
-                'cancel_at': subscription.get('cancel_at'),
-                'current_period_end': current_item['current_period_end']
-            },
-            credit_balance=credit_balance_info.balance_dollars,
-            can_purchase_credits=credit_balance_info.can_purchase_credits
-        )
-
-        # Check for an attached schedule (indicates pending downgrade)
-        schedule_id = subscription.get('schedule')
-        if schedule_id:
-            try:
-                schedule = await stripe.SubscriptionSchedule.retrieve_async(schedule_id)
-                # Find the *next* phase after the current one
-                next_phase = None
-                current_phase_end = current_item['current_period_end']
+        # Safely extract current plan details with validation
+        try:
+            if not subscription.get('items') or not subscription['items'].get('data'):
+                raise ValueError("Subscription has no items data")
                 
-                for phase in schedule.get('phases', []):
-                    # Check if this phase starts exactly when the current one ends
-                    if phase.get('start_date') == current_phase_end:
-                        next_phase = phase
-                        break # Found the immediate next phase
+            current_item = subscription['items']['data'][0]
+            if not current_item.get('price') or not current_item['price'].get('id'):
+                raise ValueError("Subscription item has no price data")
+                
+            current_price_id = current_item['price']['id']
+            current_tier_info = SUBSCRIPTION_TIERS.get(current_price_id)
+            
+            if not current_tier_info:
+                logger.warning(f"User {current_user_id} subscribed to unknown price {current_price_id}. Using defaults.")
+                current_tier_info = {'name': 'unknown', 'minutes': 0, 'cost': 0}
+            
+            # Safely get timestamps with validation
+            current_period_end = None
+            trial_end = None
+            
+            try:
+                if current_item.get('current_period_end'):
+                    current_period_end = datetime.fromtimestamp(current_item['current_period_end'], tz=timezone.utc)
+            except (ValueError, TypeError, OSError) as ts_error:
+                logger.error(f"Error parsing current_period_end timestamp for user {current_user_id}: {ts_error}")
+                current_period_end = None
+                
+            try:
+                if subscription.get('trial_end'):
+                    trial_end = datetime.fromtimestamp(subscription['trial_end'], tz=timezone.utc)
+            except (ValueError, TypeError, OSError) as ts_error:
+                logger.error(f"Error parsing trial_end timestamp for user {current_user_id}: {ts_error}")
+                trial_end = None
+            
+            # Safely construct subscription object for response
+            subscription_data = {
+                'id': subscription.get('id', ''),
+                'status': subscription.get('status', 'unknown'),
+                'cancel_at_period_end': bool(subscription.get('cancel_at_period_end', False)),
+                'cancel_at': subscription.get('cancel_at'),
+                'current_period_end': current_item.get('current_period_end')
+            }
+            
+            # Get plan name safely
+            plan_name = 'unknown'
+            if subscription.get('plan') and subscription['plan'].get('nickname'):
+                plan_name = subscription['plan']['nickname']
+            elif current_tier_info.get('name'):
+                plan_name = current_tier_info['name']
+            
+            status_response = SubscriptionStatus(
+                status=subscription.get('status', 'unknown'),
+                plan_name=plan_name,
+                price_id=current_price_id,
+                current_period_end=current_period_end,
+                cancel_at_period_end=bool(subscription.get('cancel_at_period_end', False)),
+                trial_end=trial_end,
+                minutes_limit=current_tier_info.get('minutes', 0),
+                cost_limit=current_tier_info.get('cost', 0),
+                current_usage=current_usage,
+                has_schedule=False,
+                subscription_id=subscription.get('id'),
+                subscription=subscription_data,
+                credit_balance=credit_balance_info.balance_dollars if credit_balance_info else 0.0,
+                can_purchase_credits=credit_balance_info.can_purchase_credits if credit_balance_info else False
+            )
 
-                if next_phase:
-                    scheduled_item = next_phase['items'][0] # Assuming single item
-                    scheduled_price_id = scheduled_item['price'] # Price ID might be string here
-                    scheduled_tier_info = SUBSCRIPTION_TIERS.get(scheduled_price_id)
+            # Check for an attached schedule (indicates pending downgrade) with error handling
+            schedule_id = subscription.get('schedule')
+            if schedule_id:
+                try:
+                    logger.debug(f"Processing subscription schedule {schedule_id} for user {current_user_id}")
+                    schedule = await stripe.SubscriptionSchedule.retrieve_async(schedule_id)
                     
-                    status_response.has_schedule = True
-                    status_response.status = 'scheduled_downgrade' # Override status
-                    status_response.scheduled_plan_name = scheduled_tier_info.get('name', 'unknown') if scheduled_tier_info else 'unknown'
-                    status_response.scheduled_price_id = scheduled_price_id
-                    status_response.scheduled_change_date = datetime.fromtimestamp(next_phase['start_date'], tz=timezone.utc)
+                    # Find the *next* phase after the current one
+                    next_phase = None
+                    current_phase_end = current_item.get('current_period_end')
                     
-            except Exception as schedule_error:
-                logger.error(f"Error retrieving or parsing schedule {schedule_id} for sub {subscription['id']}: {schedule_error}")
-                # Proceed without schedule info if retrieval fails
+                    if current_phase_end and schedule.get('phases'):
+                        for phase in schedule.get('phases', []):
+                            if phase.get('start_date') == current_phase_end:
+                                next_phase = phase
+                                break
 
-        return status_response
+                    if next_phase and next_phase.get('items'):
+                        try:
+                            scheduled_item = next_phase['items'][0]
+                            scheduled_price_id = scheduled_item.get('price', '')
+                            scheduled_tier_info = SUBSCRIPTION_TIERS.get(scheduled_price_id, {})
+                            
+                            scheduled_change_date = None
+                            if next_phase.get('start_date'):
+                                try:
+                                    scheduled_change_date = datetime.fromtimestamp(next_phase['start_date'], tz=timezone.utc)
+                                except (ValueError, TypeError, OSError) as ts_error:
+                                    logger.error(f"Error parsing scheduled change date for user {current_user_id}: {ts_error}")
+                            
+                            status_response.has_schedule = True
+                            status_response.status = 'scheduled_downgrade'
+                            status_response.scheduled_plan_name = scheduled_tier_info.get('name', 'unknown')
+                            status_response.scheduled_price_id = scheduled_price_id
+                            status_response.scheduled_change_date = scheduled_change_date
+                            
+                        except Exception as schedule_parse_error:
+                            logger.error(f"Error parsing schedule details for user {current_user_id}: {schedule_parse_error}")
+                            
+                except Exception as schedule_error:
+                    logger.error(f"Error retrieving schedule {schedule_id} for user {current_user_id}: {schedule_error}")
+
+            logger.debug(f"Successfully constructed subscription response for user {current_user_id}")
+            
+            # Validate JSON serialization before returning
+            try:
+                # Test serialization using FastAPI's JSON encoder
+                test_dict = status_response.model_dump()
+                json.dumps(test_dict, default=str)  # Use default=str to handle datetime objects
+                logger.debug(f"JSON serialization validation passed for user {current_user_id}")
+            except Exception as json_error:
+                logger.error(f"JSON serialization failed for user {current_user_id}: {json_error}")
+                logger.error(f"Response data: {status_response.model_dump()}")
+                # Fall back to safe response
+                free_tier_id = config.STRIPE_FREE_TIER_ID
+                free_tier_info = SUBSCRIPTION_TIERS.get(free_tier_id)
+                return SubscriptionStatus(
+                    status="error",
+                    plan_name=free_tier_info.get('name', 'free') if free_tier_info else 'free',
+                    price_id=free_tier_id,
+                    minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0,
+                    cost_limit=free_tier_info.get('cost') if free_tier_info else 0,
+                    current_usage=current_usage,
+                    credit_balance=credit_balance_info.balance_dollars if credit_balance_info else 0.0,
+                    can_purchase_credits=credit_balance_info.can_purchase_credits if credit_balance_info else False
+                )
+            
+            return status_response
+            
+        except Exception as parsing_error:
+            logger.error(f"Error parsing subscription data for user {current_user_id}: {str(parsing_error)}")
+            # Fall back to free tier if subscription data is malformed
+            free_tier_id = config.STRIPE_FREE_TIER_ID
+            free_tier_info = SUBSCRIPTION_TIERS.get(free_tier_id)
+            return SubscriptionStatus(
+                status="no_subscription",
+                plan_name=free_tier_info.get('name', 'free') if free_tier_info else 'free',
+                price_id=free_tier_id,
+                minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0,
+                cost_limit=free_tier_info.get('cost') if free_tier_info else 0,
+                current_usage=current_usage,
+                credit_balance=credit_balance_info.balance_dollars if credit_balance_info else 0.0,
+                can_purchase_credits=credit_balance_info.can_purchase_credits if credit_balance_info else False
+            )
         
     except Exception as e:
-        logger.exception(f"Error getting subscription status for user {current_user_id}: {str(e)}") # Use logger.exception
-        raise HTTPException(status_code=500, detail="Error retrieving subscription status.")
+        logger.exception(f"Error getting subscription status for user {current_user_id}: {str(e)}")
+        # Return a safe fallback response instead of raising an error
+        try:
+            free_tier_id = config.STRIPE_FREE_TIER_ID
+            free_tier_info = SUBSCRIPTION_TIERS.get(free_tier_id)
+            return SubscriptionStatus(
+                status="error",
+                plan_name=free_tier_info.get('name', 'free') if free_tier_info else 'free',
+                price_id=free_tier_id,
+                minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0,
+                cost_limit=free_tier_info.get('cost') if free_tier_info else 0,
+                current_usage=0.0,
+                credit_balance=0.0,
+                can_purchase_credits=False
+            )
+        except Exception as fallback_error:
+            logger.exception(f"Error creating fallback response for user {current_user_id}: {str(fallback_error)}")
+            raise HTTPException(status_code=500, detail="Error retrieving subscription status.")
 
 @router.get("/check-status")
 async def check_status(
