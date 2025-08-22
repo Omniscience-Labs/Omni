@@ -1252,12 +1252,44 @@ async def initiate_agent_with_files(
                         finally:
                             await file.close()
             else:
-                # Sandbox creation failed, inform user
-                logger.warning("Sandbox not available, files will be uploaded when agent tools are used")
+                # Sandbox creation failed, store files in project metadata for later upload
+                logger.warning("Sandbox not available, storing files in project metadata for later upload")
+                pending_files = []
                 for file in files:
                     if file.filename:
-                        failed_uploads.append(file.filename)
-                        await file.close()
+                        try:
+                            safe_filename = file.filename.replace('/', '_').replace('\\', '_')
+                            content = await file.read()
+                            # Store file content in base64 for JSON storage
+                            import base64
+                            file_data = {
+                                "filename": safe_filename,
+                                "original_filename": file.filename,
+                                "content": base64.b64encode(content).decode('utf-8'),
+                                "size": len(content)
+                            }
+                            pending_files.append(file_data)
+                            failed_uploads.append(file.filename)
+                            logger.info(f"Stored file {safe_filename} ({len(content)} bytes) for later upload")
+                        except Exception as file_error:
+                            logger.error(f"Error storing file {file.filename}: {str(file_error)}")
+                            failed_uploads.append(file.filename)
+                        finally:
+                            await file.close()
+                
+                # Store pending files in project metadata
+                if pending_files:
+                    try:
+                        update_result = await client.table('projects').update({
+                            'pending_files': pending_files
+                        }).eq('project_id', project_id).execute()
+                        
+                        if update_result.data:
+                            logger.info(f"Stored {len(pending_files)} files in project metadata for later upload")
+                        else:
+                            logger.error("Failed to store pending files in project metadata")
+                    except Exception as metadata_error:
+                        logger.error(f"Error storing pending files in metadata: {str(metadata_error)}")
 
             # Update message content with file upload results
             if successful_uploads:
