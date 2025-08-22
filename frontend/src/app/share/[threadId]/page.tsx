@@ -292,6 +292,7 @@ export default function ThreadPage({
     },
     threadId,
     setMessages,
+    undefined, // No agent ID available in share page
   );
 
   useEffect(() => {
