@@ -412,196 +412,271 @@ async def calculate_monthly_usage(client, user_id: str) -> float:
 
 async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: int = 1000) -> Dict:
     """Get detailed usage logs for a user with pagination, including credit usage info."""
-    # Get start of current month in UTC
-    now = datetime.now(timezone.utc)
-    start_of_month = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    logger.info(f"[USAGE_LOGS] Starting get_usage_logs for user_id={user_id}, page={page}, items_per_page={items_per_page}")
     
-    # Use fixed cutoff date: June 26, 2025 midnight UTC
-    # Ignore all token counts before this date
-    cutoff_date = datetime(2025, 6, 30, 9, 0, 0, tzinfo=timezone.utc)
-    
-    start_of_month = max(start_of_month, cutoff_date)
-    
-    # First get all threads for this user in batches
-    batch_size = 1000
-    offset = 0
-    all_threads = []
-    
-    while True:
-        threads_batch = await client.table('threads') \
-            .select('thread_id, agent_runs(thread_id)') \
-            .eq('account_id', user_id) \
-            .gte('agent_runs.created_at', start_of_month.isoformat()) \
-            .range(offset, offset + batch_size - 1) \
-            .execute()
-        
-        if not threads_batch.data:
-            break
-            
-        all_threads.extend(threads_batch.data)
-        
-        # If we got less than batch_size, we've reached the end
-        if len(threads_batch.data) < batch_size:
-            break
-            
-        offset += batch_size
-    
-    if not all_threads:
-        return {"logs": [], "has_more": False}
-    
-    thread_ids = [t['thread_id'] for t in all_threads]
-    
-    # Fetch usage messages with pagination, including thread project info
-    start_time = time.time()
-    messages_result = await client.table('messages') \
-        .select(
-            'message_id, thread_id, created_at, content, threads!inner(project_id)'
-        ) \
-        .in_('thread_id', thread_ids) \
-        .eq('type', 'assistant_response_end') \
-        .gte('created_at', start_of_month.isoformat()) \
-        .order('created_at', desc=True) \
-        .range(page * items_per_page, (page + 1) * items_per_page - 1) \
-        .execute()
-    
-    end_time = time.time()
-    execution_time = end_time - start_time
-    logger.debug(f"Database query for usage logs took {execution_time:.3f} seconds")
-
-    if not messages_result.data:
-        return {"logs": [], "has_more": False}
-
-    # Get the user's subscription tier info for credit checking
-    subscription = await get_user_subscription(user_id)
-    price_id = config.STRIPE_FREE_TIER_ID  # Default to free
-    if subscription and subscription.get('items'):
-        items = subscription['items'].get('data', [])
-        if items:
-            price_id = items[0]['price']['id']
-    
-    tier_info = SUBSCRIPTION_TIERS.get(price_id, SUBSCRIPTION_TIERS[config.STRIPE_FREE_TIER_ID])
-    subscription_limit = tier_info['cost']
-    
-    # Get credit usage records for this month to match with messages
-    credit_usage_result = await client.table('credit_usage') \
-        .select('message_id, amount_dollars, created_at') \
-        .eq('user_id', user_id) \
-        .gte('created_at', start_of_month.isoformat()) \
-        .execute()
-    
-    # Create a map of message_id to credit usage
-    credit_usage_map = {}
-    if credit_usage_result.data:
-        for usage in credit_usage_result.data:
-            if usage.get('message_id'):
-                credit_usage_map[usage['message_id']] = {
-                    'amount': float(usage['amount_dollars']),
-                    'created_at': usage['created_at']
-                }
-    
-    # Track cumulative usage to determine when credits started being used
-    cumulative_cost = 0.0
-    
-    # Process messages into usage log entries
-    processed_logs = []
-    
-    for message in messages_result.data:
-        try:
-            # Safely extract usage data with defaults
-            content = message.get('content', {})
-            usage = content.get('usage', {})
-            
-            # Ensure usage has required fields with safe defaults
-            prompt_tokens = usage.get('prompt_tokens', 0)
-            completion_tokens = usage.get('completion_tokens', 0)
-            model = content.get('model', 'unknown')
-            
-            # Safely calculate total tokens
-            total_tokens = (prompt_tokens or 0) + (completion_tokens or 0)
-            
-            # Calculate estimated cost using the same logic as calculate_monthly_usage
-            estimated_cost = calculate_token_cost(
-                prompt_tokens,
-                completion_tokens,
-                model
-            )
-            
-            cumulative_cost += estimated_cost
-            
-            # Safely extract project_id from threads relationship
-            project_id = 'unknown'
-            if message.get('threads') and isinstance(message['threads'], list) and len(message['threads']) > 0:
-                project_id = message['threads'][0].get('project_id', 'unknown')
-            
-            # Check if credits were used for this message
-            message_id = message.get('message_id')
-            credit_used = credit_usage_map.get(message_id, {})
-            
-            # Safely handle datetime serialization
-            created_at_str = None
-            if message.get('created_at'):
-                try:
-                    if isinstance(message['created_at'], datetime):
-                        created_at_str = message['created_at'].isoformat()
-                    else:
-                        # If it's already a string, validate and use it
-                        created_at_str = str(message['created_at'])
-                except Exception as dt_error:
-                    logger.warning(f"Error formatting created_at for message {message_id}: {dt_error}")
-                    created_at_str = None
-
-            log_entry = {
-                'message_id': message_id or 'unknown',
-                'thread_id': message.get('thread_id', 'unknown'),
-                'created_at': created_at_str,
-                'content': {
-                    'usage': {
-                        'prompt_tokens': int(prompt_tokens) if prompt_tokens is not None else 0,
-                        'completion_tokens': int(completion_tokens) if completion_tokens is not None else 0
-                    },
-                    'model': str(model) if model else 'unknown'
-                },
-                'total_tokens': int(total_tokens) if total_tokens is not None else 0,
-                'estimated_cost': float(estimated_cost) if estimated_cost is not None else 0.0,
-                'project_id': str(project_id) if project_id else 'unknown',
-                # Add credit usage info
-                'credit_used': float(credit_used.get('amount', 0)) if credit_used else 0.0,
-                'payment_method': 'credits' if credit_used else 'subscription',
-                'was_over_limit': bool(cumulative_cost > subscription_limit if not credit_used else True)
-            }
-            
-            processed_logs.append(log_entry)
-        except Exception as e:
-            logger.warning(f"Error processing usage log entry for message {message.get('message_id', 'unknown')}: {str(e)}")
-            continue
-    
-    # Check if there are more results
-    has_more = len(processed_logs) == items_per_page
-    
-    result = {
-        "logs": processed_logs,
-        "has_more": bool(has_more),
-        "subscription_limit": float(subscription_limit) if subscription_limit is not None else 0.0,
-        "cumulative_cost": float(cumulative_cost) if cumulative_cost is not None else 0.0
-    }
-    
-    # Validate JSON serialization before returning
     try:
-        json.dumps(result, default=str)
-        logger.debug(f"Usage logs JSON validation passed for user {user_id}")
-    except Exception as json_error:
-        logger.error(f"Usage logs JSON serialization failed for user {user_id}: {json_error}")
-        logger.error(f"Problematic data: {result}")
-        # Return safe fallback
-        return {
-            "logs": [],
-            "has_more": False,
-            "subscription_limit": float(subscription_limit) if subscription_limit is not None else 0.0,
-            "cumulative_cost": 0.0,
-            "error": "Failed to serialize usage data"
-        }
+        # Get start of current month in UTC
+        now = datetime.now(timezone.utc)
+        start_of_month = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+        
+        # Use fixed cutoff date: June 26, 2025 midnight UTC
+        # Ignore all token counts before this date
+        cutoff_date = datetime(2025, 6, 30, 9, 0, 0, tzinfo=timezone.utc)
+        
+        start_of_month = max(start_of_month, cutoff_date)
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Using start_of_month: {start_of_month.isoformat()}")
+        
+        # First get all threads for this user in batches
+        batch_size = 1000
+        offset = 0
+        all_threads = []
+        
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Fetching threads in batches")
+        while True:
+            try:
+                threads_batch = await client.table('threads') \
+                    .select('thread_id, agent_runs(thread_id)') \
+                    .eq('account_id', user_id) \
+                    .gte('agent_runs.created_at', start_of_month.isoformat()) \
+                    .range(offset, offset + batch_size - 1) \
+                    .execute()
+                
+                if not threads_batch.data:
+                    break
+                    
+                all_threads.extend(threads_batch.data)
+                logger.debug(f"[USAGE_LOGS] user_id={user_id} - Fetched {len(threads_batch.data)} threads in batch (offset={offset})")
+                
+                # If we got less than batch_size, we've reached the end
+                if len(threads_batch.data) < batch_size:
+                    break
+                    
+                offset += batch_size
+            except Exception as thread_error:
+                logger.error(f"[USAGE_LOGS] user_id={user_id} - Error fetching threads batch at offset {offset}: {str(thread_error)}")
+                raise
+        
+        logger.info(f"[USAGE_LOGS] user_id={user_id} - Found {len(all_threads)} total threads")
+        
+        if not all_threads:
+            logger.info(f"[USAGE_LOGS] user_id={user_id} - No threads found, returning empty result")
+            return {"logs": [], "has_more": False}
+        
+        thread_ids = [t['thread_id'] for t in all_threads]
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Thread IDs: {thread_ids[:5]}..." if len(thread_ids) > 5 else f"[USAGE_LOGS] user_id={user_id} - Thread IDs: {thread_ids}")
+        
+        # Fetch usage messages with pagination, including thread project info
+        start_time = time.time()
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Starting messages query")
+        
+        try:
+            messages_result = await client.table('messages') \
+                .select(
+                    'message_id, thread_id, created_at, content, threads!inner(project_id)'
+                ) \
+                .in_('thread_id', thread_ids) \
+                .eq('type', 'assistant_response_end') \
+                .gte('created_at', start_of_month.isoformat()) \
+                .order('created_at', desc=True) \
+                .range(page * items_per_page, (page + 1) * items_per_page - 1) \
+                .execute()
+        except Exception as query_error:
+            logger.error(f"[USAGE_LOGS] user_id={user_id} - Database query failed: {str(query_error)}")
+            logger.error(f"[USAGE_LOGS] user_id={user_id} - Query details: page={page}, items_per_page={items_per_page}, thread_count={len(thread_ids)}")
+            raise
+        
+        end_time = time.time()
+        execution_time = end_time - start_time
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Database query for usage logs took {execution_time:.3f} seconds")
+
+        if not messages_result.data:
+            logger.info(f"[USAGE_LOGS] user_id={user_id} - No messages found, returning empty result")
+            return {"logs": [], "has_more": False}
+        
+        logger.info(f"[USAGE_LOGS] user_id={user_id} - Found {len(messages_result.data)} messages to process")
+
+        # Get the user's subscription tier info for credit checking
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Getting subscription info")
+        try:
+            subscription = await get_user_subscription(user_id)
+            price_id = config.STRIPE_FREE_TIER_ID  # Default to free
+            if subscription and subscription.get('items'):
+                items = subscription['items'].get('data', [])
+                if items:
+                    price_id = items[0]['price']['id']
+            
+            tier_info = SUBSCRIPTION_TIERS.get(price_id, SUBSCRIPTION_TIERS[config.STRIPE_FREE_TIER_ID])
+            subscription_limit = tier_info['cost']
+            logger.debug(f"[USAGE_LOGS] user_id={user_id} - Subscription limit: {subscription_limit}, price_id: {price_id}")
+        except Exception as sub_error:
+            logger.error(f"[USAGE_LOGS] user_id={user_id} - Error getting subscription info: {str(sub_error)}")
+            # Use free tier as fallback
+            tier_info = SUBSCRIPTION_TIERS[config.STRIPE_FREE_TIER_ID]
+            subscription_limit = tier_info['cost']
+        
+        # Get credit usage records for this month to match with messages
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Fetching credit usage records")
+        try:
+            credit_usage_result = await client.table('credit_usage') \
+                .select('message_id, amount_dollars, created_at') \
+                .eq('user_id', user_id) \
+                .gte('created_at', start_of_month.isoformat()) \
+                .execute()
+            
+            logger.debug(f"[USAGE_LOGS] user_id={user_id} - Found {len(credit_usage_result.data) if credit_usage_result.data else 0} credit usage records")
+        except Exception as credit_error:
+            logger.error(f"[USAGE_LOGS] user_id={user_id} - Error fetching credit usage: {str(credit_error)}")
+            credit_usage_result = None
+        
+        # Create a map of message_id to credit usage
+        credit_usage_map = {}
+        if credit_usage_result and credit_usage_result.data:
+            for usage in credit_usage_result.data:
+                if usage.get('message_id'):
+                    try:
+                        credit_usage_map[usage['message_id']] = {
+                            'amount': float(usage['amount_dollars']),
+                            'created_at': usage['created_at']
+                        }
+                    except Exception as parse_error:
+                        logger.warning(f"[USAGE_LOGS] user_id={user_id} - Error parsing credit usage record: {str(parse_error)}")
+                        continue
     
-    return result
+        # Track cumulative usage to determine when credits started being used
+        cumulative_cost = 0.0
+        
+        # Process messages into usage log entries
+        processed_logs = []
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Starting to process {len(messages_result.data)} messages")
+        
+        for i, message in enumerate(messages_result.data):
+            try:
+                message_id = message.get('message_id', f'unknown_{i}')
+                logger.debug(f"[USAGE_LOGS] user_id={user_id} - Processing message {i+1}/{len(messages_result.data)}: {message_id}")
+                
+                # Safely extract usage data with defaults
+                content = message.get('content', {})
+                usage = content.get('usage', {})
+                
+                # Ensure usage has required fields with safe defaults
+                prompt_tokens = usage.get('prompt_tokens', 0)
+                completion_tokens = usage.get('completion_tokens', 0)
+                model = content.get('model', 'unknown')
+                
+                # Validate token values
+                if not isinstance(prompt_tokens, (int, float)) or prompt_tokens is None:
+                    logger.warning(f"[USAGE_LOGS] user_id={user_id} - Invalid prompt_tokens for message {message_id}: {prompt_tokens}")
+                    prompt_tokens = 0
+                if not isinstance(completion_tokens, (int, float)) or completion_tokens is None:
+                    logger.warning(f"[USAGE_LOGS] user_id={user_id} - Invalid completion_tokens for message {message_id}: {completion_tokens}")
+                    completion_tokens = 0
+                
+                # Safely calculate total tokens
+                total_tokens = int(prompt_tokens or 0) + int(completion_tokens or 0)
+                
+                # Calculate estimated cost using the same logic as calculate_monthly_usage
+                try:
+                    estimated_cost = calculate_token_cost(
+                        prompt_tokens,
+                        completion_tokens,
+                        model
+                    )
+                except Exception as cost_error:
+                    logger.warning(f"[USAGE_LOGS] user_id={user_id} - Error calculating cost for message {message_id}: {str(cost_error)}")
+                    estimated_cost = 0.0
+                
+                cumulative_cost += estimated_cost
+                
+                # Safely extract project_id from threads relationship
+                project_id = 'unknown'
+                try:
+                    if message.get('threads') and isinstance(message['threads'], list) and len(message['threads']) > 0:
+                        project_id = message['threads'][0].get('project_id', 'unknown')
+                except Exception as project_error:
+                    logger.warning(f"[USAGE_LOGS] user_id={user_id} - Error extracting project_id for message {message_id}: {str(project_error)}")
+                
+                # Check if credits were used for this message
+                credit_used = credit_usage_map.get(message_id, {})
+                
+                # Safely handle datetime serialization for created_at
+                created_at = message.get('created_at')
+                if created_at and isinstance(created_at, datetime):
+                    created_at = created_at.isoformat()
+                elif created_at and not isinstance(created_at, str):
+                    try:
+                        created_at = str(created_at)
+                    except Exception:
+                        logger.warning(f"[USAGE_LOGS] user_id={user_id} - Could not convert created_at to string for message {message_id}")
+                        created_at = None
+                
+                log_entry = {
+                    'message_id': str(message_id) if message_id else 'unknown',
+                    'thread_id': str(message.get('thread_id', 'unknown')),
+                    'created_at': created_at,
+                    'content': {
+                        'usage': {
+                            'prompt_tokens': int(prompt_tokens),
+                            'completion_tokens': int(completion_tokens)
+                        },
+                        'model': str(model)
+                    },
+                    'total_tokens': int(total_tokens),
+                    'estimated_cost': float(estimated_cost),
+                    'project_id': str(project_id),
+                    # Add credit usage info
+                    'credit_used': float(credit_used.get('amount', 0)) if credit_used else 0.0,
+                    'payment_method': 'credits' if credit_used else 'subscription',
+                    'was_over_limit': bool(cumulative_cost > subscription_limit if not credit_used else True)
+                }
+                
+                # Test JSON serialization of this entry before adding it
+                try:
+                    json.dumps(log_entry, default=str)
+                except Exception as json_error:
+                    logger.error(f"[USAGE_LOGS] user_id={user_id} - JSON serialization failed for message {message_id}: {str(json_error)}")
+                    logger.error(f"[USAGE_LOGS] user_id={user_id} - Problematic log_entry: {log_entry}")
+                    continue
+                
+                processed_logs.append(log_entry)
+                
+            except Exception as e:
+                logger.error(f"[USAGE_LOGS] user_id={user_id} - Error processing usage log entry for message {message.get('message_id', 'unknown')}: {str(e)}")
+                continue
+        
+        logger.info(f"[USAGE_LOGS] user_id={user_id} - Successfully processed {len(processed_logs)} messages")
+        
+        # Check if there are more results
+        has_more = len(processed_logs) == items_per_page
+        
+        result = {
+            "logs": processed_logs,
+            "has_more": bool(has_more),
+            "subscription_limit": float(subscription_limit),
+            "cumulative_cost": float(cumulative_cost)
+        }
+        
+        # Validate final JSON serialization
+        try:
+            json.dumps(result, default=str)
+            logger.debug(f"[USAGE_LOGS] user_id={user_id} - Final result JSON validation passed")
+        except Exception as final_json_error:
+            logger.error(f"[USAGE_LOGS] user_id={user_id} - Final result JSON serialization failed: {str(final_json_error)}")
+            logger.error(f"[USAGE_LOGS] user_id={user_id} - Problematic result keys: {list(result.keys())}")
+            # Return safe fallback
+            return {
+                "logs": [],
+                "has_more": False,
+                "subscription_limit": float(subscription_limit),
+                "cumulative_cost": 0.0,
+                "error": "Failed to serialize usage data"
+            }
+        
+        logger.info(f"[USAGE_LOGS] user_id={user_id} - Returning {len(processed_logs)} logs, has_more={has_more}")
+        return result
+        
+    except Exception as outer_error:
+        logger.error(f"[USAGE_LOGS] user_id={user_id} - Outer exception in get_usage_logs: {str(outer_error)}")
+        raise
 
 
 def calculate_token_cost(prompt_tokens: int, completion_tokens: int, model: str) -> float:
@@ -1546,24 +1621,7 @@ async def get_subscription(
             logger.debug(f"Retrieved usage for user {current_user_id}: {current_usage}")
         except Exception as usage_error:
             logger.error(f"Error calculating usage for user {current_user_id}: {str(usage_error)}")
-            # Check if this is a critical JSON serialization error that should be surfaced
-            if "JSON could not be generated" in str(usage_error) or "JSON" in str(usage_error):
-                logger.error(f"Critical JSON serialization error in usage calculation for user {current_user_id}")
-                # Return error status instead of hiding the issue
-                free_tier_id = config.STRIPE_FREE_TIER_ID
-                free_tier_info = SUBSCRIPTION_TIERS.get(free_tier_id)
-                return SubscriptionStatus(
-                    status="usage_error",
-                    plan_name=free_tier_info.get('name', 'free') if free_tier_info else 'free',
-                    price_id=free_tier_id,
-                    minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0,
-                    cost_limit=free_tier_info.get('cost') if free_tier_info else 0,
-                    current_usage=0.0,
-                    credit_balance=0.0,
-                    can_purchase_credits=False
-                )
-            else:
-                current_usage = 0.0  # Default to 0 for other errors
+            current_usage = 0.0  # Default to 0 if calculation fails
         
         # Get credit balance with error handling
         try:
@@ -2084,6 +2142,8 @@ async def get_usage_logs_endpoint(
     current_user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Get detailed usage logs for a user with pagination."""
+    logger.info(f"[USAGE_LOGS_ENDPOINT] Starting get_usage_logs_endpoint for user_id={current_user_id}, page={page}, items_per_page={items_per_page}")
+    
     try:
         # Get Supabase client
         db = DBConnection()
@@ -2091,7 +2151,7 @@ async def get_usage_logs_endpoint(
         
         # Check if we're in local development mode
         if config.ENV_MODE == EnvMode.LOCAL:
-            logger.debug("Running in local development mode - usage logs are not available")
+            logger.debug(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Running in local development mode - usage logs are not available")
             return {
                 "logs": [], 
                 "has_more": False,
@@ -2100,28 +2160,32 @@ async def get_usage_logs_endpoint(
         
         # Validate pagination parameters
         if page < 0:
+            logger.error(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Invalid page parameter: {page}")
             raise HTTPException(status_code=400, detail="Page must be non-negative")
         if items_per_page < 1 or items_per_page > 1000:
+            logger.error(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Invalid items_per_page parameter: {items_per_page}")
             raise HTTPException(status_code=400, detail="Items per page must be between 1 and 1000")
         
-        # Get usage logs with detailed logging
-        logger.debug(f"Fetching usage logs for user {current_user_id}, page {page}, items_per_page {items_per_page}")
+        # Get usage logs
+        logger.debug(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Calling get_usage_logs")
         result = await get_usage_logs(client, current_user_id, page, items_per_page)
         
         # Check if result contains an error
-        if result.get('error'):
-            logger.error(f"Usage logs returned error for user {current_user_id}: {result['error']}")
+        if isinstance(result, dict) and result.get('error'):
+            logger.error(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Usage logs returned error: {result['error']}")
             raise HTTPException(status_code=400, detail=f"Failed to retrieve usage logs: {result['error']}")
         
-        logger.debug(f"Successfully retrieved {len(result.get('logs', []))} usage logs for user {current_user_id}")
+        logger.info(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Successfully returned {len(result.get('logs', []))} usage logs")
         return result
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception(f"Error getting usage logs for user {current_user_id}: {str(e)}")
+        logger.exception(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Error getting usage logs: {str(e)}")
+        
         # Check if this is a JSON serialization error
         if "JSON could not be generated" in str(e) or "JSON" in str(e):
+            logger.error(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Detected JSON serialization error")
             raise HTTPException(status_code=400, detail=f"Data serialization error: {str(e)}")
         else:
             raise HTTPException(status_code=500, detail=f"Error getting usage logs: {str(e)}")
