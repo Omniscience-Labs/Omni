@@ -153,8 +153,7 @@ export const groupThreadsByDate = (
     let dateGroup: string;
     
     if (diffInDays === 0) {
-      // Skip today's threads - don't show anything for "TODAY"
-      return;
+      dateGroup = 'Today';
     } else if (diffInDays === 1) {
       dateGroup = 'Yesterday';
     } else if (diffInDays <= 7) {
