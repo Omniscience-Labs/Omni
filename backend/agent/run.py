@@ -36,6 +36,7 @@ from agent.tools.sb_sheets_tool import SandboxSheetsTool
 from agent.tools.sb_web_dev_tool import SandboxWebDevTool
 from agent.tools.podcast_tool import SandboxPodcastTool
 from agent.tools.sb_video_avatar_tool import SandboxVideoAvatarTool
+from agent.tools.audio_transcription_tool import AudioTranscriptionTool
 
 load_dotenv()
 
@@ -137,6 +138,8 @@ class ToolManager:
             self.thread_manager.add_tool(SandboxPodcastTool, project_id=self.project_id, thread_manager=self.thread_manager)
         if safe_tool_check('sb_video_avatar_tool'):
             self.thread_manager.add_tool(SandboxVideoAvatarTool, project_id=self.project_id, thread_manager=self.thread_manager)
+        if safe_tool_check('audio_transcription_tool'):
+            self.thread_manager.add_tool(AudioTranscriptionTool, project_id=self.project_id, thread_manager=self.thread_manager)
         # if safe_tool_check('sb_web_dev_tool'):
         #     self.thread_manager.add_tool(SandboxWebDevTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         if config.RAPID_API_KEY and safe_tool_check('data_providers_tool'):

@@ -22,8 +22,8 @@ export function OmniLogo({ size = 24 }: OmniLogoProps) {
 
   return (
     <Image
-      src="/kortix-symbol.svg"
-      alt="Omni"
+      src="/omni-symbol.svg"
+      alt="Operator"
       width={size}
       height={size}
       className={`${shouldInvert ? 'invert' : ''} flex-shrink-0`}

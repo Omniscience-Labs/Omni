@@ -1,7 +1,7 @@
 export const siteConfig = {
-  name: 'Omni',
+  name: 'Operator',
   url: 'https://omnisciencelabs.com/',
-  description: 'Omni by Omniscience Labs',
+  description: 'Operator by Omniscience Labs',
   links: {
     twitter: 'https://x.com/omnisciencelabs',
     github: 'https://github.com/omniscience-labs/',

@@ -1,12 +1,12 @@
 <div align="center">
 
-# Kortix – Open Source Platform to Build, Manage and Train AI Agents
+# Operator – Open Source Platform to Build, Manage and Train AI Agents
 
-![Kortix Screenshot](frontend/public/banner.png)
+![Operator Screenshot](frontend/public/banner.png)
 
 **The complete platform for creating autonomous AI agents that work for you**
 
-Kortix is a comprehensive open source platform that empowers you to build, manage, and train sophisticated AI agents for any use case. Create powerful agents that act autonomously on your behalf, from general-purpose assistants to specialized automation tools.
+Operator is a comprehensive open source platform that empowers you to build, manage, and train sophisticated AI agents for any use case. Create powerful agents that act autonomously on your behalf, from general-purpose assistants to specialized automation tools.
 
 [![License](https://img.shields.io/badge/License-Apache--2.0-blue)](./license)
 [![Discord Follow](https://dcbadge.limes.pink/api/server/Py6pCBUUPw?style=flat)](https://discord.gg/Py6pCBUUPw)
@@ -26,13 +26,13 @@ Kortix is a comprehensive open source platform that empowers you to build, manag
 
 </div>
 
-## 🌟 What Makes Kortix Special
+## 🌟 What Makes Operator Special
 
 ### 🤖 Includes Suna – Flagship Generalist AI Worker
-Meet Suna, our showcase agent that demonstrates the full power of the Kortix platform. Through natural conversation, Suna handles research, data analysis, browser automation, file management, and complex workflows – showing you what's possible when you build with Kortix.
+Meet Suna, our showcase agent that demonstrates the full power of the Operator platform. Through natural conversation, Suna handles research, data analysis, browser automation, file management, and complex workflows – showing you what's possible when you build with Operator.
 
 ### 🔧 Build Custom Suna-Type Agents
-Create your own specialized agents tailored to specific domains, workflows, or business needs. Whether you need agents for customer service, data processing, content creation, or industry-specific tasks, Kortix provides the infrastructure and tools to build, deploy, and scale them.
+Create your own specialized agents tailored to specific domains, workflows, or business needs. Whether you need agents for customer service, data processing, content creation, or industry-specific tasks, Operator provides the infrastructure and tools to build, deploy, and scale them.
 
 ### 🚀 Complete Platform Capabilities
 - **Browser Automation**: Navigate websites, extract data, fill forms, automate web workflows
@@ -90,7 +90,7 @@ Suna demonstrates the full capabilities of the Kortix platform as a versatile AI
 
 ### Build Your Own Specialized Agents
 
-The Kortix platform enables you to create agents tailored to specific needs:
+The Operator platform enables you to create agents tailored to specific needs:
 
 **🎧 Customer Service Agents**
 - Handle support tickets and FAQ responses
@@ -128,7 +128,7 @@ Each agent can be configured with custom tools, workflows, knowledge bases, and 
 
 ![Architecture Diagram](docs/images/diagram.png)
 
-Kortix consists of four main components that work together to provide a complete AI agent development platform:
+Operator consists of four main components that work together to provide a complete AI agent development platform:
 
 ### 🔧 Backend API
 Python/FastAPI service that powers the agent platform with REST endpoints, thread management, agent orchestration, and LLM integration with Anthropic, OpenAI, and others via LiteLLM. Includes agent builder tools, workflow management, and extensible tool system.
@@ -144,7 +144,7 @@ Supabase-powered data layer handling authentication, user management, agent conf
 
 ## 🚀 Quick Start
 
-Get your Kortix platform running in minutes with our automated setup wizard:
+Get your Operator platform running in minutes with our automated setup wizard:
 
 ### 1️⃣ Clone the Repository
 ```bash
@@ -163,11 +163,11 @@ The wizard will guide you through 14 steps with progress saving, so you can resu
 python start.py
 ```
 
-That's it! Your Kortix platform will be running with Suna ready to assist you.
+That's it! Your Operator platform will be running with Suna ready to assist you.
 
 ## 🏠 Self-Hosting
 
-Kortix can be self-hosted on your own infrastructure using our comprehensive setup wizard, giving you complete control over your AI agent platform. For a complete guide to self-hosting Kortix, please refer to our [Self-Hosting Guide](./docs/SELF-HOSTING.md).
+Operator can be self-hosted on your own infrastructure using our comprehensive setup wizard, giving you complete control over your AI agent platform. For a complete guide to self-hosting Operator, please refer to our [Self-Hosting Guide](./docs/SELF-HOSTING.md).
 
 ### 🔧 Setup Process Includes
 
@@ -184,11 +184,11 @@ Kortix can be self-hosted on your own infrastructure using our comprehensive set
 
 For advanced users who prefer manual configuration, see the [Self-Hosting Guide](./docs/SELF-HOSTING.md) for detailed manual setup instructions.
 
-The wizard will guide you through all necessary steps to get your Kortix platform up and running. For detailed instructions, troubleshooting tips, and advanced configuration options, see the [Self-Hosting Guide](./docs/SELF-HOSTING.md).
+The wizard will guide you through all necessary steps to get your Operator platform up and running. For detailed instructions, troubleshooting tips, and advanced configuration options, see the [Self-Hosting Guide](./docs/SELF-HOSTING.md).
 
 ## 🤝 Contributing
 
-We welcome contributions from the community! Whether you're fixing bugs, adding features, or improving documentation, your help makes Kortix better for everyone.
+We welcome contributions from the community! Whether you're fixing bugs, adding features, or improving documentation, your help makes Operator better for everyone.
 
 Please see our [Contributing Guide](./CONTRIBUTING.md) for more details on:
 - How to set up your development environment
@@ -198,7 +198,7 @@ Please see our [Contributing Guide](./CONTRIBUTING.md) for more details on:
 
 ## 📄 License
 
-Kortix is licensed under the Apache License, Version 2.0. See [LICENSE](./LICENSE) for the full license text.
+Operator is licensed under the Apache License, Version 2.0. See [LICENSE](./LICENSE) for the full license text.
 
 ---
 

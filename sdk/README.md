@@ -1,4 +1,4 @@
-# Kortix SDK
+# Operator SDK
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
 
