@@ -4,7 +4,7 @@ services:
     name: Suna-worker-dev3
     runtime: docker
     repo: https://github.com/Omniscience-Labs/Omni
-    branch: dev3
+    branch: varnica-dev
     plan: pro
     region: oregon
     dockerCommand: uv run dramatiq --skip-logging --processes 2 --threads 2 run_agent_background
@@ -29,7 +29,7 @@ services:
     name: Suna-backend-dev3
     runtime: docker
     repo: https://github.com/Omniscience-Labs/Omni
-    branch: dev3
+    branch: varnica-dev
     plan: pro
     region: oregon
     dockerCommand: uv run gunicorn api:app --host 0.0.0.0 --port $PORT --worker-class uvicorn.workers.UvicornWorker --workers 1
