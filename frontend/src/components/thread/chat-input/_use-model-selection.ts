@@ -313,7 +313,10 @@ export const useModelSelection = () => {
       if (savedModel) {
         // Wait for models to load before validating
         if (isLoadingModels) {
-          console.log('🔧 useModelSelection: Models still loading, waiting...');
+          console.log('🔧 useModelSelection: Models still loading, using saved model temporarily:', savedModel);
+          // Use saved model immediately while waiting for validation
+          setSelectedModel(savedModel);
+          setHasInitialized(true);
           return;
         }
         
@@ -341,7 +344,12 @@ export const useModelSelection = () => {
             console.warn('⚠️ useModelSelection: Saved model not accessible with current subscription');
           }
         } else {
-          console.warn('⚠️ useModelSelection: Saved model not found in available options');
+          // Model not found in current options, but preserve it anyway in case it's valid
+          // This can happen during loading or if the API returns different models
+          console.warn('⚠️ useModelSelection: Saved model not found in available options, but preserving:', savedModel);
+          setSelectedModel(savedModel);
+          setHasInitialized(true);
+          return;
         }
       }
       
@@ -363,6 +371,36 @@ export const useModelSelection = () => {
       setHasInitialized(true);
     }
   }, [subscriptionStatus, isLoadingModels, hasInitialized]);
+
+  // Re-validate saved model after loading completes
+  useEffect(() => {
+    if (!hasInitialized || typeof window === 'undefined' || isLoadingModels) return;
+    
+    const savedModel = localStorage.getItem(STORAGE_KEY_MODEL);
+    if (!savedModel || savedModel === selectedModel) return;
+    
+    console.log('🔧 useModelSelection: Re-validating saved model after loading:', savedModel);
+    
+    const modelOption = MODEL_OPTIONS.find(option => option.id === savedModel);
+    const isCustomModel = isLocalMode() && customModels.some(model => model.id === savedModel);
+    
+    // If the saved model is now invalid, switch to default
+    if (!modelOption && !isCustomModel) {
+      console.warn('⚠️ useModelSelection: Saved model is invalid after loading, switching to default');
+      const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+      setSelectedModel(defaultModel);
+      saveModelPreference(defaultModel);
+    } else if (modelOption && !isLocalMode()) {
+      // Check subscription access for non-custom models
+      const isAccessible = canAccessModel(subscriptionStatus, modelOption.requiresSubscription);
+      if (!isAccessible) {
+        console.warn('⚠️ useModelSelection: Saved model not accessible after subscription check, switching to default');
+        const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+        setSelectedModel(defaultModel);
+        saveModelPreference(defaultModel);
+      }
+    }
+  }, [isLoadingModels, hasInitialized, MODEL_OPTIONS, customModels, subscriptionStatus]);
 
   // Re-validate current model when subscription status changes
   useEffect(() => {

@@ -82,19 +82,45 @@ export function PresentationViewer({
   let extractedPresentationPath: string | undefined;
   let currentSlideNumber: number | undefined;
   let presentationTitle: string | undefined;
+  let toolExecutionError: string | undefined;
 
   if (toolResult && toolResult.toolOutput && toolResult.toolOutput !== 'STREAMING') {
     try {
-      const output = typeof toolResult.toolOutput === 'string' 
-        ? JSON.parse(toolResult.toolOutput) 
-        : toolResult.toolOutput;
+      let output;
       
-      extractedPresentationName = output.presentation_name;
-      extractedPresentationPath = output.presentation_path;
-      currentSlideNumber = output.slide_number;
-      presentationTitle = output.presentation_title || output.title;
+      if (typeof toolResult.toolOutput === 'string') {
+        // Check if the string looks like an error message
+        if (toolResult.toolOutput.startsWith('Error') || toolResult.toolOutput.includes('exec')) {
+          console.error('Tool execution error:', toolResult.toolOutput);
+          toolExecutionError = toolResult.toolOutput;
+          // Don't return early - let the component render the error state
+        } else {
+          // Try to parse as JSON
+          try {
+            output = JSON.parse(toolResult.toolOutput);
+          } catch (parseError) {
+            console.error('Failed to parse tool output as JSON:', parseError);
+            console.error('Raw tool output:', toolResult.toolOutput);
+            toolExecutionError = `Failed to parse tool output: ${toolResult.toolOutput}`;
+            // Don't return early - let the component render the error state
+          }
+        }
+      } else {
+        output = toolResult.toolOutput;
+      }
+      
+      // Only extract data if we have a valid parsed object
+      if (output && typeof output === 'object') {
+        extractedPresentationName = output.presentation_name;
+        extractedPresentationPath = output.presentation_path;
+        currentSlideNumber = output.slide_number;
+        presentationTitle = output.presentation_title || output.title;
+      }
     } catch (e) {
-      console.error('Failed to parse tool output:', e);
+      console.error('Failed to process tool output:', e);
+      console.error('Tool output type:', typeof toolResult.toolOutput);
+      console.error('Tool output value:', toolResult.toolOutput);
+      toolExecutionError = `Unexpected error processing tool output: ${String(e)}`;
     }
   }
 
@@ -510,17 +536,27 @@ export function PresentationViewer({
             filePath="Loading slides..."
             showProgress={true}
           />
-        ) : error || !metadata ? (
+        ) : error || toolExecutionError || !metadata ? (
           <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
             <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6 bg-gradient-to-b from-rose-100 to-rose-50 shadow-inner dark:from-rose-800/40 dark:to-rose-900/60">
               <AlertTriangle className="h-10 w-10 text-rose-400 dark:text-rose-600" />
             </div>
             <h3 className="text-xl font-semibold mb-2 text-zinc-900 dark:text-zinc-100">
-              {error || 'Failed to load presentation'}
+              {toolExecutionError ? 'Tool Execution Error' : (error || 'Failed to load presentation')}
             </h3>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center max-w-md">
-              There was an error loading the presentation. Please try again.
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center max-w-md mb-4">
+              {toolExecutionError ? 'The presentation tool encountered an error during execution:' : 
+               (error || 'There was an error loading the presentation. Please try again.')}
             </p>
+            {toolExecutionError && (
+              <div className="w-full max-w-2xl">
+                <CodeBlockCode 
+                  code={toolExecutionError} 
+                  language="text"
+                  className="text-xs bg-zinc-100 dark:bg-zinc-800 p-3 rounded-md border"
+                />
+              </div>
+            )}
           </div>
         ) : slides.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
