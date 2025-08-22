@@ -30,6 +30,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
     name: str = "sb_video_avatar_tool"
     
     # Keywords that should trigger this tool: video, avatar, generate, create, speech, presentation, content
+    # Enhanced video download reliability: 2025-01-27T15:30:00
     # Force deployment update: 2025-08-19T05:15:00
     
     # Avatar configuration options
@@ -131,7 +132,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                     },
                     "async_polling": {
                         "type": "boolean",
-                        "description": "Use smart async polling - starts generation, polls every 10 seconds, returns final video when ready",
+                        "description": "Use smart async polling - starts generation, polls intelligently, downloads to sandbox when ready",
                         "default": True
                     },
                     "wait_for_completion": {
@@ -141,8 +142,8 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                     },
                     "max_wait_time": {
                         "type": "integer",
-                        "description": "Maximum time in seconds to wait for video completion (only when wait_for_completion is true)",
-                        "default": 90
+                        "description": "Maximum time in seconds to wait for video completion (default: 300 seconds for async polling)",
+                        "default": 300
                     }
                 },
                 "required": ["text"]
@@ -157,7 +158,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         <parameter name="voice_id">professional_female_1</parameter>
         <parameter name="video_title">Customer Service Introduction</parameter>
         <parameter name="background_color">#f0f8ff</parameter>
-        <parameter name="wait_for_completion">true</parameter>
+        <parameter name="async_polling">true</parameter>
         </invoke>
         </function_calls>
     ''')
@@ -171,7 +172,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         video_quality: str = "medium",
         async_polling: bool = True,
         wait_for_completion: bool = False,
-        max_wait_time: int = 90
+        max_wait_time: int = 300
     ) -> ToolResult:
         """Generate a downloadable MP4 video with an avatar speaking the provided text."""
         try:
@@ -242,6 +243,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 
                 # Smart async polling approach
                 if async_polling:
+                    logger.info(f"🎬 Starting async video generation for '{video_title}' (ID: {video_id})")
                     return await self._async_poll_and_download(video_id, video_title, text, avatar_id, voice_id, max_wait_time)
                     
                 elif wait_for_completion:
@@ -603,14 +605,27 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                     if download_path:
                         logger.info(f"Video {video_id} completed and downloaded: {download_path}")
                         return self.success_response(
-                            f"Video generation completed! Video downloaded to: {download_path}\n"
-                            f"Video ID: {video_id}\n"
-                            f"Status: {status}",
+                            f"✅ Video generation completed! Video downloaded to: {download_path}\n"
+                            f"🎬 Video ID: {video_id}\n"
+                            f"📊 Status: {status}\n"
+                            f"📁 File ready for download from sandbox",
                             attachments=[download_path]
                         )
                     else:
-                        logger.error(f"Video {video_id} completed but download failed")
-                        return self.fail_response("Video completed but download failed")
+                        logger.error(f"Video {video_id} completed but download failed after retries")
+                        return self.fail_response(
+                            f"❌ **Download Failed**\n\n"
+                            f"Video generation completed successfully, but download to sandbox failed after multiple attempts.\n\n"
+                            f"**Video Details:**\n"
+                            f"• Video ID: `{video_id}`\n"
+                            f"• Video URL: `{video_url}`\n"
+                            f"• Status: {status} ✅\n\n"
+                            f"**You can:**\n"
+                            f"1. Try `diagnose_sandbox_issues()` to check sandbox health\n"
+                            f"2. Download directly from: {video_url}\n"
+                            f"3. Retry this command again\n"
+                            f"4. Contact support if issues persist"
+                        )
                 
                 return self.success_response(
                     f"Video Status: {status}\n"
@@ -693,7 +708,166 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 del self.active_sessions[session_name]
             return self.fail_response(f"Failed to close avatar session cleanly: {str(e)}")
 
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "diagnose_sandbox_issues",
+            "description": "Diagnose sandbox connectivity and file system issues to help troubleshoot video download problems.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    })
+    async def diagnose_sandbox_issues(self) -> ToolResult:
+        """Diagnose sandbox issues that might be causing download failures."""
+        try:
+            diagnostics = []
+            
+            # 1. Test sandbox initialization
+            try:
+                await self._ensure_sandbox()
+                diagnostics.append("✅ Sandbox initialization: Success")
+            except Exception as e:
+                diagnostics.append(f"❌ Sandbox initialization: Failed - {str(e)}")
+                return self.fail_response("Sandbox initialization failed:\n" + "\n".join(diagnostics))
+            
+            # 2. Test sandbox state
+            try:
+                state_ok = await self._validate_sandbox_state()
+                if state_ok:
+                    diagnostics.append("✅ Sandbox state validation: Ready")
+                else:
+                    diagnostics.append("❌ Sandbox state validation: Not ready")
+            except Exception as e:
+                diagnostics.append(f"❌ Sandbox state validation: Failed - {str(e)}")
+            
+            # 3. Test file system operations
+            try:
+                test_path = "/workspace/.diagnostic_test.txt"
+                test_content = b"Diagnostic test content"
+                
+                await self.sandbox.fs.upload_file(test_content, test_path)
+                diagnostics.append("✅ File write test: Success")
+                
+                # Test file read
+                try:
+                    file_info = await self.sandbox.fs.stat(test_path)
+                    diagnostics.append(f"✅ File stat test: Success (size: {getattr(file_info, 'size', 'unknown')})")
+                except Exception:
+                    diagnostics.append("⚠️ File stat test: Failed (file written but can't read stats)")
+                
+                # Cleanup
+                try:
+                    await self.sandbox.fs.delete(test_path)
+                    diagnostics.append("✅ File delete test: Success")
+                except Exception:
+                    diagnostics.append("⚠️ File delete test: Failed (cleanup issue)")
+                    
+            except Exception as e:
+                diagnostics.append(f"❌ File system test: Failed - {str(e)}")
+            
+            # 4. Test network connectivity
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.get("https://httpbin.org/get")
+                    if response.status_code == 200:
+                        diagnostics.append("✅ External network test: Success")
+                    else:
+                        diagnostics.append(f"⚠️ External network test: HTTP {response.status_code}")
+            except Exception as e:
+                diagnostics.append(f"❌ External network test: Failed - {str(e)}")
+            
+            # 5. Test sandbox disk space
+            try:
+                # Try to write a larger test file to check space
+                large_test_path = "/workspace/.large_test.tmp"
+                large_content = b"x" * (1024 * 1024)  # 1MB test file
+                
+                await self.sandbox.fs.upload_file(large_content, large_test_path)
+                diagnostics.append("✅ Disk space test: Sufficient (1MB test passed)")
+                
+                try:
+                    await self.sandbox.fs.delete(large_test_path)
+                except Exception:
+                    pass
+                    
+            except Exception as e:
+                diagnostics.append(f"❌ Disk space test: Failed - {str(e)}")
+            
+            # Compile results
+            success_count = len([d for d in diagnostics if d.startswith("✅")])
+            warning_count = len([d for d in diagnostics if d.startswith("⚠️")])
+            failure_count = len([d for d in diagnostics if d.startswith("❌")])
+            
+            summary = f"**Sandbox Diagnostic Results:**\n\n"
+            summary += f"✅ Passed: {success_count}\n"
+            summary += f"⚠️ Warnings: {warning_count}\n" 
+            summary += f"❌ Failed: {failure_count}\n\n"
+            
+            summary += "**Detailed Results:**\n"
+            for diagnostic in diagnostics:
+                summary += f"{diagnostic}\n"
+                
+            if failure_count == 0 and warning_count <= 1:
+                summary += "\n**Status:** Sandbox appears to be working properly ✅"
+                return self.success_response(summary)
+            elif failure_count > 0:
+                summary += "\n**Status:** Critical issues detected ❌"
+                summary += "\n**Recommendation:** Contact support or restart sandbox"
+                return self.fail_response(summary)
+            else:
+                summary += "\n**Status:** Minor issues detected ⚠️"
+                summary += "\n**Recommendation:** Issues may resolve themselves or affect performance"
+                return self.success_response(summary)
+                
+        except Exception as e:
+            logger.error(f"Diagnostic process failed: {e}", exc_info=True)
+            return self.fail_response(f"Sandbox diagnostic process failed: {str(e)}")
+
     # Helper methods
+
+    async def _simple_download_video(self, video_url: str, title: str, video_id: str) -> Optional[str]:
+        """Simplified video download based on working Omniscience labs approach."""
+        try:
+            logger.info(f"🔽 Starting simplified video download for {video_id}")
+            
+            # Quick sandbox check
+            try:
+                await self._ensure_sandbox()
+                logger.info(f"✅ Sandbox ready: {self.sandbox_id}")
+            except Exception as sandbox_error:
+                logger.warning(f"⚠️ Sandbox not available: {sandbox_error}")
+                return None
+            
+            # Clean filename
+            safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()[:30]
+            filename = f"{safe_title}_{video_id[:8]}.mp4"
+            file_path = f"/workspace/{filename}"
+            
+            logger.info(f"📁 Target: {file_path}")
+            
+            # Simple download with reasonable timeout
+            async with httpx.AsyncClient(timeout=httpx.Timeout(60)) as client:
+                response = await client.get(video_url)
+                response.raise_for_status()
+                
+                content_size = len(response.content)
+                logger.info(f"📦 Downloaded {content_size / (1024 * 1024):.1f}MB")
+                
+                # Validate minimum size
+                if content_size < 50 * 1024:  # 50KB minimum
+                    raise Exception(f"File too small: {content_size} bytes")
+                
+                # Write to sandbox
+                await self.sandbox.write_file(file_path, response.content)
+                logger.info(f"✅ Video saved to sandbox: {file_path}")
+                return file_path
+                
+        except Exception as e:
+            logger.error(f"💥 Simplified download failed: {e}")
+            return None
 
     async def _async_poll_and_download(
         self, 
@@ -702,13 +876,13 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         text: str, 
         avatar_id: str, 
         voice_id: str, 
-        max_wait_time: int = 90
+        max_wait_time: int = 300
     ) -> ToolResult:
         """Smart async polling: starts generation, polls with progress updates, returns final video."""
-        logger.info(f"Starting smart async polling for video {video_id}")
+        logger.info(f"🔄 Starting intelligent polling for video {video_id} (max wait: {max_wait_time}s)")
         
-        # Initial response - let user know we're processing (logged instead of messaged)
-        logger.info(f"Starting async video generation for video_id: {video_id}, text: {text[:50]}")
+        # Initial response - let user know we're processing
+        logger.info(f"📹 Processing video: {text[:50]}{'...' if len(text) > 50 else ''}")
         
         start_time = asyncio.get_event_loop().time()
         check_count = 0
@@ -731,30 +905,39 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                         video_url = result.get("data", {}).get("video_url")
                         
                         if status == "completed" and video_url:
-                            # Video is ready! Download it
-                            logger.info(f"Video {video_id} completed, downloading...")
+                            # Video is ready! Try simplified download first
+                            logger.info(f"✅ Video {video_id} completed! Attempting download...")
                             
-                            logger.info(f"Video {video_id} completed, downloading to sandbox...")
-                            
-                            download_path = await self._download_video(video_url, video_title, video_id)
+                            # Try simplified download approach first
+                            download_path = await self._simple_download_video(video_url, video_title, video_id)
                             if download_path:
                                 # Save metadata
                                 await self._save_video_metadata(video_id, video_title, text, avatar_id, voice_id, download_path)
                                 
-                                logger.info(f"Successfully downloaded video: {download_path}")
+                                logger.info(f"🎉 Successfully downloaded video: {download_path}")
                                 return self.success_response(
-                                    f"🎉 **Avatar video completed and downloaded!**\n\n"
+                                    f"🎉 **Video completed and downloaded!**\n\n"
                                     f"📁 **File:** `{download_path}`\n"
                                     f"🎬 **Video ID:** `{video_id}`\n"
-                                    f"📝 **Text:** \"{text}\"\n"
+                                    f"📝 **Text:** \"{text[:100]}{'...' if len(text) > 100 else ''}\"\n"
                                     f"👤 **Avatar:** {avatar_id}\n"
-                                    f"⏱️ **Processing time:** {int(asyncio.get_event_loop().time() - start_time)} seconds\n\n"
-                                    f"Your video is ready for download from the sandbox!",
+                                    f"⏱️ **Time:** {int(asyncio.get_event_loop().time() - start_time)}s\n\n"
+                                    f"Your video is ready in the sandbox! 🚀",
                                     attachments=[download_path]
                                 )
                             else:
-                                logger.error(f"Video {video_id} completed but download failed")
-                                return self.fail_response("Video completed successfully but failed to download to sandbox")
+                                # Simplified download failed, provide direct access
+                                logger.warning(f"⚠️ Sandbox download failed for {video_id}, providing direct URL")
+                                return self.success_response(
+                                    f"🎬 **Video completed!** (Sandbox download failed)\n\n"
+                                    f"📁 **Direct download URL:** {video_url}\n\n"
+                                    f"🎬 **Video ID:** `{video_id}`\n"
+                                    f"📝 **Text:** \"{text[:100]}{'...' if len(text) > 100 else ''}\"\n"
+                                    f"👤 **Avatar:** {avatar_id}\n"
+                                    f"⏱️ **Time:** {int(asyncio.get_event_loop().time() - start_time)}s\n\n"
+                                    f"💡 **Tip:** Right-click the URL above and 'Save As' to download the video directly.\n"
+                                    f"🔧 The sandbox had connection issues, but your video is ready!"
+                                )
                                 
                         elif status == "failed":
                             logger.error(f"Video {video_id} generation failed")
@@ -772,18 +955,26 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 logger.error(f"Error polling video status: {e}")
             
             # Smart polling intervals: start fast, then slow down
-            if check_count <= 3:
-                await asyncio.sleep(8)   # First 3 checks: every 8 seconds  
-            elif check_count <= 8:
-                await asyncio.sleep(12)  # Next 5 checks: every 12 seconds
+            if check_count <= 2:
+                await asyncio.sleep(5)   # First 2 checks: every 5 seconds (for quick videos)
+            elif check_count <= 6:
+                await asyncio.sleep(10)  # Next 4 checks: every 10 seconds
+            elif check_count <= 12:
+                await asyncio.sleep(15)  # Next 6 checks: every 15 seconds  
             else:
-                await asyncio.sleep(15)  # After that: every 15 seconds
+                await asyncio.sleep(20)  # After that: every 20 seconds (for long videos)
         
         # Timeout reached
         logger.warning(f"Video {video_id} timed out after {max_wait_time} seconds")
         return self.fail_response(
-            f"Video generation timed out after {max_wait_time} seconds. "
-            f"Video ID: {video_id} - you can check status manually later."
+            f"⏰ **Video generation timed out** after {max_wait_time} seconds.\n\n"
+            f"**Video ID:** `{video_id}`\n"
+            f"**Status:** Still processing - video generation can sometimes take longer for complex requests\n\n"
+            f"**Options:**\n"
+            f"1. Use `check_video_status('{video_id}')` to check if it's ready now\n"
+            f"2. Try again with a shorter video or simpler request\n"
+            f"3. Contact support if this happens frequently\n\n"
+            f"*Note: The video may still complete in the background and be available later.*"
         )
 
     async def _wait_for_video_completion(self, video_id: str, max_wait_time: int = 300) -> Optional[str]:
@@ -822,40 +1013,146 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         return None
 
     async def _download_video(self, video_url: str, title: str, video_id: str) -> Optional[str]:
-        """Download video to sandbox workspace."""
-        try:
-            await self._ensure_sandbox()
-            
-            # Clean filename
-            safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
-            filename = f"{safe_title}_{video_id}.mp4"
-            file_path = f"/workspace/{filename}"
-            
-            # Download video
-            logger.info(f"Downloading video from: {video_url[:50]}...")
-            async with httpx.AsyncClient() as client:
-                response = await client.get(video_url, timeout=120.0)
-                response.raise_for_status()
+        """Download video to sandbox workspace with robust error handling and retry logic."""
+        max_retries = 3
+        retry_delay = 5  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Starting video download attempt {attempt + 1}/{max_retries} for {video_id}")
                 
-                # Log download success
-                content_size = len(response.content)
-                logger.info(f"Downloaded {content_size} bytes from HeyGen")
-                
-                # Save to sandbox with detailed error handling
+                # Ensure sandbox is ready with validation
                 try:
-                    await self.sandbox.fs.upload_file(response.content, file_path)
-                    logger.info(f"Successfully wrote video to sandbox: {file_path}")
-                except Exception as write_error:
-                    logger.error(f"Sandbox file write failed: {write_error}")
-                    logger.error(f"Attempted to write {content_size} bytes to {file_path}")
-                    raise Exception(f"Sandbox write failed: {write_error}")
+                    await self._ensure_sandbox()
+                    
+                    # Validate sandbox state
+                    sandbox_state = await self._validate_sandbox_state()
+                    if not sandbox_state:
+                        raise Exception("Sandbox is not in a ready state")
+                        
+                    logger.info(f"Sandbox validated successfully, ID: {self.sandbox_id}")
+                except Exception as sandbox_error:
+                    logger.error(f"Sandbox initialization/validation failed: {sandbox_error}")
+                    if attempt < max_retries - 1:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        await asyncio.sleep(retry_delay)
+                        continue
+                    raise Exception(f"Sandbox initialization failed after {max_retries} attempts: {sandbox_error}")
                 
-                logger.info(f"Video downloaded successfully: {file_path}")
-                return filename  # Return relative path for attachment
+                # Clean filename with better sanitization
+                safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                safe_title = safe_title[:50]  # Limit length
+                filename = f"{safe_title}_{video_id}.mp4"
+                file_path = f"/workspace/{filename}"
                 
+                logger.info(f"Target file path: {file_path}, filename: {filename}")
+                
+                # Download video with progressive timeout and validation
+                logger.info(f"Downloading video from: {video_url[:50]}...")
+                
+                # Use extended timeout with proper client configuration
+                timeout_config = httpx.Timeout(connect=30.0, read=180.0, write=60.0, pool=30.0)
+                async with httpx.AsyncClient(timeout=timeout_config, limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)) as client:
+                    # Download with streaming to handle large files better
+                    async with client.stream('GET', video_url) as response:
+                        response.raise_for_status()
+                        
+                        # Validate content type
+                        content_type = response.headers.get('content-type', '').lower()
+                        if 'video' not in content_type and 'application/octet-stream' not in content_type:
+                            logger.warning(f"Unexpected content type: {content_type}")
+                        
+                        # Stream download to handle large files
+                        content_chunks = []
+                        total_size = 0
+                        chunk_size = 1024 * 1024  # 1MB chunks
+                        
+                        async for chunk in response.aiter_bytes(chunk_size):
+                            content_chunks.append(chunk)
+                            total_size += len(chunk)
+                            
+                            # Log progress for large files
+                            if total_size % (10 * 1024 * 1024) == 0:  # Every 10MB
+                                logger.info(f"Downloaded {total_size / (1024 * 1024):.1f}MB...")
+                        
+                        # Combine all chunks
+                        video_content = b''.join(content_chunks)
+                        content_size = len(video_content)
+                        
+                        logger.info(f"Download completed: {content_size} bytes ({content_size / (1024 * 1024):.1f}MB)")
+                        
+                        # Validate minimum file size (videos should be at least 100KB)
+                        if content_size < 100 * 1024:
+                            raise Exception(f"Downloaded file too small ({content_size} bytes), likely corrupted")
+                        
+                        # Validate basic MP4 structure (check for ftyp box)
+                        if not self._validate_mp4_header(video_content):
+                            logger.warning("Downloaded file may not be a valid MP4 - proceeding anyway")
+                        
+                        # Save to sandbox with enhanced error handling
+                        try:
+                            logger.info(f"Writing {content_size} bytes to sandbox: {file_path}")
+                            await self.sandbox.fs.upload_file(video_content, file_path)
+                            
+                            # Verify the file was written successfully
+                            try:
+                                # Try to stat the file to confirm it exists
+                                file_info = await self.sandbox.fs.stat(file_path)
+                                logger.info(f"File successfully written to sandbox: {file_path} (size: {file_info.size if hasattr(file_info, 'size') else 'unknown'})")
+                            except Exception as stat_error:
+                                logger.warning(f"Could not verify file existence: {stat_error}")
+                            
+                            logger.info(f"Video downloaded and saved successfully: {filename}")
+                            return filename  # Return relative path for attachment
+                            
+                        except Exception as write_error:
+                            logger.error(f"Sandbox file write failed: {write_error}")
+                            logger.error(f"Attempted to write {content_size} bytes to {file_path}")
+                            raise Exception(f"Sandbox write failed: {write_error}")
+                        
+            except Exception as e:
+                logger.error(f"Download attempt {attempt + 1} failed: {e}")
+                if attempt < max_retries - 1:
+                    retry_delay_current = retry_delay * (attempt + 1)  # Progressive backoff
+                    logger.info(f"Retrying in {retry_delay_current} seconds...")
+                    await asyncio.sleep(retry_delay_current)
+                else:
+                    logger.error(f"All {max_retries} download attempts failed")
+                    return None
+        
+        return None
+        
+    def _validate_mp4_header(self, content: bytes) -> bool:
+        """Basic MP4 header validation."""
+        try:
+            # MP4 files should start with ftyp box within first 16 bytes typically
+            return b'ftyp' in content[:32] or b'mp4' in content[:32].lower()
+        except Exception:
+            return False
+            
+    async def _validate_sandbox_state(self) -> bool:
+        """Validate that the sandbox is in a ready state for file operations."""
+        try:
+            if not self._sandbox:
+                return False
+                
+            # Try a simple operation to test sandbox responsiveness
+            test_path = "/workspace/.sandbox_test"
+            test_content = b"test"
+            
+            await self.sandbox.fs.upload_file(test_content, test_path)
+            
+            # Clean up test file
+            try:
+                await self.sandbox.fs.delete(test_path)
+            except Exception:
+                pass  # Ignore cleanup failures
+                
+            return True
+            
         except Exception as e:
-            logger.error(f"Failed to download video: {e}")
-            return None
+            logger.error(f"Sandbox validation failed: {e}")
+            return False
 
     async def _save_video_metadata(self, video_id: str, title: str, text: str, avatar_id: str, voice_id: str, file_path: str):
         """Save video metadata as JSON file."""

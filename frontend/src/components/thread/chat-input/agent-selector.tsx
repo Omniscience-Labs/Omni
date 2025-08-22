@@ -106,7 +106,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
     const defaultAgent = allAgents[0];
     const isDefaultAgentSuna = defaultAgent?.metadata?.is_suna_default || defaultAgent?.metadata?.is_omni_default || false;
     return {
-      name: defaultAgent?.name || 'Omni',
+      name: defaultAgent?.name || 'Operator',
       icon: isDefaultAgentSuna ? <OmniLogo size={16} /> : (defaultAgent?.icon || <OmniLogo size={16} />)
     };
   };

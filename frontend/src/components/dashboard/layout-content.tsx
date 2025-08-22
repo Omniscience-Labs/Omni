@@ -16,6 +16,8 @@ import { StatusOverlay } from '@/components/ui/status-overlay';
 import { MaintenanceNotice } from './maintenance-notice';
 import { MaintenanceBanner } from './maintenance-banner';
 import { useMaintenanceNoticeQuery } from '@/hooks/react-query/edge-flags';
+import { TourProvider } from '@/components/tour/TourContext';
+import { TourManager } from '@/components/tour/TourManager';
 
 import { useProjects, useThreads } from '@/hooks/react-query/sidebar/use-sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -127,30 +129,35 @@ export default function DashboardLayoutContent({
   return (
     <DeleteOperationProvider>
       <SidebarProvider>
-        <SidebarLeft />
-        <SidebarInset>
-          {mantenanceBanner}
-          <div className="bg-background">{children}</div>
-        </SidebarInset>
+        <TourProvider>
+          <SidebarLeft />
+          <SidebarInset>
+            {mantenanceBanner}
+            <div className="bg-background">{children}</div>
+          </SidebarInset>
 
-        {/* <PricingAlert 
-        open={showPricingAlert} 
-        onOpenChange={setShowPricingAlert}
-        closeable={false}
-        accountId={personalAccount?.account_id}
-        /> */}
+          {/* <PricingAlert 
+          open={showPricingAlert} 
+          onOpenChange={setShowPricingAlert}
+          closeable={false}
+          accountId={personalAccount?.account_id}
+          /> */}
 
-        <MaintenanceAlert
-          open={showMaintenanceAlert}
-          onOpenChange={setShowMaintenanceAlert}
-          closeable={true}
-        />
+          <MaintenanceAlert
+            open={showMaintenanceAlert}
+            onOpenChange={setShowMaintenanceAlert}
+            closeable={true}
+          />
 
-        {/* Status overlay for deletion operations */}
-        <StatusOverlay />
-        
-        {/* Floating mobile menu button */}
-        <FloatingMobileMenuButton />
+          {/* Status overlay for deletion operations */}
+          <StatusOverlay />
+          
+          {/* Floating mobile menu button */}
+          <FloatingMobileMenuButton />
+
+          {/* Tour Manager */}
+          <TourManager />
+        </TourProvider>
       </SidebarProvider>
     </DeleteOperationProvider>
   );

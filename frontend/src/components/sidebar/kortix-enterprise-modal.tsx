@@ -64,8 +64,8 @@ export function KortixEnterpriseModal({
             <div className="relative z-10 flex flex-col h-full">
               <div className="mb-6 flex-shrink-0">
                 <Image
-                  src={isDarkMode ? '/kortix-logo-white.svg' : '/kortix-logo.svg'}
-                  alt="Omni Logo"
+                  src={isDarkMode ? '/omni-logo-white.svg' : '/omni-logo.svg'}
+                  alt="Operator Logo"
                   width={80}
                   height={28}
                   className="h-7 w-auto"

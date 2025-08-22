@@ -75,7 +75,7 @@ export function DashboardContent() {
   const selectedAgent = selectedAgentId
     ? agents.find(agent => agent.agent_id === selectedAgentId)
     : null;
-  const displayName = selectedAgent?.name || 'Omni';
+  const displayName = selectedAgent?.name || 'Operator';
   const agentAvatar = undefined;
   const isSunaAgent = selectedAgent?.metadata?.is_suna_default || selectedAgent?.metadata?.is_omni_default || false;
 

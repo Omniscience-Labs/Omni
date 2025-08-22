@@ -20,10 +20,10 @@ export function FooterSection() {
   }, []);
 
   const logoSrc = !mounted
-    ? '/kortix-logo.svg'
+    ? '/omni-logo.svg'
     : resolvedTheme === 'dark'
-      ? '/kortix-logo-white.svg'
-      : '/kortix-logo.svg';
+      ? '/omni-logo-white.svg'
+      : '/omni-logo.svg';
 
   return (
     <footer id="footer" className="w-full pb-0 px-6">

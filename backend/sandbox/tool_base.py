@@ -86,11 +86,17 @@ class SandboxToolsBase(Tool):
                     self._sandbox_id = sandbox_id
                     self._sandbox_pass = sandbox_pass
                     self._sandbox = await get_or_start_sandbox(self._sandbox_id)
+                    
+                    # Upload any pending files that were stored during initial upload failure
+                    await self._upload_pending_files(client, project_data)
                 else:
                     # Use existing sandbox metadata
                     self._sandbox_id = sandbox_info['id']
                     self._sandbox_pass = sandbox_info.get('pass')
                     self._sandbox = await get_or_start_sandbox(self._sandbox_id)
+                    
+                    # Check for and upload any pending files even with existing sandbox
+                    await self._upload_pending_files(client, project_data)
 
             except Exception as e:
                 logger.error(f"Error retrieving/creating sandbox for project {self.project_id}: {str(e)}", exc_info=True)
@@ -117,3 +123,43 @@ class SandboxToolsBase(Tool):
         cleaned_path = clean_path(path, self.workspace_path)
         logger.debug(f"Cleaned path: {path} -> {cleaned_path}")
         return cleaned_path
+
+    async def _upload_pending_files(self, client, project_data):
+        """Upload any files that were stored in project metadata when sandbox creation initially failed."""
+        pending_files = project_data.get('pending_files')
+        if not pending_files:
+            return
+        
+        logger.info(f"Found {len(pending_files)} pending files to upload to sandbox")
+        
+        try:
+            import base64
+            uploaded_files = []
+            failed_files = []
+            
+            for file_data in pending_files:
+                try:
+                    filename = file_data['filename']
+                    content = base64.b64decode(file_data['content'])
+                    target_path = f"{self.workspace_path}/{filename}"
+                    
+                    await self._sandbox.fs.upload_file(content, target_path)
+                    uploaded_files.append(filename)
+                    logger.info(f"Successfully uploaded pending file: {filename} ({len(content)} bytes)")
+                    
+                except Exception as file_error:
+                    logger.error(f"Failed to upload pending file {file_data.get('filename', 'unknown')}: {str(file_error)}")
+                    failed_files.append(file_data.get('filename', 'unknown'))
+            
+            # Clear pending files from project metadata after successful upload
+            if uploaded_files:
+                try:
+                    await client.table('projects').update({
+                        'pending_files': None
+                    }).eq('project_id', self.project_id).execute()
+                    logger.info(f"Cleared pending files from project metadata after uploading {len(uploaded_files)} files")
+                except Exception as clear_error:
+                    logger.error(f"Failed to clear pending files from metadata: {str(clear_error)}")
+            
+        except Exception as e:
+            logger.error(f"Error processing pending files: {str(e)}", exc_info=True)

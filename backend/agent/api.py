@@ -1123,30 +1123,36 @@ async def initiate_agent_with_files(
     try:
         # 1. Create Project
         placeholder_name = f"{prompt[:30]}..." if len(prompt) > 30 else prompt
-        project = await client.table('projects').insert({
-            "project_id": str(uuid.uuid4()), "account_id": account_id, "name": placeholder_name,
+        project_data = {
+            "project_id": str(uuid.uuid4()), 
+            "account_id": account_id, 
+            "name": placeholder_name,
             "created_at": datetime.now(timezone.utc).isoformat()
-        }).execute()
+        }
+        
+        # Project metadata will be updated by sandbox creation if successful
+        
+        project = await client.table('projects').insert(project_data).execute()
         project_id = project.data[0]['project_id']
         logger.info(f"Created new project: {project_id}")
 
-        # 2. Create Sandbox (lazy): only create now if files were uploaded and need the
-        # sandbox immediately. Otherwise leave sandbox creation to `_ensure_sandbox()`
-        # which will create it lazily when tools require it.
+        # 2. Handle file uploads - try sandbox creation but don't fail if it doesn't work
         sandbox_id = None
         sandbox = None
         sandbox_pass = None
         vnc_url = None
         website_url = None
         token = None
-
+        
         if files:
-            # 3. Create Sandbox (lazy): only create now if files were uploaded and need the
+            logger.info(f"Files uploaded ({len(files)} files), attempting sandbox creation")
             try:
+                # Try to create sandbox for file uploads
                 sandbox_pass = str(uuid.uuid4())
+                logger.info(f"Attempting to create sandbox with snapshot: {Configuration.SANDBOX_SNAPSHOT_NAME}")
                 sandbox = await create_sandbox(sandbox_pass, project_id)
                 sandbox_id = sandbox.id
-                logger.info(f"Created new sandbox {sandbox_id} for project {project_id}")
+                logger.info(f"Successfully created sandbox {sandbox_id} for project {project_id}")
 
                 # Get preview links
                 vnc_link = await sandbox.get_preview_link(6080)
@@ -1169,18 +1175,16 @@ async def initiate_agent_with_files(
 
                 if not update_result.data:
                     logger.error(f"Failed to update project {project_id} with new sandbox {sandbox_id}")
-                    if sandbox_id:
-                        try: await delete_sandbox(sandbox_id)
-                        except Exception as e: logger.error(f"Error deleting sandbox: {str(e)}")
                     raise Exception("Database update failed")
+                    
+                logger.info(f"Successfully updated project {project_id} with sandbox {sandbox_id}")
+                
             except Exception as e:
-                logger.error(f"Error creating sandbox: {str(e)}")
-                await client.table('projects').delete().eq('project_id', project_id).execute()
-                if sandbox_id:
-                    try: await delete_sandbox(sandbox_id)
-                    except Exception:
-                        pass
-                raise Exception("Failed to create sandbox")
+                logger.error(f"Sandbox creation failed, but continuing without sandbox: {str(e)}")
+                # Don't fail the entire agent initiation if sandbox creation fails
+                # The agent can still work for non-file operations
+                sandbox_id = None
+                sandbox_pass = None
 
         # 3. Create Thread
         thread_data = {
@@ -1222,58 +1226,83 @@ async def initiate_agent_with_files(
         # Trigger Background Naming Task
         asyncio.create_task(generate_and_update_project_name(project_id=project_id, prompt=prompt))
 
-        # 4. Upload Files to Sandbox (if any)
+        # 4. Handle file uploads to sandbox if available
         message_content = prompt
         if files:
             successful_uploads = []
             failed_uploads = []
-            for file in files:
-                if file.filename:
-                    try:
-                        safe_filename = file.filename.replace('/', '_').replace('\\', '_')
-                        target_path = f"/workspace/{safe_filename}"
-                        logger.info(f"Attempting to upload {safe_filename} to {target_path} in sandbox {sandbox_id}")
-                        content = await file.read()
-                        upload_successful = False
+            
+            if sandbox_id and sandbox:
+                # Sandbox was created successfully, upload files
+                logger.info(f"Uploading {len(files)} files to sandbox {sandbox_id}")
+                for file in files:
+                    if file.filename:
                         try:
-                            if hasattr(sandbox, 'fs') and hasattr(sandbox.fs, 'upload_file'):
-                                await sandbox.fs.upload_file(content, target_path)
-                                logger.debug(f"Called sandbox.fs.upload_file for {target_path}")
-                                upload_successful = True
-                            else:
-                                raise NotImplementedError("Suitable upload method not found on sandbox object.")
-                        except Exception as upload_error:
-                            logger.error(f"Error during sandbox upload call for {safe_filename}: {str(upload_error)}", exc_info=True)
-
-                        if upload_successful:
-                            try:
-                                await asyncio.sleep(0.2)
-                                parent_dir = os.path.dirname(target_path)
-                                files_in_dir = await sandbox.fs.list_files(parent_dir)
-                                file_names_in_dir = [f.name for f in files_in_dir]
-                                if safe_filename in file_names_in_dir:
-                                    successful_uploads.append(target_path)
-                                    logger.info(f"Successfully uploaded and verified file {safe_filename} to sandbox path {target_path}")
-                                else:
-                                    logger.error(f"Verification failed for {safe_filename}: File not found in {parent_dir} after upload attempt.")
-                                    failed_uploads.append(safe_filename)
-                            except Exception as verify_error:
-                                logger.error(f"Error verifying file {safe_filename} after upload: {str(verify_error)}", exc_info=True)
-                                failed_uploads.append(safe_filename)
+                            safe_filename = file.filename.replace('/', '_').replace('\\', '_')
+                            target_path = f"/workspace/{safe_filename}"
+                            content = await file.read()
+                            
+                            await sandbox.fs.upload_file(content, target_path)
+                            successful_uploads.append(target_path)
+                            logger.info(f"Successfully uploaded {safe_filename} to {target_path}")
+                            
+                        except Exception as file_error:
+                            logger.error(f"Error uploading file {file.filename}: {str(file_error)}")
+                            failed_uploads.append(file.filename)
+                        finally:
+                            await file.close()
+            else:
+                # Sandbox creation failed, store files in project metadata for later upload
+                logger.warning("Sandbox not available, storing files in project metadata for later upload")
+                pending_files = []
+                for file in files:
+                    if file.filename:
+                        try:
+                            safe_filename = file.filename.replace('/', '_').replace('\\', '_')
+                            content = await file.read()
+                            # Store file content in base64 for JSON storage
+                            import base64
+                            file_data = {
+                                "filename": safe_filename,
+                                "original_filename": file.filename,
+                                "content": base64.b64encode(content).decode('utf-8'),
+                                "size": len(content)
+                            }
+                            pending_files.append(file_data)
+                            failed_uploads.append(file.filename)
+                            logger.info(f"Stored file {safe_filename} ({len(content)} bytes) for later upload")
+                        except Exception as file_error:
+                            logger.error(f"Error storing file {file.filename}: {str(file_error)}")
+                            failed_uploads.append(file.filename)
+                        finally:
+                            await file.close()
+                
+                # Store pending files in project metadata
+                if pending_files:
+                    try:
+                        update_result = await client.table('projects').update({
+                            'pending_files': pending_files
+                        }).eq('project_id', project_id).execute()
+                        
+                        if update_result.data:
+                            logger.info(f"Stored {len(pending_files)} files in project metadata for later upload")
                         else:
-                            failed_uploads.append(safe_filename)
-                    except Exception as file_error:
-                        logger.error(f"Error processing file {file.filename}: {str(file_error)}", exc_info=True)
-                        failed_uploads.append(file.filename)
-                    finally:
-                        await file.close()
+                            logger.error("Failed to store pending files in project metadata")
+                    except Exception as metadata_error:
+                        logger.error(f"Error storing pending files in metadata: {str(metadata_error)}")
 
+            # Update message content with file upload results
             if successful_uploads:
                 message_content += "\n\n" if message_content else ""
-                for file_path in successful_uploads: message_content += f"[Uploaded File: {file_path}]\n"
+                message_content += "Files uploaded to workspace:\n"
+                for file_path in successful_uploads:
+                    message_content += f"- {file_path}\n"
+            
             if failed_uploads:
-                message_content += "\n\nThe following files failed to upload:\n"
-                for failed_file in failed_uploads: message_content += f"- {failed_file}\n"
+                message_content += "\n\n" if message_content else ""
+                message_content += "Files pending upload (will be uploaded when agent tools are used):\n"
+                for failed_file in failed_uploads:
+                    message_content += f"- {failed_file}\n"
 
         # 5. Add initial user message to thread
         message_id = str(uuid.uuid4())

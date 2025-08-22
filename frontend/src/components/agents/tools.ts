@@ -10,6 +10,7 @@ export const AGENTPRESS_TOOL_DEFINITIONS: Record<string, { enabled: boolean; des
     'sb_sheets_tool': { enabled: true, description: 'Create, view, update, analyze, visualize, and format spreadsheets (XLSX/CSV) with Luckysheet viewer', icon: '📊', color: 'bg-purple-100 dark:bg-purple-800/50' },
     'podcast_tool': { enabled: true, description: 'Generate podcasts from agent conversations using OpenAI TTS and ElevenLabs (2-3 min generation)', icon: '🎧', color: 'bg-rose-100 dark:bg-rose-800/50' },
     'sb_video_avatar_tool': { enabled: true, description: 'Generate videos with AI avatars and create interactive streaming avatar sessions using HeyGen', icon: '🎬', color: 'bg-violet-100 dark:bg-violet-800/50' },
+    'audio_transcription_tool': { enabled: true, description: 'Transcribe audio files to text using OpenAI Whisper, supports files up to 2 hours with automatic chunking', icon: '🎤', color: 'bg-emerald-100 dark:bg-emerald-800/50' },
 };
 
 export const DEFAULT_AGENTPRESS_TOOLS: Record<string, boolean> = Object.entries(AGENTPRESS_TOOL_DEFINITIONS).reduce((acc, [key, value]) => {
@@ -30,6 +31,7 @@ export const getToolDisplayName = (toolName: string): string => {
       'sb_sheets_tool': 'Sheets Tool',
       'podcast_tool': 'Podcast Generator',
       'sb_video_avatar_tool': 'Video Avatar',
+      'audio_transcription_tool': 'Audio Transcription',
     };
     
     return displayNames[toolName] || toolName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());

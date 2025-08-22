@@ -1,4 +1,4 @@
-from daytona_sdk import AsyncDaytona, DaytonaConfig, CreateSandboxFromSnapshotParams, AsyncSandbox, SessionExecuteRequest, Resources, SandboxState
+from daytona_sdk import AsyncDaytona, DaytonaConfig, CreateSandboxFromImageParams, AsyncSandbox, SessionExecuteRequest, Resources, SandboxState
 from dotenv import load_dotenv
 from utils.logger import logger
 from utils.config import config
@@ -9,8 +9,9 @@ load_dotenv()
 logger.debug("Initializing Daytona sandbox configuration")
 daytona_config = DaytonaConfig(
     api_key=config.DAYTONA_API_KEY,
-    api_url=config.DAYTONA_SERVER_URL,  # Use api_url instead of server_url (deprecated)
-    target=config.DAYTONA_TARGET,
+    api_url=config.DAYTONA_SERVER_URL if config.DAYTONA_SERVER_URL and config.DAYTONA_SERVER_URL.endswith('/api') 
+            else f"{(config.DAYTONA_SERVER_URL or 'https://app.daytona.io').rstrip('/')}/api",  # Ensure correct async API endpoint
+    target=config.DAYTONA_TARGET or "us",
 )
 
 if daytona_config.api_key:
@@ -89,8 +90,8 @@ async def create_sandbox(password: str, project_id: str = None) -> AsyncSandbox:
         logger.debug(f"Using sandbox_id as label: {project_id}")
         labels = {'id': project_id}
         
-    params = CreateSandboxFromSnapshotParams(
-        snapshot=Configuration.SANDBOX_SNAPSHOT_NAME,
+    params = CreateSandboxFromImageParams(
+        image=Configuration.SANDBOX_IMAGE_NAME,
         public=True,
         labels=labels,
         env_vars={
