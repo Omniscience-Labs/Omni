@@ -67,6 +67,7 @@ export default function AgentConfigurationPage() {
 
   const [originalData, setOriginalData] = useState<FormData>(formData);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>(tabParam || 'configuration');
 
   useEffect(() => {
     if (!agent) return;
@@ -566,48 +567,20 @@ export default function AgentConfigurationPage() {
               </div>
             </div>
             <div className="flex-1 overflow-hidden">
-{(agent?.metadata?.is_suna_default || agent?.metadata?.is_omni_default) ? (
-  <ConfigurationTab
-    agentId={agentId}
-    displayData={displayData}
-    versionData={versionData}
-    isViewingOldVersion={isViewingOldVersion}
-    onFieldChange={handleFieldChange}
-    onMCPChange={handleMCPChange}
-    onSystemPromptSave={handleSystemPromptSave}
-    onModelSave={handleModelSave}
-    onToolsSave={handleToolsSave}
-    initialAccordion={initialAccordion}
-    agentMetadata={agent?.metadata}
-    isLoading={isSaving}
-  />
-) : (
-  <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-    <TabsContent value="agent-builder" className="flex-1 m-0 overflow-hidden">
-      <AgentBuilderTab
-        agentId={agentId}
-        displayData={displayData}
-        isViewingOldVersion={isViewingOldVersion}
-        onFieldChange={handleFieldChange}
-      />
-    </TabsContent>
-    <TabsContent value="configuration" className="flex-1 m-0 overflow-hidden">
-      <ConfigurationTab
-        agentId={agentId}
-        displayData={displayData}
-        versionData={versionData}
-        isViewingOldVersion={isViewingOldVersion}
-        onFieldChange={handleFieldChange}
-        onMCPChange={handleMCPChange}
-        onSystemPromptSave={handleSystemPromptSave}
-        onModelSave={handleModelSave}
-        onToolsSave={handleToolsSave}
-        initialAccordion={initialAccordion}
-        agentMetadata={agent?.metadata}
-      />
-    </TabsContent>
-  </Tabs>
-)}
+              <ConfigurationTab
+                agentId={agentId}
+                displayData={displayData}
+                versionData={versionData}
+                isViewingOldVersion={isViewingOldVersion}
+                onFieldChange={handleFieldChange}
+                onMCPChange={handleMCPChange}
+                onSystemPromptSave={handleSystemPromptSave}
+                onModelSave={handleModelSave}
+                onToolsSave={handleToolsSave}
+                initialAccordion={initialAccordion}
+                agentMetadata={agent?.metadata}
+                isLoading={isSaving}
+              />
             </div>
           </div>
           <div className="bg-muted/30 h-full overflow-hidden">
@@ -655,48 +628,20 @@ export default function AgentConfigurationPage() {
               </div>
             </div>
             <div className="flex-1 overflow-hidden">
-{(agent?.metadata?.is_suna_default || agent?.metadata?.is_omni_default) ? (
-  <ConfigurationTab
-    agentId={agentId}
-    displayData={displayData}
-    versionData={versionData}
-    isViewingOldVersion={isViewingOldVersion}
-    onFieldChange={handleFieldChange}
-    onMCPChange={handleMCPChange}
-    onSystemPromptSave={handleSystemPromptSave}
-    onModelSave={handleModelSave}
-    onToolsSave={handleToolsSave}
-    initialAccordion={initialAccordion}
-    agentMetadata={agent?.metadata}
-    isLoading={isSaving}
-  />
-) : (
-  <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-    <TabsContent value="agent-builder" className="flex-1 m-0 overflow-hidden">
-      <AgentBuilderTab
-        agentId={agentId}
-        displayData={displayData}
-        isViewingOldVersion={isViewingOldVersion}
-        onFieldChange={handleFieldChange}
-      />
-    </TabsContent>
-    <TabsContent value="configuration" className="flex-1 m-0 overflow-hidden">
-      <ConfigurationTab
-        agentId={agentId}
-        displayData={displayData}
-        versionData={versionData}
-        isViewingOldVersion={isViewingOldVersion}
-        onFieldChange={handleFieldChange}
-        onMCPChange={handleMCPChange}
-        onSystemPromptSave={handleSystemPromptSave}
-        onModelSave={handleModelSave}
-        onToolsSave={handleToolsSave}
-        initialAccordion={initialAccordion}
-        agentMetadata={agent?.metadata}
-      />
-    </TabsContent>
-  </Tabs>
-)}
+              <ConfigurationTab
+                agentId={agentId}
+                displayData={displayData}
+                versionData={versionData}
+                isViewingOldVersion={isViewingOldVersion}
+                onFieldChange={handleFieldChange}
+                onMCPChange={handleMCPChange}
+                onSystemPromptSave={handleSystemPromptSave}
+                onModelSave={handleModelSave}
+                onToolsSave={handleToolsSave}
+                initialAccordion={initialAccordion}
+                agentMetadata={agent?.metadata}
+                isLoading={isSaving}
+              />
             </div>
           </div>
           <Drawer open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
