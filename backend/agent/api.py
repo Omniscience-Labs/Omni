@@ -35,7 +35,7 @@ from .tools.sb_presentation_tool import SandboxPresentationTool
 async def _get_version_service():
     return await get_version_service()
 from utils.omni_default_agent_service import OmniDefaultAgentService
-from .tools.sb_presentation_tool_v2 import SandboxPresentationToolV2
+
 
 
 router = APIRouter()

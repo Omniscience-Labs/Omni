@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 import urllib.parse
 
 from utils.logger import logger
@@ -25,7 +25,8 @@ class StoreCredentialRequest(BaseModel):
     display_name: str
     config: Dict[str, Any]
     
-    @validator('config')
+    @field_validator('config')
+    @classmethod
     def validate_config_not_empty_field(cls, v):
         return validate_config_not_empty(v)
 
@@ -37,7 +38,8 @@ class StoreCredentialProfileRequest(BaseModel):
     config: Dict[str, Any]
     is_default: bool = False
     
-    @validator('config')
+    @field_validator('config')
+    @classmethod
     def validate_config_not_empty_field(cls, v):
         return validate_config_not_empty(v)
 
