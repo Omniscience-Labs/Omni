@@ -165,7 +165,7 @@ export default function ThreadPage({
   }, [threadAgentData, agents, initializeFromAgents]);
 
   const { data: subscriptionData } = useSharedSubscription();
-  const subscriptionStatus: SubscriptionStatus = subscriptionData?.status === 'active'
+  const subscriptionStatus: SubscriptionStatus = (subscriptionData?.status === 'active' || subscriptionData?.status === 'trialing')
     ? 'active'
     : 'no_subscription';
 

@@ -10,6 +10,12 @@ import { Button } from '@/components/ui/button';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Presentation,
   Clock,
   Loader2,
@@ -18,13 +24,16 @@ import {
   FileText,
   Hash,
   Maximize2,
-
+  Download,
+  ExternalLink,
+  ChevronDown,
 } from 'lucide-react';
 import { ToolViewProps } from '../types';
-import { formatTimestamp, extractToolData } from '../utils';
+import { formatTimestamp, extractToolData, getToolTitle } from '../utils';
 import { constructHtmlPreviewUrl } from '@/lib/utils/url';
 import { CodeBlockCode } from '@/components/ui/code-block';
 import { LoadingState } from '../shared/LoadingState';
+import { FullScreenPresentationViewer } from './FullScreenPresentationViewer';
 
 interface SlideMetadata {
   title: string;
@@ -44,10 +53,7 @@ interface PresentationMetadata {
 }
 
 interface PresentationViewerProps extends ToolViewProps {
-  title: string;
-  currentSlideNumber?: number;
-  presentationPath?: string;
-  presentationName?: string;
+  // All data will be extracted from toolContent
 }
 
 export function PresentationViewer({
@@ -59,10 +65,6 @@ export function PresentationViewer({
   isStreaming = false,
   name,
   project,
-  title,
-  currentSlideNumber,
-  presentationPath,
-  presentationName,
 }: PresentationViewerProps) {
   const [metadata, setMetadata] = useState<PresentationMetadata | null>(null);
 
@@ -71,24 +73,64 @@ export function PresentationViewer({
   const [hasScrolledToCurrentSlide, setHasScrolledToCurrentSlide] = useState(false);
 
   const [visibleSlide, setVisibleSlide] = useState<number | null>(null);
+  const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
+  const [fullScreenInitialSlide, setFullScreenInitialSlide] = useState<number | null>(null);
 
   // Extract presentation info from tool data
   const { toolResult } = extractToolData(toolContent);
-  let extractedPresentationName = presentationName;
-  let extractedPresentationPath = presentationPath;
+  let extractedPresentationName: string | undefined;
+  let extractedPresentationPath: string | undefined;
+  let currentSlideNumber: number | undefined;
+  let presentationTitle: string | undefined;
+  let toolExecutionError: string | undefined;
 
-  if (toolResult && toolResult.toolOutput) {
+  if (toolResult && toolResult.toolOutput && toolResult.toolOutput !== 'STREAMING') {
     try {
-      const output = typeof toolResult.toolOutput === 'string' 
-        ? JSON.parse(toolResult.toolOutput) 
-        : toolResult.toolOutput;
+      let output;
       
-      extractedPresentationName = output.presentation_name || extractedPresentationName;
-      extractedPresentationPath = output.presentation_path || extractedPresentationPath;
+      if (typeof toolResult.toolOutput === 'string') {
+        // Check if the string looks like an error message
+        if (toolResult.toolOutput.startsWith('Error') || toolResult.toolOutput.includes('exec')) {
+          console.error('Tool execution error:', toolResult.toolOutput);
+          toolExecutionError = toolResult.toolOutput;
+          // Don't return early - let the component render the error state
+        } else {
+          // Try to parse as JSON
+          try {
+            output = JSON.parse(toolResult.toolOutput);
+          } catch (parseError) {
+            console.error('Failed to parse tool output as JSON:', parseError);
+            console.error('Raw tool output:', toolResult.toolOutput);
+            toolExecutionError = `Failed to parse tool output: ${toolResult.toolOutput}`;
+            // Don't return early - let the component render the error state
+          }
+        }
+      } else {
+        output = toolResult.toolOutput;
+      }
+      
+      // Only extract data if we have a valid parsed object
+      if (output && typeof output === 'object') {
+        extractedPresentationName = output.presentation_name;
+        extractedPresentationPath = output.presentation_path;
+        currentSlideNumber = output.slide_number;
+        presentationTitle = output.presentation_title || output.title;
+      }
     } catch (e) {
-      console.error('Failed to parse tool output:', e);
+      console.error('Failed to process tool output:', e);
+      console.error('Tool output type:', typeof toolResult.toolOutput);
+      console.error('Tool output value:', toolResult.toolOutput);
+      toolExecutionError = `Unexpected error processing tool output: ${String(e)}`;
     }
   }
+
+  // Get tool title for display
+  const toolTitle = getToolTitle(name || 'presentation-viewer');
+
+  // Helper function to sanitize filename (matching backend logic)
+  const sanitizeFilename = (name: string): string => {
+    return name.replace(/[^a-zA-Z0-9\-_]/g, '').toLowerCase();
+  };
 
   // Load metadata.json for the presentation
   const loadMetadata = async () => {
@@ -98,9 +140,12 @@ export function PresentationViewer({
     setError(null);
     
     try {
+      // Sanitize the presentation name to match backend directory creation
+      const sanitizedPresentationName = sanitizeFilename(extractedPresentationName);
+      
       const metadataUrl = constructHtmlPreviewUrl(
         project.sandbox.sandbox_url, 
-        `presentations/${extractedPresentationName}/metadata.json`
+        `presentations/${sanitizedPresentationName}/metadata.json`
       );
       
       // Add cache-busting parameter to ensure fresh data
@@ -112,6 +157,7 @@ export function PresentationViewer({
           'Cache-Control': 'no-cache'
         }
       });
+      
       if (response.ok) {
         const data = await response.json();
         setMetadata(data);
@@ -163,37 +209,79 @@ export function PresentationViewer({
     }
   }, [slides.length, currentSlideNumber, metadata, hasScrolledToCurrentSlide]);
 
-  // Intersection Observer to track visible slide
+  // Scroll-based slide detection with proper edge handling
   useEffect(() => {
     if (!slides.length) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const slideId = entry.target.id;
-            const slideNumber = parseInt(slideId.replace('slide-', ''));
-            if (!isNaN(slideNumber)) {
-              setVisibleSlide(slideNumber);
-            }
-          }
-        });
-      },
-      {
-        threshold: 0.5, // Trigger when 50% of slide is visible
-        rootMargin: '-20% 0px -20% 0px' // Only consider center 60% of viewport
-      }
-    );
+    // Initialize with first slide
+    setVisibleSlide(slides[0].number);
 
-    // Observe all slide elements
-    slides.forEach((slide) => {
-      const element = document.getElementById(`slide-${slide.number}`);
-      if (element) {
-        observer.observe(element);
-      }
-    });
+    const handleScroll = () => {
+      
+      const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]');
+      if (!scrollArea || slides.length === 0) return;
 
-    return () => observer.disconnect();
+      const { scrollTop, scrollHeight, clientHeight } = scrollArea;
+      const scrollViewportRect = scrollArea.getBoundingClientRect();
+      const viewportCenter = scrollViewportRect.top + scrollViewportRect.height / 2;
+
+      // Check if we're at the very top (first slide)
+      if (scrollTop <= 10) {
+        setVisibleSlide(slides[0].number);
+        return;
+      }
+
+      // Check if we're at the very bottom (last slide)
+      if (scrollTop + clientHeight >= scrollHeight - 10) {
+        setVisibleSlide(slides[slides.length - 1].number);
+        return;
+      }
+
+      // For middle slides, find the slide closest to the viewport center
+      let closestSlide = slides[0];
+      let smallestDistance = Infinity;
+
+      slides.forEach((slide) => {
+        const slideElement = document.getElementById(`slide-${slide.number}`);
+        if (!slideElement) return;
+
+        const slideRect = slideElement.getBoundingClientRect();
+        const slideCenter = slideRect.top + slideRect.height / 2;
+        const distanceFromCenter = Math.abs(slideCenter - viewportCenter);
+
+        // Only consider slides that are at least partially visible
+        const isPartiallyVisible = slideRect.bottom > scrollViewportRect.top && 
+                                 slideRect.top < scrollViewportRect.bottom;
+
+        if (isPartiallyVisible && distanceFromCenter < smallestDistance) {
+          smallestDistance = distanceFromCenter;
+          closestSlide = slide;
+        }
+      });
+
+      setVisibleSlide(closestSlide.number);
+    };
+
+    // Debounce scroll handler for better performance
+    let scrollTimeout: NodeJS.Timeout;
+    const debouncedHandleScroll = () => {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(handleScroll, 50);
+    };
+
+    const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]');
+    if (scrollArea) {
+      scrollArea.addEventListener('scroll', debouncedHandleScroll);
+      // Run once immediately to set initial state
+      handleScroll();
+    }
+
+    return () => {
+      clearTimeout(scrollTimeout);
+      if (scrollArea) {
+        scrollArea.removeEventListener('scroll', debouncedHandleScroll);
+      }
+    };
   }, [slides]);
 
   // Helper function to scroll to current slide
@@ -283,10 +371,10 @@ export function PresentationViewer({
       const slideUrlWithCacheBust = `${slideUrl}?t=${refreshTimestamp}`;
 
       return (
-        <div className="w-full h-full flex items-center justify-center bg-muted/20 p-6">
+        <div className="w-full h-full flex items-center justify-center bg-transparent p-4">
           <div 
             ref={setContainerRef}
-            className="relative bg-white rounded-xl shadow-lg border border-border/60 overflow-hidden transition-all duration-200 hover:shadow-xl"
+            className="relative bg-white dark:bg-zinc-900 rounded-lg overflow-hidden border border-zinc-200/40 dark:border-zinc-800/40"
             style={{
               width: '100%',
               maxWidth: '90vw',
@@ -339,75 +427,104 @@ export function PresentationViewer({
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card">
-      <CardHeader className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 p-4">
+      <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
         <div className="flex flex-row items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 border border-primary/20">
-              <Presentation className="w-5 h-5 text-primary" />
+          <div className="flex items-center gap-2">
+            <div className="relative p-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/20">
+              <Presentation className="w-5 h-5 text-blue-500 dark:text-blue-400" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold text-foreground">
-                {metadata?.title || extractedPresentationName || 'Presentation'}
+              <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
+                {metadata?.title || metadata?.presentation_name || toolTitle}
               </CardTitle>
-              {/* Dynamic slide info based on visible slide */}
-              {visibleSlide && metadata?.slides[visibleSlide] ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
-                  <span className={`font-medium ${
-                    currentSlideNumber === visibleSlide ? 'text-primary' : 'text-muted-foreground'
-                  }`}>
-                    {visibleSlide}/{slides.length}
-                  </span>
-                  <span>•</span>
-                  <span className="truncate max-w-md">
-                    {metadata.slides[visibleSlide].title}
-                  </span>
-                  {currentSlideNumber === visibleSlide && (
-                    <>
-                      <span>•</span>
-                      <span className="text-primary text-xs">Current</span>
-                    </>
-                  )}
-                </div>
-              ) : metadata?.description ? (
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {metadata.description}
-                </p>
-              ) : (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
-                  <span>{slides.length} slides</span>
-                </div>
-              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Show actions for visible slide */}
-            {visibleSlide && project?.sandbox?.sandbox_url && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  const slide = metadata?.slides[visibleSlide];
-                  if (slide) {
-                    const slideUrl = constructHtmlPreviewUrl(project.sandbox.sandbox_url, slide.file_path);
-                    const slideUrlWithCacheBust = `${slideUrl}?t=${Date.now()}`;
-                    window.open(slideUrlWithCacheBust, '_blank');
-                  }
-                }}
-                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                title="Open in fullscreen"
-              >
-                <Maximize2 className="h-3.5 w-3.5" />
-              </Button>
+          <div className="flex items-center gap-2">
+            {/* Export actions */}
+            {metadata && slides.length > 0 && !isStreaming && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setFullScreenInitialSlide(visibleSlide || currentSlideNumber || slides[0]?.number || 1);
+                    setIsFullScreenOpen(true);
+                  }}
+                  className="h-8 w-8 p-0"
+                  title="Open in full screen"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 w-8 p-0"
+                      title="Export presentation"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-32">
+                    <DropdownMenuItem 
+                      onClick={() => {
+                        // TODO: Implement PDF export
+                        console.log('Export as PDF');
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => {
+                        // TODO: Implement PPTX export
+                        console.log('Export as PPTX');
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <Presentation className="h-4 w-4 mr-2" />
+                      PPTX
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => {
+                        // TODO: Implement Google Slides export
+                        console.log('Export to Google Slides');
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Google Slides
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             )}
-            {!visibleSlide && !isStreaming && !error && metadata && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>{slides.length} slides</span>
-              </div>
+
+            {!isStreaming && (
+              <Badge
+                variant="secondary"
+                className="bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300"
+              >
+                <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                Success
+              </Badge>
+            )}
+
+            {isStreaming && (
+              <Badge className="bg-gradient-to-b from-blue-200 to-blue-100 text-blue-700 dark:from-blue-800/50 dark:to-blue-900/60 dark:text-blue-300">
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                Loading
+              </Badge>
             )}
           </div>
         </div>
       </CardHeader>
+
+
 
       <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
         {(isStreaming || (isLoadingMetadata && !metadata)) ? (
@@ -419,17 +536,27 @@ export function PresentationViewer({
             filePath="Loading slides..."
             showProgress={true}
           />
-        ) : error || !metadata ? (
+        ) : error || toolExecutionError || !metadata ? (
           <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
             <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6 bg-gradient-to-b from-rose-100 to-rose-50 shadow-inner dark:from-rose-800/40 dark:to-rose-900/60">
               <AlertTriangle className="h-10 w-10 text-rose-400 dark:text-rose-600" />
             </div>
             <h3 className="text-xl font-semibold mb-2 text-zinc-900 dark:text-zinc-100">
-              {error || 'Failed to load presentation'}
+              {toolExecutionError ? 'Tool Execution Error' : (error || 'Failed to load presentation')}
             </h3>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center max-w-md">
-              There was an error loading the presentation. Please try again.
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center max-w-md mb-4">
+              {toolExecutionError ? 'The presentation tool encountered an error during execution:' : 
+               (error || 'There was an error loading the presentation. Please try again.')}
             </p>
+            {toolExecutionError && (
+              <div className="w-full max-w-2xl">
+                <CodeBlockCode 
+                  code={toolExecutionError} 
+                  language="text"
+                  className="text-xs bg-zinc-100 dark:bg-zinc-800 p-3 rounded-md border"
+                />
+              </div>
+            )}
           </div>
         ) : slides.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
@@ -445,16 +572,54 @@ export function PresentationViewer({
           </div>
         ) : (
           <ScrollArea className="h-full">
-            <div className="space-y-8 p-6">
+            <div className="space-y-6 p-6">
               {slides.map((slide) => (
-                <div key={slide.number} id={`slide-${slide.number}`} className={`rounded-lg border backdrop-blur-sm shadow-sm transition-all duration-200 hover:shadow-md overflow-hidden ${
-                  currentSlideNumber === slide.number 
-                    ? 'border-primary/30 bg-primary/5' 
-                    : 'border-border/60 bg-card/50'
-                }`}>
+                <div 
+                  key={slide.number} 
+                  id={`slide-${slide.number}`} 
+                  className={`group rounded-lg cursor-pointer transition-all duration-200 ${
+                    currentSlideNumber === slide.number 
+                      ? 'ring-2 ring-blue-500/20 shadow-md' 
+                      : 'hover:shadow-lg hover:scale-[1.01]'
+                  } bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm`}
+                  onClick={() => {
+                    setFullScreenInitialSlide(slide.number);
+                    setIsFullScreenOpen(true);
+                  }}
+                >
                   {/* Slide Preview */}
-                  <div className="relative h-96 bg-muted/20">
+                  <div className="relative h-80 rounded-t-lg overflow-hidden">
                     {renderSlidePreview(slide)}
+                    
+                    {/* Clickable overlay to ensure iframe is clickable */}
+                    <div 
+                      className="absolute inset-0 cursor-pointer z-10"
+                      onClick={() => {
+                        setFullScreenInitialSlide(slide.number);
+                        setIsFullScreenOpen(true);
+                      }}
+                    />
+                    
+                    {/* Simple hover indicator */}
+                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20 pointer-events-none">
+                      <div className="bg-black/20 dark:bg-white/20 backdrop-blur-sm rounded-full p-2">
+                        <Maximize2 className="h-3.5 w-3.5 text-white dark:text-black" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Simple footer */}
+                  <div className="px-4 py-3 border-t border-zinc-100 dark:border-zinc-800">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        #{slide.number}
+                      </span>
+                      {slide.title && (
+                        <span className="text-sm text-zinc-600 dark:text-zinc-400 truncate">
+                          {slide.title}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -463,14 +628,30 @@ export function PresentationViewer({
         )}
       </CardContent>
 
-      <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-end items-center">
-        <div className="flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500">
-          <Clock className="h-3 w-3" />
-          <span>
-            {formatTimestamp(toolTimestamp)}
-          </span>
+      <div className="px-4 py-2 h-9 bg-zinc-50/30 dark:bg-zinc-900/30 border-t border-zinc-200/30 dark:border-zinc-800/30 flex justify-between items-center">
+        <div className="text-xs text-zinc-400 dark:text-zinc-500">
+          {slides.length > 0 && visibleSlide && (
+            <span className="font-mono">
+              {visibleSlide}/{slides.length}
+            </span>
+          )}
+        </div>
+        <div className="text-xs text-zinc-400 dark:text-zinc-500">
+          {formatTimestamp(toolTimestamp)}
         </div>
       </div>
+
+      {/* Full Screen Presentation Viewer */}
+      <FullScreenPresentationViewer
+        isOpen={isFullScreenOpen}
+        onClose={() => {
+          setIsFullScreenOpen(false);
+          setFullScreenInitialSlide(null);
+        }}
+        presentationName={extractedPresentationName}
+        sandboxUrl={project?.sandbox?.sandbox_url}
+        initialSlide={fullScreenInitialSlide || visibleSlide || currentSlideNumber || slides[0]?.number || 1}
+      />
     </Card>
   );
 }

@@ -323,10 +323,6 @@ async def start_agent(
     model_name = body.model_name
     logger.debug(f"Original model_name from request: {model_name}")
 
-    # if model_name is None:
-    #     model_name = "openrouter/moonshotai/kimi-k2"
-    #     logger.debug(f"Using default model: {model_name}")
-
     # Log the model name after alias resolution
     resolved_model = MODEL_NAME_ALIASES.get(model_name, model_name)
     logger.debug(f"Resolved model name: {resolved_model}")

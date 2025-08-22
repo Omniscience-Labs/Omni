@@ -178,8 +178,8 @@ export function FileRenderer({
 
   // Construct HTML file preview URL if we have a sandbox and the file is HTML
   const htmlPreviewUrl =
-    isHtmlFile && project?.sandbox?.sandbox_url && fileName
-      ? constructHtmlPreviewUrl(project.sandbox.sandbox_url, fileName)
+    isHtmlFile && project?.sandbox?.sandbox_url && (filePath || fileName)
+      ? constructHtmlPreviewUrl(project.sandbox.sandbox_url, filePath || fileName)
       : blobHtmlUrl; // Use blob URL as fallback
 
   // Clean up blob URL on unmount

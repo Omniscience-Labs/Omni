@@ -17,6 +17,7 @@ MODELS = {
     #         "input_cost_per_million_tokens": 0.38,
     #         "output_cost_per_million_tokens": 0.89
     #     },
+    #     "context_window": 128_000,  # 128k tokens
     #     "tier_availability": ["free", "paid"]
     # },
     # "openrouter/qwen/qwen3-235b-a22b": {
@@ -25,6 +26,7 @@ MODELS = {
     #         "input_cost_per_million_tokens": 0.13,
     #         "output_cost_per_million_tokens": 0.60
     #     },
+    #     "context_window": 128_000,  # 128k tokens
     #     "tier_availability": ["free", "paid"]
     # },
     # "openrouter/google/gemini-2.5-flash-preview-05-20": {
@@ -50,7 +52,7 @@ MODELS = {
             "output_cost_per_million_tokens": 3.00
         },
         "context_window": 200_000,  # 200k tokens
-        "tier_availability": ["paid"]
+        "tier_availability": ["free", "paid"]
     },
     "xai/grok-4": {
         "aliases": ["grok-4", "x-ai/grok-4"],

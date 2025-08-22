@@ -2,7 +2,8 @@ export const clearUserLocalStorage = () => {
   if (typeof window === 'undefined') return;
 
   try {
-    localStorage.removeItem('suna-preferred-model-v3');
+    // Note: Preserve model preference on logout - user choice should persist
+    // localStorage.removeItem('suna-preferred-model-v3');
     localStorage.removeItem('customModels');
     
     localStorage.removeItem('agent-selection-storage');

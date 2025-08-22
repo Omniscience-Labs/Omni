@@ -8,7 +8,7 @@ import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-model'
 export const STORAGE_KEY_MODEL = 'suna-preferred-model-v3';
 export const STORAGE_KEY_CUSTOM_MODELS = 'customModels';
 export const DEFAULT_PREMIUM_MODEL_ID = 'claude-sonnet-4';
-export const DEFAULT_FREE_MODEL_ID = 'gpt-5-mini';
+export const DEFAULT_FREE_MODEL_ID = 'moonshotai/kimi-k2';
 
 // Helper to test localStorage functionality
 export const testLocalStorage = (): boolean => {
@@ -84,14 +84,26 @@ export const MODELS = {
   },
 
   // Free tier models (available to all users)
-  'gpt-5-mini': { 
+  'moonshotai/kimi-k2': { 
     tier: 'free', 
     priority: 100,
     recommended: true,
     lowQuality: false
   },
-  'moonshotai/kimi-k2': { 
-    tier: 'premium', // Updated to match backend - this is actually paid tier
+  'deepseek': { 
+    tier: 'free', 
+    priority: 95,
+    recommended: false,
+    lowQuality: false
+  },
+  'qwen3': { 
+    tier: 'free', 
+    priority: 90,
+    recommended: false,
+    lowQuality: false
+  },
+  'gpt-5-mini': { 
+    tier: 'free', 
     priority: 85,
     recommended: false,
     lowQuality: false
@@ -167,7 +179,7 @@ export const useModelSelection = () => {
     refetchOnMount: false,
   });
   
-  const subscriptionStatus: SubscriptionStatus = subscriptionData?.status === 'active' 
+  const subscriptionStatus: SubscriptionStatus = (subscriptionData?.status === 'active' || subscriptionData?.status === 'trialing')
     ? 'active' 
     : 'no_subscription';
 
@@ -193,7 +205,7 @@ export const useModelSelection = () => {
           models = [
             { 
               id: DEFAULT_FREE_MODEL_ID, 
-              label: 'GPT-5 Mini', 
+              label: 'KIMI K2', 
               requiresSubscription: false,
               priority: MODELS[DEFAULT_FREE_MODEL_ID]?.priority || 100
             },
@@ -301,7 +313,10 @@ export const useModelSelection = () => {
       if (savedModel) {
         // Wait for models to load before validating
         if (isLoadingModels) {
-          console.log('🔧 useModelSelection: Models still loading, waiting...');
+          console.log('🔧 useModelSelection: Models still loading, using saved model temporarily:', savedModel);
+          // Use saved model immediately while waiting for validation
+          setSelectedModel(savedModel);
+          setHasInitialized(true);
           return;
         }
         
@@ -329,14 +344,19 @@ export const useModelSelection = () => {
             console.warn('⚠️ useModelSelection: Saved model not accessible with current subscription');
           }
         } else {
-          console.warn('⚠️ useModelSelection: Saved model not found in available options');
+          // Model not found in current options, but preserve it anyway in case it's valid
+          // This can happen during loading or if the API returns different models
+          console.warn('⚠️ useModelSelection: Saved model not found in available options, but preserving:', savedModel);
+          setSelectedModel(savedModel);
+          setHasInitialized(true);
+          return;
         }
       }
       
       // Fallback to default model
       const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
       console.log('🔧 useModelSelection: Using default model:', defaultModel);
-      console.log('🔧 useModelSelection: Subscription status:', subscriptionStatus, '-> Default:', subscriptionStatus === 'active' ? 'PREMIUM (Claude Sonnet 4)' : 'FREE (GPT-5 Mini)');
+      console.log('🔧 useModelSelection: Subscription status:', subscriptionStatus, '-> Default:', subscriptionStatus === 'active' ? 'PREMIUM (Claude Sonnet 4)' : 'FREE (KIMi K2)');
       setSelectedModel(defaultModel);
       saveModelPreference(defaultModel);
       setHasInitialized(true);
@@ -345,12 +365,42 @@ export const useModelSelection = () => {
       console.warn('❌ useModelSelection: Failed to load preferences from localStorage:', error);
       const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
       console.log('🔧 useModelSelection: Using fallback default model:', defaultModel);
-      console.log('🔧 useModelSelection: Subscription status:', subscriptionStatus, '-> Fallback:', subscriptionStatus === 'active' ? 'PREMIUM (Claude Sonnet 4)' : 'FREE (GPT-5 Mini)');
+      console.log('🔧 useModelSelection: Subscription status:', subscriptionStatus, '-> Fallback:', subscriptionStatus === 'active' ? 'PREMIUM (Claude Sonnet 4)' : 'FREE (KIMi K2)');
       setSelectedModel(defaultModel);
       saveModelPreference(defaultModel);
       setHasInitialized(true);
     }
   }, [subscriptionStatus, isLoadingModels, hasInitialized]);
+
+  // Re-validate saved model after loading completes
+  useEffect(() => {
+    if (!hasInitialized || typeof window === 'undefined' || isLoadingModels) return;
+    
+    const savedModel = localStorage.getItem(STORAGE_KEY_MODEL);
+    if (!savedModel || savedModel === selectedModel) return;
+    
+    console.log('🔧 useModelSelection: Re-validating saved model after loading:', savedModel);
+    
+    const modelOption = MODEL_OPTIONS.find(option => option.id === savedModel);
+    const isCustomModel = isLocalMode() && customModels.some(model => model.id === savedModel);
+    
+    // If the saved model is now invalid, switch to default
+    if (!modelOption && !isCustomModel) {
+      console.warn('⚠️ useModelSelection: Saved model is invalid after loading, switching to default');
+      const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+      setSelectedModel(defaultModel);
+      saveModelPreference(defaultModel);
+    } else if (modelOption && !isLocalMode()) {
+      // Check subscription access for non-custom models
+      const isAccessible = canAccessModel(subscriptionStatus, modelOption.requiresSubscription);
+      if (!isAccessible) {
+        console.warn('⚠️ useModelSelection: Saved model not accessible after subscription check, switching to default');
+        const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+        setSelectedModel(defaultModel);
+        saveModelPreference(defaultModel);
+      }
+    }
+  }, [isLoadingModels, hasInitialized, MODEL_OPTIONS, customModels, subscriptionStatus]);
 
   // Re-validate current model when subscription status changes
   useEffect(() => {
@@ -373,7 +423,7 @@ export const useModelSelection = () => {
       if (!isAccessible) {
         console.warn('⚠️ useModelSelection: Current model no longer accessible, switching to default');
         const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
-        console.log('🔧 useModelSelection: Subscription-based default switch:', subscriptionStatus === 'active' ? 'PREMIUM (Claude Sonnet 4)' : 'FREE (GPT-5 Mini)');
+        console.log('🔧 useModelSelection: Subscription-based default switch:', subscriptionStatus === 'active' ? 'PREMIUM (Claude Sonnet 4)' : 'FREE (KIMi K2)');
         setSelectedModel(defaultModel);
         saveModelPreference(defaultModel);
       } else {
@@ -460,7 +510,7 @@ export const useModelSelection = () => {
       console.log('  isLoadingModels:', isLoadingModels);
       console.log('  localStorage value:', localStorage.getItem(STORAGE_KEY_MODEL));
       console.log('  localStorage test passes:', testLocalStorage());
-      console.log('  defaultModel would be:', subscriptionStatus === 'active' ? `${DEFAULT_PREMIUM_MODEL_ID} (Claude Sonnet 4)` : `${DEFAULT_FREE_MODEL_ID} (GPT-5 Mini)`);
+      console.log('  defaultModel would be:', subscriptionStatus === 'active' ? `${DEFAULT_PREMIUM_MODEL_ID} (Claude Sonnet 4)` : `${DEFAULT_FREE_MODEL_ID} (KIMi K2)`);
       console.log('  availableModels:', availableModels.map(m => ({ id: m.id, requiresSubscription: m.requiresSubscription })));
     }
   };
