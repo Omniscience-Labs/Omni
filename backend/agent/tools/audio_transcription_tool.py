@@ -15,6 +15,8 @@ class AudioTranscriptionTool(SandboxToolsBase):
     
     Handles chunking of large files that exceed OpenAI's 25MB limit and
     merges the results into a continuous transcript.
+    
+    Provides clean, concise transcription results without technical details.
     """
 
     def __init__(self, project_id: str, thread_manager: Optional[ThreadManager] = None):
@@ -50,6 +52,11 @@ class AudioTranscriptionTool(SandboxToolsBase):
                     "prompt": {
                         "type": "string",
                         "description": "Optional prompt to guide the transcription style or provide context."
+                    },
+                    "concise": {
+                        "type": "boolean", 
+                        "description": "If true, returns only the transcription text without technical details. Default: true",
+                        "default": True
                     }
                 },
                 "required": ["file_path"]
@@ -61,7 +68,8 @@ class AudioTranscriptionTool(SandboxToolsBase):
         self,
         file_path: str,
         language: Optional[str] = None,
-        prompt: Optional[str] = None
+        prompt: Optional[str] = None,
+        concise: bool = True
     ) -> ToolResult:
         """Transcribe an audio file to text.
         
@@ -69,6 +77,7 @@ class AudioTranscriptionTool(SandboxToolsBase):
             file_path: Path to the audio file
             language: Optional language code for transcription
             prompt: Optional context prompt
+            concise: If true, returns only the transcription without technical details
             
         Returns:
             ToolResult with the transcribed text or error
@@ -112,12 +121,15 @@ class AudioTranscriptionTool(SandboxToolsBase):
                 full_transcript_path = f"{self.workspace_path}/{transcript_path}"
                 self.sandbox.fs.upload_file(transcript.encode(), full_transcript_path)
                 
-                return self.success_response({
-                    "transcript": transcript,
-                    "transcript_file": transcript_path,
-                    "original_file": file_path,
-                    "file_size_mb": round(file_size / (1024*1024), 2)
-                })
+                if concise:
+                    # Return just the transcript text for concise mode
+                    return self.success_response(f"**Transcription:** {transcript}")
+                else:
+                    # Return detailed response with metadata
+                    response_message = f"**Transcription:**\n\n{transcript}\n\n"
+                    response_message += f"*Transcript saved to: {transcript_path}*\n"
+                    response_message += f"*File size: {round(file_size / (1024*1024), 2)} MB*"
+                    return self.success_response(response_message)
                 
             finally:
                 # Clean up temporary file
