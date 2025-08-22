@@ -537,24 +537,37 @@ async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: in
             message_id = message.get('message_id')
             credit_used = credit_usage_map.get(message_id, {})
             
+            # Safely handle datetime serialization
+            created_at_str = None
+            if message.get('created_at'):
+                try:
+                    if isinstance(message['created_at'], datetime):
+                        created_at_str = message['created_at'].isoformat()
+                    else:
+                        # If it's already a string, validate and use it
+                        created_at_str = str(message['created_at'])
+                except Exception as dt_error:
+                    logger.warning(f"Error formatting created_at for message {message_id}: {dt_error}")
+                    created_at_str = None
+
             log_entry = {
                 'message_id': message_id or 'unknown',
                 'thread_id': message.get('thread_id', 'unknown'),
-                'created_at': message.get('created_at', None),
+                'created_at': created_at_str,
                 'content': {
                     'usage': {
-                        'prompt_tokens': prompt_tokens,
-                        'completion_tokens': completion_tokens
+                        'prompt_tokens': int(prompt_tokens) if prompt_tokens is not None else 0,
+                        'completion_tokens': int(completion_tokens) if completion_tokens is not None else 0
                     },
-                    'model': model
+                    'model': str(model) if model else 'unknown'
                 },
-                'total_tokens': total_tokens,
-                'estimated_cost': estimated_cost,
-                'project_id': project_id,
+                'total_tokens': int(total_tokens) if total_tokens is not None else 0,
+                'estimated_cost': float(estimated_cost) if estimated_cost is not None else 0.0,
+                'project_id': str(project_id) if project_id else 'unknown',
                 # Add credit usage info
-                'credit_used': credit_used.get('amount', 0) if credit_used else 0,
+                'credit_used': float(credit_used.get('amount', 0)) if credit_used else 0.0,
                 'payment_method': 'credits' if credit_used else 'subscription',
-                'was_over_limit': cumulative_cost > subscription_limit if not credit_used else True
+                'was_over_limit': bool(cumulative_cost > subscription_limit if not credit_used else True)
             }
             
             processed_logs.append(log_entry)
@@ -565,12 +578,30 @@ async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: in
     # Check if there are more results
     has_more = len(processed_logs) == items_per_page
     
-    return {
+    result = {
         "logs": processed_logs,
-        "has_more": has_more,
-        "subscription_limit": subscription_limit,
-        "cumulative_cost": cumulative_cost
+        "has_more": bool(has_more),
+        "subscription_limit": float(subscription_limit) if subscription_limit is not None else 0.0,
+        "cumulative_cost": float(cumulative_cost) if cumulative_cost is not None else 0.0
     }
+    
+    # Validate JSON serialization before returning
+    try:
+        json.dumps(result, default=str)
+        logger.debug(f"Usage logs JSON validation passed for user {user_id}")
+    except Exception as json_error:
+        logger.error(f"Usage logs JSON serialization failed for user {user_id}: {json_error}")
+        logger.error(f"Problematic data: {result}")
+        # Return safe fallback
+        return {
+            "logs": [],
+            "has_more": False,
+            "subscription_limit": float(subscription_limit) if subscription_limit is not None else 0.0,
+            "cumulative_cost": 0.0,
+            "error": "Failed to serialize usage data"
+        }
+    
+    return result
 
 
 def calculate_token_cost(prompt_tokens: int, completion_tokens: int, model: str) -> float:
@@ -1515,7 +1546,24 @@ async def get_subscription(
             logger.debug(f"Retrieved usage for user {current_user_id}: {current_usage}")
         except Exception as usage_error:
             logger.error(f"Error calculating usage for user {current_user_id}: {str(usage_error)}")
-            current_usage = 0.0  # Default to 0 if calculation fails
+            # Check if this is a critical JSON serialization error that should be surfaced
+            if "JSON could not be generated" in str(usage_error) or "JSON" in str(usage_error):
+                logger.error(f"Critical JSON serialization error in usage calculation for user {current_user_id}")
+                # Return error status instead of hiding the issue
+                free_tier_id = config.STRIPE_FREE_TIER_ID
+                free_tier_info = SUBSCRIPTION_TIERS.get(free_tier_id)
+                return SubscriptionStatus(
+                    status="usage_error",
+                    plan_name=free_tier_info.get('name', 'free') if free_tier_info else 'free',
+                    price_id=free_tier_id,
+                    minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0,
+                    cost_limit=free_tier_info.get('cost') if free_tier_info else 0,
+                    current_usage=0.0,
+                    credit_balance=0.0,
+                    can_purchase_credits=False
+                )
+            else:
+                current_usage = 0.0  # Default to 0 for other errors
         
         # Get credit balance with error handling
         try:
@@ -2056,16 +2104,27 @@ async def get_usage_logs_endpoint(
         if items_per_page < 1 or items_per_page > 1000:
             raise HTTPException(status_code=400, detail="Items per page must be between 1 and 1000")
         
-        # Get usage logs
+        # Get usage logs with detailed logging
+        logger.debug(f"Fetching usage logs for user {current_user_id}, page {page}, items_per_page {items_per_page}")
         result = await get_usage_logs(client, current_user_id, page, items_per_page)
         
+        # Check if result contains an error
+        if result.get('error'):
+            logger.error(f"Usage logs returned error for user {current_user_id}: {result['error']}")
+            raise HTTPException(status_code=400, detail=f"Failed to retrieve usage logs: {result['error']}")
+        
+        logger.debug(f"Successfully retrieved {len(result.get('logs', []))} usage logs for user {current_user_id}")
         return result
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting usage logs: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error getting usage logs: {str(e)}")
+        logger.exception(f"Error getting usage logs for user {current_user_id}: {str(e)}")
+        # Check if this is a JSON serialization error
+        if "JSON could not be generated" in str(e) or "JSON" in str(e):
+            raise HTTPException(status_code=400, detail=f"Data serialization error: {str(e)}")
+        else:
+            raise HTTPException(status_code=500, detail=f"Error getting usage logs: {str(e)}")
 
 @router.get("/subscription-commitment/{subscription_id}")
 async def get_subscription_commitment(
