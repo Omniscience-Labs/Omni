@@ -1,5 +1,6 @@
 import express from 'express';
 import { Stagehand, type LogLine, type Page } from '@browserbasehq/stagehand';
+import { FileChooser } from 'playwright';
 
 const app = express();
 app.use(express.json());
@@ -226,7 +227,45 @@ class BrowserAutomation {
     async act(req: express.Request, res: express.Response): Promise<void> {
         try {
             if (this.page && this.browserInitialized) {
-                const { action, iframes, variables } = req.body;
+                const { action, iframes, variables, filePath } = req.body;
+
+                let fileChooseHandler: ((fileChooser: FileChooser) => Promise<void>) | null=null;
+                fileChooseHandler = async (fileChooser) => {
+                    if(filePath){
+                        await fileChooser.setFiles(filePath);
+                    } else {
+                        await fileChooser.setFiles([]);
+
+                        await this.page?.evaluate(() => {
+                            const toast = document.createElement('div');
+                            toast.style.cssText = `
+                                position: fixed;
+                                top: 20px;
+                                right: 20px;
+                                background: #ff6b6b;
+                                color: white;
+                                padding: 12px 16px;
+                                border-radius: 6px;
+                                z-index: 10000;
+                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                                font-size: 14px;
+                                max-width: 300px;
+                                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                            `;
+                            toast.textContent = 'File upload cancelled - no file specified';
+                            document.body.appendChild(toast);
+
+                            setTimeout(() => {
+                                if (toast.parentNode) {
+                                    toast.parentNode.removeChild(toast);
+                                }
+                            }, 3000);
+                        });
+                    }
+                }
+
+                this.page.on('filechooser', fileChooseHandler);
+
                 const result = await this.page.act({action, iframes: iframes || true, variables});
                 const page_info = await this.get_stagehand_state();
                 const response: BrowserActionResult = {
