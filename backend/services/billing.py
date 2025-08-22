@@ -110,14 +110,22 @@ def get_model_pricing(model: str) -> tuple[float, float] | None:
     Get pricing for a model. Returns (input_cost_per_million, output_cost_per_million) or None.
     
     Args:
-        model: The model name to get pricing for
+        model: The model name to get pricing for (can be display name or model ID)
         
     Returns:
         Tuple of (input_cost_per_million_tokens, output_cost_per_million_tokens) or None if not found
     """
+    # Try direct lookup first
     if model in HARDCODED_MODEL_PRICES:
         pricing = HARDCODED_MODEL_PRICES[model]
         return pricing["input_cost_per_million_tokens"], pricing["output_cost_per_million_tokens"]
+    
+    from models import model_manager
+    resolved_model = model_manager.resolve_model_id(model)
+    if resolved_model != model and resolved_model in HARDCODED_MODEL_PRICES:
+        pricing = HARDCODED_MODEL_PRICES[resolved_model]
+        return pricing["input_cost_per_million_tokens"], pricing["output_cost_per_million_tokens"]
+    
     return None
 
 
@@ -570,8 +578,9 @@ def calculate_token_cost(prompt_tokens: int, completion_tokens: int, model: str)
         prompt_tokens = int(prompt_tokens) if prompt_tokens is not None else 0
         completion_tokens = int(completion_tokens) if completion_tokens is not None else 0
         
-        # Try to resolve the model name using MODEL_NAME_ALIASES first
-        resolved_model = MODEL_NAME_ALIASES.get(model, model)
+        # Try to resolve the model name using new model manager first
+        from models import model_manager
+        resolved_model = model_manager.resolve_model_id(model)
 
         # Check if we have hardcoded pricing for this model (try both original and resolved)
         hardcoded_pricing = get_model_pricing(model) or get_model_pricing(resolved_model)
@@ -672,7 +681,8 @@ async def can_use_model(client, user_id: str, model_name: str):
         }
 
     allowed_models = await get_allowed_models_for_user(client, user_id)
-    resolved_model = MODEL_NAME_ALIASES.get(model_name, model_name)
+    from models import model_manager
+    resolved_model = model_manager.resolve_model_id(model_name)
     if resolved_model in allowed_models:
         return True, "Model access allowed", allowed_models
     
@@ -1751,6 +1761,9 @@ async def get_available_models(
 ):
     """Get the list of models available to the user based on their subscription tier."""
     try:
+        # Import the new model manager
+        from models import model_manager
+        
         # Get Supabase client
         db = DBConnection()
         client = await db.client
@@ -1759,18 +1772,23 @@ async def get_available_models(
         if config.ENV_MODE == EnvMode.LOCAL:
             logger.debug("Running in local development mode - billing checks are disabled")
             
-            # In local mode, return all models from MODEL_NAME_ALIASES
+            # In local mode, return all enabled models
+            all_models = model_manager.list_available_models(include_disabled=False)
             model_info = []
-            for short_name, full_name in MODEL_NAME_ALIASES.items():
-                # Skip entries where the key is a full name to avoid duplicates
-                # if short_name == full_name or '/' in short_name:
-                #     continue
-                
+            
+            for model_data in all_models:
+                # Create clean model info for frontend
                 model_info.append({
-                    "id": full_name,
-                    "display_name": short_name,
-                    "short_name": short_name,
-                    "requires_subscription": False  # Always false in local dev mode
+                    "id": model_data["id"],
+                    "display_name": model_data["name"],
+                    "short_name": model_data.get("aliases", [model_data["name"]])[0] if model_data.get("aliases") else model_data["name"],
+                    "requires_subscription": False,  # Always false in local dev mode
+                    "input_cost_per_million_tokens": model_data["pricing"]["input_per_million"] if model_data["pricing"] else None,
+                    "output_cost_per_million_tokens": model_data["pricing"]["output_per_million"] if model_data["pricing"] else None,
+                    "context_window": model_data["context_window"],
+                    "capabilities": model_data["capabilities"],
+                    "recommended": model_data["recommended"],
+                    "priority": model_data["priority"]
                 })
             
             return {
@@ -1780,10 +1798,7 @@ async def get_available_models(
             }
         
         
-        # For non-local mode, get list of allowed models for this user
-        allowed_models = await get_allowed_models_for_user(client, current_user_id)
-        free_tier_models = MODEL_ACCESS_TIERS.get('free', [])
-        
+        # For non-local mode, use new model manager system
         # Get subscription info for context
         subscription = await get_user_subscription(current_user_id)
         
@@ -1801,121 +1816,55 @@ async def get_available_models(
             if tier_info:
                 tier_name = tier_info['name']
         
-        # Get all unique full model names from MODEL_NAME_ALIASES
-        all_models = set()
-        model_aliases = {}
+        # Get ALL enabled models for preview UI (don't filter by tier here)
+        all_models = model_manager.list_available_models(tier=None, include_disabled=False)
+        logger.debug(f"Found {len(all_models)} total models available")
         
-        for short_name, full_name in MODEL_NAME_ALIASES.items():
-            # Add all unique full model names
-            all_models.add(full_name)
-            
-            # Only include short names that don't match their full names for aliases
-            if short_name != full_name and not short_name.startswith("openai/") and not short_name.startswith("anthropic/") and not short_name.startswith("openrouter/") and not short_name.startswith("xai/"):
-                if full_name not in model_aliases:
-                    model_aliases[full_name] = short_name
+        # Get allowed models for this specific user (for access checking)
+        allowed_models = await get_allowed_models_for_user(client, current_user_id)
+        logger.debug(f"User {current_user_id} allowed models: {allowed_models}")
+        logger.debug(f"User tier: {tier_name}")
         
-        # Create model info with display names for ALL models
+        # Create clean model info for frontend
         model_info = []
-        for model in all_models:
-            display_name = model_aliases.get(model, model.split('/')[-1] if '/' in model else model)
-            
-            # Check if model requires subscription (not in free tier)
-            requires_sub = model not in free_tier_models
+        for model_data in all_models:
+            model_id = model_data["id"]
             
             # Check if model is available with current subscription
-            is_available = model in allowed_models
+            is_available = model_id in allowed_models
             
-            # Get pricing information - check hardcoded prices first, then litellm
+            # Get pricing with multiplier applied
             pricing_info = {}
-            
-            # Check if we have hardcoded pricing for this model
-            hardcoded_pricing = get_model_pricing(model)
-            if hardcoded_pricing:
-                input_cost_per_million, output_cost_per_million = hardcoded_pricing
+            if model_data["pricing"]:
                 pricing_info = {
-                    "input_cost_per_million_tokens": input_cost_per_million * TOKEN_PRICE_MULTIPLIER,
-                    "output_cost_per_million_tokens": output_cost_per_million * TOKEN_PRICE_MULTIPLIER,
-                    "max_tokens": None
+                    "input_cost_per_million_tokens": model_data["pricing"]["input_per_million"] * TOKEN_PRICE_MULTIPLIER,
+                    "output_cost_per_million_tokens": model_data["pricing"]["output_per_million"] * TOKEN_PRICE_MULTIPLIER,
+                    "max_tokens": model_data["max_output_tokens"]
                 }
             else:
-                try:
-                    # Try to get pricing using cost_per_token function
-                    models_to_try = []
-                    
-                    # Add the original model name
-                    models_to_try.append(model)
-                    
-                    # Try to resolve the model name using MODEL_NAME_ALIASES
-                    if model in MODEL_NAME_ALIASES:
-                        resolved_model = MODEL_NAME_ALIASES[model]
-                        models_to_try.append(resolved_model)
-                        # Also try without provider prefix if it has one
-                        if '/' in resolved_model:
-                            models_to_try.append(resolved_model.split('/', 1)[1])
-                    
-                    # If model is a value in aliases, try to find a matching key
-                    for alias_key, alias_value in MODEL_NAME_ALIASES.items():
-                        if alias_value == model:
-                            models_to_try.append(alias_key)
-                            break
-                    
-                    # Also try without provider prefix for the original model
-                    if '/' in model:
-                        models_to_try.append(model.split('/', 1)[1])
-                    
-                    # Special handling for Google models accessed via Google API
-                    if model.startswith('gemini/'):
-                        google_model_name = model.replace('gemini/', '')
-                        models_to_try.append(google_model_name)
-                    
-                    # Special handling for Google models accessed via Google API
-                    if model.startswith('gemini/'):
-                        google_model_name = model.replace('gemini/', '')
-                        models_to_try.append(google_model_name)
-                    
-                    # Try each model name variation until we find one that works
-                    input_cost_per_token = None
-                    output_cost_per_token = None
-                    
-                    for model_name in models_to_try:
-                        try:
-                            # Use cost_per_token with sample token counts to get the per-token costs
-                            input_cost, output_cost = cost_per_token(model_name, 1000000, 1000000)
-                            if input_cost is not None and output_cost is not None:
-                                input_cost_per_token = input_cost
-                                output_cost_per_token = output_cost
-                                break
-                        except Exception:
-                            continue
-                    
-                    if input_cost_per_token is not None and output_cost_per_token is not None:
-                        pricing_info = {
-                            "input_cost_per_million_tokens": input_cost_per_token * TOKEN_PRICE_MULTIPLIER,
-                            "output_cost_per_million_tokens": output_cost_per_million * TOKEN_PRICE_MULTIPLIER,
-                            "max_tokens": None  # cost_per_token doesn't provide max_tokens info
-                        }
-                    else:
-                        pricing_info = {
-                            "input_cost_per_million_tokens": None,
-                            "output_cost_per_million_tokens": None,
-                            "max_tokens": None
-                        }
-                except Exception as e:
-                    logger.warning(f"Could not get pricing for model {model}: {str(e)}")
-                    pricing_info = {
-                        "input_cost_per_million_tokens": None,
-                        "output_cost_per_million_tokens": None,
-                        "max_tokens": None
-                    }
+                pricing_info = {
+                    "input_cost_per_million_tokens": None,
+                    "output_cost_per_million_tokens": None,
+                    "max_tokens": None
+                }
 
             model_info.append({
-                "id": model,
-                "display_name": display_name,
-                "short_name": model_aliases.get(model),
-                "requires_subscription": requires_sub,
+                "id": model_id,
+                "display_name": model_data["name"],
+                "short_name": model_data.get("aliases", [model_data["name"]])[0] if model_data.get("aliases") else model_data["name"],
+                "requires_subscription": not model_data.get("tier_availability", []) or "free" not in model_data["tier_availability"],
                 "is_available": is_available,
+                "context_window": model_data["context_window"],
+                "capabilities": model_data["capabilities"],
+                "recommended": model_data["recommended"],
+                "priority": model_data["priority"],
                 **pricing_info
             })
+        
+        logger.debug(f"Returning {len(model_info)} models to user {current_user_id} (tier: {tier_name})")
+        if model_info:
+            model_names = [m["display_name"] for m in model_info]
+            logger.debug(f"Model names: {model_names}")
         
         return {
             "models": model_info,

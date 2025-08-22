@@ -111,20 +111,19 @@ async def run_agent_background(
         "agent_config": agent_config,
     })
     
-    effective_model = model_name
-    if model_name == "openai/gpt-5-mini" and agent_config and agent_config.get('model'):
+    from models import model_manager
+    is_tier_default = model_name in ["Kimi K2", "Claude Sonnet 4", "openai/gpt-5-mini"]
+    
+    if is_tier_default and agent_config and agent_config.get('model'):
         agent_model = agent_config['model']
-        from utils.constants import MODEL_NAME_ALIASES
-        resolved_agent_model = MODEL_NAME_ALIASES.get(agent_model, agent_model)
-        effective_model = resolved_agent_model
-        logger.debug(f"Using model from agent config: {agent_model} -> {effective_model} (no user selection)")
+        effective_model = model_manager.resolve_model_id(agent_model)
+        logger.debug(f"Using model from agent config: {agent_model} -> {effective_model} (tier default was {model_name})")
     else:
-        from utils.constants import MODEL_NAME_ALIASES
-        effective_model = MODEL_NAME_ALIASES.get(model_name, model_name)
-        if model_name != "openai/gpt-5-mini":
+        effective_model = model_manager.resolve_model_id(model_name)
+        if not is_tier_default:
             logger.debug(f"Using user-selected model: {model_name} -> {effective_model}")
         else:
-            logger.debug(f"Using default model: {effective_model}")
+            logger.debug(f"Using tier default model: {model_name} -> {effective_model}")
     
     logger.debug(f"🚀 Using model: {effective_model} (thinking: {enable_thinking}, reasoning_effort: {reasoning_effort})")
     if agent_config:

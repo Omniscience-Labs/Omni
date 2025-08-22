@@ -323,8 +323,9 @@ async def start_agent(
     model_name = body.model_name
     logger.debug(f"Original model_name from request: {model_name}")
 
-    # Log the model name after alias resolution
-    resolved_model = MODEL_NAME_ALIASES.get(model_name, model_name)
+    # Log the model name after alias resolution using new model manager
+    from models import model_manager
+    resolved_model = model_manager.resolve_model_id(model_name)
     logger.debug(f"Resolved model name: {resolved_model}")
 
     # Update model_name to use the resolved version
@@ -974,8 +975,9 @@ async def initiate_agent_with_files(
         model_name = "openai/gpt-5-mini"
         logger.debug(f"Using default model: {model_name}")
 
-    # Log the model name after alias resolution
-    resolved_model = MODEL_NAME_ALIASES.get(model_name, model_name)
+    from models import model_manager
+    # Log the model name after alias resolution using new model manager
+    resolved_model = model_manager.resolve_model_id(model_name)
     logger.debug(f"Resolved model name: {resolved_model}")
 
     # Update model_name to use the resolved version
@@ -1935,15 +1937,19 @@ async def create_agent(
             version_service = await _get_version_service()
             from agent.suna_config import SUNA_CONFIG
             from agent.config_helper import _get_default_agentpress_tools
+            from models import model_manager
+            
             system_prompt = SUNA_CONFIG["system_prompt"]
             
-            # Use default tools if none specified, ensuring builder tools are included
             agentpress_tools = agent_data.agentpress_tools if agent_data.agentpress_tools else _get_default_agentpress_tools()
+            
+            default_model = await model_manager.get_default_model_for_user(client, user_id)
             
             version = await version_service.create_version(
                 agent_id=agent['agent_id'],
                 user_id=user_id,
                 system_prompt=system_prompt,
+                model=default_model,
                 configured_mcps=agent_data.configured_mcps or [],
                 custom_mcps=agent_data.custom_mcps or [],
                 agentpress_tools=agentpress_tools,

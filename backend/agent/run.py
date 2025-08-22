@@ -515,6 +515,7 @@ class AgentRunner:
         return await mcp_manager.register_mcp_tools(self.config.agent_config)
     
     def get_max_tokens(self) -> Optional[int]:
+        logger.debug(f"get_max_tokens called with: '{self.config.model_name}' (type: {type(self.config.model_name)})")
         if "sonnet" in self.config.model_name.lower():
             return 8192
         elif "gpt-4" in self.config.model_name.lower():
@@ -535,7 +536,7 @@ class AgentRunner:
             self.config.thread_id, 
             mcp_wrapper_instance, self.client
         )
-
+        logger.debug(f"model_name received: {self.config.model_name}")
         iteration_count = 0
         continue_execution = True
 
@@ -572,7 +573,7 @@ class AgentRunner:
 
             temporary_message = await message_manager.build_temporary_message()
             max_tokens = self.get_max_tokens()
-            
+            logger.debug(f"max_tokens: {max_tokens}")
             generation = self.config.trace.generation(name="thread_manager.run_thread") if self.config.trace else None
             try:
                 response = await self.thread_manager.run_thread(
@@ -720,13 +721,15 @@ async def run_agent(
     trace: Optional[StatefulTraceClient] = None
 ):
     effective_model = model_name
-    if model_name == "openai/gpt-5-mini" and agent_config and agent_config.get('model'):
+    is_tier_default = model_name in ["Kimi K2", "Claude Sonnet 4", "openai/gpt-5-mini"]
+    
+    if is_tier_default and agent_config and agent_config.get('model'):
         effective_model = agent_config['model']
-        logger.debug(f"Using model from agent config: {effective_model} (no user selection)")
-    elif model_name != "openai/gpt-5-mini":
+        logger.debug(f"Using model from agent config: {effective_model} (tier default was {model_name})")
+    elif not is_tier_default:
         logger.debug(f"Using user-selected model: {effective_model}")
     else:
-        logger.debug(f"Using default model: {effective_model}")
+        logger.debug(f"Using tier default model: {effective_model}")
     
     config = AgentConfig(
         thread_id=thread_id,
