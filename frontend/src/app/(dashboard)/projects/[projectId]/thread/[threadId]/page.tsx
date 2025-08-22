@@ -131,7 +131,7 @@ export default function ThreadPage({
     setBillingData,
     checkBillingLimits,
     billingStatusQuery,
-  } = useBilling(project?.account_id, agentStatus, initialLoadCompleted);
+  } = useBilling(null, agentStatus, initialLoadCompleted);
 
   // Real-time project updates (for sandbox creation)
   useProjectRealtime(projectId);
@@ -271,6 +271,7 @@ export default function ThreadPage({
     },
     threadId,
     setMessages,
+    threadAgentData?.agent?.agent_id,
   );
 
   const handleSubmitMessage = useCallback(
@@ -326,7 +327,7 @@ export default function ThreadPage({
               currentUsage: error.detail.currentUsage as number | undefined,
               limit: error.detail.limit as number | undefined,
               message: error.detail.message || 'Monthly usage limit reached. Please upgrade.',
-              accountId: project?.account_id || null
+              accountId: null
             });
             setShowBillingAlert(true);
 

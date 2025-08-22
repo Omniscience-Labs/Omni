@@ -20,10 +20,8 @@ interface AgentHeaderProps {
     description?: string;
     profile_image_url?: string;
   };
-  activeTab: string;
   isViewingOldVersion: boolean;
   onFieldChange: (field: string, value: any) => void;
-  onTabChange: (value: string) => void;
   onExport?: () => void;
   isExporting?: boolean;
   agentMetadata?: {
@@ -50,10 +48,8 @@ interface AgentHeaderProps {
 export function AgentHeader({
   agentId,
   displayData,
-  activeTab,
   isViewingOldVersion,
   onFieldChange,
-  onTabChange,
   onExport,
   isExporting = false,
   agentMetadata,
@@ -227,26 +223,6 @@ export function AgentHeader({
             </TooltipProvider>
           )}
         </div>
-        {!isSunaAgent && (
-          <Tabs value={activeTab} onValueChange={onTabChange}>
-            <TabsList className="grid grid-cols-2 h-9 w-[280px]">
-              <TabsTrigger 
-                value="agent-builder" 
-                className="flex items-center gap-1.5 text-xs px-3"
-              >
-                <Sparkles className="h-3 w-3" />
-                <span className="hidden md:inline">Prompt to build</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="configuration" 
-                className="flex items-center gap-1.5 text-xs px-3"
-              >
-                <Settings className="h-3 w-3" />
-                <span className="hidden md:inline">Manual config</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        )}
       </div>
     </header>
     <ProfilePictureDialog

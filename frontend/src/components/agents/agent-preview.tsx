@@ -150,6 +150,7 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
     },
     threadId,
     setMessages,
+    agent.agent_id,
   );
 
   useEffect(() => {

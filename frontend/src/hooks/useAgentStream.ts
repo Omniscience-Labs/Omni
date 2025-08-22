@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   streamAgent,
   getAgentStatus,
@@ -13,6 +14,10 @@ import {
   ParsedMetadata,
 } from '@/components/thread/types';
 import { safeJsonParse } from '@/components/thread/utils';
+import { agentKeys } from '@/hooks/react-query/agents/keys';
+import { composioKeys } from '@/hooks/react-query/composio/keys';
+import { workflowKeys } from '@/hooks/react-query/agents/workflow-keys';
+import { knowledgeBaseKeys } from '@/hooks/react-query/knowledge-base/keys';
 
 interface ApiMessageType {
   message_id?: string;
@@ -77,14 +82,17 @@ export function useAgentStream(
   callbacks: AgentStreamCallbacks,
   threadId: string,
   setMessages: (messages: UnifiedMessage[]) => void,
+  agentId?: string, // Optional agent ID for invalidation
 ): UseAgentStreamResult {
-  const [agentRunId, setAgentRunId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  
   const [status, setStatus] = useState<string>('idle');
   const [textContent, setTextContent] = useState<
     { content: string; sequence?: number }[]
   >([]);
   const [toolCall, setToolCall] = useState<ParsedContent | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [agentRunId, setAgentRunId] = useState<string | null>(null);
 
   const streamCleanupRef = useRef<(() => void) | null>(null);
   const isMountedRef = useRef<boolean>(true);
@@ -197,9 +205,25 @@ export function useAgentStream(
       setAgentRunId(null);
       currentRunIdRef.current = null;
       
-      // Message refetch disabled - optimistic messages will handle updates
+      // Invalidate relevant queries to refresh data after agent run completes
+      if (agentId) {
+        queryClient.invalidateQueries({ queryKey: agentKeys.detail(agentId) });
+        queryClient.invalidateQueries({ queryKey: agentKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: ['agent-tools', agentId] });
+        
+        queryClient.invalidateQueries({ queryKey: ['custom-mcp-tools', agentId] });
+        queryClient.invalidateQueries({ queryKey: composioKeys.mcpServers() });
+        
+        queryClient.invalidateQueries({ queryKey: composioKeys.profiles.all() });
+        queryClient.invalidateQueries({ queryKey: composioKeys.profiles.credentials() });
+        
+        queryClient.invalidateQueries({ queryKey: ['triggers', agentId] });
+        
+        queryClient.invalidateQueries({ queryKey: workflowKeys.agent(agentId) });
+        
+        queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.agent(agentId) });
+      }
 
-      // If the run was stopped or completed, try to get final status to update nonRunning set (keep this)
       if (
         runId &&
         (finalStatus === 'completed' ||
@@ -210,7 +234,7 @@ export function useAgentStream(
         });
       }
     },
-    [agentRunId, updateStatus],
+    [agentRunId, updateStatus, agentId, queryClient],
   );
 
   // --- Stream Callback Handlers ---

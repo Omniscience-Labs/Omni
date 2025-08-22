@@ -54,8 +54,6 @@ class AgentConfig:
     enable_context_manager: bool = True
     agent_config: Optional[dict] = None
     trace: Optional[StatefulTraceClient] = None
-    is_agent_builder: Optional[bool] = False
-    target_agent_id: Optional[str] = None
 
 
 class ToolManager:
@@ -248,7 +246,7 @@ class MCPManager:
 class PromptManager:
     @staticmethod
     async def build_system_prompt(model_name: str, agent_config: Optional[dict], 
-                                  is_agent_builder: bool, thread_id: str, 
+                                  thread_id: str, 
                                   mcp_wrapper_instance: Optional[MCPToolWrapper],
                                   client=None) -> dict:
         
@@ -260,10 +258,20 @@ class PromptManager:
                 sample_response = file.read()
             default_system_content = default_system_content + "\n\n <sample_assistant_response>" + sample_response + "</sample_assistant_response>"
         
-        if is_agent_builder:
-            system_content = get_agent_builder_prompt()
-        elif agent_config and agent_config.get('system_prompt'):
-            system_content = agent_config['system_prompt'].strip()
+        # Check if agent has builder tools enabled - use agent builder prompt
+        if agent_config:
+            agentpress_tools = agent_config.get('agentpress_tools', {})
+            has_builder_tools = any(
+                agentpress_tools.get(tool, False) 
+                for tool in ['agent_config_tool', 'mcp_search_tool', 'credential_profile_tool', 'workflow_tool', 'trigger_tool']
+            )
+            
+            if has_builder_tools:
+                system_content = get_agent_builder_prompt()
+            elif agent_config.get('system_prompt'):
+                system_content = agent_config['system_prompt'].strip()
+            else:
+                system_content = default_system_content
         else:
             system_content = default_system_content
         
@@ -361,80 +369,45 @@ IMPORTANT: Always reference and utilize the knowledge base information above whe
 
 
 class MessageManager:
-    def __init__(self, client, thread_id: str, model_name: str, trace: Optional[StatefulTraceClient]):
+    def __init__(self, client, thread_id: str, model_name: str, trace: Optional[StatefulTraceClient], 
+                 agent_config: Optional[dict] = None, enable_context_manager: bool = False):
         self.client = client
         self.thread_id = thread_id
         self.model_name = model_name
         self.trace = trace
+        self.agent_config = agent_config
+        self.enable_context_manager = enable_context_manager
     
     async def build_temporary_message(self) -> Optional[dict]:
-        temp_message_content_list = []
-
-        latest_browser_state_msg = await self.client.table('messages').select('*').eq('thread_id', self.thread_id).eq('type', 'browser_state').order('created_at', desc=True).limit(1).execute()
-        if latest_browser_state_msg.data and len(latest_browser_state_msg.data) > 0:
-            try:
-                browser_content = latest_browser_state_msg.data[0]["content"]
-                if isinstance(browser_content, str):
-                    browser_content = json.loads(browser_content)
-                screenshot_base64 = browser_content.get("screenshot_base64")
-                screenshot_url = browser_content.get("image_url")
-                
-                browser_state_text = browser_content.copy()
-                browser_state_text.pop('screenshot_base64', None)
-                browser_state_text.pop('image_url', None)
-
-                if browser_state_text:
-                    temp_message_content_list.append({
-                        "type": "text",
-                        "text": f"The following is the current state of the browser:\n{json.dumps(browser_state_text, indent=2)}"
-                    })
-                
-                if 'gemini' in self.model_name.lower() or 'anthropic' in self.model_name.lower() or 'openai' in self.model_name.lower():
-                    if screenshot_url:
-                        temp_message_content_list.append({
-                            "type": "image_url",
-                            "image_url": {
-                                "url": screenshot_url,
-                                "format": "image/png"
-                            }
-                        })
-                    elif screenshot_base64:
-                        temp_message_content_list.append({
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{screenshot_base64}",
-                            }
-                        })
-
-            except Exception as e:
-                logger.error(f"Error parsing browser state: {e}")
-
-        latest_image_context_msg = await self.client.table('messages').select('*').eq('thread_id', self.thread_id).eq('type', 'image_context').order('created_at', desc=True).limit(1).execute()
-        if latest_image_context_msg.data and len(latest_image_context_msg.data) > 0:
-            try:
-                image_context_content = latest_image_context_msg.data[0]["content"] if isinstance(latest_image_context_msg.data[0]["content"], dict) else json.loads(latest_image_context_msg.data[0]["content"])
-                base64_image = image_context_content.get("base64")
-                mime_type = image_context_content.get("mime_type")
-                file_path = image_context_content.get("file_path", "unknown file")
-
-                if base64_image and mime_type:
-                    temp_message_content_list.append({
-                        "type": "text",
-                        "text": f"Here is the image you requested to see: '{file_path}'"
-                    })
-                    temp_message_content_list.append({
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{mime_type};base64,{base64_image}",
-                        }
-                    })
-
-                await self.client.table('messages').delete().eq('message_id', latest_image_context_msg.data[0]["message_id"]).execute()
-            except Exception as e:
-                logger.error(f"Error parsing image context: {e}")
-
-        if temp_message_content_list:
-            return {"role": "user", "content": temp_message_content_list}
+        """Build temporary message based on configuration and context."""
+        system_message = None
+        
+        # Add agent builder system prompt if agent has builder tools enabled
+        if self.agent_config:
+            agentpress_tools = self.agent_config.get('agentpress_tools', {})
+            has_builder_tools = any(
+                agentpress_tools.get(tool, False) 
+                for tool in ['agent_config_tool', 'mcp_search_tool', 'credential_profile_tool', 'workflow_tool', 'trigger_tool']
+            )
+            
+            if has_builder_tools:
+                from agent.agent_builder_prompt import AGENT_BUILDER_SYSTEM_PROMPT
+                system_message = AGENT_BUILDER_SYSTEM_PROMPT
+        
+        # Add agent config system prompt
+        if not system_message and self.agent_config and 'system_prompt' in self.agent_config:
+            system_prompt = self.agent_config['system_prompt']
+            if system_prompt:
+                system_message = system_prompt
+        
+        # Build and return the temporary message if we have content
+        if system_message:
+            return {
+                "temporary": True,
+                "role": "system",
+                "content": system_message
+            }
+        
         return None
 
 
@@ -448,8 +421,6 @@ class AgentRunner:
         
         self.thread_manager = ThreadManager(
             trace=self.config.trace, 
-            is_agent_builder=self.config.is_agent_builder or False, 
-            target_agent_id=self.config.target_agent_id, 
             agent_config=self.config.agent_config
         )
         
@@ -473,12 +444,10 @@ class AgentRunner:
     async def setup_tools(self):
         tool_manager = ToolManager(self.thread_manager, self.config.project_id, self.config.thread_id)
         
-        # Determine agent ID for agent builder tools
+        # Use agent ID from agent config if available (for any agent with builder tools enabled)
         agent_id = None
-        if self.config.agent_config and self.config.agent_config.get('is_suna_default', False):
-            agent_id = self.config.agent_config['agent_id']
-        elif self.config.is_agent_builder and self.config.target_agent_id:
-            agent_id = self.config.target_agent_id
+        if self.config.agent_config:
+            agent_id = self.config.agent_config.get('agent_id')
         
         # Convert agent config to disabled tools list
         disabled_tools = self._get_disabled_tools_from_config()
@@ -563,7 +532,7 @@ class AgentRunner:
         
         system_message = await PromptManager.build_system_prompt(
             self.config.model_name, self.config.agent_config, 
-            self.config.is_agent_builder, self.config.thread_id, 
+            self.config.thread_id, 
             mcp_wrapper_instance, self.client
         )
 
@@ -578,7 +547,8 @@ class AgentRunner:
             if self.config.trace:
                 self.config.trace.update(input=data['content'])
 
-        message_manager = MessageManager(self.client, self.config.thread_id, self.config.model_name, self.config.trace)
+        message_manager = MessageManager(self.client, self.config.thread_id, self.config.model_name, self.config.trace, 
+                                         agent_config=self.config.agent_config, enable_context_manager=self.config.enable_context_manager)
 
         while continue_execution and iteration_count < self.config.max_iterations:
             iteration_count += 1
@@ -747,9 +717,7 @@ async def run_agent(
     reasoning_effort: Optional[str] = 'low',
     enable_context_manager: bool = True,
     agent_config: Optional[dict] = None,    
-    trace: Optional[StatefulTraceClient] = None,
-    is_agent_builder: Optional[bool] = False,
-    target_agent_id: Optional[str] = None
+    trace: Optional[StatefulTraceClient] = None
 ):
     effective_model = model_name
     if model_name == "openai/gpt-5-mini" and agent_config and agent_config.get('model'):
@@ -771,9 +739,7 @@ async def run_agent(
         reasoning_effort=reasoning_effort,
         enable_context_manager=enable_context_manager,
         agent_config=agent_config,
-        trace=trace,
-        is_agent_builder=is_agent_builder,
-        target_agent_id=target_agent_id
+        trace=trace
     )
     
     runner = AgentRunner(config)

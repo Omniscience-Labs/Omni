@@ -407,8 +407,6 @@ class AgentExecutor:
             stream=False,
             enable_context_manager=True,
             agent_config=agent_config,
-            is_agent_builder=False,
-            target_agent_id=None,
             request_id=structlog.contextvars.get_contextvars().get('request_id'),
         )
         
@@ -688,8 +686,6 @@ class WorkflowExecutor:
             stream=False,
             enable_context_manager=True,
             agent_config=agent_config,
-            is_agent_builder=False,
-            target_agent_id=None,
             request_id=None,
         )
         

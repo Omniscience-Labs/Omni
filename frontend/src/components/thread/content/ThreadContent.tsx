@@ -381,17 +381,6 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
     // Helper function to get agent info robustly
     const getAgentInfo = useCallback(() => {
-        // First check thread metadata for is_agent_builder flag
-        if (threadMetadata?.is_agent_builder) {
-            return {
-                name: 'Agent Builder',
-                avatar: (
-                    <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
-                        <span className="text-lg">🤖</span>
-                    </div>
-                )
-            };
-        }
 
         // Check if this is a Suna default agent from metadata
         const isSunaDefaultAgent = agentMetadata?.is_suna_default || false;
@@ -400,17 +389,6 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
         const recentAssistantWithAgent = [...displayMessages].reverse().find(msg =>
             msg.type === 'assistant' && msg.agents?.name
         );
-
-        if (recentAssistantWithAgent?.agents?.name === 'Agent Builder') {
-            return {
-                name: 'Agent Builder',
-                avatar: (
-                    <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
-                        <span className="text-lg">🤖</span>
-                    </div>
-                )
-            };
-        }
 
         if (agentData && !isSunaDefaultAgent) {
             const profileUrl = agentData.profile_image_url;
