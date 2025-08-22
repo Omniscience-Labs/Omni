@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from utils.logger import logger
 from utils.auth_utils import get_current_user_id_from_jwt
@@ -27,10 +27,22 @@ router = APIRouter()
 db: Optional[DBConnection] = None
 
 
+class SharingPreferences(BaseModel):
+    include_system_prompt: bool = True
+    include_model_settings: bool = True
+    include_default_tools: bool = True
+    include_integrations: bool = True
+    include_knowledge_bases: bool = True
+    include_playbooks: bool = True
+    include_triggers: bool = True
+
+
 class CreateTemplateRequest(BaseModel):
     agent_id: str
     make_public: bool = False
     tags: Optional[List[str]] = None
+    sharing_preferences: Optional[SharingPreferences] = Field(default_factory=SharingPreferences)
+    
 
 
 class InstallTemplateRequest(BaseModel):
@@ -43,6 +55,8 @@ class InstallTemplateRequest(BaseModel):
 
 class PublishTemplateRequest(BaseModel):
     tags: Optional[List[str]] = None
+    sharing_preferences: Optional[SharingPreferences] = Field(default_factory=SharingPreferences)
+    
 
 
 class TemplateResponse(BaseModel):
@@ -65,6 +79,7 @@ class TemplateResponse(BaseModel):
     profile_image_url: Optional[str] = None
     metadata: Dict[str, Any]
     creator_name: Optional[str] = None
+    sharing_preferences: Optional[Dict[str, bool]] = None
 
 
 class InstallationResponse(BaseModel):
@@ -190,7 +205,8 @@ async def create_template_from_agent(
             agent_id=request.agent_id,
             creator_id=user_id,
             make_public=request.make_public,
-            tags=request.tags
+            tags=request.tags,
+            sharing_preferences=request.sharing_preferences.dict() if request.sharing_preferences else None
         )
         
         logger.debug(f"Successfully created template {template_id} from agent {request.agent_id}")
@@ -233,7 +249,11 @@ async def publish_template(
         
         template_service = get_template_service(db)
         
-        success = await template_service.publish_template(template_id, user_id)
+        success = await template_service.publish_template(
+            template_id, 
+            user_id,
+            sharing_preferences=request.sharing_preferences.dict() if request.sharing_preferences else None
+        )
         
         if not success:
             logger.warning(f"Failed to publish template {template_id} for user {user_id}")

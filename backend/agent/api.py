@@ -1336,7 +1336,7 @@ async def get_agents(
         # Calculate offset
         offset = (page - 1) * limit
         
-        # Start building the query
+        # Start building the query - simple approach
         query = client.table('agents').select('*', count='exact').eq("account_id", user_id)
         
         # Apply search filter
@@ -1347,9 +1347,6 @@ async def get_agents(
         # Apply filters
         if has_default is not None:
             query = query.eq("is_default", has_default)
-        
-        # For MCP and AgentPress tools filtering, we'll need to do post-processing
-        # since Supabase doesn't have great JSON array/object filtering
         
         # Apply sorting
         if sort_by == "name":
@@ -1381,6 +1378,9 @@ async def get_agents(
         
         # Post-process for tool filtering and tools_count sorting
         agents_data = agents_result.data
+        
+        # For MCP and AgentPress tools filtering, we'll need to do post-processing
+        # since Supabase doesn't have great JSON array/object filtering
         
         # First, fetch version data for all agents to ensure we have correct tool info
         # Do this in a single batched query instead of per-agent service calls
@@ -1422,30 +1422,47 @@ async def get_agents(
                 if isinstance(tools, str):
                     tools_filter = [tool.strip() for tool in tools.split(',') if tool.strip()]
                 elif isinstance(tools, dict):
-                    # If tools is a dict, try to extract meaningful tool names
-                    logger.debug(f"Received tools parameter as dict, attempting to extract tool names: {tools}")
-                    tools_filter = []
+                    # If tools is a dict, check if it's empty or has no enabled tools
+                    has_any_tools = False
+                    if tools.get('mcp') and len(tools['mcp']) > 0:
+                        has_any_tools = True
+                    if tools.get('custom_mcp') and len(tools['custom_mcp']) > 0:
+                        has_any_tools = True
+                    if tools.get('agentpress') and isinstance(tools['agentpress'], dict):
+                        if any(enabled for enabled in tools['agentpress'].values()):
+                            has_any_tools = True
                     
-                    # Handle different dict structures
-                    if 'agentpress' in tools and isinstance(tools['agentpress'], dict):
-                        # Extract enabled agentpress tools
-                        for tool_name, enabled in tools['agentpress'].items():
-                            is_enabled = enabled if isinstance(enabled, bool) else enabled.get('enabled', False) if isinstance(enabled, dict) else False
-                            if is_enabled:
-                                tools_filter.append(tool_name)
-                    
-                    # Handle MCP tools if present
-                    if 'mcp' in tools and isinstance(tools['mcp'], list):
-                        for mcp_tool in tools['mcp']:
-                            if isinstance(mcp_tool, dict) and mcp_tool.get('name'):
-                                tools_filter.append(mcp_tool['name'])
-                    
-                    if 'custom_mcp' in tools and isinstance(tools['custom_mcp'], list):
-                        for mcp_tool in tools['custom_mcp']:
-                            if isinstance(mcp_tool, dict) and mcp_tool.get('name'):
-                                tools_filter.append(mcp_tool['name'])
-                                
-                    logger.debug(f"Extracted {len(tools_filter)} tools from dict: {tools_filter}")
+                    # If no tools are actually enabled, don't filter by tools at all
+                    if not has_any_tools:
+                        logger.info(f"Tools dict contains no enabled tools, skipping tools filter: {tools}")
+                        tools_filter = []
+                    else:
+                        # If tools is a dict with enabled tools, extract tool names from the structure
+                        logger.info(f"Converting tools dict to filter list: {tools}")
+                        tools_filter = []
+                        
+                        # Extract MCP tools
+                        if 'mcp' in tools and isinstance(tools['mcp'], list):
+                            for mcp_name in tools['mcp']:
+                                if mcp_name:  # Only add non-empty names
+                                    tools_filter.append(f"mcp:{mcp_name}")
+                        
+                        # Extract AgentPress tools (enabled ones)
+                        if 'agentpress' in tools and isinstance(tools['agentpress'], dict):
+                            agentpress_tools = tools['agentpress']
+                            for tool_name, enabled in agentpress_tools.items():
+                                if enabled:
+                                    tools_filter.append(f"agentpress:{tool_name}")
+                        
+                        # Extract custom MCP tools
+                        if 'custom_mcp' in tools and isinstance(tools['custom_mcp'], list):
+                            for custom_mcp_name in tools['custom_mcp']:
+                                if custom_mcp_name:  # Only add non-empty names
+                                    tools_filter.append(f"custom_mcp:{custom_mcp_name}")
+                        
+                        # Remove duplicates and clean up
+                        tools_filter = [str(tool).strip() for tool in tools_filter if str(tool).strip()]
+                        logger.info(f"Extracted tools filter: {tools_filter}")
                 elif isinstance(tools, list):
                     # If tools is a list, use it directly
                     tools_filter = [str(tool).strip() for tool in tools if str(tool).strip()]
@@ -1460,6 +1477,7 @@ async def get_agents(
                 agent_config = extract_agent_config(agent, version_data)
                 
                 configured_mcps = agent_config['configured_mcps']
+                custom_mcps = agent_config['custom_mcps']
                 agentpress_tools = agent_config['agentpress_tools']
                 
                 # Check MCP tools filter
@@ -1484,6 +1502,11 @@ async def get_agents(
                     for mcp in configured_mcps:
                         if isinstance(mcp, dict) and 'name' in mcp:
                             agent_tools.add(f"mcp:{mcp['name']}")
+                    
+                    # Add custom MCP tools
+                    for custom_mcp in custom_mcps:
+                        if isinstance(custom_mcp, dict) and 'name' in custom_mcp:
+                            agent_tools.add(f"custom_mcp:{custom_mcp['name']}")
                     
                     # Add enabled AgentPress tools
                     for tool_name, tool_data in agentpress_tools.items():
@@ -1521,12 +1544,13 @@ async def get_agents(
             
             agents_data.sort(key=get_tools_count, reverse=(sort_order == "desc"))
         
-        # Apply pagination to filtered results if we did post-processing
+        # Apply additional pagination only if we did post-processing filters
         if has_mcp_tools is not None or has_agentpress_tools is not None or tools or sort_by == "tools_count":
+            # We did post-processing, so need to re-paginate
             total_count = len(agents_data)
             agents_data = agents_data[offset:offset + limit]
         
-        # Format the response
+        # Format the response  
         agent_list = []
         for agent in agents_data:
             current_version = None
@@ -1623,6 +1647,7 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
         
         # Check ownership - only owner can access non-public agents
         if agent_data['account_id'] != user_id and not agent_data.get('is_public', False):
+            logger.warning(f"Access denied for agent {agent_id}: user={user_id}, agent_account={agent_data['account_id']}, is_public={agent_data.get('is_public', False)}")
             raise HTTPException(status_code=403, detail="Access denied")
         
         # Use versioning system to get current version data

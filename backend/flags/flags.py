@@ -177,5 +177,8 @@ credentials_api = True
 # Suna default agent feature flag
 suna_default_agent = True
 
+# Agent triggers feature flag
+agent_triggers = True
+
 
 

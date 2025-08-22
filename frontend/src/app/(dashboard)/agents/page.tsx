@@ -18,7 +18,8 @@ import { AgentsPageHeader } from '@/components/agents/custom-agents-page/header'
 import { TabsNavigation } from '@/components/agents/custom-agents-page/tabs-navigation';
 import { MyAgentsTab } from '@/components/agents/custom-agents-page/my-agents-tab';
 import { MarketplaceTab } from '@/components/agents/custom-agents-page/marketplace-tab';
-import { PublishDialog } from '@/components/agents/custom-agents-page/publish-dialog';
+import { EnhancedPublishDialog } from '@/components/agents/custom-agents-page/enhanced-publish-dialog';
+import type { SharingPreferences } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { LoadingSkeleton } from '@/components/agents/custom-agents-page/loading-skeleton';
 import { NewAgentDialog } from '@/components/agents/new-agent-dialog';
 import { MarketplaceAgentPreviewDialog } from '@/components/agents/marketplace-agent-preview-dialog';
@@ -494,7 +495,7 @@ export default function AgentsPage() {
     });
   };
 
-  const handlePublish = async () => {
+  const handlePublish = async (preferences: SharingPreferences) => {
     if (!publishDialog) return;
 
     try {
@@ -505,7 +506,16 @@ export default function AgentsPage() {
         
         const result = await createTemplateMutation.mutateAsync({
           agent_id: publishDialog.templateId,
-          make_public: true
+          make_public: true,
+          sharing_preferences: {
+            include_system_prompt: preferences.include_system_prompt,
+            include_model_settings: preferences.include_model_settings,
+            include_default_tools: preferences.include_default_tools,
+            include_integrations: preferences.include_integrations,
+            include_knowledge_bases: preferences.include_knowledge_bases,
+            include_playbooks: preferences.include_playbooks,
+            include_triggers: preferences.include_triggers
+          }
         });
         
         toast.success(`${publishDialog.templateName} has been published to the marketplace`);
@@ -513,7 +523,16 @@ export default function AgentsPage() {
         setTemplatesActioningId(publishDialog.templateId);
         
         await publishMutation.mutateAsync({
-          template_id: publishDialog.templateId
+          template_id: publishDialog.templateId,
+          sharing_preferences: {
+            include_system_prompt: preferences.include_system_prompt,
+            include_model_settings: preferences.include_model_settings,
+            include_default_tools: preferences.include_default_tools,
+            include_integrations: preferences.include_integrations,
+            include_knowledge_bases: preferences.include_knowledge_bases,
+            include_playbooks: preferences.include_playbooks,
+            include_triggers: preferences.include_triggers
+          }
         });
         
         toast.success(`${publishDialog.templateName} has been published to the marketplace`);
@@ -625,7 +644,7 @@ export default function AgentsPage() {
           )}
         </div>
 
-        <PublishDialog
+        <EnhancedPublishDialog
           publishDialog={publishDialog}
           templatesActioningId={templatesActioningId}
           onClose={() => setPublishDialog(null)}

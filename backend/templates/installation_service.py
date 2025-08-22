@@ -361,8 +361,11 @@ class InstallationService:
             'profile_image_url': template.profile_image_url,
             'metadata': {
                 **template.metadata,
-                'created_from_template': template.template_id,
-                'template_name': template.name
+                'marketplace_install': {
+                    'template_id': template.template_id,
+                    'template_name': template.name,
+                    'installed_at': datetime.now(timezone.utc).isoformat()
+                }
             },
             'created_at': datetime.now(timezone.utc).isoformat(),
             'updated_at': datetime.now(timezone.utc).isoformat()
@@ -372,6 +375,7 @@ class InstallationService:
         
         logger.debug(f"Created agent {agent_id} from template {template.template_id}")
         return agent_id
+
     
     async def _create_initial_version(
         self,
