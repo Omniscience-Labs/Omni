@@ -254,7 +254,7 @@ export function FileAttachment({
 
     const handleDownload = async (e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent triggering the main click handler
-        
+
         try {
             if (!sandboxId || !session?.access_token) {
                 // Fallback: open file URL in new tab
@@ -451,8 +451,9 @@ export function FileAttachment({
                 className={cn(
                     "group relative w-full",
                     "rounded-xl border bg-card overflow-hidden pt-10", // Consistent card styling with header space
-                    isPdf ? "!min-h-[200px] sm:min-h-0 sm:h-[400px] max-h-[500px] sm:!min-w-[300px]" : 
-                    standalone ? "min-h-[300px] h-auto" : "h-[300px]", // Better height handling for standalone
+                    isPdf ? "!min-h-[200px] sm:min-h-0 sm:h-[400px] max-h-[500px] sm:!min-w-[300px]" :
+                        isHtmlOrMd ? "!min-h-[200px] sm:min-h-0 sm:h-[400px] max-h-[600px] sm:!min-w-[300px]" :
+                            standalone ? "min-h-[300px] h-auto" : "h-[300px]", // Better height handling for standalone
                     className
                 )}
                 style={{
@@ -469,8 +470,8 @@ export function FileAttachment({
                     style={{
                         minWidth: 0,
                         width: '100%',
-                        containIntrinsicSize: isPdf ? '100% 500px' : undefined,
-                        contain: isPdf ? 'layout size' : undefined
+                        containIntrinsicSize: (isPdf || isHtmlOrMd) ? '100% 500px' : undefined,
+                        contain: (isPdf || isHtmlOrMd) ? 'layout size' : undefined
                     }}
                 >
                     {/* Render PDF or text-based previews */}
