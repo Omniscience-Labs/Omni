@@ -419,6 +419,14 @@ class AgentRunner:
             logger.info(f"No sandbox found for project {self.config.project_id}; will create lazily when needed")
     
     async def setup_tools(self):
+        # Enrich agent config with LlamaCloud knowledge bases if agent exists
+        if self.config.agent_config and self.config.agent_config.get('agent_id'):
+            try:
+                from agent.config_helper import enrich_agent_config_with_llamacloud_kb
+                self.config.agent_config = await enrich_agent_config_with_llamacloud_kb(self.config.agent_config)
+            except Exception as e:
+                logger.error(f"Failed to enrich agent config with LlamaCloud knowledge bases: {e}")
+        
         tool_manager = ToolManager(self.thread_manager, self.config.project_id, self.config.thread_id)
         
         if self.config.agent_config and (self.config.agent_config.get('is_suna_default', False) or self.config.agent_config.get('is_omni_default', False)):
@@ -446,6 +454,21 @@ class AgentRunner:
             if not isinstance(enabled_tools, dict):
                 enabled_tools = {}
             tool_manager.register_custom_tools(enabled_tools)
+        
+        # Register LlamaCloud knowledge search tool if agent has LlamaCloud knowledge bases configured
+        if self.config.agent_config and self.config.agent_config.get('llamacloud_knowledge_bases'):
+            try:
+                from agent.tools.knowledge_search_tool import KnowledgeSearchTool
+                logger.info(f"Registering LlamaCloud knowledge search tool with {len(self.config.agent_config['llamacloud_knowledge_bases'])} knowledge bases")
+                self.thread_manager.add_tool(
+                    KnowledgeSearchTool, 
+                    thread_manager=self.thread_manager, 
+                    knowledge_bases=self.config.agent_config['llamacloud_knowledge_bases']
+                )
+            except ImportError as e:
+                logger.error(f"Failed to import KnowledgeSearchTool: {e}")
+            except Exception as e:
+                logger.error(f"Failed to register LlamaCloud knowledge search tool: {e}")
     
     async def setup_mcp_tools(self) -> Optional[MCPToolWrapper]:
         if not self.config.agent_config:

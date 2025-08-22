@@ -10,6 +10,46 @@ from flags.flags import is_enabled
 
 router = APIRouter(prefix="/knowledge-base", tags=["knowledge-base"])
 
+# LlamaCloud Knowledge Base Models
+class LlamaCloudKnowledgeBase(BaseModel):
+    id: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=255, description="Tool function name (auto-formatted)")
+    index_name: str = Field(..., min_length=1, max_length=255, description="LlamaCloud index identifier")
+    description: Optional[str] = Field(None, description="What this knowledge base contains")
+    is_active: bool = True
+
+class LlamaCloudKnowledgeBaseResponse(BaseModel):
+    id: str
+    name: str
+    index_name: str
+    description: Optional[str]
+    is_active: bool
+    created_at: str
+    updated_at: str
+
+class LlamaCloudKnowledgeBaseListResponse(BaseModel):
+    knowledge_bases: List[LlamaCloudKnowledgeBaseResponse]
+    total_count: int
+
+class CreateLlamaCloudKnowledgeBaseRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255, description="Tool function name")
+    index_name: str = Field(..., min_length=1, max_length=255, description="LlamaCloud index identifier")
+    description: Optional[str] = Field(None, description="What this knowledge base contains")
+
+class UpdateLlamaCloudKnowledgeBaseRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    index_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+def format_knowledge_base_name(name: str) -> str:
+    """Format knowledge base name for tool function generation."""
+    return (name.lower()
+            .replace(' ', '-')
+            .replace('_', '-')
+            .strip('-')
+            .replace('--', '-'))
+
 class KnowledgeBaseEntry(BaseModel):
     entry_id: Optional[str] = None
     name: str = Field(..., min_length=1, max_length=255)
@@ -537,4 +577,288 @@ async def get_agent_knowledge_base_context(
     except Exception as e:
         logger.error(f"Error getting knowledge base context for agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve agent knowledge base context")
+
+
+# =============================================================================
+# LLAMACLOUD KNOWLEDGE BASE ENDPOINTS
+# =============================================================================
+
+@router.get("/llamacloud/agents/{agent_id}", response_model=LlamaCloudKnowledgeBaseListResponse)
+async def get_agent_llamacloud_knowledge_bases(
+    agent_id: str,
+    include_inactive: bool = False,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Get all LlamaCloud knowledge bases for an agent"""
+    try:
+        client = await db.client
+
+        # Verify agent access
+        await verify_agent_access(client, agent_id, user_id)
+
+        result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
+            'p_agent_id': agent_id,
+            'p_include_inactive': include_inactive
+        }).execute()
+        
+        knowledge_bases = []
+        
+        for kb_data in result.data or []:
+            kb = LlamaCloudKnowledgeBaseResponse(
+                id=kb_data['id'],
+                name=kb_data['name'],
+                index_name=kb_data['index_name'],
+                description=kb_data['description'],
+                is_active=kb_data['is_active'],
+                created_at=kb_data['created_at'],
+                updated_at=kb_data['updated_at']
+            )
+            knowledge_bases.append(kb)
+        
+        return LlamaCloudKnowledgeBaseListResponse(
+            knowledge_bases=knowledge_bases,
+            total_count=len(knowledge_bases)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting LlamaCloud knowledge bases for agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve agent LlamaCloud knowledge bases")
+
+@router.post("/llamacloud/agents/{agent_id}", response_model=LlamaCloudKnowledgeBaseResponse)
+async def create_agent_llamacloud_knowledge_base(
+    agent_id: str,
+    kb_data: CreateLlamaCloudKnowledgeBaseRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Create a new LlamaCloud knowledge base for an agent"""
+    try:
+        client = await db.client
+        
+        # Verify agent access and get agent data
+        agent_data = await verify_agent_access(client, agent_id, user_id)
+        account_id = agent_data['account_id']
+        
+        # Format the name for tool function generation
+        formatted_name = format_knowledge_base_name(kb_data.name)
+        
+        insert_data = {
+            'agent_id': agent_id,
+            'account_id': account_id,
+            'name': formatted_name,
+            'index_name': kb_data.index_name,
+            'description': kb_data.description
+        }
+        
+        result = await client.table('agent_llamacloud_knowledge_bases').insert(insert_data).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Failed to create LlamaCloud knowledge base")
+        
+        created_kb = result.data[0]
+        
+        logger.info(f"Created LlamaCloud knowledge base {created_kb['id']} for agent {agent_id}")
+        
+        return LlamaCloudKnowledgeBaseResponse(
+            id=created_kb['id'],
+            name=created_kb['name'],
+            index_name=created_kb['index_name'],
+            description=created_kb['description'],
+            is_active=created_kb['is_active'],
+            created_at=created_kb['created_at'],
+            updated_at=created_kb['updated_at']
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating LlamaCloud knowledge base for agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create LlamaCloud knowledge base")
+
+@router.put("/llamacloud/{kb_id}", response_model=LlamaCloudKnowledgeBaseResponse)
+async def update_llamacloud_knowledge_base(
+    kb_id: str,
+    kb_data: UpdateLlamaCloudKnowledgeBaseRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Update a LlamaCloud knowledge base"""
+    try:
+        client = await db.client
+        
+        # Get the knowledge base and verify it exists
+        kb_result = await client.table('agent_llamacloud_knowledge_bases').select('*').eq('id', kb_id).execute()
+            
+        if not kb_result.data:
+            raise HTTPException(status_code=404, detail="LlamaCloud knowledge base not found")
+        
+        kb = kb_result.data[0]
+        agent_id = kb['agent_id']
+        
+        # Verify agent access
+        await verify_agent_access(client, agent_id, user_id)
+        
+        update_data = {}
+        if kb_data.name is not None:
+            update_data['name'] = format_knowledge_base_name(kb_data.name)
+        if kb_data.index_name is not None:
+            update_data['index_name'] = kb_data.index_name
+        if kb_data.description is not None:
+            update_data['description'] = kb_data.description
+        if kb_data.is_active is not None:
+            update_data['is_active'] = kb_data.is_active
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        
+        result = await client.table('agent_llamacloud_knowledge_bases').update(update_data).eq('id', kb_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Failed to update LlamaCloud knowledge base")
+        
+        updated_kb = result.data[0]
+        
+        logger.info(f"Updated LlamaCloud knowledge base {kb_id} for agent {agent_id}")
+        
+        return LlamaCloudKnowledgeBaseResponse(
+            id=updated_kb['id'],
+            name=updated_kb['name'],
+            index_name=updated_kb['index_name'],
+            description=updated_kb['description'],
+            is_active=updated_kb['is_active'],
+            created_at=updated_kb['created_at'],
+            updated_at=updated_kb['updated_at']
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating LlamaCloud knowledge base {kb_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update LlamaCloud knowledge base")
+
+@router.delete("/llamacloud/{kb_id}")
+async def delete_llamacloud_knowledge_base(
+    kb_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Delete a LlamaCloud knowledge base"""
+    try:
+        client = await db.client
+        
+        # Get the knowledge base and verify it exists
+        kb_result = await client.table('agent_llamacloud_knowledge_bases').select('id, agent_id').eq('id', kb_id).execute()
+            
+        if not kb_result.data:
+            raise HTTPException(status_code=404, detail="LlamaCloud knowledge base not found")
+        
+        kb = kb_result.data[0]
+        agent_id = kb['agent_id']
+        
+        # Verify agent access
+        await verify_agent_access(client, agent_id, user_id)
+        
+        result = await client.table('agent_llamacloud_knowledge_bases').delete().eq('id', kb_id).execute()
+        
+        logger.info(f"Deleted LlamaCloud knowledge base {kb_id} for agent {agent_id}")
+        
+        return {"message": "LlamaCloud knowledge base deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting LlamaCloud knowledge base {kb_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete LlamaCloud knowledge base")
+
+@router.post("/llamacloud/agents/{agent_id}/test-search")
+async def test_llamacloud_search(
+    agent_id: str,
+    test_data: dict,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Test search functionality for a LlamaCloud index"""
+    try:
+        client = await db.client
+        
+        # Verify agent access
+        await verify_agent_access(client, agent_id, user_id)
+        
+        index_name = test_data.get('index_name')
+        query = test_data.get('query')
+        
+        if not index_name or not query:
+            raise HTTPException(status_code=400, detail="Both index_name and query are required")
+        
+        # Check if required environment variables are set
+        import os
+        if not os.getenv("LLAMA_CLOUD_API_KEY"):
+            raise HTTPException(
+                status_code=400, 
+                detail="LLAMA_CLOUD_API_KEY environment variable not configured"
+            )
+        
+        # Import LlamaCloud client
+        try:
+            from llama_index.indices.managed.llama_cloud import LlamaCloudIndex
+        except ImportError:
+            raise HTTPException(
+                status_code=400,
+                detail="LlamaCloud client not installed. Please install llama-index-indices-managed-llama-cloud"
+            )
+        
+        # Set the API key
+        os.environ["LLAMA_CLOUD_API_KEY"] = os.getenv("LLAMA_CLOUD_API_KEY")
+        
+        project_name = os.getenv("LLAMA_CLOUD_PROJECT_NAME", "Default")
+        
+        logger.info(f"Testing search on index '{index_name}' with query: {query}")
+        
+        # Connect to the index
+        index = LlamaCloudIndex(index_name, project_name=project_name)
+        
+        # Configure retriever
+        retriever = index.as_retriever(
+            dense_similarity_top_k=3,
+            sparse_similarity_top_k=3,
+            alpha=0.5,
+            enable_reranking=True,
+            rerank_top_n=3,
+            retrieval_mode="chunks"
+        )
+        
+        # Perform the search
+        nodes = retriever.retrieve(query)
+        
+        if not nodes:
+            return {
+                "success": True,
+                "message": f"No results found in '{index_name}' for query: {query}",
+                "results": [],
+                "index_name": index_name,
+                "query": query
+            }
+        
+        # Format the results
+        results = []
+        for i, node in enumerate(nodes):
+            result = {
+                "rank": i + 1,
+                "score": node.score,
+                "text": node.text[:500] + "..." if len(node.text) > 500 else node.text,  # Truncate for testing
+                "metadata": node.metadata if hasattr(node, 'metadata') else {}
+            }
+            results.append(result)
+        
+        return {
+            "success": True,
+            "message": f"Found {len(results)} results in '{index_name}'",
+            "results": results,
+            "index_name": index_name,
+            "query": query
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error testing LlamaCloud search: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to test search: {str(e)}")
 
