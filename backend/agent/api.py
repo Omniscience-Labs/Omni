@@ -1149,7 +1149,7 @@ async def initiate_agent_with_files(
             try:
                 # Try to create sandbox for file uploads
                 sandbox_pass = str(uuid.uuid4())
-                logger.info(f"Attempting to create sandbox with snapshot: {Configuration.SANDBOX_SNAPSHOT_NAME}")
+                logger.info(f"Attempting to create sandbox with image: {config.SANDBOX_IMAGE_NAME}")
                 sandbox = await create_sandbox(sandbox_pass, project_id)
                 sandbox_id = sandbox.id
                 logger.info(f"Successfully created sandbox {sandbox_id} for project {project_id}")
