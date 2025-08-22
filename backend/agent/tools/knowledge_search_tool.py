@@ -7,7 +7,7 @@ using LlamaCloud's managed indices with dynamic function generation.
 
 import os
 from typing import Dict, Any, List, Optional
-from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
+from agentpress.tool import Tool, ToolResult, openapi_schema
 from agentpress.thread_manager import ThreadManager
 from utils.logger import logger
 import json
@@ -86,23 +86,10 @@ class KnowledgeSearchTool(Tool):
                 }
             })
             
-            # Create XML schema for this method
-            xml_decorator = xml_schema(
-                tag_name=method_name.replace('_', '-'),
-                mappings=[
-                    {"param_name": "query", "node_type": "element", "path": "query"}
-                ],
-                example=f'''
-                <function_calls>
-                <invoke name="{method_name}">
-                <parameter name="query">Example search query</parameter>
-                </invoke>
-                </function_calls>
-                '''
-            )
+            # Only using OpenAPI schema for agentpress compatibility
             
-            # Apply decorators and bind the method
-            decorated_method = openapi_decorator(xml_decorator(search_function))
+            # Apply decorator and bind the method
+            decorated_method = openapi_decorator(search_function)
             setattr(self, method_name, decorated_method.__get__(self, type(self)))
             
             logger.info(f"Created dynamic search method: {method_name} for tool: {name} (index: {index_name})")
@@ -193,16 +180,7 @@ class KnowledgeSearchTool(Tool):
             }
         }
     })
-    @xml_schema(
-        tag_name="list-available-knowledge-bases",
-        mappings=[],
-        example='''
-        <function_calls>
-        <invoke name="list_available_knowledge_bases">
-        </invoke>
-        </function_calls>
-        '''
-    )
+
     async def list_available_knowledge_bases(self) -> ToolResult:
         """List all available knowledge bases and their descriptions."""
         try:
