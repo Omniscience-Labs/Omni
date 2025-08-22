@@ -29,8 +29,7 @@ import { GetCurrentAgentConfigToolView } from '../get-current-agent-config/get-c
 import { TaskListToolView } from '../task-list/TaskListToolView';
 import { PresentationOutlineToolView } from '../presentation-tools/PresentationOutlineToolView';
 import { ListPresentationTemplatesToolView } from '../presentation-tools/ListPresentationTemplatesToolView';
-import { CreateSlideToolView } from '../presentation-tools/CreateSlideToolView';
-import { ListSlidesToolView } from '../presentation-tools/ListSlidesToolView';
+import { PresentationViewer } from '../presentation-tools/PresentationViewer';
 import { ListPresentationsToolView } from '../presentation-tools/ListPresentationsToolView';
 import { DeleteSlideToolView } from '../presentation-tools/DeleteSlideToolView';
 import { DeletePresentationToolView } from '../presentation-tools/DeletePresentationToolView';
@@ -100,8 +99,8 @@ const defaultRegistry: ToolViewRegistryType = {
   'list-presentation-templates': ListPresentationTemplatesToolView,
   
   // New per-slide presentation tools
-  'create-slide': CreateSlideToolView,
-  'list-slides': ListSlidesToolView,
+  'create-slide': PresentationViewer,
+  'list-slides': PresentationViewer,
   'list-presentations': ListPresentationsToolView,
   'delete-slide': DeleteSlideToolView,
   'delete-presentation': DeletePresentationToolView,

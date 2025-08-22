@@ -35,33 +35,34 @@ export function HtmlRenderer({
         return undefined;
     }, [content, project?.sandbox?.sandbox_url]);
 
-    // Get filename from the previewUrl
-    const fileName = useMemo(() => {
+    // Get full file path from the previewUrl
+    const filePath = useMemo(() => {
         try {
-            // If it's an API URL, extract the filename from the path parameter
+            // If it's an API URL, extract the full path from the path parameter
             if (previewUrl.includes('/api/sandboxes/')) {
                 const url = new URL(previewUrl);
                 const path = url.searchParams.get('path');
                 if (path) {
-                    return path.split('/').pop() || '';
+                    // Remove /workspace/ prefix if present
+                    return path.replace(/^\/workspace\//, '');
                 }
             }
 
-            // Otherwise just get the last part of the URL
-            return previewUrl.split('/').pop() || '';
+            // Otherwise use the URL as is
+            return previewUrl;
         } catch (e) {
-            console.error('Error extracting filename:', e);
+            console.error('Error extracting file path:', e);
             return '';
         }
     }, [previewUrl]);
 
-    // Construct HTML file preview URL using the same logic as FileRenderer
+    // Construct HTML file preview URL using the full file path
     const htmlPreviewUrl = useMemo(() => {
-        if (project?.sandbox?.sandbox_url && fileName) {
-            return constructHtmlPreviewUrl(project.sandbox.sandbox_url, fileName);
+        if (project?.sandbox?.sandbox_url && filePath) {
+            return constructHtmlPreviewUrl(project.sandbox.sandbox_url, filePath);
         }
         return blobHtmlUrl || previewUrl;
-    }, [project?.sandbox?.sandbox_url, fileName, blobHtmlUrl, previewUrl]);
+    }, [project?.sandbox?.sandbox_url, filePath, blobHtmlUrl, previewUrl]);
 
     // Clean up blob URL on unmount
     useEffect(() => {
