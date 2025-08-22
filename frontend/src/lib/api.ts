@@ -1695,6 +1695,10 @@ export interface Model {
   input_cost_per_million_tokens?: number | null;
   output_cost_per_million_tokens?: number | null;
   max_tokens?: number | null;
+  context_window?: number;
+  capabilities?: string[];
+  recommended?: boolean;
+  priority?: number;
 }
 
 export interface AvailableModelsResponse {

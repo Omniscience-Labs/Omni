@@ -169,7 +169,7 @@ const saveModelPreference = (modelId: string): void => {
   }
 };
 
-export const useModelSelection = () => {
+export const useModelSelectionOld = () => {
   const [selectedModel, setSelectedModel] = useState(DEFAULT_FREE_MODEL_ID);
   const [customModels, setCustomModels] = useState<CustomModel[]>([]);
   const [hasInitialized, setHasInitialized] = useState(false);
@@ -200,52 +200,41 @@ export const useModelSelection = () => {
   const MODEL_OPTIONS = useMemo(() => {
     let models = [];
     
-            // Default models if API data not available
-        if (!modelsData?.models || isLoadingModels) {
-          models = [
-            { 
-              id: DEFAULT_FREE_MODEL_ID, 
-              label: 'KIMI K2', 
-              requiresSubscription: false,
-              priority: MODELS[DEFAULT_FREE_MODEL_ID]?.priority || 100
-            },
-            { 
-              id: DEFAULT_PREMIUM_MODEL_ID, 
-              label: 'Claude Sonnet 4', 
-              requiresSubscription: true, 
-              priority: MODELS[DEFAULT_PREMIUM_MODEL_ID]?.priority || 100
-            },
-          ];
+    // Default models if API data not available
+    if (!modelsData?.models || isLoadingModels) {
+      models = [
+        { 
+          id: DEFAULT_FREE_MODEL_ID, 
+          label: 'KIMI K2', 
+          requiresSubscription: false,
+          priority: 100,
+          recommended: true
+        },
+        { 
+          id: DEFAULT_PREMIUM_MODEL_ID, 
+          label: 'Claude Sonnet 4', 
+          requiresSubscription: true, 
+          priority: 100,
+          recommended: true
+        },
+      ];
     } else {
-      // Process API-provided models
+      // Process API-provided models - use clean data from new backend system
       models = modelsData.models.map(model => {
+        // Use the clean data directly from the API (no more duplicates!)
         const shortName = model.short_name || model.id;
         const displayName = model.display_name || shortName;
         
-        // Format the display label
-        let cleanLabel = displayName;
-        if (cleanLabel.includes('/')) {
-          cleanLabel = cleanLabel.split('/').pop() || cleanLabel;
-        }
-        
-        cleanLabel = cleanLabel
-          .replace(/-/g, ' ')
-          .split(' ')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ');
-        
-        // Get model data from our central MODELS constant
-        const modelData = MODELS[shortName] || {};
-        const isPremium = model?.requires_subscription || modelData.tier === 'premium' || false;
-        
         return {
           id: shortName,
-          label: cleanLabel,
-          requiresSubscription: isPremium,
-          top: modelData.priority >= 90, // Mark high-priority models as "top"
-          priority: modelData.priority || 0,
-          lowQuality: modelData.lowQuality || false,
-          recommended: modelData.recommended || false
+          label: displayName,
+          requiresSubscription: model.requires_subscription || false,
+          priority: model.priority || 0,
+          recommended: model.recommended || false,
+          top: (model.priority || 0) >= 90, // Mark high-priority models as "top"
+          lowQuality: false, // All models in new system are quality controlled
+          capabilities: model.capabilities || [],
+          contextWindow: model.context_window || 128000
         };
       });
     }
@@ -515,5 +504,8 @@ export const useModelSelection = () => {
     }
   };
 };
+
+// Export the new model selection hook
+export { useModelSelection } from './_use-model-selection-new';
 
 // Export the hook but not any sorting logic - sorting is handled internally
