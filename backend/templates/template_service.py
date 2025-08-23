@@ -312,12 +312,21 @@ class TemplateService:
             return []
         
         creator_ids = list(set(template['creator_id'] for template in result.data))
-        accounts_result = await client.schema('basejump').from_('accounts').select('id, name, slug').in_('id', creator_ids).execute()
+        
+        from utils.query_utils import batch_query_in
+        
+        accounts_data = await batch_query_in(
+            client=client,
+            table_name='accounts',
+            select_fields='id, name, slug',
+            in_field='id',
+            in_values=creator_ids,
+            schema='basejump'
+        )
         
         creator_names = {}
-        if accounts_result.data:
-            for account in accounts_result.data:
-                creator_names[account['id']] = account.get('name') or account.get('slug')
+        for account in accounts_data:
+            creator_names[account['id']] = account.get('name') or account.get('slug')
         
         templates = []
         for template_data in result.data:

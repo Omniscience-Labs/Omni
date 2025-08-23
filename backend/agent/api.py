@@ -1386,11 +1386,17 @@ async def get_agents(
         version_ids = list({agent['current_version_id'] for agent in agents_data if agent.get('current_version_id')})
         if version_ids:
             try:
-                versions_result = await client.table('agent_versions').select(
-                    'version_id, agent_id, version_number, version_name, is_active, created_at, updated_at, created_by, config'
-                ).in_('version_id', version_ids).execute()
+                from utils.query_utils import batch_query_in
+                
+                versions_data = await batch_query_in(
+                    client=client,
+                    table_name='agent_versions',
+                    select_fields='version_id, agent_id, version_number, version_name, is_active, created_at, updated_at, created_by, config',
+                    in_field='version_id',
+                    in_values=version_ids
+                )
 
-                for row in (versions_result.data or []):
+                for row in versions_data:
                     config = row.get('config') or {}
                     tools = config.get('tools') or {}
                     version_dict = {
@@ -2960,15 +2966,22 @@ async def get_user_threads(
         # Fetch projects if we have project IDs
         projects_by_id = {}
         if unique_project_ids:
-            projects_result = await client.table('projects').select('*').in_('project_id', unique_project_ids).execute()
+            from utils.query_utils import batch_query_in
             
-            if projects_result.data:
-                logger.debug(f"[API] Raw projects from DB: {len(projects_result.data)}")
-                # Create a lookup map of projects by ID
-                projects_by_id = {
-                    project['project_id']: project 
-                    for project in projects_result.data
-                }
+            projects_data = await batch_query_in(
+                client=client,
+                table_name='projects',
+                select_fields='*',
+                in_field='project_id',
+                in_values=unique_project_ids
+            )
+            
+            logger.debug(f"[API] Retrieved {len(projects_data)} projects")
+            # Create a lookup map of projects by ID
+            projects_by_id = {
+                project['project_id']: project 
+                for project in projects_data
+            }
         
         # Map threads with their associated projects
         mapped_threads = []

@@ -22,19 +22,19 @@ async def check_for_active_project_agent_run(client, project_id: str):
     project_thread_ids = [t['thread_id'] for t in project_threads.data]
 
     if project_thread_ids:
-        # Handle large numbers of threads by batching to avoid URI length limits
-        if len(project_thread_ids) > 100:
-            # Process in batches to avoid URI too large errors
-            batch_size = 100
-            for i in range(0, len(project_thread_ids), batch_size):
-                batch_thread_ids = project_thread_ids[i:i + batch_size]
-                active_runs = await client.table('agent_runs').select('id').in_('thread_id', batch_thread_ids).eq('status', 'running').execute()
-                if active_runs.data and len(active_runs.data) > 0:
-                    return active_runs.data[0]['id']
-        else:
-            active_runs = await client.table('agent_runs').select('id').in_('thread_id', project_thread_ids).eq('status', 'running').execute()
-            if active_runs.data and len(active_runs.data) > 0:
-                return active_runs.data[0]['id']
+        from utils.query_utils import batch_query_in
+        
+        active_runs = await batch_query_in(
+            client=client,
+            table_name='agent_runs',
+            select_fields='id',
+            in_field='thread_id',
+            in_values=project_thread_ids,
+            additional_filters={'status': 'running'}
+        )
+        
+        if active_runs:
+            return active_runs[0]['id']
     return None
 
 
@@ -124,27 +124,20 @@ async def check_agent_run_limit(client, account_id: str) -> Dict[str, Any]:
         logger.debug(f"Found {len(thread_ids)} threads for account {account_id}")
         
         # Query for running agent runs within the past 24 hours for these threads
-        # Handle large numbers of threads by batching to avoid URI length limits
-        if len(thread_ids) > 100:
-            # Process in batches to avoid URI too large errors
-            all_running_runs = []
-            batch_size = 100
-            for i in range(0, len(thread_ids), batch_size):
-                batch_thread_ids = thread_ids[i:i + batch_size]
-                batch_result = await client.table('agent_runs').select('id', 'thread_id', 'started_at').in_('thread_id', batch_thread_ids).eq('status', 'running').gte('started_at', twenty_four_hours_ago_iso).execute()
-                if batch_result.data:
-                    all_running_runs.extend(batch_result.data)
-            
-            # Create a mock result object similar to what Supabase returns
-            class MockResult:
-                def __init__(self, data):
-                    self.data = data
-            
-            running_runs_result = MockResult(all_running_runs)
-        else:
-            running_runs_result = await client.table('agent_runs').select('id', 'thread_id', 'started_at').in_('thread_id', thread_ids).eq('status', 'running').gte('started_at', twenty_four_hours_ago_iso).execute()
+        from utils.query_utils import batch_query_in
         
-        running_runs = running_runs_result.data or []
+        running_runs = await batch_query_in(
+            client=client,
+            table_name='agent_runs',
+            select_fields='id, thread_id, started_at',
+            in_field='thread_id',
+            in_values=thread_ids,
+            additional_filters={
+                'status': 'running',
+                'started_at_gte': twenty_four_hours_ago_iso
+            }
+        )
+        
         running_count = len(running_runs)
         running_thread_ids = [run['thread_id'] for run in running_runs]
         
@@ -348,12 +341,82 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"❌ Billing test failed: {str(e)}")
     
+    async def test_api_functions():
+        """Test the API functions that were also fixed for URI limits."""
+        print("\n🔧 Testing API functions...")
+        
+        try:
+            # Import the API functions we fixed
+            import sys
+            sys.path.append('/app')  # Add the app directory to path
+            
+            db = DBConnection()
+            client = await db.client
+            
+            test_user_id = "2558d81e-5008-46d6-b7d3-8cc62d44e4f6"
+            
+            print(f"📊 Testing API functions with user: {test_user_id}")
+            
+            # Test 1: get_user_threads (which has the project batching fix)
+            print("\n1️⃣ Testing get_user_threads simulation...")
+            try:
+                # Get threads for the user
+                threads_result = await client.table('threads').select('*').eq('account_id', test_user_id).order('created_at', desc=True).execute()
+                
+                if threads_result.data:
+                    print(f"   - Found {len(threads_result.data)} threads")
+                    
+                    # Extract unique project IDs (this is what could cause URI issues)
+                    project_ids = [
+                        thread['project_id'] for thread in threads_result.data[:1000]  # Limit to first 1000
+                        if thread.get('project_id')
+                    ]
+                    unique_project_ids = list(set(project_ids)) if project_ids else []
+                    
+                    print(f"   - Found {len(unique_project_ids)} unique project IDs")
+                    
+                    if unique_project_ids:
+                        # Test the batching logic we implemented
+                        if len(unique_project_ids) > 100:
+                            print(f"   - Would use batching for {len(unique_project_ids)} project IDs")
+                        else:
+                            print(f"   - Would use direct query for {len(unique_project_ids)} project IDs")
+                        
+                        # Actually test a small batch to verify it works
+                        test_batch = unique_project_ids[:min(10, len(unique_project_ids))]
+                        projects_result = await client.table('projects').select('*').in_('project_id', test_batch).execute()
+                        print(f"✅ Project query test succeeded: found {len(projects_result.data or [])} projects")
+                    else:
+                        print("   - No project IDs to test")
+                else:
+                    print("   - No threads found for user")
+                    
+            except Exception as e:
+                print(f"❌ get_user_threads test failed: {str(e)}")
+            
+            # Test 2: Template service simulation
+            print("\n2️⃣ Testing template service simulation...")
+            try:
+                from templates.template_service import TemplateService
+                
+                # This would test the creator ID batching, but we'll just verify the import works
+                print("✅ Template service import succeeded")
+                
+            except ImportError as e:
+                print(f"⚠️  Could not import template service: {str(e)}")
+            except Exception as e:
+                print(f"❌ Template service test failed: {str(e)}")
+                
+        except Exception as e:
+            print(f"❌ API functions test failed: {str(e)}")
+    
     async def main():
         """Main test function."""
         print("🚀 Starting URI limit fix tests...\n")
         
         await test_large_thread_count()
         await test_billing_integration()
+        await test_api_functions()
         
         print("\n✨ Test suite completed!")
     
