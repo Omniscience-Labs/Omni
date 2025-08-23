@@ -65,10 +65,7 @@ export function FullScreenPresentationViewer({
   const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   
   // Create a stable refresh timestamp when metadata changes (like PresentationViewer)
-  const refreshTimestamp = useMemo(() => {
-    // Include metadata in the computation to justify the dependency
-    return metadata ? Date.now() : 0;
-  }, [metadata]);
+  const refreshTimestamp = useMemo(() => Date.now(), [metadata]);
 
   const slides = metadata ? Object.entries(metadata.slides)
     .map(([num, slide]) => ({ number: parseInt(num), ...slide }))
@@ -123,6 +120,24 @@ export function FullScreenPresentationViewer({
     }
   }, [isOpen, loadMetadata, initialSlide]);
 
+  // Reload metadata when exiting editor mode to refresh with latest changes
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    if (!showEditor) {
+      // Add a small delay to allow the editor to save changes
+      timeoutId = setTimeout(() => {
+        loadMetadata();
+      }, 300);
+    }
+    
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [showEditor, loadMetadata]);
+
   // Navigation functions
   const goToNextSlide = useCallback(() => {
     if (currentSlide < totalSlides) {
@@ -141,8 +156,6 @@ export function FullScreenPresentationViewer({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't handle keyboard navigation when editor is open (except for Escape)
-      if (showEditor && e.key !== 'Escape') return;
       
       // Prevent default for all our handled keys
       const handledKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Home', 'End', 'Escape'];
@@ -262,11 +275,11 @@ export function FullScreenPresentationViewer({
             }}
           >
             <iframe
-              key={`slide-${slide.number}-${refreshTimestamp}`} // Key with stable timestamp ensures iframe refreshes when metadata changes
-              src={slideUrlWithCacheBust}
+              key={`slide-${slide.number}-${refreshTimestamp}-${showEditor}`} // Key with stable timestamp ensures iframe refreshes when metadata changes
+              src={showEditor ? `${sandboxUrl}/api/html/${slide.file_path}/editor` : slideUrlWithCacheBust}
               title={`Slide ${slide.number}: ${slide.title}`}
               className="border-0 rounded-xl"
-              sandbox="allow-same-origin allow-scripts"
+              sandbox="allow-same-origin allow-scripts allow-modals"
               style={{
                 width: '1920px',
                 height: '1080px',
@@ -293,7 +306,7 @@ export function FullScreenPresentationViewer({
     
     SlideIframeComponent.displayName = 'SlideIframeComponent';
     return SlideIframeComponent;
-  }, [sandboxUrl, refreshTimestamp]);
+  }, [sandboxUrl, refreshTimestamp, showEditor]);
 
   // Render slide iframe with proper scaling
   const renderSlide = useMemo(() => {
@@ -335,7 +348,7 @@ export function FullScreenPresentationViewer({
               title={showEditor ? "Close editor" : "Edit presentation"}
               onClick={() => setShowEditor(!showEditor)}
             >
-              <Edit className="h-3.5 w-3.5" />
+              {showEditor ? <Presentation className="h-3.5 w-3.5" /> : <Edit className='h-3.5 w-3.5'/>}
             </Button>
 
             {/* Export dropdown */}
@@ -397,25 +410,6 @@ export function FullScreenPresentationViewer({
             <Button onClick={loadMetadata} variant="outline">
               Retry
             </Button>
-          </div>
-        ) : showEditor && currentSlideData && sandboxUrl ? (
-          /* Editor View */
-          <div className="w-full h-full max-w-7xl mx-auto flex flex-col">
-            <div className="flex-1 bg-white dark:bg-zinc-900 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
-              <iframe
-                src={(() => {
-                  const slideUrl = constructHtmlPreviewUrl(sandboxUrl, currentSlideData.file_path);
-                  const currentUrl = new URL(slideUrl);
-                  const path = currentUrl.pathname;
-                  const fullPath = path.startsWith('/') ? path.substring(1) : path;
-                  const baseUrl = `${currentUrl.protocol}//${currentUrl.host}`;
-                  return `${baseUrl}/api/html/${fullPath}/editor`;
-                })()}
-                title={`Edit Slide ${currentSlide}: ${currentSlideData.title}`}
-                className="w-full h-full border-0"
-                sandbox="allow-same-origin allow-scripts allow-forms allow-modals"
-              />
-            </div>
           </div>
         ) : currentSlideData ? (
           <div className="w-full h-full max-w-7xl mx-auto flex flex-col">

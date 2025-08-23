@@ -458,7 +458,7 @@ export function PresentationViewer({
 
 
   const handlePDFDownload = useCallback(async (setIsDownloadingPDF: (isDownloading: boolean) => void) => {
-    console.log('handlePDFDownload', project?.sandbox?.sandbox_url, extractedPresentationName);
+    
     if (!project?.sandbox?.sandbox_url || !extractedPresentationName) return;
 
     setIsDownloadingPDF(true);
@@ -466,8 +466,6 @@ export function PresentationViewer({
       await downloadPresentationAsPDF(project.sandbox.sandbox_url, extractedPresentationName);
     } catch (error) {
       console.error('Error downloading PDF:', error);
-      // You could show a toast notification here
-      alert(`Failed to download PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsDownloadingPDF(false);
     }
@@ -696,6 +694,10 @@ export function PresentationViewer({
         onClose={() => {
           setIsFullScreenOpen(false);
           setFullScreenInitialSlide(null);
+          // Reload metadata after closing full screen viewer in case edits were made
+          setTimeout(() => {
+            loadMetadata();
+          }, 300);
         }}
         presentationName={extractedPresentationName}
         sandboxUrl={project?.sandbox?.sandbox_url}
