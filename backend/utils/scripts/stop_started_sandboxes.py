@@ -101,18 +101,23 @@ def stop_started_sandboxes(dry_run: bool = False, save_json: bool = False, json_
         
         # Print sample sandbox data for debugging
         if all_sandboxes:
-            logger.debug("Sample sandbox data structure:")
+            logger.info("Sample sandbox data structure:")
             sample_sandbox = all_sandboxes[0]
-            logger.debug(f"  - ID: {getattr(sample_sandbox, 'id', 'N/A')}")
-            logger.debug(f"  - State: {getattr(sample_sandbox, 'state', 'N/A')}")
-            logger.debug(f"  - Name: {getattr(sample_sandbox, 'name', 'N/A')}")
+            logger.info(f"  - ID: {getattr(sample_sandbox, 'id', 'N/A')}")
+            logger.info(f"  - State: {getattr(sample_sandbox, 'state', 'N/A')}")
+            logger.info(f"  - Name: {getattr(sample_sandbox, 'name', 'N/A')}")
+            
+            # Show a few more samples to see different states
+            logger.info("Additional samples:")
+            for i, sb in enumerate(all_sandboxes[1:6]):  # Show next 5 samples
+                logger.info(f"  Sample {i+2}: State='{getattr(sb, 'state', 'N/A')}', ID={getattr(sb, 'id', 'N/A')[:20]}...")
             
     except Exception as e:
         logger.error(f"✗ Failed to list sandboxes: {e}")
         return {"error": 1}
     
     # Filter for STARTED sandboxes
-    started_sandboxes = [sb for sb in all_sandboxes if getattr(sb, 'state', None) == 'STARTED']
+    started_sandboxes = [sb for sb in all_sandboxes if getattr(sb, 'state', None) == 'started']
     logger.info(f"✓ Found {len(started_sandboxes)} sandboxes in STARTED state")
     
     # Save to JSON if requested
