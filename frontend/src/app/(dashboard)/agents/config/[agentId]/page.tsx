@@ -553,18 +553,18 @@ export default function AgentConfigurationPage() {
         styles={{
           options: {
             primaryColor: 'hsl(var(--primary))',
-            backgroundColor: '#ffffff',
+            backgroundColor: 'hsl(var(--background))',
             textColor: 'hsl(var(--foreground))',
-            overlayColor: 'rgba(0, 0, 0, 0.5)',
-            arrowColor: '#ffffff',
+            overlayColor: 'rgba(0, 0, 0, 0.7)',
+            arrowColor: 'hsl(var(--background))',
             zIndex: 1000,
           },
           tooltip: {
-            backgroundColor: '#ffffff',
+            backgroundColor: 'hsl(var(--background))',
             borderRadius: 8,
             fontSize: 14,
             padding: 20,
-            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px hsl(var(--border))',
             border: '1px solid hsl(var(--border))',
           },
           tooltipContainer: {

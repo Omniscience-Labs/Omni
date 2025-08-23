@@ -51,7 +51,7 @@ const useDashboardTourStore = create<DashboardTourState>()(
       },
     }),
     {
-      name: 'dashboard-tour-storage',
+      name: 'dashboard-tour-storage-v1',
       partialize: (state) => ({
         hasSeenTour: state.hasSeenTour,
       }),
