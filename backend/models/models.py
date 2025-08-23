@@ -8,7 +8,6 @@ class ModelProvider(Enum):
     ANTHROPIC = "anthropic"
     OPENROUTER = "openrouter"
     GOOGLE = "google"
-    GEMINI = "gemini"
     XAI = "xai"
     MOONSHOTAI = "moonshotai"
 

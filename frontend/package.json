@@ -98,6 +98,7 @@
     "react-dom": "^18",
     "react-hook-form": "^7.55.0",
     "react-icons": "^5.5.0",
+    "react-joyride": "^2.9.3",
     "react-markdown": "^10.1.0",
     "react-papaparse": "^4.4.0",
     "react-pdf": "^9.2.1",

@@ -117,7 +117,7 @@ class ModelRegistry:
         self.register(Model(
             id="gemini/gemini-2.5-pro",
             name="Gemini 2.5 Pro",
-            provider=ModelProvider.GEMINI,
+            provider=ModelProvider.GOOGLE,
             aliases=["google/gemini-2.5-pro", "gemini-2.5-pro", "Gemini 2.5 Pro"],
             context_window=2_000_000,
             capabilities=[
