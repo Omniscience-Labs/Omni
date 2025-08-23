@@ -289,7 +289,7 @@ export function FullScreenPresentationViewer({
                 transformOrigin: '0 0',
                 position: 'absolute',
                 top: 0,
-                left: 0,
+                left: `calc((100% - ${1920 * scale}px) / 2)`,
                 willChange: 'transform',
                 backfaceVisibility: 'hidden',
                 WebkitBackfaceVisibility: 'hidden'
