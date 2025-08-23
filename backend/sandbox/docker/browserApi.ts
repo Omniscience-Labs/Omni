@@ -225,44 +225,18 @@ class BrowserAutomation {
     }
 
     async act(req: express.Request, res: express.Response): Promise<void> {
+        let fileChooseHandler: ((fileChooser: FileChooser) => Promise<void>) | null = null;
         try {
             if (this.page && this.browserInitialized) {
                 const { action, iframes, variables, filePath } = req.body;
 
-                let fileChooseHandler: ((fileChooser: FileChooser) => Promise<void>) | null=null;
-                fileChooseHandler = async (fileChooser) => {
+                const fileChooseHandler = async (fileChooser: FileChooser) => {
                     if(filePath){
                         await fileChooser.setFiles(filePath);
                     } else {
                         await fileChooser.setFiles([]);
-
-                        await this.page?.evaluate(() => {
-                            const toast = document.createElement('div');
-                            toast.style.cssText = `
-                                position: fixed;
-                                top: 20px;
-                                right: 20px;
-                                background: #ff6b6b;
-                                color: white;
-                                padding: 12px 16px;
-                                border-radius: 6px;
-                                z-index: 10000;
-                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                                font-size: 14px;
-                                max-width: 300px;
-                                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                            `;
-                            toast.textContent = 'File upload cancelled - no file specified';
-                            document.body.appendChild(toast);
-
-                            setTimeout(() => {
-                                if (toast.parentNode) {
-                                    toast.parentNode.removeChild(toast);
-                                }
-                            }, 3000);
-                        });
                     }
-                }
+                };
 
                 this.page.on('filechooser', fileChooseHandler);
 
@@ -294,7 +268,12 @@ class BrowserAutomation {
                 screenshot_base64: page_info.screenshot_base64,
                 error
             })
+        } finally {
+            if (this.page && fileChooseHandler) {
+                this.page.off('filechooser', fileChooseHandler);
+            }
         }
+
     }
 
     async extract(req: express.Request, res: express.Response): Promise<void> {
