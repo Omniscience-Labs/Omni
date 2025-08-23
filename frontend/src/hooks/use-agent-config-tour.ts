@@ -50,7 +50,7 @@ const useAgentConfigTourStore = create<AgentConfigTourState>()(
       },
     }),
     {
-      name: 'agent-config-tour-storage-v5',
+      name: 'agent-config-tour-storage',
       partialize: (state) => ({
         hasSeenTour: state.hasSeenTour,
       }),

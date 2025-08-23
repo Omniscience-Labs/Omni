@@ -38,7 +38,7 @@ const useTourPermissionsStore = create<TourPermissionsState>()(
       },
     }),
     {
-      name: 'tour-permissions-storage-v1',
+      name: 'tour-permissions-storage',
       partialize: (state) => ({
         hasBeenAsked: state.hasBeenAsked,
         toursEnabled: state.toursEnabled,
