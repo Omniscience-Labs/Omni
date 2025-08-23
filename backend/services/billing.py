@@ -5,7 +5,7 @@ stripe listen --forward-to localhost:8000/api/billing/webhook
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Request
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, Tuple, Any
 import stripe
 from datetime import datetime, timezone, timedelta
 
@@ -1045,6 +1045,71 @@ async def handle_usage_with_credits(
     except Exception as e:
         logger.error(f"Error handling usage with credits: {str(e)}")
         return False, f"Error processing usage: {str(e)}"
+
+# Tool credit functions
+async def get_tool_cost(tool_name: str) -> float:
+    """Get cost for a specific tool from tool_costs table."""
+    try:
+        db = DBConnection()
+        client = await db.client
+        result = await client.table('tool_costs').select('cost_dollars')\
+            .eq('tool_name', tool_name)\
+            .eq('is_active', True)\
+            .execute()
+        
+        if result.data:
+            return float(result.data[0]['cost_dollars'])
+        return 0.0
+    except Exception as e:
+        logger.error(f"Error getting tool cost for {tool_name}: {e}")
+        return 0.0
+
+async def can_user_afford_tool(client: SupabaseClient, user_id: str, tool_name: str) -> Dict[str, Any]:
+    """Check if user can afford to use a tool."""
+    try:
+        result = await client.rpc('can_use_tool', {
+            'p_user_id': user_id,
+            'p_tool_name': tool_name
+        }).execute()
+        
+        if result.data and len(result.data) > 0:
+            return {
+                'can_use': result.data[0]['can_use'],
+                'required_cost': float(result.data[0]['required_cost']),
+                'current_balance': float(result.data[0]['current_balance'])
+            }
+        return {'can_use': True, 'required_cost': 0.0, 'current_balance': 0.0}
+    except Exception as e:
+        logger.error(f"Error checking tool affordability: {e}")
+        # Default to allowing tool use if check fails
+        return {'can_use': True, 'required_cost': 0.0, 'current_balance': 0.0}
+
+async def charge_tool_usage(
+    client: SupabaseClient,
+    user_id: str,
+    tool_name: str,
+    thread_id: str = None,
+    message_id: str = None
+) -> Dict[str, Any]:
+    """Charge user for tool usage using existing credit system."""
+    try:
+        result = await client.rpc('use_tool_credits', {
+            'p_user_id': user_id,
+            'p_tool_name': tool_name,
+            'p_thread_id': thread_id,
+            'p_message_id': message_id
+        }).execute()
+        
+        if result.data and len(result.data) > 0:
+            return {
+                'success': result.data[0]['success'],
+                'cost_charged': float(result.data[0]['cost_charged']),
+                'new_balance': float(result.data[0]['new_balance'])
+            }
+        return {'success': False, 'cost_charged': 0.0, 'new_balance': 0.0}
+    except Exception as e:
+        logger.error(f"Error charging tool usage: {e}")
+        return {'success': False, 'cost_charged': 0.0, 'new_balance': 0.0}
 
 # API endpoints
 @router.post("/create-checkout-session")
@@ -2368,3 +2433,41 @@ async def can_purchase_credits(
     except Exception as e:
         logger.error(f"Error checking credit purchase eligibility: {str(e)}")
         raise HTTPException(status_code=500, detail="Error checking eligibility")
+
+@router.get("/tool-cost/{tool_name}")
+async def get_tool_cost_endpoint(
+    tool_name: str,
+    current_user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Get the credit cost for a specific tool."""
+    try:
+        cost = await get_tool_cost(tool_name)
+        return {
+            "tool_name": tool_name,
+            "cost": cost,
+            "free": cost == 0
+        }
+    except Exception as e:
+        logger.error(f"Error getting tool cost: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error retrieving tool cost")
+
+@router.get("/tool-costs")
+async def get_all_tool_costs(
+    current_user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Get credit costs for all available tools."""
+    try:
+        db = DBConnection()
+        client = await db.client
+        result = await client.table('tool_costs').select('*')\
+            .eq('is_active', True)\
+            .order('tool_name')\
+            .execute()
+        
+        return {
+            "tools": result.data,
+            "count": len(result.data)
+        }
+    except Exception as e:
+        logger.error(f"Error getting tool costs: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error retrieving tool costs")

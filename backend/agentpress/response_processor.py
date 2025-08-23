@@ -305,7 +305,7 @@ class ResponseProcessor:
                                         if started_msg_obj: yield format_for_yield(started_msg_obj)
                                         yielded_tool_indices.add(tool_index) # Mark status as yielded
 
-                                        execution_task = asyncio.create_task(self._execute_tool(tool_call))
+                                        execution_task = asyncio.create_task(self._execute_tool(tool_call, thread_id))
                                         pending_tool_executions.append({
                                             "task": execution_task, "tool_call": tool_call,
                                             "tool_index": tool_index, "context": context
@@ -375,7 +375,7 @@ class ResponseProcessor:
                                 if started_msg_obj: yield format_for_yield(started_msg_obj)
                                 yielded_tool_indices.add(tool_index) # Mark status as yielded
 
-                                execution_task = asyncio.create_task(self._execute_tool(tool_call_data))
+                                execution_task = asyncio.create_task(self._execute_tool(tool_call_data, thread_id))
                                 pending_tool_executions.append({
                                     "task": execution_task, "tool_call": tool_call_data,
                                     "tool_index": tool_index, "context": context
@@ -626,7 +626,7 @@ class ResponseProcessor:
                 elif final_tool_calls_to_process and not config.execute_on_stream:
                     logger.debug(f"Executing {len(final_tool_calls_to_process)} tools ({config.tool_execution_strategy}) after stream")
                     self.trace.event(name="executing_tools_after_stream", level="DEFAULT", status_message=(f"Executing {len(final_tool_calls_to_process)} tools ({config.tool_execution_strategy}) after stream"))
-                    results_list = await self._execute_tools(final_tool_calls_to_process, config.tool_execution_strategy)
+                    results_list = await self._execute_tools(final_tool_calls_to_process, config.tool_execution_strategy, thread_id)
                     current_tool_idx = 0
                     for tc, res in results_list:
                        # Map back using all_tool_data_map which has correct indices
@@ -956,7 +956,7 @@ class ResponseProcessor:
             if config.execute_tools and tool_calls_to_execute:
                 logger.debug(f"Executing {len(tool_calls_to_execute)} tools with strategy: {config.tool_execution_strategy}")
                 self.trace.event(name="executing_tools_with_strategy", level="DEFAULT", status_message=(f"Executing {len(tool_calls_to_execute)} tools with strategy: {config.tool_execution_strategy}"))
-                tool_results = await self._execute_tools(tool_calls_to_execute, config.tool_execution_strategy)
+                tool_results = await self._execute_tools(tool_calls_to_execute, config.tool_execution_strategy, thread_id)
 
                 for i, (returned_tool_call, result) in enumerate(tool_results):
                     original_data = all_tool_data[i]
@@ -1216,7 +1216,7 @@ class ResponseProcessor:
         return parsed_data
 
     # Tool execution methods
-    async def _execute_tool(self, tool_call: Dict[str, Any]) -> ToolResult:
+    async def _execute_tool(self, tool_call: Dict[str, Any], thread_id: str = None, message_id: str = None) -> ToolResult:
         """Execute a single tool call and return the result."""
         span = self.trace.span(name=f"execute_tool.{tool_call['function_name']}", input=tool_call["arguments"])            
         try:
@@ -1225,6 +1225,34 @@ class ResponseProcessor:
 
             logger.debug(f"Executing tool: {function_name} with arguments: {arguments}")
             self.trace.event(name="executing_tool", level="DEFAULT", status_message=(f"Executing tool: {function_name} with arguments: {arguments}"))
+            
+            # Check tool credit cost if thread_id is provided
+            if thread_id:
+                try:
+                    from services.billing import can_user_afford_tool, charge_tool_usage
+                    from services.supabase import DBConnection
+                    
+                    db = DBConnection()
+                    client = await db.client
+                    
+                    # Get user_id from thread
+                    thread_result = await client.table('threads').select('account_id').eq('thread_id', thread_id).execute()
+                    if thread_result.data and len(thread_result.data) > 0:
+                        user_id = thread_result.data[0]['account_id']
+                        
+                        # Check if user can afford this tool
+                        affordability = await can_user_afford_tool(client, user_id, function_name)
+                        
+                        if not affordability['can_use']:
+                            logger.warning(f"User {user_id} cannot afford tool {function_name}. Required: ${affordability['required_cost']:.4f}, Available: ${affordability['current_balance']:.4f}")
+                            span.end(status_message="insufficient_credits", level="WARNING")
+                            return ToolResult(
+                                success=False, 
+                                output=f"Insufficient credits for tool '{function_name}'. Required: ${affordability['required_cost']:.4f}, Available: ${affordability['current_balance']:.4f}"
+                            )
+                except Exception as credit_check_error:
+                    logger.error(f"Error checking tool credits: {credit_check_error}")
+                    # Continue with tool execution if credit check fails
             
             if isinstance(arguments, str):
                 try:
@@ -1245,6 +1273,26 @@ class ResponseProcessor:
             logger.debug(f"Found tool function for '{function_name}', executing...")
             result = await tool_fn(**arguments)
             logger.debug(f"Tool execution complete: {function_name} -> {result}")
+            
+            # Charge for tool usage if successful and thread_id is provided
+            if result.success and thread_id and 'user_id' in locals():
+                try:
+                    if affordability['required_cost'] > 0:
+                        charge_result = await charge_tool_usage(
+                            client,
+                            user_id,
+                            function_name,
+                            thread_id,
+                            message_id
+                        )
+                        if charge_result['success']:
+                            logger.debug(f"Charged ${charge_result['cost_charged']:.4f} for tool {function_name}. New balance: ${charge_result['new_balance']:.4f}")
+                        else:
+                            logger.error(f"Failed to charge for tool {function_name}")
+                except Exception as charge_error:
+                    logger.error(f"Error charging for tool usage: {charge_error}")
+                    # Don't fail the tool execution if charging fails
+            
             span.end(status_message="tool_executed", output=result)
             return result
         except Exception as e:
@@ -1255,7 +1303,8 @@ class ResponseProcessor:
     async def _execute_tools(
         self, 
         tool_calls: List[Dict[str, Any]], 
-        execution_strategy: ToolExecutionStrategy = "sequential"
+        execution_strategy: ToolExecutionStrategy = "sequential",
+        thread_id: str = None
     ) -> List[Tuple[Dict[str, Any], ToolResult]]:
         """Execute tool calls with the specified strategy.
         
@@ -1275,14 +1324,14 @@ class ResponseProcessor:
         self.trace.event(name="executing_tools_with_strategy", level="DEFAULT", status_message=(f"Executing {len(tool_calls)} tools with strategy: {execution_strategy}"))
             
         if execution_strategy == "sequential":
-            return await self._execute_tools_sequentially(tool_calls)
+            return await self._execute_tools_sequentially(tool_calls, thread_id)
         elif execution_strategy == "parallel":
-            return await self._execute_tools_in_parallel(tool_calls)
+            return await self._execute_tools_in_parallel(tool_calls, thread_id)
         else:
             logger.warning(f"Unknown execution strategy: {execution_strategy}, falling back to sequential")
-            return await self._execute_tools_sequentially(tool_calls)
+            return await self._execute_tools_sequentially(tool_calls, thread_id)
 
-    async def _execute_tools_sequentially(self, tool_calls: List[Dict[str, Any]]) -> List[Tuple[Dict[str, Any], ToolResult]]:
+    async def _execute_tools_sequentially(self, tool_calls: List[Dict[str, Any]], thread_id: str = None) -> List[Tuple[Dict[str, Any], ToolResult]]:
         """Execute tool calls sequentially and return results.
         
         This method executes tool calls one after another, waiting for each tool to complete
@@ -1308,7 +1357,7 @@ class ResponseProcessor:
                 logger.debug(f"Executing tool {index+1}/{len(tool_calls)}: {tool_name}")
                 
                 try:
-                    result = await self._execute_tool(tool_call)
+                    result = await self._execute_tool(tool_call, thread_id)
                     results.append((tool_call, result))
                     logger.debug(f"Completed tool {tool_name} with success={result.success}")
                     
@@ -1341,7 +1390,7 @@ class ResponseProcessor:
                             
             return completed_results + error_results
 
-    async def _execute_tools_in_parallel(self, tool_calls: List[Dict[str, Any]]) -> List[Tuple[Dict[str, Any], ToolResult]]:
+    async def _execute_tools_in_parallel(self, tool_calls: List[Dict[str, Any]], thread_id: str = None) -> List[Tuple[Dict[str, Any], ToolResult]]:
         """Execute tool calls in parallel and return results.
         
         This method executes all tool calls simultaneously using asyncio.gather, which
@@ -1362,7 +1411,7 @@ class ResponseProcessor:
             self.trace.event(name="executing_tools_in_parallel", level="DEFAULT", status_message=(f"Executing {len(tool_calls)} tools in parallel: {tool_names}"))
             
             # Create tasks for all tool calls
-            tasks = [self._execute_tool(tool_call) for tool_call in tool_calls]
+            tasks = [self._execute_tool(tool_call, thread_id) for tool_call in tool_calls]
             
             # Execute all tasks concurrently with error handling
             results = await asyncio.gather(*tasks, return_exceptions=True)
