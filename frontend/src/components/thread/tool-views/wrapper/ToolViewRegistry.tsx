@@ -94,6 +94,9 @@ const defaultRegistry: ToolViewRegistryType = {
   'visualize-sheet': SheetsToolView,
   'format-sheet': SheetsToolView,
 
+  // Excel operations (using SheetsToolView for similar functionality)
+  'excel_operations': SheetsToolView,
+
   'get-project-structure': GetProjectStructureView,
   'list-web-projects': GenericToolView,
 
