@@ -57,4 +57,6 @@ export const TourConfirmationDialog = React.memo(({ open, onAccept, onDecline }:
       </AlertDialogContent>
     </AlertDialog>
   );
-}); 
+});
+
+TourConfirmationDialog.displayName = 'TourConfirmationDialog'; 
