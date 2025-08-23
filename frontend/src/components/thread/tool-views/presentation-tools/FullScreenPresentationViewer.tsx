@@ -58,9 +58,13 @@ export function FullScreenPresentationViewer({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showControls, setShowControls] = useState(true);
+  const [showEditor, setShowEditor] = useState(false);
   
   // Create a stable refresh timestamp when metadata changes (like PresentationViewer)
-  const refreshTimestamp = useMemo(() => Date.now(), [metadata]);
+  const refreshTimestamp = useMemo(() => {
+    // Include metadata in the computation to justify the dependency
+    return metadata ? Date.now() : 0;
+  }, [metadata]);
 
   const slides = metadata ? Object.entries(metadata.slides)
     .map(([num, slide]) => ({ number: parseInt(num), ...slide }))
@@ -133,6 +137,9 @@ export function FullScreenPresentationViewer({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't handle keyboard navigation when editor is open (except for Escape)
+      if (showEditor && e.key !== 'Escape') return;
+      
       // Prevent default for all our handled keys
       const handledKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Home', 'End', 'Escape'];
       if (handledKeys.includes(e.key)) {
@@ -157,7 +164,11 @@ export function FullScreenPresentationViewer({
           setCurrentSlide(totalSlides);
           break;
         case 'Escape':
-          onClose();
+          if (showEditor) {
+            setShowEditor(false);
+          } else {
+            onClose();
+          }
           break;
       }
     };
@@ -165,7 +176,7 @@ export function FullScreenPresentationViewer({
     // Add event listener to document with capture to ensure we get the events first
     document.addEventListener('keydown', handleKeyDown, true);
     return () => document.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, goToNextSlide, goToPreviousSlide, totalSlides, onClose]);
+  }, [isOpen, goToNextSlide, goToPreviousSlide, totalSlides, onClose, showEditor]);
 
 
 
@@ -317,7 +328,8 @@ export function FullScreenPresentationViewer({
               variant="ghost" 
               size="sm" 
               className="h-8 w-8 p-0"
-              title="Edit presentation"
+              title={showEditor ? "Close editor" : "Edit presentation"}
+              onClick={() => setShowEditor(!showEditor)}
             >
               <Edit className="h-3.5 w-3.5" />
             </Button>
@@ -377,6 +389,25 @@ export function FullScreenPresentationViewer({
             <Button onClick={loadMetadata} variant="outline">
               Retry
             </Button>
+          </div>
+        ) : showEditor && currentSlideData && sandboxUrl ? (
+          /* Editor View */
+          <div className="w-full h-full max-w-7xl mx-auto flex flex-col">
+            <div className="flex-1 bg-white dark:bg-zinc-900 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
+              <iframe
+                src={(() => {
+                  const slideUrl = constructHtmlPreviewUrl(sandboxUrl, currentSlideData.file_path);
+                  const currentUrl = new URL(slideUrl);
+                  const path = currentUrl.pathname;
+                  const fullPath = path.startsWith('/') ? path.substring(1) : path;
+                  const baseUrl = `${currentUrl.protocol}//${currentUrl.host}`;
+                  return `${baseUrl}/api/html/${fullPath}/editor`;
+                })()}
+                title={`Edit Slide ${currentSlide}: ${currentSlideData.title}`}
+                className="w-full h-full border-0"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-modals"
+              />
+            </div>
           </div>
         ) : currentSlideData ? (
           <div className="w-full h-full max-w-7xl mx-auto flex flex-col">
