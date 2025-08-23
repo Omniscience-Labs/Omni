@@ -22,9 +22,19 @@ async def check_for_active_project_agent_run(client, project_id: str):
     project_thread_ids = [t['thread_id'] for t in project_threads.data]
 
     if project_thread_ids:
-        active_runs = await client.table('agent_runs').select('id').in_('thread_id', project_thread_ids).eq('status', 'running').execute()
-        if active_runs.data and len(active_runs.data) > 0:
-            return active_runs.data[0]['id']
+        # Handle large numbers of threads by batching to avoid URI length limits
+        if len(project_thread_ids) > 100:
+            # Process in batches to avoid URI too large errors
+            batch_size = 100
+            for i in range(0, len(project_thread_ids), batch_size):
+                batch_thread_ids = project_thread_ids[i:i + batch_size]
+                active_runs = await client.table('agent_runs').select('id').in_('thread_id', batch_thread_ids).eq('status', 'running').execute()
+                if active_runs.data and len(active_runs.data) > 0:
+                    return active_runs.data[0]['id']
+        else:
+            active_runs = await client.table('agent_runs').select('id').in_('thread_id', project_thread_ids).eq('status', 'running').execute()
+            if active_runs.data and len(active_runs.data) > 0:
+                return active_runs.data[0]['id']
     return None
 
 
@@ -114,7 +124,25 @@ async def check_agent_run_limit(client, account_id: str) -> Dict[str, Any]:
         logger.debug(f"Found {len(thread_ids)} threads for account {account_id}")
         
         # Query for running agent runs within the past 24 hours for these threads
-        running_runs_result = await client.table('agent_runs').select('id', 'thread_id', 'started_at').in_('thread_id', thread_ids).eq('status', 'running').gte('started_at', twenty_four_hours_ago_iso).execute()
+        # Handle large numbers of threads by batching to avoid URI length limits
+        if len(thread_ids) > 100:
+            # Process in batches to avoid URI too large errors
+            all_running_runs = []
+            batch_size = 100
+            for i in range(0, len(thread_ids), batch_size):
+                batch_thread_ids = thread_ids[i:i + batch_size]
+                batch_result = await client.table('agent_runs').select('id', 'thread_id', 'started_at').in_('thread_id', batch_thread_ids).eq('status', 'running').gte('started_at', twenty_four_hours_ago_iso).execute()
+                if batch_result.data:
+                    all_running_runs.extend(batch_result.data)
+            
+            # Create a mock result object similar to what Supabase returns
+            class MockResult:
+                def __init__(self, data):
+                    self.data = data
+            
+            running_runs_result = MockResult(all_running_runs)
+        else:
+            running_runs_result = await client.table('agent_runs').select('id', 'thread_id', 'started_at').in_('thread_id', thread_ids).eq('status', 'running').gte('started_at', twenty_four_hours_ago_iso).execute()
         
         running_runs = running_runs_result.data or []
         running_count = len(running_runs)
@@ -207,3 +235,127 @@ async def check_agent_count_limit(client, account_id: str) -> Dict[str, Any]:
             'limit': config.AGENT_LIMITS['free'],
             'tier_name': 'free'
         }
+
+
+if __name__ == "__main__":
+    import asyncio
+    import sys
+    import os
+    
+    # Add the backend directory to the Python path
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    
+    from services.supabase import DBConnection
+    from utils.logger import logger
+    
+    async def test_large_thread_count():
+        """Test the functions with a large number of threads to verify URI limit fixes."""
+        print("🧪 Testing URI limit fixes with large thread counts...")
+        
+        try:
+            # Initialize database connection
+            db = DBConnection()
+            client = await db.client
+            
+            # Test user ID (replace with actual user ID that has many threads)
+            test_user_id = "2558d81e-5008-46d6-b7d3-8cc62d44e4f6"  # The user from the error logs
+            
+            print(f"📊 Testing with user ID: {test_user_id}")
+            
+            # Test 1: check_agent_run_limit with many threads
+            print("\n1️⃣ Testing check_agent_run_limit...")
+            try:
+                result = await check_agent_run_limit(client, test_user_id)
+                print(f"✅ check_agent_run_limit succeeded:")
+                print(f"   - Can start: {result['can_start']}")
+                print(f"   - Running count: {result['running_count']}")
+                print(f"   - Running thread IDs: {len(result['running_thread_ids'])} threads")
+            except Exception as e:
+                print(f"❌ check_agent_run_limit failed: {str(e)}")
+            
+            # Test 2: Get a project ID to test check_for_active_project_agent_run
+            print("\n2️⃣ Testing check_for_active_project_agent_run...")
+            try:
+                # Get a project for this user
+                projects_result = await client.table('projects').select('project_id').eq('account_id', test_user_id).limit(1).execute()
+                
+                if projects_result.data and len(projects_result.data) > 0:
+                    test_project_id = projects_result.data[0]['project_id']
+                    print(f"   Using project ID: {test_project_id}")
+                    
+                    result = await check_for_active_project_agent_run(client, test_project_id)
+                    print(f"✅ check_for_active_project_agent_run succeeded:")
+                    print(f"   - Active run ID: {result}")
+                else:
+                    print("   ⚠️  No projects found for user, skipping this test")
+            except Exception as e:
+                print(f"❌ check_for_active_project_agent_run failed: {str(e)}")
+            
+            # Test 3: check_agent_count_limit (doesn't have URI issues but good to test)
+            print("\n3️⃣ Testing check_agent_count_limit...")
+            try:
+                result = await check_agent_count_limit(client, test_user_id)
+                print(f"✅ check_agent_count_limit succeeded:")
+                print(f"   - Can create: {result['can_create']}")
+                print(f"   - Current count: {result['current_count']}")
+                print(f"   - Limit: {result['limit']}")
+                print(f"   - Tier: {result['tier_name']}")
+            except Exception as e:
+                print(f"❌ check_agent_count_limit failed: {str(e)}")
+
+            print("\n🎉 All agent utils tests completed!")
+            
+        except Exception as e:
+            print(f"❌ Test setup failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    async def test_billing_integration():
+        """Test the billing integration to make sure it works with the fixed functions."""
+        print("\n💰 Testing billing integration...")
+        
+        try:
+            from services.billing import calculate_monthly_usage, get_usage_logs
+            
+            db = DBConnection()
+            client = await db.client
+            
+            test_user_id = "2558d81e-5008-46d6-b7d3-8cc62d44e4f6"
+            
+            print(f"📊 Testing billing functions with user: {test_user_id}")
+            
+            # Test calculate_monthly_usage (which uses get_usage_logs internally)
+            print("\n1️⃣ Testing calculate_monthly_usage...")
+            try:
+                usage = await calculate_monthly_usage(client, test_user_id)
+                print(f"✅ calculate_monthly_usage succeeded: ${usage:.4f}")
+            except Exception as e:
+                print(f"❌ calculate_monthly_usage failed: {str(e)}")
+            
+            # Test get_usage_logs directly with pagination
+            print("\n2️⃣ Testing get_usage_logs with pagination...")
+            try:
+                logs = await get_usage_logs(client, test_user_id, page=0, items_per_page=10)
+                print(f"✅ get_usage_logs succeeded:")
+                print(f"   - Found {len(logs.get('logs', []))} log entries")
+                print(f"   - Has more: {logs.get('has_more', False)}")
+                print(f"   - Subscription limit: ${logs.get('subscription_limit', 0)}")
+            except Exception as e:
+                print(f"❌ get_usage_logs failed: {str(e)}")
+                
+        except ImportError as e:
+            print(f"⚠️  Could not import billing functions: {str(e)}")
+        except Exception as e:
+            print(f"❌ Billing test failed: {str(e)}")
+    
+    async def main():
+        """Main test function."""
+        print("🚀 Starting URI limit fix tests...\n")
+        
+        await test_large_thread_count()
+        await test_billing_integration()
+        
+        print("\n✨ Test suite completed!")
+    
+    # Run the tests
+    asyncio.run(main())

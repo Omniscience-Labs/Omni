@@ -466,15 +466,19 @@ async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: in
         logger.debug(f"[USAGE_LOGS] user_id={user_id} - Thread IDs: {thread_ids[:5]}..." if len(thread_ids) > 5 else f"[USAGE_LOGS] user_id={user_id} - Thread IDs: {thread_ids}")
         
         # Fetch usage messages with pagination, including thread project info
+        # Use a more efficient approach to avoid URI length limits with many threads
         start_time = time.time()
         logger.debug(f"[USAGE_LOGS] user_id={user_id} - Starting messages query")
         
         try:
+            # Instead of using .in_() with all thread IDs (which can cause URI too large errors),
+            # we'll use a join-based approach by querying messages directly for the user's account
+            # and filtering by date and type, then joining with threads for project info
             messages_result = await client.table('messages') \
                 .select(
-                    'message_id, thread_id, created_at, content, threads!inner(project_id)'
+                    'message_id, thread_id, created_at, content, threads!inner(project_id, account_id)'
                 ) \
-                .in_('thread_id', thread_ids) \
+                .eq('threads.account_id', user_id) \
                 .eq('type', 'assistant_response_end') \
                 .gte('created_at', start_of_month.isoformat()) \
                 .order('created_at', desc=True) \
@@ -483,7 +487,49 @@ async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: in
         except Exception as query_error:
             logger.error(f"[USAGE_LOGS] user_id={user_id} - Database query failed: {str(query_error)}")
             logger.error(f"[USAGE_LOGS] user_id={user_id} - Query details: page={page}, items_per_page={items_per_page}, thread_count={len(thread_ids)}")
-            raise
+            
+            # Fallback: If the join approach fails, try batching the thread IDs
+            logger.debug(f"[USAGE_LOGS] user_id={user_id} - Attempting fallback with batched thread ID queries")
+            try:
+                all_messages = []
+                batch_size = 100  # Process threads in smaller batches to avoid URI limits
+                
+                for i in range(0, len(thread_ids), batch_size):
+                    batch_thread_ids = thread_ids[i:i + batch_size]
+                    logger.debug(f"[USAGE_LOGS] user_id={user_id} - Processing thread batch {i//batch_size + 1}/{(len(thread_ids) + batch_size - 1)//batch_size}")
+                    
+                    batch_result = await client.table('messages') \
+                        .select(
+                            'message_id, thread_id, created_at, content, threads!inner(project_id)'
+                        ) \
+                        .in_('thread_id', batch_thread_ids) \
+                        .eq('type', 'assistant_response_end') \
+                        .gte('created_at', start_of_month.isoformat()) \
+                        .order('created_at', desc=True) \
+                        .execute()
+                    
+                    if batch_result.data:
+                        all_messages.extend(batch_result.data)
+                
+                # Sort all messages by created_at descending and apply pagination
+                all_messages.sort(key=lambda x: x['created_at'], reverse=True)
+                
+                # Apply pagination to the combined results
+                start_idx = page * items_per_page
+                end_idx = start_idx + items_per_page
+                paginated_messages = all_messages[start_idx:end_idx]
+                
+                # Create a mock result object similar to what Supabase returns
+                class MockResult:
+                    def __init__(self, data):
+                        self.data = data
+                
+                messages_result = MockResult(paginated_messages)
+                logger.debug(f"[USAGE_LOGS] user_id={user_id} - Fallback successful, found {len(all_messages)} total messages, returning {len(paginated_messages)} for page {page}")
+                
+            except Exception as fallback_error:
+                logger.error(f"[USAGE_LOGS] user_id={user_id} - Fallback query also failed: {str(fallback_error)}")
+                raise query_error  # Raise the original error
         
         end_time = time.time()
         execution_time = end_time - start_time
