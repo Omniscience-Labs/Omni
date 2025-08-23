@@ -12,6 +12,7 @@ import {
   SkipBack,
   SkipForward,
   Edit,
+  Loader2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -44,6 +45,7 @@ interface FullScreenPresentationViewerProps {
   presentationName?: string;
   sandboxUrl?: string;
   initialSlide?: number;
+  onPDFDownload?: (setIsDownloadingPDF: (isDownloading: boolean) => void) => void;
 }
 
 export function FullScreenPresentationViewer({
@@ -52,6 +54,7 @@ export function FullScreenPresentationViewer({
   presentationName,
   sandboxUrl,
   initialSlide = 1,
+  onPDFDownload,
 }: FullScreenPresentationViewerProps) {
   const [metadata, setMetadata] = useState<PresentationMetadata | null>(null);
   const [currentSlide, setCurrentSlide] = useState(initialSlide);
@@ -59,6 +62,7 @@ export function FullScreenPresentationViewer({
   const [error, setError] = useState<string | null>(null);
   const [showControls, setShowControls] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   
   // Create a stable refresh timestamp when metadata changes (like PresentationViewer)
   const refreshTimestamp = useMemo(() => {
@@ -343,11 +347,15 @@ export function FullScreenPresentationViewer({
                   className="h-8 w-8 p-0"
                   title="Export presentation"
                 >
-                  <Download className="h-3.5 w-3.5" />
+                  {isDownloadingPDF ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Download className="h-3.5 w-3.5" />
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-32">
-                <DropdownMenuItem className="cursor-pointer">
+                <DropdownMenuItem className="cursor-pointer" onClick={() => onPDFDownload(setIsDownloadingPDF)}>
                   <FileText className="h-4 w-4 mr-2" />
                   PDF
                 </DropdownMenuItem>

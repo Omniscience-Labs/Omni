@@ -34,6 +34,7 @@ import { constructHtmlPreviewUrl } from '@/lib/utils/url';
 import { CodeBlockCode } from '@/components/ui/code-block';
 import { LoadingState } from '../shared/LoadingState';
 import { FullScreenPresentationViewer } from './FullScreenPresentationViewer';
+import { toast } from 'sonner';
 
 interface SlideMetadata {
   title: string;
@@ -75,6 +76,7 @@ export function PresentationViewer({
   const [visibleSlide, setVisibleSlide] = useState<number | null>(null);
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
   const [fullScreenInitialSlide, setFullScreenInitialSlide] = useState<number | null>(null);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
 
   // Extract presentation info from tool data
   const { toolResult } = extractToolData(toolContent);
@@ -423,7 +425,53 @@ export function PresentationViewer({
     return <SlideIframe slide={slide} />;
   }, [SlideIframe]);
 
+  const downloadPresentationAsPDF = async (sandboxUrl: string, presentationName: string): Promise<void> => {
+    try {
+      const response = await fetch(`${sandboxUrl}/presentation/convert-to-pdf`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          presentation_path: `/workspace/presentations/${presentationName}`,
+          download: true
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download PDF');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${presentationName}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      // You could show a toast notification here
+      toast.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
 
+
+  const handlePDFDownload = useCallback(async (setIsDownloadingPDF: (isDownloading: boolean) => void) => {
+    console.log('handlePDFDownload', project?.sandbox?.sandbox_url, extractedPresentationName);
+    if (!project?.sandbox?.sandbox_url || !extractedPresentationName) return;
+
+    setIsDownloadingPDF(true);
+    try{
+      await downloadPresentationAsPDF(project.sandbox.sandbox_url, extractedPresentationName);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      // You could show a toast notification here
+      alert(`Failed to download PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsDownloadingPDF(false);
+    }
+  }, [project?.sandbox?.sandbox_url, extractedPresentationName]);
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card">
@@ -465,15 +513,16 @@ export function PresentationViewer({
                       className="h-8 w-8 p-0"
                       title="Export presentation"
                     >
-                      <Download className="h-3.5 w-3.5" />
+                      {isDownloadingPDF ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-32">
                     <DropdownMenuItem 
-                      onClick={() => {
-                        // TODO: Implement PDF export
-                        console.log('Export as PDF');
-                      }}
+                      onClick={() => handlePDFDownload(setIsDownloadingPDF)}
                       className="cursor-pointer"
                     >
                       <FileText className="h-4 w-4 mr-2" />
@@ -651,6 +700,7 @@ export function PresentationViewer({
         presentationName={extractedPresentationName}
         sandboxUrl={project?.sandbox?.sandbox_url}
         initialSlide={fullScreenInitialSlide || visibleSlide || currentSlideNumber || slides[0]?.number || 1}
+        onPDFDownload={handlePDFDownload}
       />
     </Card>
   );
