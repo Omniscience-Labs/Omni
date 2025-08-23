@@ -36,10 +36,8 @@ INSERT INTO tool_costs (tool_name, cost_dollars, description) VALUES
     
     -- Data processing
     ('data_analysis', 0.05, 'Analyze data'),
-    ('generate_chart', 0.05, 'Generate visualization'),
-    
-    -- Default to 0 for tools not in this list
-    ON CONFLICT (tool_name) DO NOTHING;
+    ('generate_chart', 0.05, 'Generate visualization')
+ON CONFLICT (tool_name) DO NOTHING;
 
 -- Function to check if user can afford a tool
 CREATE OR REPLACE FUNCTION public.can_use_tool(
