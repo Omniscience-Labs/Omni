@@ -1274,6 +1274,10 @@ export function getToolComponent(toolName: string): string {
     case 'close_avatar_session':
       return 'VideoAvatarToolView';
 
+    // Excel operations
+    case 'excel_operations':
+      return 'SheetsToolView';
+
     // MCP operations
     case 'search-mcp-servers':
       return 'SearchMcpServersToolView';
