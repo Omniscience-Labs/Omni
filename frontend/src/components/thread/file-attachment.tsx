@@ -553,16 +553,16 @@ export function FileAttachment({
                 </div>
 
                 {/* Header with filename */}
-                <div className="absolute top-0 left-0 right-0 bg-accent p-2 z-10 flex items-center justify-between">
+                <div className="absolute top-0 left-0 right-0 bg-accent p-2 h-[40px] z-10 flex items-center justify-between">
                     <div className="text-sm font-medium truncate">{filename}</div>
                     <div className="flex items-center gap-1">
-                        <button
+                        {/* <button
                             onClick={handleDownload}
                             className="cursor-pointer p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10"
                             title="Download file"
                         >
                             <Download size={14} />
-                        </button>
+                        </button> */}
                         {onClick && (
                             <button
                                 onClick={handleClick}
