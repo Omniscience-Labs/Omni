@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, Save, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -13,7 +13,6 @@ import { toast } from 'sonner';
 import { AgentPreview } from '../../../../../components/agents/agent-preview';
 
 import { useAgentVersionData } from '../../../../../hooks/use-agent-version-data';
-import { useSearchParams } from 'next/navigation';
 import { useAgentVersionStore } from '../../../../../lib/stores/agent-version-store';
 
 import { AgentHeader, VersionAlert, ConfigurationTab } from '@/components/agents/config';
@@ -24,6 +23,7 @@ import { useAgentConfigTour } from '@/hooks/use-agent-config-tour';
 import Joyride, { CallBackProps, STATUS, Step } from 'react-joyride';
 import { TourConfirmationDialog } from '@/components/tour/TourConfirmationDialog';
 
+// Tour steps for agent configuration
 const agentConfigTourSteps: Step[] = [
   {
     target: '[data-tour="agent-header"]',
@@ -76,20 +76,21 @@ const agentConfigTourSteps: Step[] = [
   },
   {
     target: '[data-tour="triggers-section"]',
-    content: 'Add various triggers to your agent to help it perform tasks and automate workflows.',
-    title: 'Triggers',
+    content: 'Set up automated triggers for your agent to run on schedules or events.',
+    title: 'Triggers & Automation',
     placement: 'right',
     disableBeacon: true,
   },
   {
     target: '[data-tour="preview-agent"]',
-    content: 'You can also build your agent here, just ask it what you need and watch it self configure.',
-    title: 'Build or Test Your Agent',
+    content: 'Build and test your agent by previewing how it will behave and respond. Here you can also ask the agent to self-configure',
+    title: 'Build & Test Your Agent',
     placement: 'left',
     disableBeacon: true,
   },
 ];
 
+// Form data interface
 interface FormData {
   name: string;
   description: string;
@@ -133,8 +134,6 @@ function AgentConfigurationContent() {
 
   const [originalData, setOriginalData] = useState<FormData>(formData);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-
-
 
   useEffect(() => {
     if (!agent) return;
@@ -552,38 +551,38 @@ export default function AgentConfigurationPage() {
         disableScrollParentFix
         styles={{
           options: {
-            primaryColor: 'hsl(var(--primary))',
-            backgroundColor: 'hsl(var(--background))',
-            textColor: 'hsl(var(--foreground))',
+            primaryColor: '#000000',
+            backgroundColor: '#ffffff',
+            textColor: '#000000',
             overlayColor: 'rgba(0, 0, 0, 0.7)',
-            arrowColor: 'hsl(var(--background))',
+            arrowColor: '#ffffff',
             zIndex: 1000,
           },
           tooltip: {
-            backgroundColor: 'hsl(var(--background))',
+            backgroundColor: '#ffffff',
             borderRadius: 8,
             fontSize: 14,
             padding: 20,
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px hsl(var(--border))',
-            border: '1px solid hsl(var(--border))',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            border: '1px solid #e5e7eb',
           },
           tooltipContainer: {
             textAlign: 'left',
           },
           tooltipTitle: {
-            color: 'hsl(var(--foreground))',
+            color: '#000000',
             fontSize: 16,
             fontWeight: 600,
             marginBottom: 8,
           },
           tooltipContent: {
-            color: 'hsl(var(--foreground))',
+            color: '#000000',
             fontSize: 14,
             lineHeight: 1.5,
           },
           buttonNext: {
-            backgroundColor: 'hsl(var(--primary))',
-            color: 'hsl(var(--primary-foreground))',
+            backgroundColor: '#000000',
+            color: '#ffffff',
             fontSize: 12,
             padding: '8px 16px',
             borderRadius: 6,
@@ -591,32 +590,30 @@ export default function AgentConfigurationPage() {
             fontWeight: 500,
           },
           buttonBack: {
-            color: 'hsl(var(--muted-foreground))',
+            color: '#6b7280',
             backgroundColor: 'transparent',
             fontSize: 12,
             padding: '8px 16px',
-            border: '1px solid hsl(var(--border))',
+            border: '1px solid #e5e7eb',
             borderRadius: 6,
           },
           buttonSkip: {
-            color: 'hsl(var(--muted-foreground))',
+            color: '#6b7280',
             backgroundColor: 'transparent',
             fontSize: 12,
             border: 'none',
           },
           buttonClose: {
-            color: 'hsl(var(--muted-foreground))',
+            color: '#6b7280',
             backgroundColor: 'transparent',
           },
         }}
       />
-      
       <TourConfirmationDialog
         open={showWelcome}
         onAccept={handleWelcomeAccept}
         onDecline={handleWelcomeDecline}
       />
-      
       <AgentConfigurationContent />
     </>
   );
