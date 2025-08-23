@@ -22,7 +22,7 @@ from utils.config import config
 from sandbox.sandbox import create_sandbox, delete_sandbox, get_or_start_sandbox
 from services.llm import make_llm_api_call
 from run_agent_background import run_agent_background, _cleanup_redis_response_list, update_agent_run_status
-from utils.constants import MODEL_NAME_ALIASES
+from models import model_manager
 from flags.flags import is_enabled
 
 from .config_helper import extract_agent_config, build_unified_config
