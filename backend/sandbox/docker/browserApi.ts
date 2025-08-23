@@ -1,5 +1,6 @@
 import express from 'express';
 import { Stagehand, type LogLine, type Page } from '@browserbasehq/stagehand';
+import { FileChooser } from 'playwright';
 
 const app = express();
 app.use(express.json());
@@ -224,9 +225,21 @@ class BrowserAutomation {
     }
 
     async act(req: express.Request, res: express.Response): Promise<void> {
+        let fileChooseHandler: ((fileChooser: FileChooser) => Promise<void>) | null = null;
         try {
             if (this.page && this.browserInitialized) {
-                const { action, iframes, variables } = req.body;
+                const { action, iframes, variables, filePath } = req.body;
+
+                const fileChooseHandler = async (fileChooser: FileChooser) => {
+                    if(filePath){
+                        await fileChooser.setFiles(filePath);
+                    } else {
+                        await fileChooser.setFiles([]);
+                    }
+                };
+
+                this.page.on('filechooser', fileChooseHandler);
+
                 const result = await this.page.act({action, iframes: iframes || true, variables});
                 const page_info = await this.get_stagehand_state();
                 const response: BrowserActionResult = {
@@ -255,7 +268,12 @@ class BrowserAutomation {
                 screenshot_base64: page_info.screenshot_base64,
                 error
             })
+        } finally {
+            if (this.page && fileChooseHandler) {
+                this.page.off('filechooser', fileChooseHandler);
+            }
         }
+
     }
 
     async extract(req: express.Request, res: express.Response): Promise<void> {
