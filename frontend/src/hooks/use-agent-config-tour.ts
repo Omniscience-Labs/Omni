@@ -58,6 +58,38 @@ const useAgentConfigTourStore = create<AgentConfigTourState>()(
   )
 );
 
+const areAllTourTargetsReady = (): boolean => {
+  const requiredTargets = [
+    '[data-tour="agent-header"]',
+    '[data-tour="model-section"]',
+    '[data-tour="system-prompt"]',
+    '[data-tour="tools-section"]',
+    '[data-tour="integrations-section"]',
+    '[data-tour="knowledge-section"]',
+    '[data-tour="playbooks-section"]',
+    '[data-tour="triggers-section"]',
+    '[data-tour="preview-agent"]',
+  ];
+
+  return requiredTargets.every(selector => {
+    const element = document.querySelector(selector);
+    return element !== null;
+  });
+};
+
+const waitForTourTargets = (): Promise<void> => {
+  return new Promise((resolve) => {
+    const checkTargets = () => {
+      if (areAllTourTargetsReady()) {
+        resolve();
+      } else {
+        setTimeout(checkTargets, 100);
+      }
+    };
+    checkTargets();
+  });
+};
+
 export const useAgentConfigTour = () => {
   const {
     toursEnabled,
@@ -79,11 +111,23 @@ export const useAgentConfigTour = () => {
 
   useEffect(() => {
     if (toursEnabled && !hasSeenTour && !run) {
-      const timer = setTimeout(() => {
-        startTour();
-      }, 500);
-      
-      return () => clearTimeout(timer);
+      const startTourWhenReady = async () => {
+        try {
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), 10000)
+          );
+          
+          await Promise.race([waitForTourTargets(), timeoutPromise]);
+          
+          setTimeout(() => {
+            startTour();
+          }, 300);
+        } catch (error) {
+          console.warn('Tour targets not ready within timeout, skipping tour');
+        }
+      };
+
+      startTourWhenReady();
     }
   }, [toursEnabled, hasSeenTour, run, startTour]);
 
@@ -91,6 +135,7 @@ export const useAgentConfigTour = () => {
     if (typeof window !== 'undefined') {
       (window as any).agentConfigTour = {
         resetTour,
+        checkTargetsReady: areAllTourTargetsReady,
         getState: () => ({
           hasSeenTour,
           run,
