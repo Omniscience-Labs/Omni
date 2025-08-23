@@ -227,6 +227,30 @@ class Configuration:
             return self.STRIPE_CREDITS_25_PRICE_ID_STAGING
         return self.STRIPE_CREDITS_25_PRICE_ID_PROD
     
+    @property
+    def STRIPE_CREDITS_50_PRICE_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_CREDITS_50_PRICE_ID_STAGING
+        return self.STRIPE_CREDITS_50_PRICE_ID_PROD
+    
+    @property
+    def STRIPE_CREDITS_100_PRICE_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_CREDITS_100_PRICE_ID_STAGING
+        return self.STRIPE_CREDITS_100_PRICE_ID_PROD
+    
+    @property
+    def STRIPE_CREDITS_250_PRICE_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_CREDITS_250_PRICE_ID_STAGING
+        return self.STRIPE_CREDITS_250_PRICE_ID_PROD
+    
+    @property
+    def STRIPE_CREDITS_500_PRICE_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_CREDITS_500_PRICE_ID_STAGING
+        return self.STRIPE_CREDITS_500_PRICE_ID_PROD
+    
     # LLM API keys
     ANTHROPIC_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None

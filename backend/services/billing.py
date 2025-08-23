@@ -17,7 +17,7 @@ from utils.config import config, EnvMode
 from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from pydantic import BaseModel
-from utils.constants import MODEL_ACCESS_TIERS, MODEL_NAME_ALIASES, HARDCODED_MODEL_PRICES
+from models import model_manager
 from litellm.cost_calculator import cost_per_token
 import time
 import json
@@ -36,11 +36,10 @@ CREDIT_PACKAGES = {
     'credits_10': {'amount': 10, 'price': 10, 'stripe_price_id': config.STRIPE_CREDITS_10_PRICE_ID},
     'credits_25': {'amount': 25, 'price': 25, 'stripe_price_id': config.STRIPE_CREDITS_25_PRICE_ID},
     # Uncomment these when you create the additional price IDs in Stripe:
-    # 'credits_50': {'amount': 50, 'price': 50, 'stripe_price_id': config.STRIPE_CREDITS_50_PRICE_ID},
-    # 'credits_100': {'amount': 100, 'price': 100, 'stripe_price_id': config.STRIPE_CREDITS_100_PRICE_ID},
-    # 'credits_250': {'amount': 250, 'price': 250, 'stripe_price_id': config.STRIPE_CREDITS_250_PRICE_ID},
-    # 'credits_500': {'amount': 500, 'price': 500, 'stripe_price_id': config.STRIPE_CREDITS_500_PRICE_ID},
-    # 'credits_1000': {'amount': 1000, 'price': 1000, 'stripe_price_id': config.STRIPE_CREDITS_1000_PRICE_ID},
+    'credits_50': {'amount': 50, 'price': 50, 'stripe_price_id': config.STRIPE_CREDITS_50_PRICE_ID},
+    'credits_100': {'amount': 100, 'price': 100, 'stripe_price_id': config.STRIPE_CREDITS_100_PRICE_ID},
+    'credits_250': {'amount': 250, 'price': 250, 'stripe_price_id': config.STRIPE_CREDITS_250_PRICE_ID},
+    'credits_500': {'amount': 500, 'price': 500, 'stripe_price_id': config.STRIPE_CREDITS_500_PRICE_ID}
 }
 
 router = APIRouter(prefix="/billing", tags=["billing"])
@@ -117,16 +116,10 @@ def get_model_pricing(model: str) -> tuple[float, float] | None:
     Returns:
         Tuple of (input_cost_per_million_tokens, output_cost_per_million_tokens) or None if not found
     """
-    # Try direct lookup first
-    if model in HARDCODED_MODEL_PRICES:
-        pricing = HARDCODED_MODEL_PRICES[model]
-        return pricing["input_cost_per_million_tokens"], pricing["output_cost_per_million_tokens"]
-    
-    from models import model_manager
-    resolved_model = model_manager.resolve_model_id(model)
-    if resolved_model != model and resolved_model in HARDCODED_MODEL_PRICES:
-        pricing = HARDCODED_MODEL_PRICES[resolved_model]
-        return pricing["input_cost_per_million_tokens"], pricing["output_cost_per_million_tokens"]
+    # Use the model manager to get pricing
+    pricing = model_manager.get_pricing(model)
+    if pricing:
+        return pricing.input_cost_per_million_tokens, pricing.output_cost_per_million_tokens
     
     return None
 
@@ -819,8 +812,13 @@ async def get_allowed_models_for_user(client, user_id: str):
         if tier_info:
             tier_name = tier_info['name']
     
-    # Return allowed models for this tier
-    result = MODEL_ACCESS_TIERS.get(tier_name, MODEL_ACCESS_TIERS['free'])  # Default to free tier if unknown
+    # Return allowed models for this tier using model manager
+    if tier_name == 'free':
+        result = model_manager.get_models_for_tier('free')
+        result = [model.id for model in result]  # Convert to list of IDs
+    else:
+        result = model_manager.get_models_for_tier('paid')  
+        result = [model.id for model in result]  # Convert to list of IDs
     await Cache.set(f"allowed_models_for_user:{user_id}", result, ttl=1 * 60)
     return result
 
