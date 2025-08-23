@@ -83,8 +83,8 @@ const agentConfigTourSteps: Step[] = [
   },
   {
     target: '[data-tour="preview-agent"]',
-    content: 'Test your agent configuration by previewing how it will behave and respond.',
-    title: 'Test Your Agent',
+    content: 'Build and test your agent by previewing how it will behave and respond. Here you can also ask the agent to self-configure',
+    title: 'Build & Test Your Agent',
     placement: 'left',
     disableBeacon: true,
   },

@@ -363,7 +363,7 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
                   )}
                 </div>
                 <p className='w-[60%] text-2xl mb-3'>Start conversation with <span className='text-primary/80 font-semibold'>{agent.name}</span></p>
-                <p className='w-[70%] text-sm text-muted-foreground/60'>Test your agent's configuration and chat back and forth to see how it performs with your current settings, tools, and knowledge base.</p>
+                <p className='w-[70%] text-sm text-muted-foreground/60'>Build and test your agent by previewing how it will behave and respond. Here you can also ask the agent to self-configure</p>
               </div>
             }
           />
