@@ -37,38 +37,36 @@ from PyPDFForm import PdfWrapper, FormWrapper
 """
         return imports + script_content
 
-    async def _ensure_pypdfform_installed(self):
-        """Ensure PyPDFForm is installed in the sandbox"""
+    async def _ensure_pdf_dependencies_installed(self):
+        """Ensure all PDF dependencies are installed in the sandbox"""
         try:
-            # Check if PyPDFForm is available
-            response = await self.sandbox.process.exec("python3 -c 'import PyPDFForm; print(PyPDFForm.__version__)'", timeout=10)
+            # Check if PyPDFForm and PyMuPDF are available
+            response = await self.sandbox.process.exec("python3 -c 'import PyPDFForm, pymupdf; print(\"PDF dependencies OK\")'", timeout=10)
             if response.exit_code != 0:
-                # Install PyPDFForm if not available
-                logger.info("Installing PyPDFForm in sandbox...")
-                install_response = await self.sandbox.process.exec("pip install --no-cache-dir PyPDFForm==1.4.36", timeout=120)
+                logger.info("Installing PDF dependencies in sandbox...")
+                
+                # Install system dependencies first
+                system_deps = await self.sandbox.process.exec(
+                    "apt-get update && apt-get install -y poppler-utils pandoc || echo 'System deps install failed'", 
+                    timeout=180
+                )
+                if system_deps.exit_code != 0:
+                    logger.warning(f"System dependencies installation had issues: {system_deps.result}")
+                
+                # Install Python packages
+                install_response = await self.sandbox.process.exec(
+                    "pip install --no-cache-dir PyPDFForm==1.4.36 PyMuPDF==1.24.4", 
+                    timeout=180
+                )
                 if install_response.exit_code != 0:
-                    raise Exception(f"Failed to install PyPDFForm: {install_response.result}")
-                logger.info("Successfully installed PyPDFForm")
+                    raise Exception(f"Failed to install PDF dependencies: {install_response.result}")
+                logger.info("Successfully installed PDF dependencies")
             else:
-                logger.debug("PyPDFForm already available in sandbox")
+                logger.debug("PDF dependencies already available in sandbox")
                     
         except Exception as e:
-            logger.warning(f"Could not verify PyPDFForm installation: {e}")
-
-    async def _ensure_pymupdf_installed(self):
-        """Ensure PyMuPDF is installed in the sandbox"""
-        try:
-            response = await self.sandbox.process.exec("python3 -c 'import pymupdf; print(pymupdf.__version__)'", timeout=10)
-            if response.exit_code != 0:
-                logger.info("Installing PyMuPDF in sandbox...")
-                install_response = await self.sandbox.process.exec("pip install --no-cache-dir PyMuPDF==1.24.4", timeout=120)
-                if install_response.exit_code != 0:
-                    raise Exception(f"Failed to install PyMuPDF: {install_response.result}")
-                logger.info("Successfully installed PyMuPDF")
-            else:
-                logger.debug("PyMuPDF already available in sandbox")
-        except Exception as e:
-            logger.warning(f"Could not verify PyMuPDF installation: {e}")
+            logger.warning(f"Could not verify PDF dependencies installation: {e}")
+            # Continue anyway - the tool might still work with basic functionality
 
     def _get_default_field_positions(self) -> Dict[str, Dict[str, Any]]:
         """Get default field positions for common form layouts"""
@@ -165,7 +163,7 @@ from PyPDFForm import PdfWrapper, FormWrapper
         try:
             # Ensure sandbox is initialized and dependencies are available
             await self._ensure_sandbox()
-            await self._ensure_pypdfform_installed()
+            await self._ensure_pdf_dependencies_installed()
             
             # Clean and validate the file path
             file_path = self.clean_path(file_path)
@@ -252,7 +250,7 @@ except Exception as e:
         """Fill a PDF form with the provided field values."""
         try:
             await self._ensure_sandbox()
-            await self._ensure_pypdfform_installed()
+            await self._ensure_pdf_dependencies_installed()
             
             file_path = self.clean_path(file_path)
             full_path = f"{self.workspace_path}/{file_path}"
@@ -390,7 +388,7 @@ except Exception as e:
         """Flatten a PDF form to make it non-editable."""
         try:
             await self._ensure_sandbox()
-            await self._ensure_pypdfform_installed()
+            await self._ensure_pdf_dependencies_installed()
             
             file_path = self.clean_path(file_path)
             full_path = f"{self.workspace_path}/{file_path}"
@@ -492,7 +490,7 @@ except Exception as e:
         """Modern AI-powered form filling using automatic field detection."""
         try:
             await self._ensure_sandbox()
-            await self._ensure_pymupdf_installed()
+            await self._ensure_pdf_dependencies_installed()
             
             file_path = self.clean_path(file_path)
             full_path = f"{self.workspace_path}/{file_path}"
