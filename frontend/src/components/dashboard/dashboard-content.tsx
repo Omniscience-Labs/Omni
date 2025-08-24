@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Suspense, useCallback } from 'react';
+import React, { useState, Suspense, useCallback, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Joyride, { CallBackProps, STATUS, Step } from 'react-joyride';
@@ -34,6 +34,7 @@ import { toast } from 'sonner';
 import { ReleaseBadge } from '../auth/release-badge';
 import { useDashboardTour } from '@/hooks/use-dashboard-tour';
 import { TourConfirmationDialog } from '@/components/tour/TourConfirmationDialog';
+import { Calendar, MessageSquare, Plus, Sparkles, Zap } from 'lucide-react';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
@@ -266,38 +267,35 @@ export function DashboardContent() {
         disableScrollParentFix
         styles={{
           options: {
-            primaryColor: 'hsl(var(--primary))',
-            backgroundColor: 'hsl(var(--background))',
-            textColor: 'hsl(var(--foreground))',
+            primaryColor: '#000000',
+            backgroundColor: '#ffffff',
+            textColor: '#000000',
             overlayColor: 'rgba(0, 0, 0, 0.7)',
-            arrowColor: 'hsl(var(--background))',
+            arrowColor: '#ffffff',
             zIndex: 1000,
           },
           tooltip: {
-            backgroundColor: 'hsl(var(--background))',
+            backgroundColor: '#ffffff',
             borderRadius: 8,
             fontSize: 14,
             padding: 20,
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px hsl(var(--border))',
-            border: '1px solid hsl(var(--border))',
-          },
-          tooltipContainer: {
-            textAlign: 'left',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            border: '1px solid #e5e7eb',
           },
           tooltipTitle: {
-            color: 'hsl(var(--foreground))',
+            color: '#000000',
             fontSize: 16,
             fontWeight: 600,
             marginBottom: 8,
           },
           tooltipContent: {
-            color: 'hsl(var(--foreground))',
+            color: '#000000',
             fontSize: 14,
             lineHeight: 1.5,
           },
           buttonNext: {
-            backgroundColor: 'hsl(var(--primary))',
-            color: 'hsl(var(--primary-foreground))',
+            backgroundColor: '#000000',
+            color: '#ffffff',
             fontSize: 12,
             padding: '8px 16px',
             borderRadius: 6,
@@ -305,21 +303,21 @@ export function DashboardContent() {
             fontWeight: 500,
           },
           buttonBack: {
-            color: 'hsl(var(--muted-foreground))',
+            color: '#6b7280',
             backgroundColor: 'transparent',
             fontSize: 12,
             padding: '8px 16px',
-            border: '1px solid hsl(var(--border))',
+            border: '1px solid #e5e7eb',
             borderRadius: 6,
           },
           buttonSkip: {
-            color: 'hsl(var(--muted-foreground))',
+            color: '#6b7280',
             backgroundColor: 'transparent',
             fontSize: 12,
             border: 'none',
           },
           buttonClose: {
-            color: 'hsl(var(--muted-foreground))',
+            color: '#6b7280',
             backgroundColor: 'transparent',
           },
         }}

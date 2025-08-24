@@ -26,8 +26,10 @@ export type Agent = {
   tags?: string[];
   created_at: string;
   updated_at: string;
-  // New
   profile_image_url?: string;
+  icon_name?: string | null;
+  icon_color?: string | null;
+  icon_background?: string | null;
   current_version_id?: string | null;
   version_count?: number;
   current_version?: AgentVersion | null;
@@ -95,6 +97,10 @@ export type AgentCreateRequest = {
   is_default?: boolean;
   // New
   profile_image_url?: string;
+  // Icon system fields
+  icon_name?: string | null;
+  icon_color?: string | null;
+  icon_background?: string | null;
 };
 
 export type AgentVersionCreateRequest = {
@@ -150,6 +156,10 @@ export type AgentUpdateRequest = {
   is_default?: boolean;
   // New
   profile_image_url?: string;
+  // Icon system fields
+  icon_name?: string | null;
+  icon_color?: string | null;
+  icon_background?: string | null;
 };
 
 export const getAgents = async (params: AgentsParams = {}): Promise<AgentsResponse> => {

@@ -49,6 +49,9 @@ class AgentTemplate:
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
     profile_image_url: Optional[str] = None
+    icon_name: Optional[str] = None
+    icon_color: Optional[str] = None
+    icon_background: Optional[str] = None
     metadata: ConfigType = field(default_factory=dict)
     creator_name: Optional[str] = None
     
@@ -223,6 +226,9 @@ class TemplateService:
             avatar=agent.get('avatar'),
             avatar_color=agent.get('avatar_color'),
             profile_image_url=agent.get('profile_image_url'),
+            icon_name=agent.get('icon_name'),
+            icon_color=agent.get('icon_color'),
+            icon_background=agent.get('icon_background'),
             metadata=agent.get('metadata', {})
         )
         
@@ -629,6 +635,9 @@ class TemplateService:
             'avatar': template.avatar,
             'avatar_color': template.avatar_color,
             'profile_image_url': template.profile_image_url,
+            'icon_name': template.icon_name,
+            'icon_color': template.icon_color,
+            'icon_background': template.icon_background,
             'metadata': template.metadata
         }
         
@@ -653,6 +662,9 @@ class TemplateService:
             avatar=data.get('avatar'),
             avatar_color=data.get('avatar_color'),
             profile_image_url=data.get('profile_image_url'),
+            icon_name=data.get('icon_name'),
+            icon_color=data.get('icon_color'),
+            icon_background=data.get('icon_background'),
             metadata=data.get('metadata', {}),
             creator_name=creator_name
         )

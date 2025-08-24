@@ -74,11 +74,11 @@ class PresentationToPDFAPI:
             
             for slide_num, slide_data in slides.items():
                 filename = slide_data.get('filename')
+                file_path = slide_data.get('file_path')
                 title = slide_data.get('title', f'Slide {slide_num}')
                 
-                if filename:
-                    # Treat filename as absolute path only
-                    html_path = Path(filename)
+                if file_path:
+                    html_path = Path(f"/workspace/{file_path}")
                     print(f"Using path: {html_path}")
                     
                     # Verify the path exists
