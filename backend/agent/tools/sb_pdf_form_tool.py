@@ -2,7 +2,7 @@ from typing import Optional, Dict, Any, List, Union
 import json
 import uuid
 import os
-from agentpress.tool import ToolResult, openapi_schema, xml_schema
+from agentpress.tool import ToolResult, openapi_schema
 from sandbox.tool_base import SandboxToolsBase
 from agentpress.thread_manager import ThreadManager
 from utils.logger import logger
