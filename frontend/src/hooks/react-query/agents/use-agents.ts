@@ -71,6 +71,9 @@ export const useCreateNewAgent = () => {
         configured_mcps: [],
         agentpress_tools: DEFAULT_AGENTPRESS_TOOLS,
         is_default: false,
+        icon_name: 'brain',
+        icon_color: '#000000',
+        icon_background: '#F3F4F6',
       };
 
       const newAgent = await createAgentMutation.mutateAsync(defaultAgentData);
