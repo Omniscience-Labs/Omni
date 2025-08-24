@@ -16,7 +16,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 
 // Use CDN for standard fonts to avoid build issues
 if (typeof window !== 'undefined') {
-  pdfjs.GlobalWorkerOptions.standardFontDataUrl = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/standard_fonts/';
+  // Type assertion needed as standardFontDataUrl may not be in type definitions
+  (pdfjs.GlobalWorkerOptions as any).standardFontDataUrl = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/standard_fonts/';
 }
 
 interface PdfRendererProps {
