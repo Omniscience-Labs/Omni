@@ -87,15 +87,20 @@ const defaultRegistry: ToolViewRegistryType = {
 
   'deploy': DeployToolView,
 
-  'create-sheet': SheetsToolView,
-  'update-sheet': SheetsToolView,
-  'view-sheet': SheetsToolView,
-  'analyze-sheet': SheetsToolView,
-  'visualize-sheet': SheetsToolView,
-  'format-sheet': SheetsToolView,
-
-  // Excel operations (using SheetsToolView for similar functionality)
-  'excel_operations': SheetsToolView,
+  // Excel operations
+  'excel_operations': GenericToolView,
+  
+  // PDF form operations
+  'read_form_fields': GenericToolView,
+  'fill_form': GenericToolView,
+  'flatten_form': GenericToolView,
+  'get_form_field_value': GenericToolView,
+  'fill_form_coordinates': GenericToolView,
+  'analyze_form_layout': GenericToolView,
+  'create_coordinate_template': GenericToolView,
+  'detect_and_remove_overlays': GenericToolView,
+  'generate_coordinate_grid': GenericToolView,
+  'smart_form_fill': GenericToolView,
 
   'get-project-structure': GetProjectStructureView,
   'list-web-projects': GenericToolView,

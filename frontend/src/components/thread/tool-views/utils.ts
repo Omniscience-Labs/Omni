@@ -1276,7 +1276,20 @@ export function getToolComponent(toolName: string): string {
 
     // Excel operations
     case 'excel_operations':
-      return 'SheetsToolView';
+      return 'GenericToolView';
+    
+    // PDF form operations
+    case 'read_form_fields':
+    case 'fill_form':
+    case 'flatten_form':
+    case 'get_form_field_value':
+    case 'fill_form_coordinates':
+    case 'analyze_form_layout':
+    case 'create_coordinate_template':
+    case 'detect_and_remove_overlays':
+    case 'generate_coordinate_grid':
+    case 'smart_form_fill':
+      return 'GenericToolView';
 
     // MCP operations
     case 'search-mcp-servers':
