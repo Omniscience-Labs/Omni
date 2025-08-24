@@ -8,9 +8,15 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-// Configure PDF.js worker
+// Configure PDF.js worker and fonts
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString();
+
+// Configure standard font data URL to fix font warnings
+pdfjs.GlobalWorkerOptions.standardFontDataUrl = new URL(
+  'pdfjs-dist/standard_fonts/',
   import.meta.url,
 ).toString();
 
@@ -23,9 +29,19 @@ export function PdfRenderer({ url, className }: PdfRendererProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [scale, setScale] = useState<number>(1.0);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [hasError, setHasError] = useState<boolean>(false);
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }): void {
     setNumPages(numPages);
+    setIsLoading(false);
+    setHasError(false);
+  }
+
+  function onDocumentLoadError(error: Error): void {
+    console.error('PDF load error:', error);
+    setHasError(true);
+    setIsLoading(false);
   }
 
   function changePage(offset: number) {
@@ -53,13 +69,36 @@ export function PdfRenderer({ url, className }: PdfRendererProps) {
     setScale((prevScale) => Math.max(prevScale - 0.2, 0.5));
   }
 
+  if (hasError) {
+    return (
+      <div className={cn('flex flex-col w-full h-full items-center justify-center', className)}>
+        <div className="text-center text-muted-foreground">
+          <p>Failed to load PDF</p>
+          <p className="text-sm mt-1">The document may be corrupted or unsupported.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn('flex flex-col w-full h-full', className)}>
       <div className="flex-1 overflow-auto rounded-md">
+        {isLoading && (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-sm text-muted-foreground">Loading PDF...</div>
+          </div>
+        )}
         <Document
           file={url}
           onLoadSuccess={onDocumentLoadSuccess}
+          onLoadError={onDocumentLoadError}
           className="flex flex-col items-center"
+          options={{
+            standardFontDataUrl: new URL(
+              'pdfjs-dist/standard_fonts/',
+              import.meta.url,
+            ).toString(),
+          }}
         >
           <Page
             pageNumber={pageNumber}

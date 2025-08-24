@@ -124,9 +124,14 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
   }, []);
 
   const handleStreamError = useCallback((errorMessage: string) => {
-    console.error(`[PREVIEW] Stream error: ${errorMessage}`);
-    if (!errorMessage.toLowerCase().includes('not found') &&
-      !errorMessage.toLowerCase().includes('agent run is not running')) {
+    // Suppress expected errors that are part of normal operation
+    const isExpectedError = errorMessage.toLowerCase().includes('not found') ||
+      errorMessage.toLowerCase().includes('agent run is not running') ||
+      errorMessage.toLowerCase().includes('does not exist') ||
+      errorMessage.toLowerCase().includes('404');
+    
+    if (!isExpectedError) {
+      console.error(`[PREVIEW] Stream error: ${errorMessage}`);
       toast.error(`Stream Error: ${errorMessage}`);
     }
   }, []);

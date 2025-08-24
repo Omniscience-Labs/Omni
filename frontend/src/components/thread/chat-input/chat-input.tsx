@@ -24,7 +24,7 @@ import { useComposioToolkitIcon } from '@/hooks/react-query/composio/use-composi
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { IntegrationsRegistry } from '@/components/agents/integrations-registry';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useSubscriptionWithStreaming } from '@/hooks/react-query/subscriptions/use-subscriptions';
 import { isLocalMode } from '@/lib/config';
 import { BillingModal } from '@/components/billing/billing-modal';
@@ -506,6 +506,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             <DialogContent className="p-0 max-w-6xl h-[90vh] overflow-hidden">
               <DialogHeader className="sr-only">
                 <DialogTitle>Integrations</DialogTitle>
+                <DialogDescription>Browse and configure integrations for your agent</DialogDescription>
               </DialogHeader>
               <IntegrationsRegistry
                 showAgentSelector={true}

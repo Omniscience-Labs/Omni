@@ -20,7 +20,7 @@ import { OmniLogo } from '@/components/sidebar/omni-logo';
 import type { ModelOption, SubscriptionStatus } from './_use-model-selection';
 import { MODELS, STORAGE_KEY_CUSTOM_MODELS, STORAGE_KEY_MODEL, formatModelName, getCustomModels } from './_use-model-selection';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { isLocalMode } from '@/lib/config';
 import { CustomModelDialog, type CustomModelFormData } from './custom-model-dialog';
 import { IntegrationsRegistry } from '@/components/agents/integrations-registry';
@@ -533,6 +533,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
                 <DialogContent className="p-0 max-w-6xl h-[90vh] overflow-hidden">
                     <DialogHeader className="sr-only">
                         <DialogTitle>Integrations</DialogTitle>
+                        <DialogDescription>Browse and configure integrations for your agent</DialogDescription>
                     </DialogHeader>
                     <IntegrationsRegistry
                         showAgentSelector={true}
