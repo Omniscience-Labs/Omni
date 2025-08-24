@@ -33,6 +33,7 @@ from agent.tools.mcp_tool_wrapper import MCPToolWrapper
 from agent.tools.task_list_tool import TaskListTool
 from agentpress.tool import SchemaType
 from agent.tools.sb_excel_tool import SandboxExcelTool
+from agent.tools.sb_pdf_form_tool import SandboxPDFFormTool
 from agent.tools.sb_web_dev_tool import SandboxWebDevTool
 from agent.tools.podcast_tool import SandboxPodcastTool
 from agent.tools.sb_video_avatar_tool import SandboxVideoAvatarTool
@@ -77,6 +78,7 @@ class ToolManager:
         self.thread_manager.add_tool(SandboxImageEditTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(TaskListTool, project_id=self.project_id, thread_manager=self.thread_manager, thread_id=self.thread_id)
         self.thread_manager.add_tool(SandboxExcelTool, project_id=self.project_id, thread_manager=self.thread_manager)
+        self.thread_manager.add_tool(SandboxPDFFormTool, project_id=self.project_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(SandboxPodcastTool, project_id=self.project_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(SandboxVideoAvatarTool, project_id=self.project_id, thread_manager=self.thread_manager)
         # self.thread_manager.add_tool(SandboxWebDevTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
@@ -134,6 +136,8 @@ class ToolManager:
             self.thread_manager.add_tool(SandboxVisionTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         if safe_tool_check('sb_excel_tool'):
             self.thread_manager.add_tool(SandboxExcelTool, project_id=self.project_id, thread_manager=self.thread_manager)
+        if safe_tool_check('sb_pdf_form_tool'):
+            self.thread_manager.add_tool(SandboxPDFFormTool, project_id=self.project_id, thread_manager=self.thread_manager)
         if safe_tool_check('podcast_tool'):
             self.thread_manager.add_tool(SandboxPodcastTool, project_id=self.project_id, thread_manager=self.thread_manager)
         if safe_tool_check('sb_video_avatar_tool'):
