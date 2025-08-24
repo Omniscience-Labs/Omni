@@ -106,9 +106,22 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright and browsers with system dependencies
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-# Then install dependencies and browsers
-RUN npx playwright install-deps
-RUN npx playwright install chromium
+# Install system dependencies for Playwright manually to avoid package conflicts
+RUN apt-get update && apt-get install -y \
+    libnss3 \
+    libnspr4 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libxss1 \
+    libasound2 \
+    && rm -rf /var/lib/apt/lists/*
+# Install Playwright browsers
+RUN npx playwright install chromium --with-deps
 # Verify installation
 RUN node -e "import('playwright').then(() => console.log('Playwright installation verified')).catch(e => { console.error('Playwright verification failed:', e); process.exit(1); })"
 
