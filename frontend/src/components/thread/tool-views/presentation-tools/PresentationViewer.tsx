@@ -71,7 +71,9 @@ export function PresentationViewer({
 
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const [hasScrolledToCurrentSlide, setHasScrolledToCurrentSlide] = useState(false);
+  const [backgroundRetryInterval, setBackgroundRetryInterval] = useState<NodeJS.Timeout | null>(null);
 
   const [visibleSlide, setVisibleSlide] = useState<number | null>(null);
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
@@ -134,12 +136,13 @@ export function PresentationViewer({
     return name.replace(/[^a-zA-Z0-9\-_]/g, '').toLowerCase();
   };
 
-  // Load metadata.json for the presentation
-  const loadMetadata = async () => {
+  // Load metadata.json for the presentation with retry logic
+  const loadMetadata = async (retryCount = 0, maxRetries = 5) => {
     if (!extractedPresentationName || !project?.sandbox?.sandbox_url) return;
     
     setIsLoadingMetadata(true);
     setError(null);
+    setRetryAttempt(retryCount);
     
     try {
       // Sanitize the presentation name to match backend directory creation
@@ -153,6 +156,8 @@ export function PresentationViewer({
       // Add cache-busting parameter to ensure fresh data
       const urlWithCacheBust = `${metadataUrl}?t=${Date.now()}`;
       
+      console.log(`Loading presentation metadata (attempt ${retryCount + 1}/${maxRetries + 1}):`, urlWithCacheBust);
+      
       const response = await fetch(urlWithCacheBust, {
         cache: 'no-cache',
         headers: {
@@ -163,22 +168,66 @@ export function PresentationViewer({
       if (response.ok) {
         const data = await response.json();
         setMetadata(data);
+        console.log('Successfully loaded presentation metadata:', data);
+        setIsLoadingMetadata(false);
         
-
+        // Clear background retry interval on success
+        if (backgroundRetryInterval) {
+          clearInterval(backgroundRetryInterval);
+          setBackgroundRetryInterval(null);
+        }
+        
+        return; // Success, exit early
       } else {
-        setError('Failed to load presentation metadata');
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (err) {
-      console.error('Error loading metadata:', err);
-      setError('Failed to load presentation metadata');
-    } finally {
+      console.error(`Error loading metadata (attempt ${retryCount + 1}):`, err);
+      
+      // If we haven't reached max retries, try again with exponential backoff
+      if (retryCount < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Cap at 10 seconds
+        console.log(`Retrying in ${delay}ms...`);
+        
+        setTimeout(() => {
+          loadMetadata(retryCount + 1, maxRetries);
+        }, delay);
+        
+        return; // Don't set error state yet, we're retrying
+      }
+      
+      // All retries exhausted, set error and start background retry
+      setError('Failed to load presentation metadata after multiple attempts');
       setIsLoadingMetadata(false);
+      
+      // Start background retry every 10 seconds
+      if (!backgroundRetryInterval) {
+        const interval = setInterval(() => {
+          console.log('Background retry attempt...');
+          loadMetadata(0, 2); // Fewer retries for background attempts
+        }, 10000);
+        setBackgroundRetryInterval(interval);
+      }
     }
   };
 
   useEffect(() => {
+    // Clear any existing background retry when dependencies change
+    if (backgroundRetryInterval) {
+      clearInterval(backgroundRetryInterval);
+      setBackgroundRetryInterval(null);
+    }
     loadMetadata();
   }, [extractedPresentationName, project?.sandbox?.sandbox_url, toolContent]);
+
+  // Cleanup background retry interval on unmount
+  useEffect(() => {
+    return () => {
+      if (backgroundRetryInterval) {
+        clearInterval(backgroundRetryInterval);
+      }
+    };
+  }, [backgroundRetryInterval]);
 
   // Reset scroll state when tool content changes (new tool call)
   useEffect(() => {
@@ -580,7 +629,7 @@ export function PresentationViewer({
             iconColor="text-blue-500 dark:text-blue-400"
             bgColor="bg-gradient-to-b from-blue-100 to-blue-50 shadow-inner dark:from-blue-800/40 dark:to-blue-900/60 dark:shadow-blue-950/20"
             title="Loading presentation"
-            filePath="Loading slides..."
+            filePath={retryAttempt > 0 ? `Retrying... (attempt ${retryAttempt + 1})` : "Loading slides..."}
             showProgress={true}
           />
         ) : error || toolExecutionError || !metadata ? (
@@ -595,6 +644,35 @@ export function PresentationViewer({
               {toolExecutionError ? 'The presentation tool encountered an error during execution:' : 
                (error || 'There was an error loading the presentation. Please try again.')}
             </p>
+            {retryAttempt > 0 && !toolExecutionError && (
+              <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-4">
+                Attempted {retryAttempt + 1} times
+              </p>
+            )}
+            {backgroundRetryInterval && !toolExecutionError && (
+              <p className="text-xs text-blue-500 dark:text-blue-400 mb-4 flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Retrying in background...
+              </p>
+            )}
+            {!toolExecutionError && error && (
+              <Button 
+                onClick={() => loadMetadata()} 
+                variant="outline" 
+                size="sm"
+                disabled={isLoadingMetadata}
+                className="mb-4"
+              >
+                {isLoadingMetadata ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Retrying...
+                  </>
+                ) : (
+                  'Try Again'
+                )}
+              </Button>
+            )}
             {toolExecutionError && (
               <div className="w-full max-w-2xl">
                 <CodeBlockCode 

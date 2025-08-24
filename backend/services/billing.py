@@ -414,7 +414,7 @@ async def calculate_monthly_usage(client, user_id: str) -> float:
 
 async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: int = 1000) -> Dict:
     """Get detailed usage logs for a user with pagination, including credit usage info."""
-    logger.info(f"[USAGE_LOGS] Starting get_usage_logs for user_id={user_id}, page={page}, items_per_page={items_per_page}")
+    logger.debug(f"[USAGE_LOGS] Starting get_usage_logs for user_id={user_id}, page={page}, items_per_page={items_per_page}")
     
     try:
         # Get start of current month in UTC
@@ -458,10 +458,10 @@ async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: in
                 logger.error(f"[USAGE_LOGS] user_id={user_id} - Error fetching threads batch at offset {offset}: {str(thread_error)}")
                 raise
         
-        logger.info(f"[USAGE_LOGS] user_id={user_id} - Found {len(all_threads)} total threads")
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Found {len(all_threads)} total threads")
         
         if not all_threads:
-            logger.info(f"[USAGE_LOGS] user_id={user_id} - No threads found, returning empty result")
+            logger.debug(f"[USAGE_LOGS] user_id={user_id} - No threads found, returning empty result")
             return {"logs": [], "has_more": False}
         
         thread_ids = [t['thread_id'] for t in all_threads]
@@ -538,10 +538,10 @@ async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: in
         logger.debug(f"[USAGE_LOGS] user_id={user_id} - Database query for usage logs took {execution_time:.3f} seconds")
 
         if not messages_result.data:
-            logger.info(f"[USAGE_LOGS] user_id={user_id} - No messages found, returning empty result")
+            logger.debug(f"[USAGE_LOGS] user_id={user_id} - No messages found, returning empty result")
             return {"logs": [], "has_more": False}
         
-        logger.info(f"[USAGE_LOGS] user_id={user_id} - Found {len(messages_result.data)} messages to process")
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Found {len(messages_result.data)} messages to process")
 
         # Get the user's subscription tier info for credit checking
         logger.debug(f"[USAGE_LOGS] user_id={user_id} - Getting subscription info")
@@ -691,7 +691,7 @@ async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: in
                 logger.error(f"[USAGE_LOGS] user_id={user_id} - Error processing usage log entry for message {message.get('message_id', 'unknown')}: {str(e)}")
                 continue
         
-        logger.info(f"[USAGE_LOGS] user_id={user_id} - Successfully processed {len(processed_logs)} messages")
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Successfully processed {len(processed_logs)} messages")
         
         # Check if there are more results
         has_more = len(processed_logs) == items_per_page
@@ -719,7 +719,7 @@ async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: in
                 "error": "Failed to serialize usage data"
             }
         
-        logger.info(f"[USAGE_LOGS] user_id={user_id} - Returning {len(processed_logs)} logs, has_more={has_more}")
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Returning {len(processed_logs)} logs, has_more={has_more}")
         return result
         
     except Exception as outer_error:
@@ -1035,7 +1035,7 @@ async def is_user_on_highest_tier(user_id: str) -> bool:
         if subscription.get('items') and subscription['items'].get('data') and len(subscription['items']['data']) > 0:
             price_id = subscription['items']['data'][0]['price']['id']
         
-        logger.info(f"User {user_id} subscription price_id: {price_id}")
+        logger.debug(f"User {user_id} subscription price_id: {price_id}")
         
         # Check if it's one of the highest tier price IDs (200h/$1000 only)
         highest_tier_price_ids = [
@@ -1048,7 +1048,7 @@ async def is_user_on_highest_tier(user_id: str) -> bool:
         ]
         
         is_highest = price_id in highest_tier_price_ids
-        logger.info(f"User {user_id} is_highest_tier: {is_highest}, price_id: {price_id}, checked against: {highest_tier_price_ids}")
+        logger.debug(f"User {user_id} is_highest_tier: {is_highest}, price_id: {price_id}, checked against: {highest_tier_price_ids}")
         
         return is_highest
         
@@ -1977,7 +1977,7 @@ async def stripe_webhook(request: Request):
                     purchase_id = purchase_update.data[0]['id'] if purchase_update.data else None
                     new_balance = await add_credits_to_balance(client, user_id, credit_amount, purchase_id)
                     
-                    logger.info(f"Successfully added ${credit_amount} credits to user {user_id}. New balance: ${new_balance}")
+                    logger.debug(f"Successfully added ${credit_amount} credits to user {user_id}. New balance: ${new_balance}")
                     
                     # Clear cache for this user
                     await Cache.delete(f"monthly_usage:{user_id}")
@@ -2198,7 +2198,7 @@ async def get_usage_logs_endpoint(
     current_user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Get detailed usage logs for a user with pagination."""
-    logger.info(f"[USAGE_LOGS_ENDPOINT] Starting get_usage_logs_endpoint for user_id={current_user_id}, page={page}, items_per_page={items_per_page}")
+    logger.debug(f"[USAGE_LOGS_ENDPOINT] Starting get_usage_logs_endpoint for user_id={current_user_id}, page={page}, items_per_page={items_per_page}")
     
     try:
         # Get Supabase client
@@ -2231,7 +2231,7 @@ async def get_usage_logs_endpoint(
             logger.error(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Usage logs returned error: {result['error']}")
             raise HTTPException(status_code=400, detail=f"Failed to retrieve usage logs: {result['error']}")
         
-        logger.info(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Successfully returned {len(result.get('logs', []))} usage logs")
+        logger.debug(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Successfully returned {len(result.get('logs', []))} usage logs")
         return result
         
     except HTTPException:
