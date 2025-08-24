@@ -116,8 +116,12 @@ class AgentUpdateRequest(BaseModel):
     # Deprecated, kept for backward-compat
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
-    # New profile image url
+    # New profile image url (backward compatibility)
     profile_image_url: Optional[str] = None
+    # New icon system fields
+    icon_name: Optional[str] = None
+    icon_color: Optional[str] = None
+    icon_background: Optional[str] = None
 
 class AgentResponse(BaseModel):
     agent_id: str
@@ -133,6 +137,10 @@ class AgentResponse(BaseModel):
     avatar_color: Optional[str] = None
     # New
     profile_image_url: Optional[str] = None
+    # Icon system fields
+    icon_name: Optional[str] = None
+    icon_color: Optional[str] = None
+    icon_background: Optional[str] = None
     created_at: str
     updated_at: Optional[str] = None
     is_public: Optional[bool] = False
@@ -1558,6 +1566,9 @@ async def get_agents(
                 avatar=agent_config.get('avatar'),
                 avatar_color=agent_config.get('avatar_color'),
                 profile_image_url=agent_config.get('profile_image_url'),
+                icon_name=agent.get('icon_name'),
+                icon_color=agent.get('icon_color'),
+                icon_background=agent.get('icon_background'),
                 created_at=agent['created_at'],
                 updated_at=agent['updated_at'],
                 current_version_id=agent.get('current_version_id'),
@@ -1683,6 +1694,9 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
             avatar=agent_config.get('avatar'),
             avatar_color=agent_config.get('avatar_color'),
             profile_image_url=agent_config.get('profile_image_url'),
+            icon_name=agent_data.get('icon_name'),
+            icon_color=agent_data.get('icon_color'),
+            icon_background=agent_data.get('icon_background'),
             created_at=agent_data['created_at'],
             updated_at=agent_data.get('updated_at', agent_data['created_at']),
             current_version_id=agent_data.get('current_version_id'),
@@ -1923,11 +1937,12 @@ async def create_agent(
             "account_id": user_id,
             "name": agent_data.name,
             "description": agent_data.description,
-            # Deprecated fields still populated if sent by older clients
             "avatar": agent_data.avatar,
             "avatar_color": agent_data.avatar_color,
-            # New profile image url field
             "profile_image_url": agent_data.profile_image_url,
+            "icon_name": agent_data.icon_name,
+            "icon_color": agent_data.icon_color,
+            "icon_background": agent_data.icon_background,
             "is_default": agent_data.is_default or False,
             "version_count": 1
         }
@@ -2005,6 +2020,9 @@ async def create_agent(
             avatar=agent.get('avatar'),
             avatar_color=agent.get('avatar_color'),
             profile_image_url=agent.get('profile_image_url'),
+            icon_name=agent.get('icon_name'),
+            icon_color=agent.get('icon_color'),
+            icon_background=agent.get('icon_background'),
             created_at=agent['created_at'],
             updated_at=agent.get('updated_at', agent['created_at']),
             current_version_id=agent.get('current_version_id'),
@@ -2252,6 +2270,13 @@ async def update_agent(
             update_data["avatar_color"] = agent_data.avatar_color
         if agent_data.profile_image_url is not None:
             update_data["profile_image_url"] = agent_data.profile_image_url
+        # Handle new icon system fields
+        if agent_data.icon_name is not None:
+            update_data["icon_name"] = agent_data.icon_name
+        if agent_data.icon_color is not None:
+            update_data["icon_color"] = agent_data.icon_color
+        if agent_data.icon_background is not None:
+            update_data["icon_background"] = agent_data.icon_background
         
         current_system_prompt = agent_data.system_prompt if agent_data.system_prompt is not None else current_version_data.get('system_prompt', '')
         current_configured_mcps = agent_data.configured_mcps if agent_data.configured_mcps is not None else current_version_data.get('configured_mcps', [])
@@ -2380,6 +2405,9 @@ async def update_agent(
             avatar=agent_config.get('avatar'),
             avatar_color=agent_config.get('avatar_color'),
             profile_image_url=agent_config.get('profile_image_url'),
+            icon_name=agent.get('icon_name'),
+            icon_color=agent.get('icon_color'),
+            icon_background=agent.get('icon_background'),
             created_at=agent['created_at'],
             updated_at=agent.get('updated_at', agent['created_at']),
             current_version_id=agent.get('current_version_id'),

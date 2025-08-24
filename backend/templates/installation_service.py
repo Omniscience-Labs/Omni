@@ -359,6 +359,9 @@ class InstallationService:
             'avatar': template.avatar,
             'avatar_color': template.avatar_color,
             'profile_image_url': template.profile_image_url,
+            'icon_name': template.icon_name,
+            'icon_color': template.icon_color,
+            'icon_background': template.icon_background,
             'metadata': {
                 **template.metadata,
                 'created_from_template': template.template_id,
