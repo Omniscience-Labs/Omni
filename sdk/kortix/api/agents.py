@@ -35,6 +35,10 @@ class AgentCreateRequest:
     is_default: bool = False
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
+    profile_image_url: Optional[str] = None
+    icon_name: Optional[str] = None
+    icon_color: Optional[str] = None
+    icon_background: Optional[str] = None
 
 
 @dataclass
@@ -47,6 +51,10 @@ class AgentUpdateRequest:
     is_default: Optional[bool] = None
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
+    profile_image_url: Optional[str] = None
+    icon_name: Optional[str] = None
+    icon_color: Optional[str] = None
+    icon_background: Optional[str] = None
 
 
 @dataclass

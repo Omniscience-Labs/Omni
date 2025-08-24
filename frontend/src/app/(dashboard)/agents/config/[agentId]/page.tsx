@@ -293,7 +293,6 @@ function AgentConfigurationContent() {
       
       setFormData(prev => ({ ...prev, profile_image_url: profileImageUrl || '' }));
       setOriginalData(prev => ({ ...prev, profile_image_url: profileImageUrl || '' }));
-      toast.success('Profile picture updated');
     } catch (error) {
       toast.error('Failed to update profile picture');
       throw error;
