@@ -69,7 +69,6 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
       return <KortixLogo size={16} />;
     }
     if (agent.icon_name) {
-      const DynamicIcon = require('lucide-react/dynamic').DynamicIcon;
       return (
         <div 
           className="h-4 w-4 flex items-center justify-center rounded-sm"

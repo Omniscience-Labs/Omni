@@ -9,6 +9,7 @@ import { useCreateTemplate, useUnpublishTemplate } from '@/hooks/react-query/sec
 import { toast } from 'sonner';
 import { AgentCard } from './custom-agents-page/agent-card';
 import { KortixLogo } from '../sidebar/kortix-logo';
+import { DynamicIcon } from 'lucide-react/dynamic';
 
 interface Agent {
   agent_id: string;
@@ -107,16 +108,11 @@ const AgentModal: React.FC<AgentModalProps> = ({
                 className="h-16 w-16 rounded-xl flex items-center justify-center"
                 style={{ backgroundColor: agent.icon_background || '#F3F4F6' }}
               >
-                {(() => {
-                  const DynamicIcon = require('lucide-react/dynamic').DynamicIcon;
-                  return (
-                    <DynamicIcon 
-                      name={agent.icon_name as any} 
-                      size={32} 
-                      color={agent.icon_color || '#000000'}
-                    />
-                  );
-                })()}
+                <DynamicIcon 
+                  name={agent.icon_name as any} 
+                  size={32} 
+                  color={agent.icon_color || '#000000'}
+                />
               </div>
             ) : agent.profile_image_url ? (
               <img src={agent.profile_image_url} alt={agent.name} className="h-16 w-16 rounded-xl object-cover" />

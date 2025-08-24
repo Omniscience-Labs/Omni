@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Download, CheckCircle, Loader2, Globe, GlobeLock, GitBranch, Trash2, MoreVertical, User } from 'lucide-react';
+import { DynamicIcon } from 'lucide-react/dynamic';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -362,7 +363,6 @@ const CardAvatar: React.FC<{
   }
   
   if (iconName) {
-    const DynamicIcon = require('lucide-react/dynamic').DynamicIcon;
     return (
       <div 
         className="h-14 w-14 flex items-center justify-center rounded-2xl"
