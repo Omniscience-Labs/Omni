@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - PRODUCTION
+      - varnica-dev
   workflow_dispatch:
 
 permissions:

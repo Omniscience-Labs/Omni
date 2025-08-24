@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y \
     unzip \
     zip \
     xvfb \
-    libgconf-2-4 \
     libxss1 \
     libnss3 \
     libnspr4 \
@@ -49,12 +48,6 @@ RUN apt-get update && apt-get install -y \
     antiword \
     unrtf \
     catdoc \
-    # Pandoc and TeX Live for advanced document conversion
-    texlive-xetex \
-    texlive-fonts-recommended \
-    texlive-plain-generic \
-    texlive-latex-extra \
-    pandoc \
     # Text Processing Tools
     grep \
     gawk \
@@ -78,6 +71,8 @@ RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
+
+
 
 # Install Node.js, npm, pnpm (via corepack) and useful global CLIs
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
