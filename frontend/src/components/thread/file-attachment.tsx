@@ -453,7 +453,8 @@ export function FileAttachment({
                     "rounded-xl border bg-card overflow-hidden pt-10", // Consistent card styling with header space
                     isPdf ? "!min-h-[200px] sm:min-h-0 sm:h-[400px] max-h-[500px] sm:!min-w-[300px]" :
                         isHtmlOrMd ? "!min-h-[200px] sm:min-h-0 sm:h-[400px] max-h-[600px] sm:!min-w-[300px]" :
-                            standalone ? "min-h-[300px] h-auto" : "h-[300px]", // Better height handling for standalone
+                            isCsv ? "min-h-[300px] h-full" : // Let CSV take full height
+                                standalone ? "min-h-[300px] h-auto" : "h-[300px]", // Better height handling for standalone
                     className
                 )}
                 style={{

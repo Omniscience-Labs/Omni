@@ -3,6 +3,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useTheme } from 'next-themes';
 import {
     ChevronUp,
     ChevronDown,
@@ -30,6 +31,7 @@ export function CsvTable({
     className,
     containerHeight = 500
 }: CsvTableProps) {
+    const { resolvedTheme } = useTheme();
     const ROW_HEIGHT = 48; // Height of each row in pixels
     const HEADER_HEIGHT = 48; // Height of header row
     const COL_WIDTH = 150; // Fixed column width in pixels
@@ -38,6 +40,18 @@ export function CsvTable({
     // 17rem = 272px (16px base * 17), so we need to offset the grid to align properly
     const parentOffset = 272; // 17rem in pixels
     const gridOffsetY = parentOffset % ROW_HEIGHT; // Get remainder to align to 48px grid
+
+    // Theme-aware grid colors with subtle monochrome grays
+    const getGridColors = () => {
+        const isDark = resolvedTheme === 'dark';
+        return {
+            vertical: isDark ? 'rgb(64 64 64)' : 'rgb(229 229 229)', // Subtle gray for each theme
+            horizontal: isDark ? 'rgb(64 64 64)' : 'rgb(229 229 229)', // Same for consistency
+            background: 'hsl(var(--muted))'
+        };
+    };
+
+    const gridColors = getGridColors();
     const getSortIcon = (column: string) => {
         if (sortConfig.column !== column) {
             return <ArrowUpDown className="h-3 w-3 text-muted-foreground" />;
@@ -72,36 +86,40 @@ export function CsvTable({
         <div className={cn("w-full relative h-full !bg-card", className)}>
             {/* Use CSS Grid for perfect alignment */}
             <div
-                className="w-full h-full overflow-auto relative"
+                className="w-full h-full overflow-auto relative min-h-full"
                 style={{
                     display: 'grid',
                     gridTemplateColumns: `repeat(${headers.length}, 150px)`,
                     gridAutoRows: '48px',
-                    backgroundColor: '#f9fafb',
+                    minHeight: '100%',
+                    backgroundColor: gridColors.background,
                     backgroundImage: `
                         repeating-linear-gradient(
                             to right,
                             transparent 0px,
                             transparent 149px,
-                            #e5e7eb 149px,
-                            #e5e7eb 150px
+                            ${gridColors.vertical} 149px,
+                            ${gridColors.vertical} 150px
                         ),
                         repeating-linear-gradient(
                             to bottom,
                             transparent 0px,
                             transparent 47px,
-                            #d1d5db 47px,
-                            #d1d5db 48px
+                            ${gridColors.horizontal} 47px,
+                            ${gridColors.horizontal} 48px
                         )
                     `,
-                    backgroundSize: '150px 48px',
+                    backgroundSize: `${(headers.length - 1) * 150 + 149}px 48px, 150px 48px`,
                     backgroundPosition: '0 0',
                     backgroundAttachment: 'local'
-                }}
+                } as React.CSSProperties}
             >
                 {/* Header background extension for infinite grid */}
-                <div 
-                    className="sticky top-0 z-10 bg-background pointer-events-none"
+                <div
+                    className={cn(
+                        "sticky top-0 z-10 pointer-events-none",
+                        resolvedTheme === 'dark' ? 'bg-muted' : 'bg-background'
+                    )}
                     style={{
                         position: 'absolute',
                         left: `${headers.length * 150}px`,
@@ -114,7 +132,10 @@ export function CsvTable({
                 {headers.map((header, index) => (
                     <div
                         key={`header-${index}`}
-                        className="sticky top-0 z-20 bg-background flex items-center px-4 font-medium"
+                        className={cn(
+                            "sticky top-0 z-20 flex items-center px-4 font-medium",
+                            resolvedTheme === 'dark' ? 'bg-muted' : 'bg-background'
+                        )}
                         style={{
                             gridColumn: index + 1,
                             gridRow: 1,
