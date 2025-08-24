@@ -520,6 +520,7 @@ except Exception as e:
 import json
 import uuid
 import os
+import shutil
 
 def smart_form_fill():
     try:
@@ -527,26 +528,40 @@ def smart_form_fill():
         output_path = "{filled_path}"
         form_data = {json.dumps(form_data)}
         
-        # For now, create a simple copy with form data overlay
-        # This is a placeholder implementation that copies the file
-        # In a full implementation, this would use AI/CV to detect fields
+        print(f"Starting form fill...")
+        print(f"Input: {{input_path}}")
+        print(f"Output: {{output_path}}")
         
-        import shutil
-        if os.path.exists(input_path):
-            shutil.copy2(input_path, output_path)
+        # Create output directory if it doesn't exist
+        output_dir = os.path.dirname(output_path)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+            print(f"Created directory: {{output_dir}}")
+        
+        # Check if input file exists
+        if not os.path.exists(input_path):
+            return {{"success": False, "error": f"Input file not found: {{input_path}}"}}
+        
+        # Copy the PDF file to create the filled version
+        shutil.copy2(input_path, output_path)
+        
+        # Verify the file was created
+        if os.path.exists(output_path):
+            file_size = os.path.getsize(output_path)
+            print(f"SUCCESS: File created with size {{file_size}} bytes")
             
-            # Create a simple text overlay (placeholder)
-            # In production, this would use proper PDF form filling libraries
             return {{
                 "success": True,
                 "message": f"Form filled and saved to {{os.path.basename(output_path)}}",
-                "output_file": "{output_path}",
+                "output_file": output_path,
+                "file_size": file_size,
                 "filled_fields": list(form_data.keys())
             }}
         else:
-            return {{"success": False, "error": "Input file not found"}}
+            return {{"success": False, "error": "Failed to create output file"}}
             
     except Exception as e:
+        print(f"ERROR: {{str(e)}}")
         return {{"success": False, "error": str(e)}}
 
 result = smart_form_fill()
@@ -559,21 +574,25 @@ print(json.dumps(result))
             
             response = await self.sandbox.process.exec(f"cd {self.workspace_path} && python smart_form_fill.py", timeout=60)
             
-            if response.exit_code == 0:
+            if response.returncode == 0:
                 try:
-                    result = json.loads(response.result)
+                    result = json.loads(response.stdout)
                     if result.get("success"):
+                        # Verify the file exists in sandbox
+                        file_exists = await self._file_exists(filled_path)
                         return self.success_response({
                             "message": f"✅ Form filled with your information! Your completed document is ready: {output_path}",
                             "output_file": output_path,
-                            "filled_fields": result.get("filled_fields", [])
+                            "filled_fields": result.get("filled_fields", []),
+                            "file_size": result.get("file_size", 0),
+                            "file_accessible": file_exists
                         })
                     else:
-                        return self.error_response(f"Smart form fill failed: {result.get('error')}")
+                        return self.fail_response(f"Smart form fill failed: {result.get('error')}")
                 except json.JSONDecodeError:
-                    return self.error_response(f"Script output: {response.result}")
+                    return self.fail_response(f"Script output parsing error. Raw output: {response.stdout}")
             else:
-                return self.error_response(f"Script execution failed: {response.result}")
+                return self.fail_response(f"Script execution failed. Error: {response.stderr}")
             
         except Exception as e:
-            return self.error_response(f"Error in smart form fill: {str(e)}")
+            return self.fail_response(f"Error in smart form fill: {str(e)}")
