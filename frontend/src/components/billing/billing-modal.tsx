@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
@@ -72,6 +73,7 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
                 <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Billing & Subscription</DialogTitle>
+                        <DialogDescription>Manage your billing settings and subscription plan</DialogDescription>
                     </DialogHeader>
                     <div className="p-4 bg-muted/30 border border-border rounded-lg text-center">
                         <p className="text-sm text-muted-foreground">
@@ -91,6 +93,7 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
             <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Upgrade Your Plan</DialogTitle>
+                    <DialogDescription>Choose the plan that best fits your needs and budget</DialogDescription>
                 </DialogHeader>
 
                 {isLoading || authLoading ? (

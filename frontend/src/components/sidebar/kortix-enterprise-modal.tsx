@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogTrigger,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -58,6 +59,9 @@ export function KortixEnterpriseModal({
         <DialogTitle className="sr-only">
           Enterprise AI Implementation - Schedule Consultation
         </DialogTitle>
+        <DialogDescription className="sr-only">
+          Schedule a consultation to discuss how Omni can transform your enterprise operations with AI agents
+        </DialogDescription>
         <div className="grid grid-cols-1 lg:grid-cols-2 h-[700px] lg:h-[800px]">
           {/* Enhanced Info Panel */}
           <div className="p-6 lg:p-8 flex flex-col bg-white dark:bg-black relative h-full overflow-y-auto border-r border-gray-200 dark:border-gray-800">
