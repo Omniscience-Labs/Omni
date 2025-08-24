@@ -56,7 +56,7 @@ export function useVncPreloader(project: Project | null) {
       preloadedIframeRef.current = iframe;
     };
 
-    // Handle iframe load errors
+    // Handle iframe load errors and 502 responses
     iframe.onerror = () => {
       clearTimeout(loadTimeout);
       
@@ -65,17 +65,23 @@ export function useVncPreloader(project: Project | null) {
         iframe.parentNode.removeChild(iframe);
       }
       
+      console.log(`[VNC] Connection error for iframe, retrying... (attempt ${maxRetriesRef.current + 1}/10)`);
+      
       // Retry if we haven't exceeded max retries
       if (maxRetriesRef.current < 10) {
         maxRetriesRef.current++;
         isRetryingRef.current = false;
         
-        const delay = Math.min(2000 * Math.pow(1.5, maxRetriesRef.current - 1), 15000);
+        // Exponential backoff with jitter to avoid thundering herd
+        const baseDelay = 2000 * Math.pow(1.5, maxRetriesRef.current - 1);
+        const jitter = Math.random() * 1000;
+        const delay = Math.min(baseDelay + jitter, 30000); // Increased max delay
         
         retryTimeoutRef.current = setTimeout(() => {
           startPreloading(vncUrl);
         }, delay);
       } else {
+        console.warn(`[VNC] Max retries (10) exceeded for VNC connection`);
         isRetryingRef.current = false;
       }
     };
@@ -96,10 +102,10 @@ export function useVncPreloader(project: Project | null) {
     maxRetriesRef.current = 0;
     isRetryingRef.current = false;
 
-    // Start the preloading process with a small delay to let the sandbox initialize
+    // Start the preloading process with a longer delay to let the sandbox fully initialize
     const initialDelay = setTimeout(() => {
       startPreloading(vncUrl);
-    }, 1000); // 1 second initial delay
+    }, 5000); // Increased to 5 seconds to give sandbox time to start all services
 
     // Cleanup function
     return () => {

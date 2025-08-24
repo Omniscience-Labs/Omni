@@ -17,16 +17,63 @@ interface PdfDocumentProps {
 }
 
 const PdfDocument = ({ url, containerWidth }: PdfDocumentProps) => {
-    // Configure PDF.js worker
+    const [isLoading, setIsLoading] = React.useState(true);
+    const [hasError, setHasError] = React.useState(false);
+    
+    // Configure PDF.js worker and fonts
     React.useEffect(() => {
         pdfjs.GlobalWorkerOptions.workerSrc = new URL(
             'pdfjs-dist/build/pdf.worker.min.mjs',
             import.meta.url,
         ).toString();
-    }, [pdfjs]);
+        
+        // Configure standard font data URL to fix font warnings
+        pdfjs.GlobalWorkerOptions.standardFontDataUrl = new URL(
+            'pdfjs-dist/standard_fonts/',
+            import.meta.url,
+        ).toString();
+    }, []);
+
+    const handleLoadSuccess = React.useCallback(() => {
+        setIsLoading(false);
+        setHasError(false);
+    }, []);
+
+    const handleLoadError = React.useCallback((error: Error) => {
+        console.error('PDF preview load error:', error);
+        setHasError(true);
+        setIsLoading(false);
+    }, []);
+
+    if (hasError) {
+        return (
+            <div className="w-full h-full flex items-center justify-center bg-muted/10 rounded border border-border">
+                <div className="text-sm text-muted-foreground">Failed to load PDF preview</div>
+            </div>
+        );
+    }
+
+    if (isLoading) {
+        return (
+            <div className="w-full h-full flex items-center justify-center bg-muted/10 rounded border border-border">
+                <div className="text-sm text-muted-foreground">Loading...</div>
+            </div>
+        );
+    }
 
     return (
-        <Document file={url} className="shadow-none">
+        <Document 
+            file={url} 
+            className="shadow-none"
+            onLoadSuccess={handleLoadSuccess}
+            onLoadError={handleLoadError}
+            options={{
+                standardFontDataUrl: new URL(
+                    'pdfjs-dist/standard_fonts/',
+                    import.meta.url,
+                ).toString(),
+            }}
+        >
             <Page
                 pageNumber={1}
                 width={containerWidth ?? undefined}

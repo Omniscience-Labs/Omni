@@ -9,7 +9,8 @@ import {
     Dialog,
     DialogContent,
     DialogHeader,
-    DialogTitle
+    DialogTitle,
+    DialogDescription
 } from '@/components/ui/dialog';
 
 type LayoutStyle = 'inline' | 'grid';
@@ -371,6 +372,7 @@ export function AttachmentGroup({
                         <DialogTitle>
                             <span>All Files ({uniqueFiles.length})</span>
                         </DialogTitle>
+                        <DialogDescription>View all attached files and their previews</DialogDescription>
                     </DialogHeader>
 
                     <div className={cn(

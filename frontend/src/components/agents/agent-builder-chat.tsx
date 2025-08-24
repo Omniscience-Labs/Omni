@@ -175,8 +175,14 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   }, [queryClient, agentId]);
 
   const handleStreamError = useCallback((errorMessage: string) => {
-    if (!errorMessage.toLowerCase().includes('not found') &&
-      !errorMessage.toLowerCase().includes('agent run is not running')) {
+    // Suppress expected errors that are part of normal operation
+    const isExpectedError = errorMessage.toLowerCase().includes('not found') ||
+      errorMessage.toLowerCase().includes('agent run is not running') ||
+      errorMessage.toLowerCase().includes('does not exist') ||
+      errorMessage.toLowerCase().includes('404');
+    
+    if (!isExpectedError) {
+      console.error('[Agent Builder] Stream error:', errorMessage);
       toast.error(`Stream Error: ${errorMessage}`);
     }
   }, []);

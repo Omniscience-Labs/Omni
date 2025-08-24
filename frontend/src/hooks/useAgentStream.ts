@@ -492,19 +492,28 @@ export function useAgentStream(
 
       try {
         // *** Crucial check: Verify agent is running BEFORE connecting ***
-        const agentStatus = await getAgentStatus(runId);
-        if (!isMountedRef.current) return; // Check mount status after async call
+        try {
+          const agentStatus = await getAgentStatus(runId);
+          if (!isMountedRef.current) return; // Check mount status after async call
 
-        if (agentStatus.status !== 'running') {
+          if (agentStatus.status !== 'running') {
+            console.warn(
+              `[useAgentStream] Agent run ${runId} is not in running state (status: ${agentStatus.status}). Cannot start stream.`,
+            );
+            setError(`Agent run is not running (status: ${agentStatus.status})`);
+            finalizeStream(
+              mapAgentStatus(agentStatus.status) || 'agent_not_running',
+              runId,
+            );
+            return;
+          }
+        } catch (statusError) {
           console.warn(
-            `[useAgentStream] Agent run ${runId} is not in running state (status: ${agentStatus.status}). Cannot start stream.`,
+            `[useAgentStream] Failed to get agent status for ${runId}:`,
+            statusError
           );
-          setError(`Agent run is not running (status: ${agentStatus.status})`);
-          finalizeStream(
-            mapAgentStatus(agentStatus.status) || 'agent_not_running',
-            runId,
-          );
-          return;
+          // Don't fail the stream start if status check fails - let the stream attempt proceed
+          // This helps with race conditions where the agent might still be initializing
         }
 
         // Agent is running, proceed to create the stream
