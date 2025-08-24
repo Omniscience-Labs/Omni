@@ -101,6 +101,9 @@ interface FormData {
   custom_mcps: any[];
   is_default: boolean;
   profile_image_url?: string;
+  icon_name?: string | null;
+  icon_color: string;
+  icon_background: string;
 }
 
 function AgentConfigurationContent() {
@@ -130,6 +133,9 @@ function AgentConfigurationContent() {
     custom_mcps: [],
     is_default: false,
     profile_image_url: '',
+    icon_name: null,
+    icon_color: '#000000',
+    icon_background: '#e5e5e5',
   });
 
   const [originalData, setOriginalData] = useState<FormData>(formData);
@@ -147,6 +153,9 @@ function AgentConfigurationContent() {
         configured_mcps: versionData.configured_mcps,
         custom_mcps: versionData.custom_mcps,
         agentpress_tools: versionData.agentpress_tools,
+        icon_name: versionData.icon_name || agent.icon_name,
+        icon_color: versionData.icon_color || agent.icon_color,
+        icon_background: versionData.icon_background || agent.icon_background,
       };
     }
     const newFormData: FormData = {
@@ -159,6 +168,9 @@ function AgentConfigurationContent() {
       custom_mcps: configSource.custom_mcps || [],
       is_default: configSource.is_default || false,
       profile_image_url: configSource.profile_image_url || '',
+      icon_name: configSource.icon_name || null,
+      icon_color: configSource.icon_color || '#000000',
+      icon_background: configSource.icon_background || '#e5e5e5',
     };
     setFormData(newFormData);
     setOriginalData(newFormData);
@@ -174,6 +186,9 @@ function AgentConfigurationContent() {
     custom_mcps: versionData.custom_mcps || formData.custom_mcps,
     is_default: formData.is_default,
     profile_image_url: formData.profile_image_url,
+    icon_name: versionData.icon_name || formData.icon_name || null,
+    icon_color: versionData.icon_color || formData.icon_color || '#000000',
+    icon_background: versionData.icon_background || formData.icon_background || '#e5e5e5',
   } : formData;
 
   const handleFieldChange = useCallback((field: string, value: any) => {
@@ -235,6 +250,9 @@ function AgentConfigurationContent() {
           description: formData.description,
           is_default: formData.is_default,
           profile_image_url: formData.profile_image_url,
+          icon_name: formData.icon_name,
+          icon_color: formData.icon_color,
+          icon_background: formData.icon_background,
           system_prompt: formData.system_prompt,
           agentpress_tools: formData.agentpress_tools,
           configured_mcps: formData.configured_mcps,
@@ -281,6 +299,34 @@ function AgentConfigurationContent() {
       throw error;
     }
   }, [agentId, updateAgentMutation]);
+  
+  const handleIconSave = useCallback(async (iconName: string | null, iconColor: string, iconBackground: string) => {
+    try {
+      await updateAgentMutation.mutateAsync({
+        agentId,
+        icon_name: iconName,
+        icon_color: iconColor,
+        icon_background: iconBackground,
+      });
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        icon_name: iconName,
+        icon_color: iconColor,
+        icon_background: iconBackground,
+      }));
+      setOriginalData(prev => ({ 
+        ...prev, 
+        icon_name: iconName,
+        icon_color: iconColor,
+        icon_background: iconBackground,
+      }));
+      toast.success('Agent icon updated');
+    } catch (error) {
+      toast.error('Failed to update agent icon');
+      throw error;
+    }
+  }, [agentId, updateAgentMutation]);
 
   const handleSystemPromptSave = useCallback(async (value: string) => {
     try {
@@ -300,8 +346,6 @@ function AgentConfigurationContent() {
 
   const handleModelSave = useCallback(async (model: string) => {
     try {
-      // Model updates might need to be handled through a different endpoint
-      // For now, just update the local state
       setFormData(prev => ({ ...prev, model }));
       setOriginalData(prev => ({ ...prev, model }));
       toast.success('Model updated');
@@ -403,6 +447,7 @@ function AgentConfigurationContent() {
                     }}
                     onNameSave={handleNameSave}
                     onProfileImageSave={handleProfileImageSave}
+                    onIconSave={handleIconSave}
                   />
                 </div>
               </div>
@@ -471,6 +516,7 @@ function AgentConfigurationContent() {
                     }}
                     onNameSave={handleNameSave}
                     onProfileImageSave={handleProfileImageSave}
+                    onIconSave={handleIconSave}
                   />
                   <Drawer>
                     <DrawerTrigger asChild>

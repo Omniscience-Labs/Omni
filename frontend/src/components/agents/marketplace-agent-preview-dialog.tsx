@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Bot, Download, Wrench, Plug, Tag, User, Calendar, Loader2, Share, Cpu, Eye, Zap } from 'lucide-react';
+import { DynamicIcon } from 'lucide-react/dynamic';
 import { toast } from 'sonner';
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
 import { useComposioToolkitIcon } from '@/hooks/react-query/composio/use-composio';
@@ -150,12 +151,31 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
     return qualifiedName.replace(/\b\w/g, l => l.toUpperCase());
   };
 
+  console.log('agent', agent);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden">
         <DialogHeader className='p-6'>
           <DialogTitle className='sr-only'>Agent Preview</DialogTitle>
-          {agent.profile_image_url ? (
+          {agent.icon_name ? (
+            <div 
+              className='relative h-20 w-20 aspect-square rounded-2xl flex items-center justify-center shadow-lg' 
+              style={{ backgroundColor: agent.icon_background || '#e5e5e5' }}
+            >
+              <DynamicIcon 
+                name={agent.icon_name as any}
+                size={40}
+                color={agent.icon_color || '#000000'}
+              />
+              <div
+                className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 dark:opacity-100 transition-opacity"
+                style={{
+                  boxShadow: `0 16px 48px -8px ${agent.icon_background || '#e5e5e5'}70, 0 8px 24px -4px ${agent.icon_background || '#e5e5e5'}50`
+                }}
+              />
+            </div>
+          ) : agent.profile_image_url ? (
             <img 
               src={agent.profile_image_url} 
               alt={agent.name}

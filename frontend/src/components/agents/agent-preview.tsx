@@ -15,6 +15,7 @@ import { useStartAgentMutation, useStopAgentMutation } from '@/hooks/react-query
 import { BillingError } from '@/lib/api';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 import { KortixLogo } from '../sidebar/kortix-logo';
+import { DynamicIcon } from 'lucide-react/dynamic';
 
 interface Agent {
   agent_id: string;
@@ -27,6 +28,10 @@ interface Agent {
   created_at?: string;
   updated_at?: string;
   profile_image_url?: string;
+  // Icon system fields
+  icon_name?: string | null;
+  icon_color?: string | null;
+  icon_background?: string | null;
 }
 
 interface AgentPreviewProps {
@@ -63,6 +68,21 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
     if (isSunaAgent) {
       return <KortixLogo size={16} />;
     }
+    if (agent.icon_name) {
+      const DynamicIcon = require('lucide-react/dynamic').DynamicIcon;
+      return (
+        <div 
+          className="h-4 w-4 flex items-center justify-center rounded-sm"
+          style={{ backgroundColor: agent.icon_background || '#F3F4F6' }}
+        >
+          <DynamicIcon 
+            name={agent.icon_name as any} 
+            size={14} 
+            color={agent.icon_color || '#000000'}
+          />
+        </div>
+      );
+    }
     if (agent.profile_image_url) {
       return (
         <img 
@@ -76,7 +96,7 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
       return <div className="text-base leading-none">{avatar}</div>;
     }
     return <KortixLogo size={16} />;
-  }, [agent.profile_image_url, agent.name, avatar, isSunaAgent]);
+  }, [agent.profile_image_url, agent.icon_name, agent.icon_color, agent.icon_background, agent.name, avatar, isSunaAgent]);
 
   const initiateAgentMutation = useInitiateAgentWithInvalidation();
   const addUserMessageMutation = useAddUserMessageMutation();
@@ -349,9 +369,22 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
             agentData={agent}
             emptyStateComponent={
               <div className="flex flex-col items-center text-center text-muted-foreground/80">
-                <div className="flex w-20 aspect-square items-center justify-center rounded-2xl bg-muted-foreground/10 p-4 mb-4">
+                <div className="flex w-20 aspect-square items-center justify-center rounded-2xl bg-muted-foreground/10 mb-4">
                   {isSunaAgent ? (
                     <KortixLogo size={36} />
+                  ) : agent.icon_name ? (
+                    <div 
+                      className="w-full h-full rounded-3xl flex items-center justify-center"
+                      style={{ 
+                        backgroundColor: agent.icon_background || '#e5e5e5'
+                      }}
+                    >
+                      <DynamicIcon 
+                        name={agent.icon_name as any} 
+                        size={36}
+                        style={{ color: agent.icon_color || '#000000' }}
+                      />
+                    </div>
                   ) : agent.profile_image_url ? (
                     <img 
                       src={agent.profile_image_url} 

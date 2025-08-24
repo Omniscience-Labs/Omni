@@ -11,6 +11,9 @@ export interface MarketplaceTemplate {
   profile_image_url?: string;
   avatar?: string;
   avatar_color?: string;
+  icon_name?: string;
+  icon_color?: string;
+  icon_background?: string;
   template_id: string;
   is_kortix_team?: boolean;
   model?: string;
