@@ -27,11 +27,10 @@ const PdfDocument = ({ url, containerWidth }: PdfDocumentProps) => {
             import.meta.url,
         ).toString();
         
-        // Configure standard font data URL to fix font warnings
-        pdfjs.GlobalWorkerOptions.standardFontDataUrl = new URL(
-            'pdfjs-dist/standard_fonts/',
-            import.meta.url,
-        ).toString();
+        // Use CDN for standard fonts to avoid build issues
+        if (typeof window !== 'undefined') {
+            pdfjs.GlobalWorkerOptions.standardFontDataUrl = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/standard_fonts/';
+        }
     }, []);
 
     const handleLoadSuccess = React.useCallback(() => {
@@ -68,10 +67,7 @@ const PdfDocument = ({ url, containerWidth }: PdfDocumentProps) => {
             onLoadSuccess={handleLoadSuccess}
             onLoadError={handleLoadError}
             options={{
-                standardFontDataUrl: new URL(
-                    'pdfjs-dist/standard_fonts/',
-                    import.meta.url,
-                ).toString(),
+                standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/standard_fonts/',
             }}
         >
             <Page
