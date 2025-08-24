@@ -453,7 +453,8 @@ export function FileAttachment({
                     "rounded-xl border bg-card overflow-hidden pt-10", // Consistent card styling with header space
                     isPdf ? "!min-h-[200px] sm:min-h-0 sm:h-[400px] max-h-[500px] sm:!min-w-[300px]" :
                         isHtmlOrMd ? "!min-h-[200px] sm:min-h-0 sm:h-[400px] max-h-[600px] sm:!min-w-[300px]" :
-                            standalone ? "min-h-[300px] h-auto" : "h-[300px]", // Better height handling for standalone
+                            isCsv ? "min-h-[300px] h-full" : // Let CSV take full height
+                                standalone ? "min-h-[300px] h-auto" : "h-[300px]", // Better height handling for standalone
                     className
                 )}
                 style={{
@@ -553,16 +554,16 @@ export function FileAttachment({
                 </div>
 
                 {/* Header with filename */}
-                <div className="absolute top-0 left-0 right-0 bg-accent p-2 z-10 flex items-center justify-between">
+                <div className="absolute top-0 left-0 right-0 bg-accent p-2 h-[40px] z-10 flex items-center justify-between">
                     <div className="text-sm font-medium truncate">{filename}</div>
                     <div className="flex items-center gap-1">
-                        <button
+                        {/* <button
                             onClick={handleDownload}
                             className="cursor-pointer p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10"
                             title="Download file"
                         >
                             <Download size={14} />
-                        </button>
+                        </button> */}
                         {onClick && (
                             <button
                                 onClick={handleClick}
