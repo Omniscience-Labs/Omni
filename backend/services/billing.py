@@ -116,11 +116,20 @@ def get_model_pricing(model: str) -> tuple[float, float] | None:
     Returns:
         Tuple of (input_cost_per_million_tokens, output_cost_per_million_tokens) or None if not found
     """
-    # Use the model manager to get pricing
-    pricing = model_manager.get_pricing(model)
-    if pricing:
-        return pricing.input_cost_per_million_tokens, pricing.output_cost_per_million_tokens
+    # First try to resolve the model ID to handle aliases
+    resolved_model = model_manager.resolve_model_id(model)
+    logger.debug(f"Resolving model '{model}' -> '{resolved_model}'")
     
+    # Try the resolved model first, then fallback to original
+    for model_to_try in [resolved_model, model]:
+        model_obj = model_manager.get_model(model_to_try)
+        if model_obj and model_obj.pricing:
+            logger.debug(f"Found pricing for model {model_to_try}: input=${model_obj.pricing.input_cost_per_million_tokens}/M, output=${model_obj.pricing.output_cost_per_million_tokens}/M")
+            return model_obj.pricing.input_cost_per_million_tokens, model_obj.pricing.output_cost_per_million_tokens
+        else:
+            logger.debug(f"No pricing for model_to_try='{model_to_try}' (model_obj: {model_obj is not None}, has_pricing: {model_obj.pricing is not None if model_obj else False})")
+    
+    logger.warning(f"No pricing found for model '{model}' (resolved: '{resolved_model}')")
     return None
 
 
@@ -725,9 +734,12 @@ def calculate_token_cost(prompt_tokens: int, completion_tokens: int, model: str)
         prompt_tokens = int(prompt_tokens) if prompt_tokens is not None else 0
         completion_tokens = int(completion_tokens) if completion_tokens is not None else 0
         
+        logger.debug(f"Calculating token cost for model '{model}' with {prompt_tokens} input tokens and {completion_tokens} output tokens")
+        
         # Try to resolve the model name using new model manager first
         from models import model_manager
         resolved_model = model_manager.resolve_model_id(model)
+        logger.debug(f"Model '{model}' resolved to '{resolved_model}'")
 
         # Check if we have hardcoded pricing for this model (try both original and resolved)
         hardcoded_pricing = get_model_pricing(model) or get_model_pricing(resolved_model)
