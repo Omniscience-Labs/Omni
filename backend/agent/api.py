@@ -1934,9 +1934,9 @@ async def create_agent(
             "avatar": agent_data.avatar,
             "avatar_color": agent_data.avatar_color,
             "profile_image_url": agent_data.profile_image_url,
-            "icon_name": agent_data.icon_name,
-            "icon_color": agent_data.icon_color,
-            "icon_background": agent_data.icon_background,
+            "icon_name": agent_data.icon_name or "brain",
+            "icon_color": agent_data.icon_color or "#000000",
+            "icon_background": agent_data.icon_background or "#F3F4F6",
             "is_default": agent_data.is_default or False,
             "version_count": 1
         }
