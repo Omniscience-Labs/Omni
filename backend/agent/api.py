@@ -18,7 +18,7 @@ from services import redis
 from utils.auth_utils import get_current_user_id_from_jwt, get_user_id_from_stream_auth, verify_thread_access, verify_admin_api_key
 from utils.logger import logger, structlog
 from services.billing import check_billing_status, can_use_model
-from utils.config import config
+from utils.config import config, EnvMode
 from sandbox.sandbox import create_sandbox, delete_sandbox, get_or_start_sandbox
 from services.llm import make_llm_api_call
 from run_agent_background import run_agent_background, _cleanup_redis_response_list, update_agent_run_status
@@ -1546,7 +1546,7 @@ async def get_agents(
             custom_mcps = agent_config['custom_mcps']
             agentpress_tools = agent_config['agentpress_tools']
             
-            agent_list.append(AgentResponse(
+            agent_response = AgentResponse(
                 agent_id=agent['agent_id'],
                 name=agent['name'],
                 description=agent.get('description'),
@@ -1569,7 +1569,10 @@ async def get_agents(
                 version_count=agent.get('version_count', 1),
                 current_version=current_version,
                 metadata=agent.get('metadata')
-            ))
+            )
+            
+            print(f"[DEBUG] get_agents RESPONSE item {agent['name']}: icon_name={agent_response.icon_name}, icon_color={agent_response.icon_color}, icon_background={agent_response.icon_background}")
+            agent_list.append(agent_response)
         
         total_pages = (total_count + limit - 1) // limit
         
@@ -1598,6 +1601,11 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
         )
     
     logger.debug(f"Fetching agent {agent_id} for user: {user_id}")
+    
+    # Debug logging
+    if config.ENV_MODE == EnvMode.STAGING:
+        print(f"[DEBUG] get_agent: Starting to fetch agent {agent_id}")
+    
     client = await db.client
     
     try:
@@ -1608,6 +1616,11 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
             raise HTTPException(status_code=404, detail="Agent not found")
         
         agent_data = agent.data[0]
+        
+        # Debug logging for fetched agent data
+        if config.ENV_MODE == EnvMode.STAGING:
+            print(f"[DEBUG] get_agent: Fetched agent from DB - icon_name={agent_data.get('icon_name')}, icon_color={agent_data.get('icon_color')}, icon_background={agent_data.get('icon_background')}")
+            print(f"[DEBUG] get_agent: Also has - profile_image_url={agent_data.get('profile_image_url')}, avatar={agent_data.get('avatar')}, avatar_color={agent_data.get('avatar_color')}")
         
         # Check ownership - only owner can access non-public agents
         if agent_data['account_id'] != user_id and not agent_data.get('is_public', False):
@@ -1667,14 +1680,24 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
             }
         
         from agent.config_helper import extract_agent_config
+        
+        # Debug logging before extract_agent_config
+        if config.ENV_MODE == EnvMode.STAGING:
+            print(f"[DEBUG] get_agent: Before extract_agent_config - agent_data has icon_name={agent_data.get('icon_name')}, icon_color={agent_data.get('icon_color')}, icon_background={agent_data.get('icon_background')}")
+        
         agent_config = extract_agent_config(agent_data, version_data)
+        
+        # Debug logging after extract_agent_config
+        if config.ENV_MODE == EnvMode.STAGING:
+            print(f"[DEBUG] get_agent: After extract_agent_config - agent_config has icon_name={agent_config.get('icon_name')}, icon_color={agent_config.get('icon_color')}, icon_background={agent_config.get('icon_background')}")
+            print(f"[DEBUG] get_agent: Final response will use icon fields from agent_config")
         
         system_prompt = agent_config['system_prompt']
         configured_mcps = agent_config['configured_mcps']
         custom_mcps = agent_config['custom_mcps']
         agentpress_tools = agent_config['agentpress_tools']
         
-        return AgentResponse(
+        response = AgentResponse(
             agent_id=agent_data['agent_id'],
             name=agent_data['name'],
             description=agent_data.get('description'),
@@ -1698,6 +1721,15 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
             current_version=current_version,
             metadata=agent_data.get('metadata')
         )
+        
+        # Debug logging for the actual response
+        if config.ENV_MODE == EnvMode.STAGING:
+            print(f"[DEBUG] get_agent FINAL RESPONSE: agent_id={response.agent_id}")
+            print(f"[DEBUG] get_agent FINAL RESPONSE: icon_name={response.icon_name}, icon_color={response.icon_color}, icon_background={response.icon_background}")
+            print(f"[DEBUG] get_agent FINAL RESPONSE: profile_image_url={response.profile_image_url}, avatar={response.avatar}, avatar_color={response.avatar_color}")
+            print(f"[DEBUG] get_agent FINAL RESPONSE: Response being sent to frontend with icon fields from agent_config")
+        
+        return response
         
     except HTTPException:
         raise
@@ -1934,12 +1966,15 @@ async def create_agent(
             "avatar": agent_data.avatar,
             "avatar_color": agent_data.avatar_color,
             "profile_image_url": agent_data.profile_image_url,
-            "icon_name": agent_data.icon_name or "brain",
+            "icon_name": agent_data.icon_name or "bot",
             "icon_color": agent_data.icon_color or "#000000",
             "icon_background": agent_data.icon_background or "#F3F4F6",
             "is_default": agent_data.is_default or False,
             "version_count": 1
         }
+        
+        if config.ENV_MODE == EnvMode.STAGING:
+            print(f"[DEBUG] create_agent: Creating with icon_name={insert_data.get('icon_name')}, icon_color={insert_data.get('icon_color')}, icon_background={insert_data.get('icon_background')}")
         
         new_agent = await client.table('agents').insert(insert_data).execute()
         
@@ -1999,7 +2034,8 @@ async def create_agent(
         await Cache.invalidate(f"agent_count_limit:{user_id}")
         
         logger.debug(f"Created agent {agent['agent_id']} with v1 for user: {user_id}")
-        return AgentResponse(
+        
+        response = AgentResponse(
             agent_id=agent['agent_id'],
             name=agent['name'],
             description=agent.get('description'),
@@ -2024,6 +2060,12 @@ async def create_agent(
             current_version=current_version,
             metadata=agent.get('metadata')
         )
+        
+        if config.ENV_MODE == EnvMode.STAGING:
+            print(f"[DEBUG] create_agent RESPONSE: Returning icon_name={response.icon_name}, icon_color={response.icon_color}, icon_background={response.icon_background}")
+            print(f"[DEBUG] create_agent RESPONSE: Also returning profile_image_url={response.profile_image_url}, avatar={response.avatar}, avatar_color={response.avatar_color}")
+        
+        return response
         
     except HTTPException:
         raise
@@ -2065,6 +2107,12 @@ async def update_agent(
             detail="Custom agent currently disabled. This feature is not available at the moment."
         )
     logger.debug(f"Updating agent {agent_id} for user: {user_id}")
+    
+    # Debug logging for icon fields
+    if config.ENV_MODE == EnvMode.STAGING:
+        print(f"[DEBUG] update_agent: Received icon fields - icon_name={agent_data.icon_name}, icon_color={agent_data.icon_color}, icon_background={agent_data.icon_background}")
+        print(f"[DEBUG] update_agent: Also received - profile_image_url={agent_data.profile_image_url}, avatar={agent_data.avatar}, avatar_color={agent_data.avatar_color}")
+    
     client = await db.client
     
     try:
@@ -2272,6 +2320,10 @@ async def update_agent(
         if agent_data.icon_background is not None:
             update_data["icon_background"] = agent_data.icon_background
         
+        # Debug logging for update_data
+        if config.ENV_MODE == EnvMode.STAGING:
+            print(f"[DEBUG] update_agent: Prepared update_data with icon fields - icon_name={update_data.get('icon_name')}, icon_color={update_data.get('icon_color')}, icon_background={update_data.get('icon_background')}")
+        
         current_system_prompt = agent_data.system_prompt if agent_data.system_prompt is not None else current_version_data.get('system_prompt', '')
         current_configured_mcps = agent_data.configured_mcps if agent_data.configured_mcps is not None else current_version_data.get('configured_mcps', [])
         
@@ -2315,12 +2367,24 @@ async def update_agent(
         
         if update_data:
             try:
+                print(f"[DEBUG] update_agent DB UPDATE: About to update agent {agent_id} with data: {update_data}")
+                
                 update_result = await client.table('agents').update(update_data).eq("agent_id", agent_id).eq("account_id", user_id).execute()
+                
+                # Debug logging after DB update
+                if config.ENV_MODE == EnvMode.STAGING:
+                    if update_result.data:
+                        print(f"[DEBUG] update_agent DB UPDATE SUCCESS: Updated {len(update_result.data)} row(s)")
+                        print(f"[DEBUG] update_agent DB UPDATE RESULT: {update_result.data[0] if update_result.data else 'No data'}")
+                    else:
+                        print(f"[DEBUG] update_agent DB UPDATE FAILED: No rows affected")
                 
                 if not update_result.data:
                     raise HTTPException(status_code=500, detail="Failed to update agent - no rows affected")
             except Exception as e:
                 logger.error(f"Error updating agent {agent_id}: {str(e)}")
+                if config.ENV_MODE == EnvMode.STAGING:
+                    print(f"[DEBUG] update_agent DB UPDATE ERROR: {str(e)}")
                 raise HTTPException(status_code=500, detail=f"Failed to update agent: {str(e)}")
         
         updated_agent = await client.table('agents').select('*').eq("agent_id", agent_id).eq("account_id", user_id).maybe_single().execute()
@@ -2329,6 +2393,11 @@ async def update_agent(
             raise HTTPException(status_code=500, detail="Failed to fetch updated agent")
         
         agent = updated_agent.data
+        
+        print(f"[DEBUG] update_agent AFTER UPDATE FETCH: agent_id={agent.get('agent_id')}")
+        print(f"[DEBUG] update_agent AFTER UPDATE FETCH: icon_name={agent.get('icon_name')}, icon_color={agent.get('icon_color')}, icon_background={agent.get('icon_background')}")
+        print(f"[DEBUG] update_agent AFTER UPDATE FETCH: profile_image_url={agent.get('profile_image_url')}, avatar={agent.get('avatar')}, avatar_color={agent.get('avatar_color')}")
+        print(f"[DEBUG] update_agent AFTER UPDATE FETCH: All keys in agent: {agent.keys()}")
         
         current_version = None
         if agent.get('current_version_id'):
@@ -2378,14 +2447,23 @@ async def update_agent(
             }
         
         from agent.config_helper import extract_agent_config
+        
+        # Debug logging before extract_agent_config
+        if config.ENV_MODE == EnvMode.STAGING:
+            print(f"[DEBUG] update_agent: Before extract_agent_config - agent has icon_name={agent.get('icon_name')}, icon_color={agent.get('icon_color')}, icon_background={agent.get('icon_background')}")
+        
         agent_config = extract_agent_config(agent, version_data)
+        
+        # Debug logging after extract_agent_config
+        if config.ENV_MODE == EnvMode.STAGING:
+            print(f"[DEBUG] update_agent: After extract_agent_config - agent_config has icon_name={agent_config.get('icon_name')}, icon_color={agent_config.get('icon_color')}, icon_background={agent_config.get('icon_background')}")
         
         system_prompt = agent_config['system_prompt']
         configured_mcps = agent_config['configured_mcps']
         custom_mcps = agent_config['custom_mcps']
         agentpress_tools = agent_config['agentpress_tools']
         
-        return AgentResponse(
+        response = AgentResponse(
             agent_id=agent['agent_id'],
             name=agent['name'],
             description=agent.get('description'),
@@ -2409,6 +2487,14 @@ async def update_agent(
             current_version=current_version,
             metadata=agent.get('metadata')
         )
+        
+
+        print(f"[DEBUG] update_agent FINAL RESPONSE: agent_id={response.agent_id}")
+        print(f"[DEBUG] update_agent FINAL RESPONSE: icon_name={response.icon_name}, icon_color={response.icon_color}, icon_background={response.icon_background}")
+        print(f"[DEBUG] update_agent FINAL RESPONSE: profile_image_url={response.profile_image_url}, avatar={response.avatar}, avatar_color={response.avatar_color}")
+        print(f"[DEBUG] update_agent FINAL RESPONSE: Full response dict keys: {response.dict().keys()}")
+        
+        return response
         
     except HTTPException:
         raise
