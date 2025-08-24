@@ -12,6 +12,7 @@ import {
   SkipBack,
   SkipForward,
   Edit,
+  Loader2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -44,6 +45,7 @@ interface FullScreenPresentationViewerProps {
   presentationName?: string;
   sandboxUrl?: string;
   initialSlide?: number;
+  onPDFDownload?: (setIsDownloadingPDF: (isDownloading: boolean) => void) => void;
 }
 
 export function FullScreenPresentationViewer({
@@ -52,12 +54,15 @@ export function FullScreenPresentationViewer({
   presentationName,
   sandboxUrl,
   initialSlide = 1,
+  onPDFDownload,
 }: FullScreenPresentationViewerProps) {
   const [metadata, setMetadata] = useState<PresentationMetadata | null>(null);
   const [currentSlide, setCurrentSlide] = useState(initialSlide);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showControls, setShowControls] = useState(true);
+  const [showEditor, setShowEditor] = useState(false);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   
   // Create a stable refresh timestamp when metadata changes (like PresentationViewer)
   const refreshTimestamp = useMemo(() => Date.now(), [metadata]);
@@ -115,6 +120,24 @@ export function FullScreenPresentationViewer({
     }
   }, [isOpen, loadMetadata, initialSlide]);
 
+  // Reload metadata when exiting editor mode to refresh with latest changes
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    if (!showEditor) {
+      // Add a small delay to allow the editor to save changes
+      timeoutId = setTimeout(() => {
+        loadMetadata();
+      }, 300);
+    }
+    
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [showEditor, loadMetadata]);
+
   // Navigation functions
   const goToNextSlide = useCallback(() => {
     if (currentSlide < totalSlides) {
@@ -133,6 +156,7 @@ export function FullScreenPresentationViewer({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      
       // Prevent default for all our handled keys
       const handledKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Home', 'End', 'Escape'];
       if (handledKeys.includes(e.key)) {
@@ -157,7 +181,11 @@ export function FullScreenPresentationViewer({
           setCurrentSlide(totalSlides);
           break;
         case 'Escape':
-          onClose();
+          if (showEditor) {
+            setShowEditor(false);
+          } else {
+            onClose();
+          }
           break;
       }
     };
@@ -165,7 +193,7 @@ export function FullScreenPresentationViewer({
     // Add event listener to document with capture to ensure we get the events first
     document.addEventListener('keydown', handleKeyDown, true);
     return () => document.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, goToNextSlide, goToPreviousSlide, totalSlides, onClose]);
+  }, [isOpen, goToNextSlide, goToPreviousSlide, totalSlides, onClose, showEditor]);
 
 
 
@@ -247,11 +275,11 @@ export function FullScreenPresentationViewer({
             }}
           >
             <iframe
-              key={`slide-${slide.number}-${refreshTimestamp}`} // Key with stable timestamp ensures iframe refreshes when metadata changes
-              src={slideUrlWithCacheBust}
+              key={`slide-${slide.number}-${refreshTimestamp}-${showEditor}`} // Key with stable timestamp ensures iframe refreshes when metadata changes
+              src={showEditor ? `${sandboxUrl}/api/html/${slide.file_path}/editor` : slideUrlWithCacheBust}
               title={`Slide ${slide.number}: ${slide.title}`}
               className="border-0 rounded-xl"
-              sandbox="allow-same-origin allow-scripts"
+              sandbox="allow-same-origin allow-scripts allow-modals"
               style={{
                 width: '1920px',
                 height: '1080px',
@@ -261,7 +289,7 @@ export function FullScreenPresentationViewer({
                 transformOrigin: '0 0',
                 position: 'absolute',
                 top: 0,
-                left: 0,
+                left: `calc((100% - ${1920 * scale}px) / 2)`,
                 willChange: 'transform',
                 backfaceVisibility: 'hidden',
                 WebkitBackfaceVisibility: 'hidden'
@@ -278,7 +306,7 @@ export function FullScreenPresentationViewer({
     
     SlideIframeComponent.displayName = 'SlideIframeComponent';
     return SlideIframeComponent;
-  }, [sandboxUrl, refreshTimestamp]);
+  }, [sandboxUrl, refreshTimestamp, showEditor]);
 
   // Render slide iframe with proper scaling
   const renderSlide = useMemo(() => {
@@ -317,9 +345,10 @@ export function FullScreenPresentationViewer({
               variant="ghost" 
               size="sm" 
               className="h-8 w-8 p-0"
-              title="Edit presentation"
+              title={showEditor ? "Close editor" : "Edit presentation"}
+              onClick={() => setShowEditor(!showEditor)}
             >
-              <Edit className="h-3.5 w-3.5" />
+              {showEditor ? <Presentation className="h-3.5 w-3.5" /> : <Edit className='h-3.5 w-3.5'/>}
             </Button>
 
             {/* Export dropdown */}
@@ -331,11 +360,15 @@ export function FullScreenPresentationViewer({
                   className="h-8 w-8 p-0"
                   title="Export presentation"
                 >
-                  <Download className="h-3.5 w-3.5" />
+                  {isDownloadingPDF ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Download className="h-3.5 w-3.5" />
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-32">
-                <DropdownMenuItem className="cursor-pointer">
+                <DropdownMenuItem className="cursor-pointer" onClick={() => onPDFDownload(setIsDownloadingPDF)}>
                   <FileText className="h-4 w-4 mr-2" />
                   PDF
                 </DropdownMenuItem>

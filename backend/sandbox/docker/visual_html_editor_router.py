@@ -535,6 +535,7 @@ def inject_editor_functionality(html_content: str, file_path: str) -> str:
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             display: flex;
             gap: 4px;
+            z-index: 1000;
         }
         
         .save-btn, .cancel-btn {
