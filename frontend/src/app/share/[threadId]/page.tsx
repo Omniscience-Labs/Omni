@@ -51,6 +51,10 @@ interface ApiMessageType extends BaseApiMessageType {
     name: string;
     avatar?: string;
     avatar_color?: string;
+    profile_image_url?: string;
+    icon_name?: string;
+    icon_color?: string;
+    icon_background?: string;
   };
 }
 

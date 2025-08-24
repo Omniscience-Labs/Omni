@@ -171,13 +171,17 @@ export default function AgentsPage() {
           created_at: template.created_at,
           marketplace_published_at: template.marketplace_published_at,
           profile_image_url: template.profile_image_url,
+          avatar: template.avatar,
+          avatar_color: template.avatar_color,
+          icon_name: template.icon_name,
+          icon_color: template.icon_color,
+          icon_background: template.icon_background,
           template_id: template.template_id,
           is_kortix_team: template.is_kortix_team,
           mcp_requirements: template.mcp_requirements,
           metadata: template.metadata,
         };
 
-        // Backend handles search filtering, so we just transform the data
         allItems.push(item);
 
         if (user?.id === template.creator_id) {
