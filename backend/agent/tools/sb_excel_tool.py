@@ -34,7 +34,8 @@ try:
 except ImportError:
     EXCEL_AVAILABLE = False
 
-from ..sandbox.tool_base import SandboxToolsBase, ToolResult
+from sandbox.tool_base import SandboxToolsBase
+from agentpress.tool import ToolResult
 
 logger = logging.getLogger(__name__)
 
