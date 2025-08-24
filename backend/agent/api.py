@@ -71,16 +71,17 @@ class MessageCreateRequest(BaseModel):
 class AgentCreateRequest(BaseModel):
     name: str
     description: Optional[str] = None
-    system_prompt: Optional[str] = None  # Make optional to allow defaulting to Suna's system prompt
+    system_prompt: Optional[str] = None
     configured_mcps: Optional[List[Dict[str, Any]]] = []
     custom_mcps: Optional[List[Dict[str, Any]]] = []
     agentpress_tools: Optional[Dict[str, Any]] = {}
     is_default: Optional[bool] = False
-    # Deprecated, kept for backward-compat
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
-    # New profile image url (can be external or Supabase storage URL)
     profile_image_url: Optional[str] = None
+    icon_name: Optional[str] = None
+    icon_color: Optional[str] = None
+    icon_background: Optional[str] = None
 
 class AgentVersionResponse(BaseModel):
     version_id: str
@@ -88,7 +89,7 @@ class AgentVersionResponse(BaseModel):
     version_number: int
     version_name: str
     system_prompt: str
-    model: Optional[str] = None  # Add model field
+    model: Optional[str] = None
     configured_mcps: List[Dict[str, Any]]
     custom_mcps: List[Dict[str, Any]]
     agentpress_tools: Dict[str, Any]
@@ -102,8 +103,8 @@ class AgentVersionCreateRequest(BaseModel):
     configured_mcps: Optional[List[Dict[str, Any]]] = []
     custom_mcps: Optional[List[Dict[str, Any]]] = []
     agentpress_tools: Optional[Dict[str, Any]] = {}
-    version_name: Optional[str] = None  # Custom version name
-    description: Optional[str] = None  # Version description
+    version_name: Optional[str] = None
+    description: Optional[str] = None
 
 class AgentUpdateRequest(BaseModel):
     name: Optional[str] = None
@@ -113,12 +114,9 @@ class AgentUpdateRequest(BaseModel):
     custom_mcps: Optional[List[Dict[str, Any]]] = None
     agentpress_tools: Optional[Dict[str, Any]] = None
     is_default: Optional[bool] = None
-    # Deprecated, kept for backward-compat
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
-    # New profile image url (backward compatibility)
     profile_image_url: Optional[str] = None
-    # New icon system fields
     icon_name: Optional[str] = None
     icon_color: Optional[str] = None
     icon_background: Optional[str] = None
@@ -132,19 +130,15 @@ class AgentResponse(BaseModel):
     custom_mcps: List[Dict[str, Any]]
     agentpress_tools: Dict[str, Any]
     is_default: bool
-    # Deprecated
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
-    # New
     profile_image_url: Optional[str] = None
-    # Icon system fields
     icon_name: Optional[str] = None
     icon_color: Optional[str] = None
     icon_background: Optional[str] = None
     created_at: str
     updated_at: Optional[str] = None
     is_public: Optional[bool] = False
-
     tags: Optional[List[str]] = []
     current_version_id: Optional[str] = None
     version_count: Optional[int] = 1
@@ -163,7 +157,7 @@ class AgentsResponse(BaseModel):
 
 class ThreadAgentResponse(BaseModel):
     agent: Optional[AgentResponse]
-    source: str  # "thread", "default", "none", "missing"
+    source: str
     message: str
 
 class AgentExportData(BaseModel):
@@ -1566,9 +1560,9 @@ async def get_agents(
                 avatar=agent_config.get('avatar'),
                 avatar_color=agent_config.get('avatar_color'),
                 profile_image_url=agent_config.get('profile_image_url'),
-                icon_name=agent.get('icon_name'),
-                icon_color=agent.get('icon_color'),
-                icon_background=agent.get('icon_background'),
+                icon_name=agent_config.get('icon_name'),
+                icon_color=agent_config.get('icon_color'),
+                icon_background=agent_config.get('icon_background'),
                 created_at=agent['created_at'],
                 updated_at=agent['updated_at'],
                 current_version_id=agent.get('current_version_id'),
@@ -1694,9 +1688,9 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
             avatar=agent_config.get('avatar'),
             avatar_color=agent_config.get('avatar_color'),
             profile_image_url=agent_config.get('profile_image_url'),
-            icon_name=agent_data.get('icon_name'),
-            icon_color=agent_data.get('icon_color'),
-            icon_background=agent_data.get('icon_background'),
+            icon_name=agent_config.get('icon_name'),
+            icon_color=agent_config.get('icon_color'),
+            icon_background=agent_config.get('icon_background'),
             created_at=agent_data['created_at'],
             updated_at=agent_data.get('updated_at', agent_data['created_at']),
             current_version_id=agent_data.get('current_version_id'),
@@ -2405,9 +2399,9 @@ async def update_agent(
             avatar=agent_config.get('avatar'),
             avatar_color=agent_config.get('avatar_color'),
             profile_image_url=agent_config.get('profile_image_url'),
-            icon_name=agent.get('icon_name'),
-            icon_color=agent.get('icon_color'),
-            icon_background=agent.get('icon_background'),
+            icon_name=agent_config.get('icon_name'),
+            icon_color=agent_config.get('icon_color'),
+            icon_background=agent_config.get('icon_background'),
             created_at=agent['created_at'],
             updated_at=agent.get('updated_at', agent['created_at']),
             current_version_id=agent.get('current_version_id'),

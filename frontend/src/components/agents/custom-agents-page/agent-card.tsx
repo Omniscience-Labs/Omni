@@ -10,7 +10,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -22,7 +21,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import type { MarketplaceTemplate } from '@/components/agents/installation/types';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
 
 export type AgentCardMode = 'marketplace' | 'template' | 'agent';
