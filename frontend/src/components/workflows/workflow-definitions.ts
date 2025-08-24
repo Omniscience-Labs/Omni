@@ -26,8 +26,8 @@ export const TOOL_ICONS: Record<string, any> = {
     'browser_tool': MonitorPlay,
     'web_search_tool': Search,
     'data_providers_tool': Globe,
-    'sb_sheets_tool': Table2,
     'sb_excel_tool': BarChart,
+    'sb_pdf_form_tool': FileText,
 };
 
 // Tool color mapping
@@ -40,8 +40,8 @@ export const TOOL_COLORS: Record<string, string> = {
     'browser_tool': 'from-purple-500/20 to-purple-600/10 border-purple-500/20 text-purple-500',
     'web_search_tool': 'from-blue-500/20 to-blue-600/10 border-blue-500/20 text-blue-500',
     'data_providers_tool': 'from-blue-500/20 to-blue-600/10 border-blue-500/20 text-blue-500',
-    'sb_sheets_tool': 'from-purple-500/20 to-purple-600/10 border-purple-500/20 text-purple-500',
     'sb_excel_tool': 'from-teal-500/20 to-teal-600/10 border-teal-500/20 text-teal-500',
+    'sb_pdf_form_tool': 'from-purple-500/20 to-purple-600/10 border-purple-500/20 text-purple-500',
 };
 
 // Action icon mapping
