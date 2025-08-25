@@ -84,13 +84,13 @@ Backend keys (by purpose):
 
 Frontend keys:
 
-| Key                           | Required | Default                          | Notes                               |
-| ----------------------------- | -------: | -------------------------------- | ----------------------------------- |
-| NEXT_PUBLIC_ENV_MODE          |       No | local                            |                                     |
-| NEXT_PUBLIC_SUPABASE_URL      |      Yes | -                                | Must match backend Supabase project |
-| NEXT_PUBLIC_SUPABASE_ANON_KEY |      Yes | -                                | Supabase anon key                   |
-| NEXT_PUBLIC_BACKEND_URL       |      Yes | https://api.agentiqtest.site/api | Backend API base URL                |
-| NEXT_PUBLIC_URL               |       No | https://agentiqtest.site         | Public site URL                     |
+| Key                           | Required | Default               | Notes                               |
+| ----------------------------- | -------: | --------------------- | ----------------------------------- |
+| NEXT_PUBLIC_ENV_MODE          |       No | local                 |                                     |
+| NEXT_PUBLIC_SUPABASE_URL      |      Yes | -                     | Must match backend Supabase project |
+| NEXT_PUBLIC_SUPABASE_ANON_KEY |      Yes | -                     | Supabase anon key                   |
+| NEXT_PUBLIC_BACKEND_URL       |      Yes | http://localhost:8000 | Backend API base URL                |
+| NEXT_PUBLIC_URL               |       No | http://localhost:3000 | Public site URL                     |
 
 Notes:
 
@@ -175,8 +175,8 @@ PY
 NEXT_PUBLIC_ENV_MODE=local
 NEXT_PUBLIC_SUPABASE_URL=YOUR_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
-NEXT_PUBLIC_BACKEND_URL=https://api.agentiqtest.site/api
-NEXT_PUBLIC_URL=https://agentiqtest.site
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+NEXT_PUBLIC_URL=http://localhost:3000
 ```
 
 ## Hosting Options
@@ -194,8 +194,8 @@ docker compose up -d --build
 
 3. Access:
 
-- Frontend: https://agentiqtest.site
-- Backend API: https://api.agentiqtest.site/api
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
 
 4. Logs and lifecycle:
 
@@ -252,12 +252,12 @@ npm install
 npm run dev
 ```
 
-Visit https://agentiqtest.site and sign up via Supabase auth.
+Visit http://localhost:3000 and sign up via Supabase auth.
 
 ## Post‑Installation Checks
 
-- Frontend loads at https://agentiqtest.site
-- Backend health: https://api.agentiqtest.site/api/health returns OK
+- Frontend loads at http://localhost:3000
+- Backend health: http://localhost:8000/health returns OK
 - Create an account and start an agent; verify logs for worker activity
 
 ## Troubleshooting
