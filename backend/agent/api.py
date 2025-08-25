@@ -1378,8 +1378,9 @@ async def get_agents(
                 }
             }
         
-        # Post-process for tool filtering and tools_count sorting
         agents_data = agents_result.data
+        
+        # Post-process for tool filtering and tools_count sorting
         
         # For MCP and AgentPress tools filtering, we'll need to do post-processing
         # since Supabase doesn't have great JSON array/object filtering
