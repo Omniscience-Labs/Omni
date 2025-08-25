@@ -4,21 +4,41 @@ import { useEffect, useState } from 'react';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
+    DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { PricingSection } from '@/components/home/sections/pricing-section';
 import { CreditBalanceDisplay, CreditPurchaseModal } from '@/components/billing/credit-purchase';
 import { isLocalMode } from '@/lib/config';
 import {
     getSubscription,
     createPortalSession,
+    cancelSubscription,
+    reactivateSubscription,
     SubscriptionStatus,
 } from '@/lib/api';
 import { useAuth } from '@/components/AuthProvider';
+import { useSubscriptionCommitment } from '@/hooks/react-query';
+import { useQueryClient } from '@tanstack/react-query';
+import { subscriptionKeys } from '@/hooks/react-query/subscriptions/keys';
 import { Skeleton } from '@/components/ui/skeleton';
-import { X, Zap } from 'lucide-react';
+import { 
+    X, 
+    Zap, 
+    AlertTriangle, 
+    Shield, 
+    CheckCircle, 
+    RotateCcw, 
+    Clock 
+} from 'lucide-react';
+import { toast } from 'sonner';
 
 interface BillingModalProps {
     open: boolean;
@@ -29,31 +49,75 @@ interface BillingModalProps {
 
 export function BillingModal({ open, onOpenChange, returnUrl = typeof window !== 'undefined' ? window?.location?.href || '/' : '/', showUsageLimitAlert = false }: BillingModalProps) {
     const { session, isLoading: authLoading } = useAuth();
+    const queryClient = useQueryClient();
     const [subscriptionData, setSubscriptionData] = useState<SubscriptionStatus | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isManaging, setIsManaging] = useState(false);
     const [showCreditPurchaseModal, setShowCreditPurchaseModal] = useState(false);
+    const [showCancelDialog, setShowCancelDialog] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false);
+
+    // Get commitment info for the subscription (only if we have a valid ID)
+    const {
+        data: commitmentInfo,
+        isLoading: commitmentLoading,
+        error: commitmentError,
+        refetch: refetchCommitment
+    } = useSubscriptionCommitment(subscriptionData?.subscription?.id || null);
+
+    // Simple function to fetch subscription data
+    const fetchSubscriptionData = async () => {
+        if (!session) return;
+
+        try {
+            setIsLoading(true);
+            const data = await getSubscription();
+            setSubscriptionData(data);
+            setError(null);
+            return data;
+        } catch (err) {
+            console.error('Failed to get subscription:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load subscription data');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
-        async function fetchSubscription() {
-            if (!open || authLoading || !session) return;
-
-            try {
-                setIsLoading(true);
-                const data = await getSubscription();
-                setSubscriptionData(data);
-                setError(null);
-            } catch (err) {
-                console.error('Failed to get subscription:', err);
-                setError(err instanceof Error ? err.message : 'Failed to load subscription data');
-            } finally {
-                setIsLoading(false);
-            }
-        }
-
-        fetchSubscription();
+        if (!open || authLoading || !session) return;
+        fetchSubscriptionData();
     }, [open, session, authLoading]);
+
+    const formatDate = (timestamp: number) => {
+        return new Date(timestamp * 1000).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    };
+
+    const formatEndDate = (dateString: string) => {
+        try {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        } catch {
+            return dateString;
+        }
+    };
+
+    // Get the effective cancellation date (could be period end or cancel_at for yearly commitments)
+    const getEffectiveCancellationDate = () => {
+        if (subscriptionData?.subscription?.cancel_at) {
+            // Yearly commitment cancellation - use cancel_at timestamp
+            return formatDate(subscriptionData.subscription.cancel_at);
+        }
+        // Regular cancellation - use current period end
+        return formatDate(subscriptionData?.subscription?.current_period_end || 0);
+    };
 
     const handleManageSubscription = async () => {
         try {
@@ -65,6 +129,83 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
             setError(err instanceof Error ? err.message : 'Failed to create portal session');
         } finally {
             setIsManaging(false);
+        }
+    };
+
+    const handleCancel = async () => {
+        setIsCancelling(true);
+        const originalState = subscriptionData;
+        
+        try {
+            console.log('Cancelling subscription...');
+            setShowCancelDialog(false);
+
+            // Optimistic update - show cancelled state immediately
+            if (subscriptionData?.subscription) {
+                const optimisticState = {
+                    ...subscriptionData,
+                    subscription: {
+                        ...subscriptionData.subscription,
+                        cancel_at_period_end: true,
+                        ...(commitmentInfo?.has_commitment && commitmentInfo.commitment_end_date ? {
+                            cancel_at: Math.floor(new Date(commitmentInfo.commitment_end_date).getTime() / 1000)
+                        } : {})
+                    }
+                };
+                setSubscriptionData(optimisticState);
+            }
+
+            const response = await cancelSubscription();
+
+            if (response.success) {
+                toast.success(response.message);
+            } else {
+                setSubscriptionData(originalState);
+                toast.error(response.message);
+            }
+        } catch (error: any) {
+            console.error('Error cancelling subscription:', error);
+            setSubscriptionData(originalState);
+            toast.error(error.message || 'Failed to cancel subscription');
+        } finally {
+            setIsCancelling(false);
+        }
+    };
+
+    const handleReactivate = async () => {
+        setIsCancelling(true);
+        const originalState = subscriptionData;
+        
+        try {
+            console.log('Reactivating subscription...');
+
+            // Optimistic update - show active state immediately
+            if (subscriptionData?.subscription) {
+                const optimisticState = {
+                    ...subscriptionData,
+                    subscription: {
+                        ...subscriptionData.subscription,
+                        cancel_at_period_end: false,
+                        cancel_at: undefined
+                    }
+                };
+                setSubscriptionData(optimisticState);
+            }
+
+            const response = await reactivateSubscription();
+
+            if (response.success) {
+                toast.success(response.message);
+            } else {
+                setSubscriptionData(originalState);
+                toast.error(response.message);
+            }
+        } catch (error: any) {
+            console.error('Error reactivating subscription:', error);
+            setSubscriptionData(originalState);
+            toast.error(error.message || 'Failed to reactivate subscription');
+        } finally {
+            setIsCancelling(false);
         }
     };
 
@@ -143,7 +284,7 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
                             </div>
                         )}
 
-                        {/* Credit Balance Display - Only show for users who can purchase credits */}
+                        {/* Credit Balance Display - Only show for users who can purchase credits
                         {subscriptionData?.can_purchase_credits && (
                             <div className="mb-6">
                                 <CreditBalanceDisplay 
@@ -152,11 +293,157 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
                                     onPurchaseClick={() => setShowCreditPurchaseModal(true)}
                                 />
                             </div>
-                        )}
+                        )} */}
 
                         <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} />
 
-                        {subscriptionData && (
+                        {/* Minimalistic Subscription Management Section */}
+                        {subscriptionData?.subscription && (
+                            <div className="mt-6 pt-6 border-t border-border">
+                                <div className="space-y-3">
+                                    {/* Subscription Status Row */}
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm text-muted-foreground">
+                                                {subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at 
+                                                    ? 'Plan Status' 
+                                                    : 'Current Plan'}
+                                            </span>
+                                            {commitmentInfo?.has_commitment && (
+                                                <Badge variant="outline" className="text-xs px-2 py-0">
+                                                    {commitmentInfo.months_remaining || 0}mo left
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <Badge variant={
+                                            subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at 
+                                                ? 'destructive' 
+                                                : 'secondary'
+                                        } className="text-xs">
+                                            {subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at
+                                                ? 'Ending ' + getEffectiveCancellationDate()
+                                                : 'Active'}
+                                        </Badge>
+                                    </div>
+
+                                    {/* Cancellation Alert */}
+                                    {(subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at) && (
+                                        <Alert className="py-2 border-destructive/30 bg-destructive/5">
+                                            <AlertTriangle className="h-4 w-4 text-destructive" />
+                                            <AlertDescription className="text-xs text-destructive">
+                                                {subscriptionData.subscription.cancel_at ? 
+                                                    'Your plan is scheduled to end at commitment completion. You can reactivate anytime.' : 
+                                                    'Your plan is scheduled to end at period completion. You can reactivate anytime.'
+                                                }
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+
+                                    {/* Action Buttons */}
+                                    <div className="flex gap-2">
+                                        {/* Cancel/Reactivate Button */}
+                                        {!(subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at) ? (
+                                            <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+                                                <DialogTrigger asChild>
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        className="text-xs"
+                                                        disabled={isCancelling}
+                                                    >
+                                                        {isCancelling ? (
+                                                            <div className="flex items-center gap-1">
+                                                                <div className="animate-spin h-3 w-3 border border-current border-t-transparent rounded-full" />
+                                                                Processing...
+                                                            </div>
+                                                        ) : (
+                                                            commitmentInfo?.has_commitment && !commitmentInfo?.can_cancel 
+                                                                ? 'Schedule End' 
+                                                                : 'Cancel Plan'
+                                                        )}
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent className="max-w-md">
+                                                    <DialogHeader>
+                                                        <DialogTitle className="text-lg">
+                                                            {commitmentInfo?.has_commitment && !commitmentInfo?.can_cancel
+                                                                ? 'Schedule Cancellation' 
+                                                                : 'Cancel Subscription'}
+                                                        </DialogTitle>
+                                                        <DialogDescription className="text-sm">
+                                                            {commitmentInfo?.has_commitment && !commitmentInfo?.can_cancel ? (
+                                                                <>
+                                                                    Your subscription will be scheduled to end on{' '}
+                                                                    {commitmentInfo?.commitment_end_date
+                                                                        ? formatEndDate(commitmentInfo.commitment_end_date)
+                                                                        : 'your commitment end date'}
+                                                                    . You'll keep full access until then.
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    Your subscription will end on{' '}
+                                                                    {formatDate(subscriptionData.subscription.current_period_end)}. 
+                                                                    You'll keep access until then.
+                                                                </>
+                                                            )}
+                                                        </DialogDescription>
+                                                    </DialogHeader>
+                                                    <DialogFooter>
+                                                        <Button
+                                                            variant="outline"
+                                                            onClick={() => setShowCancelDialog(false)}
+                                                            disabled={isCancelling}
+                                                            size="sm"
+                                                        >
+                                                            Keep Plan
+                                                        </Button>
+                                                        <Button
+                                                            variant="destructive"
+                                                            onClick={handleCancel}
+                                                            disabled={isCancelling}
+                                                            size="sm"
+                                                        >
+                                                            {isCancelling ? 'Processing...' : 'Confirm'}
+                                                        </Button>
+                                                    </DialogFooter>
+                                                </DialogContent>
+                                            </Dialog>
+                                        ) : (
+                                            <Button
+                                                variant="default"
+                                                size="sm"
+                                                onClick={handleReactivate}
+                                                disabled={isCancelling}
+                                                className="text-xs bg-green-600 hover:bg-green-700 text-white"
+                                            >
+                                                {isCancelling ? (
+                                                    <div className="flex items-center gap-1">
+                                                        <div className="animate-spin h-3 w-3 border border-white border-t-transparent rounded-full" />
+                                                        Processing...
+                                                    </div>
+                                                ) : (
+                                                    'Reactivate Plan'
+                                                )}
+                                            </Button>
+                                        )}
+
+                                        {/* Manage Subscription Button */}
+                                        <Button
+                                            onClick={handleManageSubscription}
+                                            disabled={isManaging}
+                                            variant="outline"
+                                            size="sm"
+                                            className="text-xs"
+                                        >
+                                            {isManaging ? 'Loading...' : 'Dashboard'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Legacy Manage Button for non-subscription users */}
+                        {subscriptionData && !subscriptionData.subscription && (
                             <Button
                                 onClick={handleManageSubscription}
                                 disabled={isManaging}
