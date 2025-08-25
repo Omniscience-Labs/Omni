@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { ToolViewProps } from '../types';
 import { formatTimestamp, extractToolData, getToolTitle } from '../utils';
+import { downloadPresentationAsPDF, downloadPresentationAsPPTX } from '../utils/presentation-utils';
 import { constructHtmlPreviewUrl } from '@/lib/utils/url';
 import { CodeBlockCode } from '@/components/ui/code-block';
 import { LoadingState } from '../shared/LoadingState';
@@ -475,66 +476,7 @@ export function PresentationViewer({
     return <SlideIframe slide={slide} />;
   }, [SlideIframe]);
 
-  const downloadPresentationAsPDF = async (sandboxUrl: string, presentationName: string): Promise<void> => {
-    try {
-      const response = await fetch(`${sandboxUrl}/presentation/convert-to-pdf`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          presentation_path: `/workspace/presentations/${presentationName}`,
-          download: true
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to download PDF');
-      }
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${presentationName}.pdf`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading PDF:', error);
-      // You could show a toast notification here
-      toast.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  };
 
-  const downloadPresentationAsPPTX = async (sandboxUrl: string, presentationName: string): Promise<void> => {
-    try {
-      const response = await fetch(`${sandboxUrl}/presentation/convert-to-pptx`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          presentation_path: `/workspace/presentations/${presentationName}`,
-          download: true
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to download PPTX');
-      }
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${presentationName}.pptx`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading PPTX:', error);
-      toast.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  };
 
 
   const handlePDFDownload = useCallback(async (setIsDownloadingPDF: (isDownloading: boolean) => void) => {
@@ -543,7 +485,7 @@ export function PresentationViewer({
 
     setIsDownloadingPDF(true);
     try{
-      await downloadPresentationAsPDF(project.sandbox.sandbox_url, extractedPresentationName);
+      await downloadPresentationAsPDF(project.sandbox.sandbox_url, `/workspace/presentations/${extractedPresentationName}`, extractedPresentationName);
     } catch (error) {
       console.error('Error downloading PDF:', error);
     } finally {
@@ -557,7 +499,7 @@ export function PresentationViewer({
 
     setIsDownloadingPPTX(true);
     try{
-      await downloadPresentationAsPPTX(project.sandbox.sandbox_url, extractedPresentationName);
+      await downloadPresentationAsPPTX(project.sandbox.sandbox_url, `/workspace/presentations/${extractedPresentationName}`, extractedPresentationName);
     } catch (error) {
       console.error('Error downloading PPTX:', error);
     } finally {
@@ -826,8 +768,6 @@ export function PresentationViewer({
         presentationName={extractedPresentationName}
         sandboxUrl={project?.sandbox?.sandbox_url}
         initialSlide={fullScreenInitialSlide || visibleSlide || currentSlideNumber || slides[0]?.number || 1}
-        onPDFDownload={handlePDFDownload}
-        onPPTXDownload={handlePPTXDownload}
       />
     </Card>
   );

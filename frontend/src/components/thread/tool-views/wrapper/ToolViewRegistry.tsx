@@ -34,6 +34,7 @@ import { ListPresentationsToolView } from '../presentation-tools/ListPresentatio
 import { DeleteSlideToolView } from '../presentation-tools/DeleteSlideToolView';
 import { DeletePresentationToolView } from '../presentation-tools/DeletePresentationToolView';
 import { PresentationStylesToolView } from '../presentation-tools/PresentationStylesToolView';
+import { PresentPresentationToolView } from '../presentation-tools/PresentPresentationToolView';
 import { SheetsToolView } from '../sheets-tools/sheets-tool-view';
 import { GetProjectStructureView } from '../web-dev/GetProjectStructureView';
 import { ImageEditGenerateToolView } from '../image-edit-generate-tool/ImageEditGenerateToolView';
@@ -114,6 +115,7 @@ const defaultRegistry: ToolViewRegistryType = {
   'delete-slide': DeleteSlideToolView,
   'delete-presentation': DeletePresentationToolView,
   'presentation-styles': PresentationStylesToolView,
+  'present-presentation': PresentPresentationToolView,
   
   'create-sheet': SheetsToolView,
   'update-sheet': SheetsToolView,
@@ -199,12 +201,14 @@ export function ToolView({ name = 'default', assistantContent, toolContent, ...p
   const { isValid: isPresentationSlide, presentationName, slideNumber } = parsePresentationSlidePath(filePath);
   let modifiedToolContent = toolContent;
 
+  // define presentation-related tools that shouldn't be transformed
   const presentationTools = [
     'create-slide',
     'list-slides',
     'delete-slide',
     'delete-presentation',
     'presentation-styles',
+    'present_presentation',
   ]
 
   const isAlreadyPresentationTool = presentationTools.includes(name);

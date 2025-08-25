@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { constructHtmlPreviewUrl } from '@/lib/utils/url';
+import { downloadPresentationAsPDF, downloadPresentationAsPPTX } from '../utils/presentation-utils';
 
 interface SlideMetadata {
   title: string;
@@ -45,8 +46,6 @@ interface FullScreenPresentationViewerProps {
   presentationName?: string;
   sandboxUrl?: string;
   initialSlide?: number;
-  onPDFDownload?: (setIsDownloadingPDF: (isDownloading: boolean) => void) => void;
-  onPPTXDownload?: (setIsDownloadingPPTX: (isDownloading: boolean) => void) => void;
 }
 
 export function FullScreenPresentationViewer({
@@ -55,8 +54,6 @@ export function FullScreenPresentationViewer({
   presentationName,
   sandboxUrl,
   initialSlide = 1,
-  onPDFDownload,
-  onPPTXDownload,
 }: FullScreenPresentationViewerProps) {
   const [metadata, setMetadata] = useState<PresentationMetadata | null>(null);
   const [currentSlide, setCurrentSlide] = useState(initialSlide);
@@ -430,11 +427,11 @@ export function FullScreenPresentationViewer({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-32">
-                <DropdownMenuItem className="cursor-pointer" onClick={() => onPDFDownload(setIsDownloadingPDF)} disabled={isDownloadingPDF}>
+                <DropdownMenuItem className="cursor-pointer" onClick={() => downloadPresentationAsPDF(sandboxUrl, `/workspace/presentations/${presentationName}`, presentationName)} disabled={isDownloadingPDF}>
                   <FileText className="h-4 w-4 mr-2" />
                   PDF
                 </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer" onClick={() => onPPTXDownload(setIsDownloadingPPTX)} disabled={isDownloadingPPTX}>
+                <DropdownMenuItem className="cursor-pointer" onClick={() => downloadPresentationAsPPTX(sandboxUrl, `/workspace/presentations/${presentationName}`, presentationName)} disabled={isDownloadingPPTX}>
                   <Presentation className="h-4 w-4 mr-2" />
                   PPTX
                 </DropdownMenuItem>

@@ -711,7 +711,7 @@ class AgentRunner:
                             generation.end(output=full_response, status_message="error_detected", level="ERROR")
                         break
                         
-                    if agent_should_terminate or last_tool_call in ['ask', 'complete', 'web-browser-takeover']:
+                    if agent_should_terminate or last_tool_call in ['ask', 'complete', 'web-browser-takeover', 'present_presentation']:
                         if generation:
                             generation.end(output=full_response, status_message="agent_stopped")
                         continue_execution = False
