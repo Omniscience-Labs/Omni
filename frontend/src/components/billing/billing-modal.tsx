@@ -237,223 +237,206 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
                     <DialogTitle>Upgrade Your Plan</DialogTitle>
                 </DialogHeader>
 
-                {isLoading || authLoading ? (
-                    <div className="space-y-4">
-                        <Skeleton className="h-20 w-full" />
-                        <Skeleton className="h-40 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                ) : error ? (
-                    <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-center">
-                        <p className="text-sm text-destructive">Error loading billing status: {error}</p>
-                    </div>
-                ) : (
-                    <>
-                        {/* Usage Limit Alert */}
-                        {showUsageLimitAlert && (
-                            <div className="mb-6">
-                                <div className="flex items-start p-3 sm:p-4 bg-destructive/5 border border-destructive/50 rounded-lg">
-                                    <div className="flex items-start space-x-3">
-                                        <div className="flex-shrink-0 mt-0.5">
-                                            <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-destructive" />
-                                        </div>
-                                        <div className="text-xs sm:text-sm min-w-0">
-                                            <p className="font-medium text-destructive">Usage Limit Reached</p>
-                                            <p className="text-destructive break-words">
-                                                Your current plan has been exhausted for this billing period.
-                                            </p>
-                                        </div>
+                <>
+                    {/* Usage Limit Alert */}
+                    {showUsageLimitAlert && (
+                        <div className="mb-6">
+                            <div className="flex items-start p-3 sm:p-4 bg-destructive/5 border border-destructive/50 rounded-lg">
+                                <div className="flex items-start space-x-3">
+                                    <div className="flex-shrink-0 mt-0.5">
+                                        <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-destructive" />
+                                    </div>
+                                    <div className="text-xs sm:text-sm min-w-0">
+                                        <p className="font-medium text-destructive">Usage Limit Reached</p>
+                                        <p className="text-destructive break-words">
+                                            Your current plan has been exhausted for this billing period.
+                                        </p>
                                     </div>
                                 </div>
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {subscriptionData && (
-                            <div className="mb-6">
-                                <div className="rounded-lg border bg-background p-4">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm font-medium text-foreground/90">
-                                            Agent Usage This Month
-                                        </span>
-                                        <span className="text-sm font-medium">
-                                            ${subscriptionData.current_usage?.toFixed(2) || '0'} /{' '}
-                                            ${subscriptionData.cost_limit || '0'}
-                                        </span>
-                                    </div>
+                    {/* Usage section - show loading state or actual data */}
+                    {isLoading || authLoading ? (
+                        <div className="mb-6">
+                            <div className="rounded-lg border bg-background p-4">
+                                <div className="flex justify-between items-center">
+                                    <Skeleton className="h-4 w-40" />
+                                    <Skeleton className="h-4 w-24" />
                                 </div>
                             </div>
-                        )}
-
-                        {/* Credit Balance Display - Only show for users who can purchase credits
-                        {subscriptionData?.can_purchase_credits && (
-                            <div className="mb-6">
-                                <CreditBalanceDisplay 
-                                    balance={subscriptionData.credit_balance || 0}
-                                    canPurchase={subscriptionData.can_purchase_credits}
-                                    onPurchaseClick={() => setShowCreditPurchaseModal(true)}
-                                />
+                        </div>
+                    ) : subscriptionData && (
+                        <div className="mb-6">
+                            <div className="rounded-lg border bg-background p-4">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-medium text-foreground/90">
+                                        Agent Usage This Month
+                                    </span>
+                                    <span className="text-sm font-medium">
+                                        ${subscriptionData.current_usage?.toFixed(2) || '0'} /{' '}
+                                        ${subscriptionData.cost_limit || '0'}
+                                    </span>
+                                </div>
                             </div>
-                        )} */}
+                        </div>
+                    )}
 
-                        <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} />
+                    {/* Show pricing section immediately - no loading state */}
+                    <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} />
 
-                        {/* Minimalistic Subscription Management Section */}
-                        {subscriptionData?.subscription && (
-                            <div className="mt-6 pt-6 border-t border-border">
-                                <div className="space-y-3">
-                                    {/* Subscription Status Row */}
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm text-muted-foreground">
-                                                {subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at 
-                                                    ? 'Plan Status' 
-                                                    : 'Current Plan'}
-                                            </span>
-                                            {commitmentInfo?.has_commitment && (
-                                                <Badge variant="outline" className="text-xs px-2 py-0">
-                                                    {commitmentInfo.months_remaining || 0}mo left
-                                                </Badge>
-                                            )}
-                                        </div>
-                                        <Badge variant={
-                                            subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at 
-                                                ? 'destructive' 
-                                                : 'secondary'
-                                        } className="text-xs">
-                                            {subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at
-                                                ? 'Ending ' + getEffectiveCancellationDate()
-                                                : 'Active'}
-                                        </Badge>
+                    {/* Subscription Management Section - only show if there's actual subscription data */}
+                    {error ? (
+                        <div className="mt-6 pt-4 border-t border-border">
+                            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-center">
+                                <p className="text-sm text-destructive">Error loading billing status: {error}</p>
+                            </div>
+                        </div>
+                    ) : subscriptionData?.subscription && (
+                        <div className="mt-6 pt-4 border-t border-border">
+                            {/* Subscription Status Info Box */}
+                            <div className="bg-muted/30 border border-border rounded-lg p-3 mb-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-medium">
+                                            {subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at 
+                                                ? 'Plan Status' 
+                                                : 'Current Plan'}
+                                        </span>
+                                        {commitmentInfo?.has_commitment && (
+                                            <Badge variant="outline" className="text-xs px-1.5 py-0">
+                                                {commitmentInfo.months_remaining || 0}mo left
+                                            </Badge>
+                                        )}
                                     </div>
+                                    <Badge variant={
+                                        subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at 
+                                            ? 'destructive' 
+                                            : 'secondary'
+                                    } className="text-xs px-2 py-0.5">
+                                        {subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at
+                                            ? 'Ending ' + getEffectiveCancellationDate()
+                                            : 'Active'}
+                                    </Badge>
+                                </div>
 
-                                    {/* Cancellation Alert */}
-                                    {(subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at) && (
-                                        <Alert className="py-2 border-destructive/30 bg-destructive/5">
-                                            <AlertTriangle className="h-4 w-4 text-destructive" />
-                                            <AlertDescription className="text-xs text-destructive">
-                                                {subscriptionData.subscription.cancel_at ? 
-                                                    'Your plan is scheduled to end at commitment completion. You can reactivate anytime.' : 
-                                                    'Your plan is scheduled to end at period completion. You can reactivate anytime.'
-                                                }
-                                            </AlertDescription>
-                                        </Alert>
-                                    )}
+                                {/* Cancellation Alert */}
+                                {(subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at) && (
+                                    <div className="mt-2 flex items-start gap-2 p-2 bg-destructive/5 border border-destructive/20 rounded">
+                                        <AlertTriangle className="h-3 w-3 text-destructive mt-0.5 flex-shrink-0" />
+                                        <p className="text-xs text-destructive">
+                                            {subscriptionData.subscription.cancel_at ? 
+                                                'Your plan is scheduled to end at commitment completion. You can reactivate anytime.' : 
+                                                'Your plan is scheduled to end at period completion. You can reactivate anytime.'
+                                            }
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
 
-                                    {/* Action Buttons */}
-                                    <div className="flex gap-2">
-                                        {/* Cancel/Reactivate Button */}
-                                        {!(subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at) ? (
-                                            <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-                                                <DialogTrigger asChild>
-                                                    <Button 
-                                                        variant="outline" 
-                                                        size="sm" 
-                                                        className="text-xs"
-                                                        disabled={isCancelling}
-                                                    >
-                                                        {isCancelling ? (
-                                                            <div className="flex items-center gap-1">
-                                                                <div className="animate-spin h-3 w-3 border border-current border-t-transparent rounded-full" />
-                                                                Processing...
-                                                            </div>
-                                                        ) : (
-                                                            commitmentInfo?.has_commitment && !commitmentInfo?.can_cancel 
-                                                                ? 'Schedule End' 
-                                                                : 'Cancel Plan'
-                                                        )}
-                                                    </Button>
-                                                </DialogTrigger>
-                                                <DialogContent className="max-w-md">
-                                                    <DialogHeader>
-                                                        <DialogTitle className="text-lg">
-                                                            {commitmentInfo?.has_commitment && !commitmentInfo?.can_cancel
-                                                                ? 'Schedule Cancellation' 
-                                                                : 'Cancel Subscription'}
-                                                        </DialogTitle>
-                                                        <DialogDescription className="text-sm">
-                                                            {commitmentInfo?.has_commitment && !commitmentInfo?.can_cancel ? (
-                                                                <>
-                                                                    Your subscription will be scheduled to end on{' '}
-                                                                    {commitmentInfo?.commitment_end_date
-                                                                        ? formatEndDate(commitmentInfo.commitment_end_date)
-                                                                        : 'your commitment end date'}
-                                                                    . You'll keep full access until then.
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    Your subscription will end on{' '}
-                                                                    {formatDate(subscriptionData.subscription.current_period_end)}. 
-                                                                    You'll keep access until then.
-                                                                </>
-                                                            )}
-                                                        </DialogDescription>
-                                                    </DialogHeader>
-                                                    <DialogFooter>
-                                                        <Button
-                                                            variant="outline"
-                                                            onClick={() => setShowCancelDialog(false)}
-                                                            disabled={isCancelling}
-                                                            size="sm"
-                                                        >
-                                                            Keep Plan
-                                                        </Button>
-                                                        <Button
-                                                            variant="destructive"
-                                                            onClick={handleCancel}
-                                                            disabled={isCancelling}
-                                                            size="sm"
-                                                        >
-                                                            {isCancelling ? 'Processing...' : 'Confirm'}
-                                                        </Button>
-                                                    </DialogFooter>
-                                                </DialogContent>
-                                            </Dialog>
-                                        ) : (
-                                            <Button
-                                                variant="default"
-                                                size="sm"
-                                                onClick={handleReactivate}
+                            {/* Action Buttons underneath */}
+                            <div className="flex gap-2 justify-center">
+                                {/* Cancel/Reactivate Button */}
+                                {!(subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at) ? (
+                                    <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+                                        <DialogTrigger asChild>
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="text-xs"
                                                 disabled={isCancelling}
-                                                className="text-xs bg-green-600 hover:bg-green-700 text-white"
                                             >
                                                 {isCancelling ? (
                                                     <div className="flex items-center gap-1">
-                                                        <div className="animate-spin h-3 w-3 border border-white border-t-transparent rounded-full" />
+                                                        <div className="animate-spin h-3 w-3 border border-current border-t-transparent rounded-full" />
                                                         Processing...
                                                     </div>
                                                 ) : (
-                                                    'Reactivate Plan'
+                                                    commitmentInfo?.has_commitment && !commitmentInfo?.can_cancel 
+                                                        ? 'Schedule End' 
+                                                        : 'Cancel Plan'
                                                 )}
                                             </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="max-w-md">
+                                            <DialogHeader>
+                                                <DialogTitle className="text-lg">
+                                                    {commitmentInfo?.has_commitment && !commitmentInfo?.can_cancel
+                                                        ? 'Schedule Cancellation' 
+                                                        : 'Cancel Subscription'}
+                                                </DialogTitle>
+                                                <DialogDescription className="text-sm">
+                                                    {commitmentInfo?.has_commitment && !commitmentInfo?.can_cancel ? (
+                                                        <>
+                                                            Your subscription will be scheduled to end on{' '}
+                                                            {commitmentInfo?.commitment_end_date
+                                                                ? formatEndDate(commitmentInfo.commitment_end_date)
+                                                                : 'your commitment end date'}
+                                                            . You'll keep full access until then.
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            Your subscription will end on{' '}
+                                                            {formatDate(subscriptionData.subscription.current_period_end)}. 
+                                                            You'll keep access until then.
+                                                        </>
+                                                    )}
+                                                </DialogDescription>
+                                            </DialogHeader>
+                                            <DialogFooter>
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => setShowCancelDialog(false)}
+                                                    disabled={isCancelling}
+                                                    size="sm"
+                                                >
+                                                    Keep Plan
+                                                </Button>
+                                                <Button
+                                                    variant="destructive"
+                                                    onClick={handleCancel}
+                                                    disabled={isCancelling}
+                                                    size="sm"
+                                                >
+                                                    {isCancelling ? 'Processing...' : 'Confirm'}
+                                                </Button>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
+                                ) : (
+                                    <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={handleReactivate}
+                                        disabled={isCancelling}
+                                        className="text-xs bg-green-600 hover:bg-green-700 text-white"
+                                    >
+                                        {isCancelling ? (
+                                            <div className="flex items-center gap-1">
+                                                <div className="animate-spin h-3 w-3 border border-white border-t-transparent rounded-full" />
+                                                Processing...
+                                            </div>
+                                        ) : (
+                                            'Reactivate Plan'
                                         )}
+                                    </Button>
+                                )}
 
-                                        {/* Manage Subscription Button */}
-                                        <Button
-                                            onClick={handleManageSubscription}
-                                            disabled={isManaging}
-                                            variant="outline"
-                                            size="sm"
-                                            className="text-xs"
-                                        >
-                                            {isManaging ? 'Loading...' : 'Dashboard'}
-                                        </Button>
-                                    </div>
-                                </div>
+                                {/* Manage Subscription Button */}
+                                <Button
+                                    onClick={handleManageSubscription}
+                                    disabled={isManaging}
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs"
+                                >
+                                    {isManaging ? 'Loading...' : 'Dashboard'}
+                                </Button>
                             </div>
-                        )}
-
-                        {/* Legacy Manage Button for non-subscription users */}
-                        {subscriptionData && !subscriptionData.subscription && (
-                            <Button
-                                onClick={handleManageSubscription}
-                                disabled={isManaging}
-                                className="max-w-xs mx-auto w-full bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all mt-4"
-                            >
-                                {isManaging ? 'Loading...' : 'Manage Subscription'}
-                            </Button>
-                        )}
-                    </>
-                )}
+                        </div>
+                    )}
+                </>
             </DialogContent>
             
             {/* Credit Purchase Modal */}
