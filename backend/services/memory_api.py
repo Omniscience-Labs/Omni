@@ -103,7 +103,7 @@ async def add_memory(
             )
         
         success = await memory_service.add_memory(
-            text=request.text,
+            content=request.text,
             user_id=user_id,
             thread_id=request.thread_id,
             metadata=request.metadata
