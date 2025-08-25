@@ -184,7 +184,40 @@ export function useToolView(toolName: string): ToolViewComponent {
   return useMemo(() => toolViewRegistry.get(toolName), [toolName]);
 }
 
-export function ToolView({ name = 'default', ...props }: ToolViewProps) {
-  const ToolViewComponent = useToolView(name);
-  return <ToolViewComponent name={name} {...props} />;
+interface ToolOutput {
+  file_path?: string;
+}
+
+export function ToolView({ name = 'default', assistantContent, toolContent, ...props }: ToolViewProps) {
+  const toolToolData = extractToolData(toolContent);
+
+  // find the file path from the tool output
+  const output  = toolToolData.toolResult.toolOutput as ToolOutput;
+  const filePath = output.file_path;
+
+  // check if the file path is a presentation slide
+  const { isValid: isPresentationSlide, presentationName, slideNumber } = parsePresentationSlidePath(filePath);
+  let modifiedToolContent = toolContent;
+
+  const presentationTools = [
+    'create-slide',
+    'list-slides',
+    'delete-slide',
+    'delete-presentation',
+    'presentation-styles',
+  ]
+
+  const isAlreadyPresentationTool = presentationTools.includes(name);
+
+  // if the file path is a presentation slide, we need to modify the tool content to match the expected structure for PresentationViewer
+  if (isPresentationSlide && filePath && presentationName && slideNumber && !isAlreadyPresentationTool) {
+    modifiedToolContent = createPresentationViewerToolContent(presentationName, filePath, slideNumber);
+  }
+  
+  // determine the effective tool name
+  const effectiveToolName = (isPresentationSlide && !isAlreadyPresentationTool) ? 'create-slide' : name;
+
+  // use the tool view component
+  const ToolViewComponent = useToolView(effectiveToolName);
+  return <ToolViewComponent name={effectiveToolName} toolContent={modifiedToolContent} {...props} />;
 }
