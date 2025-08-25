@@ -47,40 +47,40 @@ Below is a summary of environment variables detected from the codebase and wheth
 
 Backend keys (by purpose):
 
-| Purpose       | Key                           |                         Required to boot | Default                      | Notes                                                               |
-| ------------- | ----------------------------- | ---------------------------------------: | ---------------------------- | ------------------------------------------------------------------- |
-| Environment   | ENV_MODE                      |                                       No | local                        | local, staging, production                                          |
-| Database/Auth | SUPABASE_URL                  |                                      Yes | -                            | Supabase project URL                                                |
-|               | SUPABASE_ANON_KEY             |                                      Yes | -                            | Supabase anon key                                                   |
-|               | SUPABASE_SERVICE_ROLE_KEY     |                                      Yes | -                            | Supabase service role key                                           |
-| Redis         | REDIS_HOST                    |                                      Yes | redis                        | Use `redis` with Docker, `localhost` without                        |
-|               | REDIS_PORT                    |                                       No | 6379                         |                                                                     |
-|               | REDIS_PASSWORD                |                                       No | -                            |                                                                     |
-|               | REDIS_SSL                     |                                       No | true                         | Set false for local/Docker compose                                  |
-| LLM providers | ANTHROPIC_API_KEY             | Functionally required (at least one LLM) | -                            | Any one of Anthropic/OpenAI/Groq/OpenRouter/Gemini/X.ai/AWS Bedrock |
-|               | OPENAI_API_KEY                |                                        " | -                            |                                                                     |
-|               | GROQ_API_KEY                  |                                        " | -                            |                                                                     |
-|               | OPENROUTER_API_KEY            |                                        " | -                            |                                                                     |
-|               | GEMINI_API_KEY                |                                        " | -                            |                                                                     |
-|               | XAI_API_KEY                   |                                        " | -                            |                                                                     |
-|               | AWS_ACCESS_KEY_ID             |                     " (if using Bedrock) | -                            |                                                                     |
-|               | AWS_SECRET_ACCESS_KEY         |                     " (if using Bedrock) | -                            |                                                                     |
-|               | AWS_REGION_NAME               |                     " (if using Bedrock) | -                            |                                                                     |
-| Web search    | TAVILY_API_KEY                |                                      Yes | -                            | Used by search tools                                                |
-| Web scraping  | FIRECRAWL_API_KEY             |                                      Yes | -                            | Used by scraping tools                                              |
-| Data APIs     | RAPID_API_KEY                 |                                      Yes | -                            | Enables LinkedIn scraping and other data tools                      |
-| Agent sandbox | DAYTONA_API_KEY               |                                      Yes | -                            | Required by Daytona SDK                                             |
-|               | DAYTONA_SERVER_URL            |                                      Yes | https://app.daytona.io/api   |                                                                     |
-|               | DAYTONA_TARGET                |                                      Yes | us                           | region/target                                                       |
-| Observability | LANGFUSE_PUBLIC_KEY           |                                       No | -                            | Optional tracing                                                    |
-|               | LANGFUSE_SECRET_KEY           |                                       No | -                            |                                                                     |
-|               | LANGFUSE_HOST                 |                                       No | https://cloud.langfuse.com   |                                                                     |
-| Credentials   | MCP_CREDENTIAL_ENCRYPTION_KEY |                              Recommended | -                            | Used to encrypt stored credentials; generated if missing            |
-| Triggers      | WEBHOOK_BASE_URL              |                                       No | https://api.agentiqtest.site | Public base URL for inbound webhooks                                |
-|               | TRIGGER_WEBHOOK_SECRET        |                              Recommended | -                            | Verifies inbound triggers                                           |
-| Billing       | STRIPE\_\*                    |                                       No | -                            | Only if you enable billing                                          |
-| Admin         | KORTIX_ADMIN_API_KEY          |                                       No | -                            | Protects admin APIs                                                 |
-| Integrations  | COMPOSIO\_\*                  |                                       No | -                            | Optional Composio integration                                       |
+| Purpose       | Key                           |                         Required to boot | Default                    | Notes                                                               |
+| ------------- | ----------------------------- | ---------------------------------------: | -------------------------- | ------------------------------------------------------------------- |
+| Environment   | ENV_MODE                      |                                       No | local                      | local, staging, production                                          |
+| Database/Auth | SUPABASE_URL                  |                                      Yes | -                          | Supabase project URL                                                |
+|               | SUPABASE_ANON_KEY             |                                      Yes | -                          | Supabase anon key                                                   |
+|               | SUPABASE_SERVICE_ROLE_KEY     |                                      Yes | -                          | Supabase service role key                                           |
+| Redis         | REDIS_HOST                    |                                      Yes | redis                      | Use `redis` with Docker, `localhost` without                        |
+|               | REDIS_PORT                    |                                       No | 6379                       |                                                                     |
+|               | REDIS_PASSWORD                |                                       No | -                          |                                                                     |
+|               | REDIS_SSL                     |                                       No | true                       | Set false for local/Docker compose                                  |
+| LLM providers | ANTHROPIC_API_KEY             | Functionally required (at least one LLM) | -                          | Any one of Anthropic/OpenAI/Groq/OpenRouter/Gemini/X.ai/AWS Bedrock |
+|               | OPENAI_API_KEY                |                                        " | -                          |                                                                     |
+|               | GROQ_API_KEY                  |                                        " | -                          |                                                                     |
+|               | OPENROUTER_API_KEY            |                                        " | -                          |                                                                     |
+|               | GEMINI_API_KEY                |                                        " | -                          |                                                                     |
+|               | XAI_API_KEY                   |                                        " | -                          |                                                                     |
+|               | AWS_ACCESS_KEY_ID             |                     " (if using Bedrock) | -                          |                                                                     |
+|               | AWS_SECRET_ACCESS_KEY         |                     " (if using Bedrock) | -                          |                                                                     |
+|               | AWS_REGION_NAME               |                     " (if using Bedrock) | -                          |                                                                     |
+| Web search    | TAVILY_API_KEY                |                                      Yes | -                          | Used by search tools                                                |
+| Web scraping  | FIRECRAWL_API_KEY             |                                      Yes | -                          | Used by scraping tools                                              |
+| Data APIs     | RAPID_API_KEY                 |                                      Yes | -                          | Enables LinkedIn scraping and other data tools                      |
+| Agent sandbox | DAYTONA_API_KEY               |                                      Yes | -                          | Required by Daytona SDK                                             |
+|               | DAYTONA_SERVER_URL            |                                      Yes | https://app.daytona.io/api |                                                                     |
+|               | DAYTONA_TARGET                |                                      Yes | us                         | region/target                                                       |
+| Observability | LANGFUSE_PUBLIC_KEY           |                                       No | -                          | Optional tracing                                                    |
+|               | LANGFUSE_SECRET_KEY           |                                       No | -                          |                                                                     |
+|               | LANGFUSE_HOST                 |                                       No | https://cloud.langfuse.com |                                                                     |
+| Credentials   | MCP_CREDENTIAL_ENCRYPTION_KEY |                              Recommended | -                          | Used to encrypt stored credentials; generated if missing            |
+| Triggers      | WEBHOOK_BASE_URL              |                                       No | http://localhost:8000      | Public base URL for inbound webhooks                                |
+|               | TRIGGER_WEBHOOK_SECRET        |                              Recommended | -                          | Verifies inbound triggers                                           |
+| Billing       | STRIPE\_\*                    |                                       No | -                          | Only if you enable billing                                          |
+| Admin         | KORTIX_ADMIN_API_KEY          |                                       No | -                          | Protects admin APIs                                                 |
+| Integrations  | COMPOSIO\_\*                  |                                       No | -                          | Optional Composio integration                                       |
 
 Frontend keys:
 
@@ -156,7 +156,7 @@ DAYTONA_TARGET=us
 RAPID_API_KEY=YOUR_RAPID_API_KEY
 
 MCP_CREDENTIAL_ENCRYPTION_KEY=GENERATED_FERNET_KEY
-WEBHOOK_BASE_URL=https://api.agentiqtest.site
+WEBHOOK_BASE_URL=http://localhost:8000
 TRIGGER_WEBHOOK_SECRET=your_random_string
 ```
 
