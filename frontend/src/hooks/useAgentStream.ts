@@ -188,8 +188,16 @@ export function useAgentStream(
     (finalStatus: string, runId: string | null = agentRunId) => {
       if (!isMountedRef.current) return;
 
+      console.log(`[useAgentStream] Finalizing stream with status: ${finalStatus}, runId: ${runId}`);
+
       const currentThreadId = threadIdRef.current; // Get current threadId from ref
       const currentSetMessages = setMessagesRef.current; // Get current setMessages from ref
+
+      // Only finalize if this is for the current run ID or if no specific run ID is provided
+      if (runId && currentRunIdRef.current && currentRunIdRef.current !== runId) {
+        console.log(`[useAgentStream] Ignoring finalization for old run ID ${runId}, current is ${currentRunIdRef.current}`);
+        return;
+      }
 
       if (streamCleanupRef.current) {
         streamCleanupRef.current();
@@ -423,6 +431,8 @@ export function useAgentStream(
     if (!isMountedRef.current) return;
 
     const runId = currentRunIdRef.current;
+    console.log(`[useAgentStream] Stream closed for run ID: ${runId}, status: ${status}`);
+    
     if (!runId) {
       console.warn('[useAgentStream] Stream closed but no active agentRunId.');
       // If status was streaming, something went wrong, finalize as error
@@ -443,9 +453,18 @@ export function useAgentStream(
     // Immediately check the agent status when the stream closes unexpectedly
     // This covers cases where the agent finished but the final message wasn't received,
     // or if the agent errored out on the backend.
+    console.log(`[useAgentStream] Checking final status for run ID: ${runId}`);
     getAgentStatus(runId)
       .then((agentStatus) => {
         if (!isMountedRef.current) return; // Check mount status again
+
+        // Check if this is still the current run ID
+        if (currentRunIdRef.current !== runId) {
+          console.log(`[useAgentStream] Run ID changed during status check in handleStreamClose, ignoring`);
+          return;
+        }
+
+        console.log(`[useAgentStream] Final status for run ID ${runId}: ${agentStatus.status}`);
 
         if (agentStatus.status === 'running') {
           setError('Stream closed unexpectedly while agent was running.');
@@ -459,6 +478,12 @@ export function useAgentStream(
       })
       .catch((err) => {
         if (!isMountedRef.current) return;
+
+        // Check if this is still the current run ID
+        if (currentRunIdRef.current !== runId) {
+          console.log(`[useAgentStream] Run ID changed during error handling in handleStreamClose, ignoring`);
+          return;
+        }
 
         const errorMessage = err instanceof Error ? err.message : String(err);
         console.error(
@@ -500,8 +525,11 @@ export function useAgentStream(
     async (runId: string) => {
       if (!isMountedRef.current) return;
 
+      console.log(`[useAgentStream] Starting stream for run ID: ${runId}`);
+
       // Clean up any previous stream
       if (streamCleanupRef.current) {
+        console.log(`[useAgentStream] Cleaning up previous stream`);
         streamCleanupRef.current();
         streamCleanupRef.current = null;
       }
@@ -516,38 +544,57 @@ export function useAgentStream(
 
       try {
         // *** Crucial check: Verify agent is running BEFORE connecting ***
+        console.log(`[useAgentStream] Checking status for run ID: ${runId}`);
         const agentStatus = await getAgentStatus(runId);
         if (!isMountedRef.current) return; // Check mount status after async call
+
+        // Check if this is still the current run ID we're trying to start
+        if (currentRunIdRef.current !== runId) {
+          console.log(`[useAgentStream] Run ID changed during status check, aborting stream for ${runId}`);
+          return;
+        }
 
         if (agentStatus.status !== 'running') {
           console.warn(
             `[useAgentStream] Agent run ${runId} is not in running state (status: ${agentStatus.status}). Cannot start stream.`,
           );
-          setError(`Agent run is not running (status: ${agentStatus.status})`);
-          finalizeStream(
-            mapAgentStatus(agentStatus.status) || 'agent_not_running',
-            runId,
-          );
+          
+          // Only set error and finalize if this is still the current run ID
+          if (currentRunIdRef.current === runId) {
+            setError(`Agent run is not running (status: ${agentStatus.status})`);
+            finalizeStream(
+              mapAgentStatus(agentStatus.status) || 'agent_not_running',
+              runId,
+            );
+          }
           return;
         }
+
+        console.log(`[useAgentStream] Agent run ${runId} is running, creating stream`);
 
         // Agent is running, proceed to create the stream
         const cleanup = streamAgent(runId, {
           onMessage: (data) => {
             // Ignore messages if threadId changed while the EventSource stayed open
             if (threadIdRef.current !== threadId) return;
+            // Ignore messages if this is not the current run ID
+            if (currentRunIdRef.current !== runId) return;
             handleStreamMessage(data);
           },
           onError: (err) => {
             if (threadIdRef.current !== threadId) return;
+            if (currentRunIdRef.current !== runId) return;
             handleStreamError(err);
           },
           onClose: () => {
             if (threadIdRef.current !== threadId) return;
+            if (currentRunIdRef.current !== runId) return;
             handleStreamClose();
           },
         });
         streamCleanupRef.current = cleanup;
+        console.log(`[useAgentStream] Stream created successfully for run ID: ${runId}`);
+        
         // Status will be updated to 'streaming' by the first message received in handleStreamMessage
         // If for some reason no message arrives shortly, verify liveness again to avoid zombie state
         setTimeout(async () => {
@@ -568,6 +615,12 @@ export function useAgentStream(
       } catch (err) {
         if (!isMountedRef.current) return; // Check mount status after async call
 
+        // Only handle error if this is still the current run ID
+        if (currentRunIdRef.current !== runId) {
+          console.log(`[useAgentStream] Error occurred for old run ID ${runId}, ignoring`);
+          return;
+        }
+
         const errorMessage = err instanceof Error ? err.message : String(err);
         console.error(
           `[useAgentStream] Error initiating stream for ${runId}: ${errorMessage}`,
@@ -583,6 +636,7 @@ export function useAgentStream(
       }
     },
     [
+      threadId,
       updateStatus,
       finalizeStream,
       handleStreamMessage,

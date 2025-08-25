@@ -113,6 +113,53 @@ class ResponseProcessor:
             return format_for_yield(message_obj)
         return None
 
+    def _serialize_model_response(self, model_response) -> Dict[str, Any]:
+        """Convert a LiteLLM ModelResponse object to a JSON-serializable dictionary.
+        
+        Args:
+            model_response: The LiteLLM ModelResponse object
+            
+        Returns:
+            A dictionary representation of the ModelResponse
+        """
+        try:
+            # Try to use the model_dump method if available (Pydantic v2)
+            if hasattr(model_response, 'model_dump'):
+                return model_response.model_dump()
+            
+            # Try to use the dict method if available (Pydantic v1)
+            elif hasattr(model_response, 'dict'):
+                return model_response.dict()
+            
+            # Fallback: manually extract common attributes
+            else:
+                result = {}
+                
+                # Common LiteLLM ModelResponse attributes
+                for attr in ['id', 'object', 'created', 'model', 'choices', 'usage', 'system_fingerprint']:
+                    if hasattr(model_response, attr):
+                        value = getattr(model_response, attr)
+                        # Recursively handle nested objects
+                        if hasattr(value, 'model_dump'):
+                            result[attr] = value.model_dump()
+                        elif hasattr(value, 'dict'):
+                            result[attr] = value.dict()
+                        elif isinstance(value, list):
+                            result[attr] = [
+                                item.model_dump() if hasattr(item, 'model_dump') 
+                                else item.dict() if hasattr(item, 'dict')
+                                else item for item in value
+                            ]
+                        else:
+                            result[attr] = value
+                
+                return result
+                
+        except Exception as e:
+            logger.warning(f"Failed to serialize ModelResponse: {str(e)}, falling back to string representation")
+            # Ultimate fallback: convert to string
+            return {"raw_response": str(model_response), "serialization_error": str(e)}
+
     async def _add_message_with_agent_info(
         self,
         thread_id: str,
@@ -1009,11 +1056,14 @@ class ResponseProcessor:
             # --- Save and Yield assistant_response_end ---
             if assistant_message_object: # Only save if assistant message was saved
                 try:
-                    # Save the full LiteLLM response object directly in content
+                    # Convert LiteLLM ModelResponse to a JSON-serializable dictionary
+                    response_dict = self._serialize_model_response(llm_response)
+                    
+                    # Save the serialized response object in content
                     await self.add_message(
                         thread_id=thread_id,
                         type="assistant_response_end",
-                        content=llm_response,
+                        content=response_dict,
                         is_llm_message=False,
                         metadata={"thread_run_id": thread_run_id}
                     )

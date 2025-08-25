@@ -667,3 +667,36 @@
     }
   }
   }
+
+.react-colorful {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.react-colorful__saturation {
+  position: relative !important;
+  flex-grow: 1 !important;
+  border-radius: 8px 8px 0 0 !important;
+  border-bottom: none !important;
+  overflow: hidden !important;
+  min-height: 150px !important;
+}
+
+.react-colorful__hue {
+  position: relative !important;
+  height: 20px !important;
+  border-radius: 0 0 8px 8px !important;
+}
+
+
+.react-colorful__saturation-pointer,
+.react-colorful__hue-pointer {
+  width: 20px !important;
+  height: 20px !important;
+  border: 2px solid white !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(0,0,0,0.1) !important;
+}
+
+.react-colorful__interactive:focus .react-colorful__pointer {
+  transform: scale(1.1);
+}

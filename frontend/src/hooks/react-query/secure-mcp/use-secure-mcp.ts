@@ -46,11 +46,15 @@ export interface AgentTemplate {
   avatar?: string;
   avatar_color?: string;
   profile_image_url?: string;
+  icon_name?: string;
+  icon_color?: string;
+  icon_background?: string;
   is_kortix_team?: boolean;
   metadata?: {
     source_agent_id?: string;
     source_version_id?: string;
     source_version_name?: string;
+    model?: string;
   };
 }
 

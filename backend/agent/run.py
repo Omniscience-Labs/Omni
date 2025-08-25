@@ -260,7 +260,13 @@ class PromptManager:
                 sample_response = file.read()
             default_system_content = default_system_content + "\n\n <sample_assistant_response>" + sample_response + "</sample_assistant_response>"
         
-        # Check if agent has builder tools enabled - use agent builder prompt
+        # Start with agent's normal system prompt or default
+        if agent_config and agent_config.get('system_prompt'):
+            system_content = agent_config['system_prompt'].strip()
+        else:
+            system_content = default_system_content
+        
+        # Check if agent has builder tools enabled - append the full builder prompt
         if agent_config:
             agentpress_tools = agent_config.get('agentpress_tools', {})
             has_builder_tools = any(
@@ -269,16 +275,12 @@ class PromptManager:
             )
             
             if has_builder_tools:
-                system_content = get_agent_builder_prompt()
-            elif agent_config.get('system_prompt'):
-                system_content = agent_config['system_prompt'].strip()
-            else:
-                system_content = default_system_content
-        else:
-            system_content = default_system_content
+                # Append the full agent builder prompt to the existing system prompt
+                builder_prompt = get_agent_builder_prompt()
+                system_content += f"\n\n{builder_prompt}"
         
         # Add agent knowledge base context if available
-        if client and agent_config and agent_config.get('agent_id'):
+        if agent_config and client and 'agent_id' in agent_config:
             try:
                 logger.debug(f"Retrieving agent knowledge base context for agent {agent_config['agent_id']}")
                 
@@ -384,7 +386,13 @@ class MessageManager:
         """Build temporary message based on configuration and context."""
         system_message = None
         
-        # Add agent builder system prompt if agent has builder tools enabled
+        # Start with agent's system prompt if available
+        if self.agent_config and 'system_prompt' in self.agent_config:
+            system_prompt = self.agent_config['system_prompt']
+            if system_prompt:
+                system_message = system_prompt
+        
+        # If agent has builder tools enabled, append builder capabilities
         if self.agent_config:
             agentpress_tools = self.agent_config.get('agentpress_tools', {})
             has_builder_tools = any(
@@ -394,13 +402,12 @@ class MessageManager:
             
             if has_builder_tools:
                 from agent.agent_builder_prompt import AGENT_BUILDER_SYSTEM_PROMPT
-                system_message = AGENT_BUILDER_SYSTEM_PROMPT
-        
-        # Add agent config system prompt
-        if not system_message and self.agent_config and 'system_prompt' in self.agent_config:
-            system_prompt = self.agent_config['system_prompt']
-            if system_prompt:
-                system_message = system_prompt
+                if system_message:
+                    # Append builder capabilities to existing system prompt
+                    system_message += f"\n\n{AGENT_BUILDER_SYSTEM_PROMPT}"
+                else:
+                    # Use builder prompt if no existing system prompt
+                    system_message = AGENT_BUILDER_SYSTEM_PROMPT
         
         # Build and return the temporary message if we have content
         if system_message:

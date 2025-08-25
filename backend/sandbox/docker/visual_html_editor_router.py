@@ -1,17 +1,26 @@
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
-import uvicorn
+#!/usr/bin/env python3
+"""
+Visual HTML Editor Router
+
+Provides visual HTML editing endpoints as a FastAPI router that can be included in other applications.
+"""
+
 import os
-import json
 import re
+from typing import Optional, Dict, Any
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from bs4 import BeautifulSoup, NavigableString
 
-# Use current directory as workspace (presentation-example folder)
-workspace_dir = os.path.dirname(os.path.abspath(__file__))
+# Create router
+router = APIRouter(prefix="/api/html", tags=["visual-editor"])
+
+# Use /workspace as the default workspace directory
+workspace_dir = "/workspace"
 
 # All text elements that should be editable
 TEXT_ELEMENTS = [
@@ -29,36 +38,28 @@ TEXT_ELEMENTS = [
     'label', 'legend',  # Form text
 ]
 
-class WorkspaceDirMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        # Ensure workspace directory exists
-        if not os.path.exists(workspace_dir):
-            print(f"Workspace directory {workspace_dir} not found, recreating...")
-            os.makedirs(workspace_dir, exist_ok=True)
-        return await call_next(request)
-
-app = FastAPI(title="Visual HTML Editor", version="1.0.0")
-app.add_middleware(WorkspaceDirMiddleware)
-
-# ===== VISUAL HTML EDITOR API =====
 
 class EditTextRequest(BaseModel):
     file_path: str
     element_selector: str  # CSS selector to identify element
     new_text: str
 
+
 class DeleteElementRequest(BaseModel):
     file_path: str
     element_selector: str
+
 
 class SaveContentRequest(BaseModel):
     file_path: str
     html_content: str
 
+
 class GetEditableElementsResponse(BaseModel):
     elements: list[Dict[str, Any]]
 
-@app.get("/api/html/{file_path:path}/editable-elements")
+
+@router.get("/{file_path:path}/editable-elements")
 async def get_editable_elements(file_path: str):
     """Get all editable text elements from an HTML file"""
     try:
@@ -144,7 +145,8 @@ async def get_editable_elements(file_path: str):
         print(f"Error getting editable elements: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/html/edit-text")
+
+@router.post("/edit-text")
 async def edit_text(request: EditTextRequest):
     """Edit text content of an element in an HTML file"""
     try:
@@ -187,7 +189,8 @@ async def edit_text(request: EditTextRequest):
         print(f"❌ Error editing text: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/html/delete-element")
+
+@router.post("/delete-element")
 async def delete_element(request: DeleteElementRequest):
     """Delete an element from an HTML file"""
     try:
@@ -239,7 +242,8 @@ async def delete_element(request: DeleteElementRequest):
         print(f"❌ Error deleting element: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/html/save-content")
+
+@router.post("/save-content")
 async def save_content(request: SaveContentRequest):
     """Save the entire HTML content to file"""
     try:
@@ -297,7 +301,8 @@ async def save_content(request: SaveContentRequest):
         print(f"❌ Error saving content: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/html/{file_path:path}/editor")
+
+@router.get("/{file_path:path}/editor")
 async def get_html_editor(file_path: str):
     """Serve the visual editor for an HTML file"""
     try:
@@ -317,217 +322,6 @@ async def get_html_editor(file_path: str):
         print(f"❌ Error serving editor: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/")
-async def list_html_files():
-    """List all HTML files in the workspace for easy access"""
-    try:
-        html_files = [f for f in os.listdir(workspace_dir) if f.endswith('.html')]
-        
-        html_content = """
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Visual HTML Editor</title>
-            <style>
-                * {
-                    margin: 0;
-                    padding: 0;
-                    box-sizing: border-box;
-                }
-                body {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
-                    background: white;
-                    color: black;
-                    line-height: 1.5;
-                    max-width: 900px;
-                    margin: 0 auto;
-                    padding: 40px 20px;
-                }
-                .header {
-                    text-align: center;
-                    margin-bottom: 32px;
-                    border-bottom: 1px solid #e4e4e7;
-                    padding-bottom: 24px;
-                }
-                .header h1 {
-                    font-size: 24px;
-                    font-weight: 600;
-                    letter-spacing: -0.025em;
-                    margin-bottom: 8px;
-                    color: #09090b;
-                }
-                .header p {
-                    font-size: 14px;
-                    color: #71717a;
-                    font-weight: 400;
-                }
-                .file-list {
-                    border: 1px solid #e4e4e7;
-                    border-radius: 8px;
-                    overflow: hidden;
-                }
-                .file-item {
-                    padding: 16px 20px;
-                    border-bottom: 1px solid #e4e4e7;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    transition: background-color 0.15s ease;
-                }
-                .file-item:hover {
-                    background: #f4f4f5;
-                }
-                .file-item:last-child {
-                    border-bottom: none;
-                }
-                .file-name {
-                    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-                    font-size: 14px;
-                    font-weight: 500;
-                    color: black;
-                }
-                .file-actions {
-                    display: flex;
-                    gap: 12px;
-                }
-                .btn {
-                    padding: 8px 16px;
-                    text-decoration: none;
-                    font-size: 13px;
-                    font-weight: 500;
-                    border: 1px solid #e4e4e7;
-                    color: #09090b;
-                    background: white;
-                    transition: all 0.15s ease;
-                    text-align: center;
-                    min-width: 60px;
-                    border-radius: 6px;
-                }
-                .btn:hover {
-                    background: #f4f4f5;
-                    border-color: #d4d4d8;
-                }
-                .btn-edit {
-                    background: #09090b;
-                    color: white;
-                    border-color: #09090b;
-                }
-                .btn-edit:hover {
-                    background: #18181b;
-                    border-color: #18181b;
-                }
-                .empty-state {
-                    text-align: center;
-                    padding: 64px 20px;
-                    color: #71717a;
-                    border: 1px solid #e4e4e7;
-                    border-radius: 8px;
-                }
-                .empty-state h3 {
-                    font-size: 16px;
-                    font-weight: 500;
-                    margin-bottom: 8px;
-                    color: #09090b;
-                }
-                .info {
-                    margin-top: 32px;
-                    padding: 20px;
-                    background: #fafafa;
-                    border: 1px solid #e4e4e7;
-                    border-radius: 8px;
-                }
-                .info h3 {
-                    font-size: 16px;
-                    font-weight: 500;
-                    margin-bottom: 12px;
-                }
-                .info-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 20px;
-                }
-                .info-item {
-                    font-size: 14px;
-                    line-height: 1.4;
-                }
-                .info-item strong {
-                    font-weight: 500;
-                }
-                @media (max-width: 600px) {
-                    .info-grid {
-                        grid-template-columns: 1fr;
-                    }
-                    .file-item {
-                        flex-direction: column;
-                        align-items: flex-start;
-                        gap: 12px;
-                    }
-                    .file-actions {
-                        width: 100%;
-                        justify-content: flex-end;
-                    }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>Visual HTML Editor</h1>
-                <p>Click-to-edit any HTML file with live preview</p>
-            </div>
-            
-            <div class="file-list">
-        """
-        
-        if html_files:
-            for file in sorted(html_files):
-                html_content += f"""
-                <div class="file-item">
-                    <div class="file-name">{file}</div>
-                    <div class="file-actions">
-                        <a href="/{file}" class="btn" target="_blank">View</a>
-                        <a href="/api/html/{file}/editor" class="btn btn-edit" target="_blank">Edit</a>
-                    </div>
-                </div>
-                """
-        else:
-            html_content += """
-            <div class="empty-state">
-                <h3>No files found</h3>
-                <p>Add .html files to this directory to start editing</p>
-            </div>
-            """
-        
-        html_content += """
-            </div>
-            
-            <div class="info">
-                <h3>How to use</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <strong>Edit text:</strong> Hover over any text and click the edit icon
-                    </div>
-                    <div class="info-item">
-                        <strong>Delete elements:</strong> Click the trash icon to remove content
-                    </div>
-                    <div class="info-item">
-                        <strong>Save changes:</strong> Press Ctrl+Enter or click Save
-                    </div>
-                    <div class="info-item">
-                        <strong>Cancel editing:</strong> Press Escape or click Cancel
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        return HTMLResponse(content=html_content)
-        
-    except Exception as e:
-        print(f"❌ Error listing HTML files: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 def inject_editor_functionality(html_content: str, file_path: str) -> str:
     """Inject visual editor functionality into existing HTML"""
@@ -741,6 +535,7 @@ def inject_editor_functionality(html_content: str, file_path: str) -> str:
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             display: flex;
             gap: 4px;
+            z-index: 1000;
         }
         
         .save-btn, .cancel-btn {
@@ -913,7 +708,7 @@ def inject_editor_functionality(html_content: str, file_path: str) -> str:
     # Add editor JavaScript
     editor_js = f"""
     <script>
-        const API_BASE = '';
+        const API_BASE = '/api/html';
         const FILE_PATH = '{file_path}';
         
         class VisualHtmlEditor {{
@@ -1365,7 +1160,7 @@ def inject_editor_functionality(html_content: str, file_path: str) -> str:
             
             deleteElement(element) {{
                 const text = element.textContent.substring(0, 60);
-                if (!confirm('Delete this element?\\n\\n"' + text + '..."')) {{
+                if (!confirm('Delete this element?\\\\n\\\\n"' + text + '..."')) {{
                     return;
                 }}
                 
@@ -1431,7 +1226,7 @@ def inject_editor_functionality(html_content: str, file_path: str) -> str:
                 
                 // Confirm before saving (permanent action)
                 const changeCount = this.pendingChanges.size;
-                if (!confirm(`Save all ${{changeCount}} change${{changeCount === 1 ? '' : 's'}} to file?\\n\\nThis action cannot be undone.`)) {{
+                if (!confirm(`Save all ${{changeCount}} change${{changeCount === 1 ? '' : 's'}} to file?\\\\n\\\\nThis action cannot be undone.`)) {{
                     return;
                 }}
                 
@@ -1456,7 +1251,7 @@ def inject_editor_functionality(html_content: str, file_path: str) -> str:
                     const currentHtml = document.documentElement.outerHTML;
                     
                     // Send it to a new endpoint that replaces the file content
-                    const response = await fetch('/api/html/save-content', {{
+                    const response = await fetch(`${{API_BASE}}/save-content`, {{
                         method: 'POST',
                         headers: {{ 'Content-Type': 'application/json' }},
                         body: JSON.stringify({{
@@ -1558,33 +1353,3 @@ def inject_editor_functionality(html_content: str, file_path: str) -> str:
         soup.body.append(BeautifulSoup(editor_js, 'html.parser'))
     
     return str(soup)
-
-# ===== END VISUAL HTML EDITOR API =====
-
-# Mount static files (serve HTML files directly)
-app.mount('/static', StaticFiles(directory=workspace_dir), name='static')
-
-# Serve HTML files directly at root level
-@app.get("/{file_name}")
-async def serve_html_file(file_name: str):
-    """Serve HTML files directly for viewing"""
-    if not file_name.endswith('.html'):
-        raise HTTPException(status_code=404, detail="File must be .html")
-    
-    file_path = os.path.join(workspace_dir, file_name)
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not found")
-    
-    with open(file_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-    
-    return HTMLResponse(content=content)
-
-# This is needed for the import string approach with uvicorn
-if __name__ == '__main__':
-    print(f"🚀 Starting Visual HTML Editor")
-    print(f"📁 Workspace: {workspace_dir}")
-    print(f"🌐 Server will be available at: http://localhost:8080")
-    print(f"✏️ Access editor at: http://localhost:8080/api/html/[filename]/editor")
-    
-    uvicorn.run("visual-html-editor:app", host="0.0.0.0", port=8080, reload=True)

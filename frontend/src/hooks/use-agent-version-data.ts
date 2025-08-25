@@ -26,6 +26,9 @@ interface NormalizedVersionData {
   updated_at: string;
   created_by?: string;
   change_description?: string;
+  icon_name?: string | null;
+  icon_color?: string | null;
+  icon_background?: string | null;
 }
 
 interface UseAgentVersionDataProps {

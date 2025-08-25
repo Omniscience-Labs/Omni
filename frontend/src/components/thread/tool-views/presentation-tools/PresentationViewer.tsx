@@ -34,6 +34,7 @@ import { constructHtmlPreviewUrl } from '@/lib/utils/url';
 import { CodeBlockCode } from '@/components/ui/code-block';
 import { LoadingState } from '../shared/LoadingState';
 import { FullScreenPresentationViewer } from './FullScreenPresentationViewer';
+import { toast } from 'sonner';
 
 interface SlideMetadata {
   title: string;
@@ -70,11 +71,14 @@ export function PresentationViewer({
 
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const [hasScrolledToCurrentSlide, setHasScrolledToCurrentSlide] = useState(false);
+  const [backgroundRetryInterval, setBackgroundRetryInterval] = useState<NodeJS.Timeout | null>(null);
 
   const [visibleSlide, setVisibleSlide] = useState<number | null>(null);
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
   const [fullScreenInitialSlide, setFullScreenInitialSlide] = useState<number | null>(null);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
 
   // Extract presentation info from tool data
   const { toolResult } = extractToolData(toolContent);
@@ -132,12 +136,13 @@ export function PresentationViewer({
     return name.replace(/[^a-zA-Z0-9\-_]/g, '').toLowerCase();
   };
 
-  // Load metadata.json for the presentation
-  const loadMetadata = async () => {
+  // Load metadata.json for the presentation with retry logic
+  const loadMetadata = async (retryCount = 0, maxRetries = 5) => {
     if (!extractedPresentationName || !project?.sandbox?.sandbox_url) return;
     
     setIsLoadingMetadata(true);
     setError(null);
+    setRetryAttempt(retryCount);
     
     try {
       // Sanitize the presentation name to match backend directory creation
@@ -151,6 +156,8 @@ export function PresentationViewer({
       // Add cache-busting parameter to ensure fresh data
       const urlWithCacheBust = `${metadataUrl}?t=${Date.now()}`;
       
+      console.log(`Loading presentation metadata (attempt ${retryCount + 1}/${maxRetries + 1}):`, urlWithCacheBust);
+      
       const response = await fetch(urlWithCacheBust, {
         cache: 'no-cache',
         headers: {
@@ -161,22 +168,66 @@ export function PresentationViewer({
       if (response.ok) {
         const data = await response.json();
         setMetadata(data);
+        console.log('Successfully loaded presentation metadata:', data);
+        setIsLoadingMetadata(false);
         
-
+        // Clear background retry interval on success
+        if (backgroundRetryInterval) {
+          clearInterval(backgroundRetryInterval);
+          setBackgroundRetryInterval(null);
+        }
+        
+        return; // Success, exit early
       } else {
-        setError('Failed to load presentation metadata');
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (err) {
-      console.error('Error loading metadata:', err);
-      setError('Failed to load presentation metadata');
-    } finally {
+      console.error(`Error loading metadata (attempt ${retryCount + 1}):`, err);
+      
+      // If we haven't reached max retries, try again with exponential backoff
+      if (retryCount < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Cap at 10 seconds
+        console.log(`Retrying in ${delay}ms...`);
+        
+        setTimeout(() => {
+          loadMetadata(retryCount + 1, maxRetries);
+        }, delay);
+        
+        return; // Don't set error state yet, we're retrying
+      }
+      
+      // All retries exhausted, set error and start background retry
+      setError('Failed to load presentation metadata after multiple attempts');
       setIsLoadingMetadata(false);
+      
+      // Start background retry every 10 seconds
+      if (!backgroundRetryInterval) {
+        const interval = setInterval(() => {
+          console.log('Background retry attempt...');
+          loadMetadata(0, 2); // Fewer retries for background attempts
+        }, 10000);
+        setBackgroundRetryInterval(interval);
+      }
     }
   };
 
   useEffect(() => {
+    // Clear any existing background retry when dependencies change
+    if (backgroundRetryInterval) {
+      clearInterval(backgroundRetryInterval);
+      setBackgroundRetryInterval(null);
+    }
     loadMetadata();
   }, [extractedPresentationName, project?.sandbox?.sandbox_url, toolContent]);
+
+  // Cleanup background retry interval on unmount
+  useEffect(() => {
+    return () => {
+      if (backgroundRetryInterval) {
+        clearInterval(backgroundRetryInterval);
+      }
+    };
+  }, [backgroundRetryInterval]);
 
   // Reset scroll state when tool content changes (new tool call)
   useEffect(() => {
@@ -423,7 +474,51 @@ export function PresentationViewer({
     return <SlideIframe slide={slide} />;
   }, [SlideIframe]);
 
+  const downloadPresentationAsPDF = async (sandboxUrl: string, presentationName: string): Promise<void> => {
+    try {
+      const response = await fetch(`${sandboxUrl}/presentation/convert-to-pdf`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          presentation_path: `/workspace/presentations/${presentationName}`,
+          download: true
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download PDF');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${presentationName}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      // You could show a toast notification here
+      toast.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
 
+
+  const handlePDFDownload = useCallback(async (setIsDownloadingPDF: (isDownloading: boolean) => void) => {
+    
+    if (!project?.sandbox?.sandbox_url || !extractedPresentationName) return;
+
+    setIsDownloadingPDF(true);
+    try{
+      await downloadPresentationAsPDF(project.sandbox.sandbox_url, extractedPresentationName);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+    } finally {
+      setIsDownloadingPDF(false);
+    }
+  }, [project?.sandbox?.sandbox_url, extractedPresentationName]);
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card">
@@ -465,15 +560,16 @@ export function PresentationViewer({
                       className="h-8 w-8 p-0"
                       title="Export presentation"
                     >
-                      <Download className="h-3.5 w-3.5" />
+                      {isDownloadingPDF ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-32">
                     <DropdownMenuItem 
-                      onClick={() => {
-                        // TODO: Implement PDF export
-                        console.log('Export as PDF');
-                      }}
+                      onClick={() => handlePDFDownload(setIsDownloadingPDF)}
                       className="cursor-pointer"
                     >
                       <FileText className="h-4 w-4 mr-2" />
@@ -533,7 +629,7 @@ export function PresentationViewer({
             iconColor="text-blue-500 dark:text-blue-400"
             bgColor="bg-gradient-to-b from-blue-100 to-blue-50 shadow-inner dark:from-blue-800/40 dark:to-blue-900/60 dark:shadow-blue-950/20"
             title="Loading presentation"
-            filePath="Loading slides..."
+            filePath={retryAttempt > 0 ? `Retrying... (attempt ${retryAttempt + 1})` : "Loading slides..."}
             showProgress={true}
           />
         ) : error || toolExecutionError || !metadata ? (
@@ -548,6 +644,35 @@ export function PresentationViewer({
               {toolExecutionError ? 'The presentation tool encountered an error during execution:' : 
                (error || 'There was an error loading the presentation. Please try again.')}
             </p>
+            {retryAttempt > 0 && !toolExecutionError && (
+              <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-4">
+                Attempted {retryAttempt + 1} times
+              </p>
+            )}
+            {backgroundRetryInterval && !toolExecutionError && (
+              <p className="text-xs text-blue-500 dark:text-blue-400 mb-4 flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Retrying in background...
+              </p>
+            )}
+            {!toolExecutionError && error && (
+              <Button 
+                onClick={() => loadMetadata()} 
+                variant="outline" 
+                size="sm"
+                disabled={isLoadingMetadata}
+                className="mb-4"
+              >
+                {isLoadingMetadata ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Retrying...
+                  </>
+                ) : (
+                  'Try Again'
+                )}
+              </Button>
+            )}
             {toolExecutionError && (
               <div className="w-full max-w-2xl">
                 <CodeBlockCode 
@@ -647,10 +772,15 @@ export function PresentationViewer({
         onClose={() => {
           setIsFullScreenOpen(false);
           setFullScreenInitialSlide(null);
+          // Reload metadata after closing full screen viewer in case edits were made
+          setTimeout(() => {
+            loadMetadata();
+          }, 300);
         }}
         presentationName={extractedPresentationName}
         sandboxUrl={project?.sandbox?.sandbox_url}
         initialSlide={fullScreenInitialSlide || visibleSlide || currentSlideNumber || slides[0]?.number || 1}
+        onPDFDownload={handlePDFDownload}
       />
     </Card>
   );

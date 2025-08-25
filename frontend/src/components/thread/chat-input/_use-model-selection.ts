@@ -10,7 +10,6 @@ export const STORAGE_KEY_CUSTOM_MODELS = 'customModels';
 export const DEFAULT_PREMIUM_MODEL_ID = 'claude-sonnet-4';
 export const DEFAULT_FREE_MODEL_ID = 'moonshotai/kimi-k2';
 
-// Helper to test localStorage functionality
 export const testLocalStorage = (): boolean => {
   if (typeof window === 'undefined') return false;
   try {
@@ -43,9 +42,7 @@ export interface CustomModel {
   label: string;
 }
 
-// SINGLE SOURCE OF TRUTH for all model data - aligned with backend constants
 export const MODELS = {
-  // Premium tier models (require subscription) - using aliases from backend
   'claude-sonnet-4': { 
     tier: 'premium',
     priority: 100, 
@@ -83,7 +80,6 @@ export const MODELS = {
     lowQuality: false
   },
 
-  // Free tier models (available to all users)
   'moonshotai/kimi-k2': { 
     tier: 'free', 
     priority: 100,
@@ -121,7 +117,6 @@ export const canAccessModel = (
   return subscriptionStatus === 'active' || !requiresSubscription;
 };
 
-// Helper to format a model name for display
 export const formatModelName = (name: string): string => {
   return name
     .split('-')
@@ -129,7 +124,6 @@ export const formatModelName = (name: string): string => {
     .join(' ');
 };
 
-// Add openrouter/ prefix to custom models
 export const getPrefixedModelId = (modelId: string, isCustom: boolean): string => {
   if (isCustom && !modelId.startsWith('openrouter/')) {
     return `openrouter/${modelId}`;

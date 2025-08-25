@@ -100,13 +100,8 @@ export function AgentModelSelector({
   
   const normalizedValue = normalizeModelId(value);
   
-  useEffect(() => {
-    if (normalizedValue && normalizedValue !== storeSelectedModel) {
-      storeHandleModelChange(normalizedValue);
-    }
-  }, [normalizedValue, storeSelectedModel, storeHandleModelChange]);
-  
-  const selectedModel = storeSelectedModel;
+  // Use the prop value if provided, otherwise fall back to store value
+  const selectedModel = normalizedValue || storeSelectedModel;
 
   const enhancedModelOptions = useMemo(() => {
     const modelMap = new Map();
@@ -202,7 +197,6 @@ export function AgentModelSelector({
     const isCustomModel = customModels.some(model => model.id === modelId);
     
     if (isCustomModel && isLocalMode()) {
-      storeHandleModelChange(modelId);
       onChange(modelId);
       setIsOpen(false);
       return;
@@ -210,7 +204,6 @@ export function AgentModelSelector({
     
     const hasAccess = isLocalMode() || canAccessModel(modelId);
     if (hasAccess) {
-      storeHandleModelChange(modelId);
       onChange(modelId);
       setIsOpen(false);
     } else {
@@ -285,12 +278,10 @@ export function AgentModelSelector({
 
     if (dialogMode === 'add') {
       storeAddCustomModel(newModel);
-      storeHandleModelChange(modelId);
       onChange(modelId);
     } else {
       storeUpdateCustomModel(editingModelId!, newModel);
       if (selectedModel === editingModelId) {
-        storeHandleModelChange(modelId);
         onChange(modelId);
       }
     }
@@ -312,7 +303,6 @@ export function AgentModelSelector({
     
     if (selectedModel === modelId) {
       const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
-      storeHandleModelChange(defaultModel);
       onChange(defaultModel);
     }
   };
@@ -327,9 +317,8 @@ export function AgentModelSelector({
     const isRecommended = MODELS[model.id]?.recommended || false;
 
     return (
-      <TooltipProvider key={`model-${model.id}-${index}`}>
-        <Tooltip>
-          <TooltipTrigger asChild>
+      <Tooltip key={`model-${model.id}-${index}`}>
+        <TooltipTrigger asChild>
             <div className='w-full'>
               <DropdownMenuItem
                 className={cn(
@@ -402,16 +391,14 @@ export function AgentModelSelector({
             </TooltipContent>
           ) : null}
         </Tooltip>
-      </TooltipProvider>
     );
   };
 
   return (
     <div className="relative">
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
+        <Tooltip>
+          <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild disabled={disabled}>
                 {variant === 'menu-item' ? (
                   <div
@@ -463,8 +450,7 @@ export function AgentModelSelector({
             <TooltipContent side={variant === 'menu-item' ? 'left' : 'top'} className="text-xs">
               <p>Choose a model for this agent</p>
             </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        </Tooltip>
         <DropdownMenuContent
           align={variant === 'menu-item' ? 'end' : 'start'}
           className="w-76 p-0 overflow-hidden"
@@ -476,9 +462,8 @@ export function AgentModelSelector({
                 <span className="text-xs font-medium text-muted-foreground p-2 px-4">All Models</span>
                 {isLocalMode() && (
                   <div className="flex items-center gap-1 p-2">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
                           <Link
                             href="/settings/env-manager"
                             className="h-6 w-6 p-0 flex items-center justify-center"
@@ -489,11 +474,9 @@ export function AgentModelSelector({
                         <TooltipContent side="bottom" className="text-xs">
                           Local .Env Manager
                         </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
                           <Button
                             size="sm"
                             variant="ghost"
@@ -509,8 +492,7 @@ export function AgentModelSelector({
                         <TooltipContent side="bottom" className="text-xs">
                           Add a custom model
                         </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    </Tooltip>
                   </div>
                 )}
               </div>
@@ -549,9 +531,8 @@ export function AgentModelSelector({
                             const isRecommended = model.recommended;
                             
                             return (
-                              <TooltipProvider key={`premium-${model.id}-${index}`}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
+                              <Tooltip key={`premium-${model.id}-${index}`}>
+                                <TooltipTrigger asChild>
                                     <div className='w-full'>
                                       <DropdownMenuItem
                                         className={cn(
@@ -586,7 +567,6 @@ export function AgentModelSelector({
                                     </p>
                                   </TooltipContent>
                                 </Tooltip>
-                              </TooltipProvider>
                             );
                           })}
                           {subscriptionStatus !== 'active' && (

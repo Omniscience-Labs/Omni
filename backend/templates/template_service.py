@@ -49,6 +49,9 @@ class AgentTemplate:
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
     profile_image_url: Optional[str] = None
+    icon_name: Optional[str] = None
+    icon_color: Optional[str] = None
+    icon_background: Optional[str] = None
     metadata: ConfigType = field(default_factory=dict)
     creator_name: Optional[str] = None
     sharing_preferences: Optional[Dict[str, bool]] = None
@@ -240,11 +243,12 @@ class TemplateService:
             avatar=agent.get('avatar'),
             avatar_color=agent.get('avatar_color'),
             profile_image_url=agent.get('profile_image_url'),
-            metadata={
-                **agent.get('metadata', {}),
-                'created_from_agent': agent_id
-            },
+            icon_name=agent.get('icon_name'),
+            icon_color=agent.get('icon_color'),
+            icon_background=agent.get('icon_background'),
+            metadata=agent.get('metadata', {}),
             sharing_preferences=sharing_preferences
+
         )
         
         await self._save_template(template)
@@ -333,12 +337,21 @@ class TemplateService:
             return []
         
         creator_ids = list(set(template['creator_id'] for template in result.data))
-        accounts_result = await client.schema('basejump').from_('accounts').select('id, name, slug').in_('id', creator_ids).execute()
+        
+        from utils.query_utils import batch_query_in
+        
+        accounts_data = await batch_query_in(
+            client=client,
+            table_name='accounts',
+            select_fields='id, name, slug',
+            in_field='id',
+            in_values=creator_ids,
+            schema='basejump'
+        )
         
         creator_names = {}
-        if accounts_result.data:
-            for account in accounts_result.data:
-                creator_names[account['id']] = account.get('name') or account.get('slug')
+        for account in accounts_data:
+            creator_names[account['id']] = account.get('name') or account.get('slug')
         
         templates = []
         for template_data in result.data:
@@ -719,8 +732,12 @@ class TemplateService:
             'avatar': template.avatar,
             'avatar_color': template.avatar_color,
             'profile_image_url': template.profile_image_url,
+            'icon_name': template.icon_name,
+            'icon_color': template.icon_color,
+            'icon_background': template.icon_background,
             'metadata': template.metadata,
             'sharing_preferences': template.sharing_preferences
+
         }
         
         await client.table('agent_templates').insert(template_data).execute()
@@ -744,6 +761,9 @@ class TemplateService:
             avatar=data.get('avatar'),
             avatar_color=data.get('avatar_color'),
             profile_image_url=data.get('profile_image_url'),
+            icon_name=data.get('icon_name'),
+            icon_color=data.get('icon_color'),
+            icon_background=data.get('icon_background'),
             metadata=data.get('metadata', {}),
             creator_name=creator_name,
             sharing_preferences=data.get('sharing_preferences')

@@ -77,6 +77,9 @@ class TemplateResponse(BaseModel):
     avatar: Optional[str]
     avatar_color: Optional[str]
     profile_image_url: Optional[str] = None
+    icon_name: Optional[str] = None
+    icon_color: Optional[str] = None
+    icon_background: Optional[str] = None
     metadata: Dict[str, Any]
     creator_name: Optional[str] = None
     sharing_preferences: Optional[Dict[str, bool]] = None

@@ -11,7 +11,7 @@ from typing import List, Dict, Any, Optional, Union
 from litellm.utils import token_counter
 from services.supabase import DBConnection
 from utils.logger import logger
-from utils.constants import get_model_context_window
+from models import model_manager
 
 DEFAULT_TOKEN_THRESHOLD = 120000
 
@@ -219,7 +219,7 @@ class ContextManager:
             max_iterations: Maximum number of compression iterations
         """
         # Get model-specific token limits from constants
-        context_window = get_model_context_window(llm_model)
+        context_window = model_manager.get_context_window(llm_model)
         
         # Reserve tokens for output generation and safety margin
         if context_window >= 1_000_000:  # Very large context models (Gemini)

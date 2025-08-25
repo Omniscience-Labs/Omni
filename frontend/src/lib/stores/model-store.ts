@@ -18,6 +18,7 @@ export interface ModelOption {
   recommended?: boolean;
   capabilities?: string[];
   contextWindow?: number;
+  backendId?: string; // For mapping display names to backend IDs
 }
 
 export type SubscriptionStatus = 'no_subscription' | 'active';

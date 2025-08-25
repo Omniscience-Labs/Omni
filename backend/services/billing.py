@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import Optional, Dict, Tuple, Any
 import stripe
 from datetime import datetime, timezone, timedelta
+from dateutil import parser as dateutil_parser
 
 from supabase import Client as SupabaseClient
 from utils.cache import Cache
@@ -16,9 +17,10 @@ from utils.config import config, EnvMode
 from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from pydantic import BaseModel
-from utils.constants import MODEL_ACCESS_TIERS, MODEL_NAME_ALIASES, HARDCODED_MODEL_PRICES
+from models import model_manager
 from litellm.cost_calculator import cost_per_token
 import time
+import json
 
 # Initialize Stripe
 stripe.api_key = config.STRIPE_SECRET_KEY
@@ -34,11 +36,10 @@ CREDIT_PACKAGES = {
     'credits_10': {'amount': 10, 'price': 10, 'stripe_price_id': config.STRIPE_CREDITS_10_PRICE_ID},
     'credits_25': {'amount': 25, 'price': 25, 'stripe_price_id': config.STRIPE_CREDITS_25_PRICE_ID},
     # Uncomment these when you create the additional price IDs in Stripe:
-    # 'credits_50': {'amount': 50, 'price': 50, 'stripe_price_id': config.STRIPE_CREDITS_50_PRICE_ID},
-    # 'credits_100': {'amount': 100, 'price': 100, 'stripe_price_id': config.STRIPE_CREDITS_100_PRICE_ID},
-    # 'credits_250': {'amount': 250, 'price': 250, 'stripe_price_id': config.STRIPE_CREDITS_250_PRICE_ID},
-    # 'credits_500': {'amount': 500, 'price': 500, 'stripe_price_id': config.STRIPE_CREDITS_500_PRICE_ID},
-    # 'credits_1000': {'amount': 1000, 'price': 1000, 'stripe_price_id': config.STRIPE_CREDITS_1000_PRICE_ID},
+    'credits_50': {'amount': 50, 'price': 50, 'stripe_price_id': config.STRIPE_CREDITS_50_PRICE_ID},
+    'credits_100': {'amount': 100, 'price': 100, 'stripe_price_id': config.STRIPE_CREDITS_100_PRICE_ID},
+    'credits_250': {'amount': 250, 'price': 250, 'stripe_price_id': config.STRIPE_CREDITS_250_PRICE_ID},
+    'credits_500': {'amount': 500, 'price': 500, 'stripe_price_id': config.STRIPE_CREDITS_500_PRICE_ID}
 }
 
 router = APIRouter(prefix="/billing", tags=["billing"])
@@ -115,17 +116,20 @@ def get_model_pricing(model: str) -> tuple[float, float] | None:
     Returns:
         Tuple of (input_cost_per_million_tokens, output_cost_per_million_tokens) or None if not found
     """
-    # Try direct lookup first
-    if model in HARDCODED_MODEL_PRICES:
-        pricing = HARDCODED_MODEL_PRICES[model]
-        return pricing["input_cost_per_million_tokens"], pricing["output_cost_per_million_tokens"]
-    
-    from models import model_manager
+    # First try to resolve the model ID to handle aliases
     resolved_model = model_manager.resolve_model_id(model)
-    if resolved_model != model and resolved_model in HARDCODED_MODEL_PRICES:
-        pricing = HARDCODED_MODEL_PRICES[resolved_model]
-        return pricing["input_cost_per_million_tokens"], pricing["output_cost_per_million_tokens"]
+    logger.debug(f"Resolving model '{model}' -> '{resolved_model}'")
     
+    # Try the resolved model first, then fallback to original
+    for model_to_try in [resolved_model, model]:
+        model_obj = model_manager.get_model(model_to_try)
+        if model_obj and model_obj.pricing:
+            logger.debug(f"Found pricing for model {model_to_try}: input=${model_obj.pricing.input_cost_per_million_tokens}/M, output=${model_obj.pricing.output_cost_per_million_tokens}/M")
+            return model_obj.pricing.input_cost_per_million_tokens, model_obj.pricing.output_cost_per_million_tokens
+        else:
+            logger.debug(f"No pricing for model_to_try='{model_to_try}' (model_obj: {model_obj is not None}, has_pricing: {model_obj.pricing is not None if model_obj else False})")
+    
+    logger.warning(f"No pricing found for model '{model}' (resolved: '{resolved_model}')")
     return None
 
 
@@ -410,165 +414,317 @@ async def calculate_monthly_usage(client, user_id: str) -> float:
 
 async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: int = 1000) -> Dict:
     """Get detailed usage logs for a user with pagination, including credit usage info."""
-    # Get start of current month in UTC
-    now = datetime.now(timezone.utc)
-    start_of_month = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    logger.debug(f"[USAGE_LOGS] Starting get_usage_logs for user_id={user_id}, page={page}, items_per_page={items_per_page}")
     
-    # Use fixed cutoff date: June 26, 2025 midnight UTC
-    # Ignore all token counts before this date
-    cutoff_date = datetime(2025, 6, 30, 9, 0, 0, tzinfo=timezone.utc)
-    
-    start_of_month = max(start_of_month, cutoff_date)
-    
-    # First get all threads for this user in batches
-    batch_size = 1000
-    offset = 0
-    all_threads = []
-    
-    while True:
-        threads_batch = await client.table('threads') \
-            .select('thread_id, agent_runs(thread_id)') \
-            .eq('account_id', user_id) \
-            .gte('agent_runs.created_at', start_of_month.isoformat()) \
-            .range(offset, offset + batch_size - 1) \
-            .execute()
+    try:
+        # Get start of current month in UTC
+        now = datetime.now(timezone.utc)
+        start_of_month = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
         
-        if not threads_batch.data:
-            break
-            
-        all_threads.extend(threads_batch.data)
+        # Use fixed cutoff date: June 26, 2025 midnight UTC
+        # Ignore all token counts before this date
+        cutoff_date = datetime(2025, 6, 30, 9, 0, 0, tzinfo=timezone.utc)
         
-        # If we got less than batch_size, we've reached the end
-        if len(threads_batch.data) < batch_size:
-            break
-            
-        offset += batch_size
-    
-    if not all_threads:
-        return {"logs": [], "has_more": False}
-    
-    thread_ids = [t['thread_id'] for t in all_threads]
-    
-    # Fetch usage messages with pagination, including thread project info
-    start_time = time.time()
-    messages_result = await client.table('messages') \
-        .select(
-            'message_id, thread_id, created_at, content, threads!inner(project_id)'
-        ) \
-        .in_('thread_id', thread_ids) \
-        .eq('type', 'assistant_response_end') \
-        .gte('created_at', start_of_month.isoformat()) \
-        .order('created_at', desc=True) \
-        .range(page * items_per_page, (page + 1) * items_per_page - 1) \
-        .execute()
-    
-    end_time = time.time()
-    execution_time = end_time - start_time
-    logger.debug(f"Database query for usage logs took {execution_time:.3f} seconds")
-
-    if not messages_result.data:
-        return {"logs": [], "has_more": False}
-
-    # Get the user's subscription tier info for credit checking
-    subscription = await get_user_subscription(user_id)
-    price_id = config.STRIPE_FREE_TIER_ID  # Default to free
-    if subscription and subscription.get('items'):
-        items = subscription['items'].get('data', [])
-        if items:
-            price_id = items[0]['price']['id']
-    
-    tier_info = SUBSCRIPTION_TIERS.get(price_id, SUBSCRIPTION_TIERS[config.STRIPE_FREE_TIER_ID])
-    subscription_limit = tier_info['cost']
-    
-    # Get credit usage records for this month to match with messages
-    credit_usage_result = await client.table('credit_usage') \
-        .select('message_id, amount_dollars, created_at') \
-        .eq('user_id', user_id) \
-        .gte('created_at', start_of_month.isoformat()) \
-        .execute()
-    
-    # Create a map of message_id to credit usage
-    credit_usage_map = {}
-    if credit_usage_result.data:
-        for usage in credit_usage_result.data:
-            if usage.get('message_id'):
-                credit_usage_map[usage['message_id']] = {
-                    'amount': float(usage['amount_dollars']),
-                    'created_at': usage['created_at']
-                }
-    
-    # Track cumulative usage to determine when credits started being used
-    cumulative_cost = 0.0
-    
-    # Process messages into usage log entries
-    processed_logs = []
-    
-    for message in messages_result.data:
+        start_of_month = max(start_of_month, cutoff_date)
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Using start_of_month: {start_of_month.isoformat()}")
+        
+        # First get all threads for this user in batches
+        batch_size = 1000
+        offset = 0
+        all_threads = []
+        
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Fetching threads in batches")
+        while True:
+            try:
+                threads_batch = await client.table('threads') \
+                    .select('thread_id, agent_runs(thread_id)') \
+                    .eq('account_id', user_id) \
+                    .gte('agent_runs.created_at', start_of_month.isoformat()) \
+                    .range(offset, offset + batch_size - 1) \
+                    .execute()
+                
+                if not threads_batch.data:
+                    break
+                    
+                all_threads.extend(threads_batch.data)
+                logger.debug(f"[USAGE_LOGS] user_id={user_id} - Fetched {len(threads_batch.data)} threads in batch (offset={offset})")
+                
+                # If we got less than batch_size, we've reached the end
+                if len(threads_batch.data) < batch_size:
+                    break
+                    
+                offset += batch_size
+            except Exception as thread_error:
+                logger.error(f"[USAGE_LOGS] user_id={user_id} - Error fetching threads batch at offset {offset}: {str(thread_error)}")
+                raise
+        
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Found {len(all_threads)} total threads")
+        
+        if not all_threads:
+            logger.debug(f"[USAGE_LOGS] user_id={user_id} - No threads found, returning empty result")
+            return {"logs": [], "has_more": False}
+        
+        thread_ids = [t['thread_id'] for t in all_threads]
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Thread IDs: {thread_ids[:5]}..." if len(thread_ids) > 5 else f"[USAGE_LOGS] user_id={user_id} - Thread IDs: {thread_ids}")
+        
+        # Fetch usage messages with pagination, including thread project info
+        # Use a more efficient approach to avoid URI length limits with many threads
+        start_time = time.time()
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Starting messages query")
+        
         try:
-            # Safely extract usage data with defaults
-            content = message.get('content', {})
-            usage = content.get('usage', {})
+            # Instead of using .in_() with all thread IDs (which can cause URI too large errors),
+            # we'll use a join-based approach by querying messages directly for the user's account
+            # and filtering by date and type, then joining with threads for project info
+            messages_result = await client.table('messages') \
+                .select(
+                    'message_id, thread_id, created_at, content, threads!inner(project_id, account_id)'
+                ) \
+                .eq('threads.account_id', user_id) \
+                .eq('type', 'assistant_response_end') \
+                .gte('created_at', start_of_month.isoformat()) \
+                .order('created_at', desc=True) \
+                .range(page * items_per_page, (page + 1) * items_per_page - 1) \
+                .execute()
+        except Exception as query_error:
+            logger.error(f"[USAGE_LOGS] user_id={user_id} - Database query failed: {str(query_error)}")
+            logger.error(f"[USAGE_LOGS] user_id={user_id} - Query details: page={page}, items_per_page={items_per_page}, thread_count={len(thread_ids)}")
             
-            # Ensure usage has required fields with safe defaults
-            prompt_tokens = usage.get('prompt_tokens', 0)
-            completion_tokens = usage.get('completion_tokens', 0)
-            model = content.get('model', 'unknown')
+            # Fallback: If the join approach fails, try batching the thread IDs
+            logger.debug(f"[USAGE_LOGS] user_id={user_id} - Attempting fallback with batched thread ID queries")
+            try:
+                all_messages = []
+                batch_size = 100  # Process threads in smaller batches to avoid URI limits
+                
+                for i in range(0, len(thread_ids), batch_size):
+                    batch_thread_ids = thread_ids[i:i + batch_size]
+                    logger.debug(f"[USAGE_LOGS] user_id={user_id} - Processing thread batch {i//batch_size + 1}/{(len(thread_ids) + batch_size - 1)//batch_size}")
+                    
+                    batch_result = await client.table('messages') \
+                        .select(
+                            'message_id, thread_id, created_at, content, threads!inner(project_id)'
+                        ) \
+                        .in_('thread_id', batch_thread_ids) \
+                        .eq('type', 'assistant_response_end') \
+                        .gte('created_at', start_of_month.isoformat()) \
+                        .order('created_at', desc=True) \
+                        .execute()
+                    
+                    if batch_result.data:
+                        all_messages.extend(batch_result.data)
+                
+                # Sort all messages by created_at descending and apply pagination
+                all_messages.sort(key=lambda x: x['created_at'], reverse=True)
+                
+                # Apply pagination to the combined results
+                start_idx = page * items_per_page
+                end_idx = start_idx + items_per_page
+                paginated_messages = all_messages[start_idx:end_idx]
+                
+                # Create a mock result object similar to what Supabase returns
+                class MockResult:
+                    def __init__(self, data):
+                        self.data = data
+                
+                messages_result = MockResult(paginated_messages)
+                logger.debug(f"[USAGE_LOGS] user_id={user_id} - Fallback successful, found {len(all_messages)} total messages, returning {len(paginated_messages)} for page {page}")
+                
+            except Exception as fallback_error:
+                logger.error(f"[USAGE_LOGS] user_id={user_id} - Fallback query also failed: {str(fallback_error)}")
+                raise query_error  # Raise the original error
+        
+        end_time = time.time()
+        execution_time = end_time - start_time
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Database query for usage logs took {execution_time:.3f} seconds")
+
+        if not messages_result.data:
+            logger.debug(f"[USAGE_LOGS] user_id={user_id} - No messages found, returning empty result")
+            return {"logs": [], "has_more": False}
+        
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Found {len(messages_result.data)} messages to process")
+
+        # Get the user's subscription tier info for credit checking
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Getting subscription info")
+        try:
+            subscription = await get_user_subscription(user_id)
+            price_id = config.STRIPE_FREE_TIER_ID  # Default to free
+            if subscription and subscription.get('items'):
+                items = subscription['items'].get('data', [])
+                if items:
+                    price_id = items[0]['price']['id']
             
-            # Safely calculate total tokens
-            total_tokens = (prompt_tokens or 0) + (completion_tokens or 0)
+            tier_info = SUBSCRIPTION_TIERS.get(price_id, SUBSCRIPTION_TIERS[config.STRIPE_FREE_TIER_ID])
+            subscription_limit = tier_info['cost']
+            logger.debug(f"[USAGE_LOGS] user_id={user_id} - Subscription limit: {subscription_limit}, price_id: {price_id}")
+        except Exception as sub_error:
+            logger.error(f"[USAGE_LOGS] user_id={user_id} - Error getting subscription info: {str(sub_error)}")
+            # Use free tier as fallback
+            tier_info = SUBSCRIPTION_TIERS[config.STRIPE_FREE_TIER_ID]
+            subscription_limit = tier_info['cost']
+        
+        # Get credit usage records for this month to match with messages
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Fetching credit usage records")
+        try:
+            credit_usage_result = await client.table('credit_usage') \
+                .select('message_id, amount_dollars, created_at') \
+                .eq('user_id', user_id) \
+                .gte('created_at', start_of_month.isoformat()) \
+                .execute()
             
-            # Calculate estimated cost using the same logic as calculate_monthly_usage
-            estimated_cost = calculate_token_cost(
-                prompt_tokens,
-                completion_tokens,
-                model
-            )
-            
-            cumulative_cost += estimated_cost
-            
-            # Safely extract project_id from threads relationship
-            project_id = 'unknown'
-            if message.get('threads') and isinstance(message['threads'], list) and len(message['threads']) > 0:
-                project_id = message['threads'][0].get('project_id', 'unknown')
-            
-            # Check if credits were used for this message
-            message_id = message.get('message_id')
-            credit_used = credit_usage_map.get(message_id, {})
-            
-            log_entry = {
-                'message_id': message_id or 'unknown',
-                'thread_id': message.get('thread_id', 'unknown'),
-                'created_at': message.get('created_at', None),
-                'content': {
-                    'usage': {
-                        'prompt_tokens': prompt_tokens,
-                        'completion_tokens': completion_tokens
+            logger.debug(f"[USAGE_LOGS] user_id={user_id} - Found {len(credit_usage_result.data) if credit_usage_result.data else 0} credit usage records")
+        except Exception as credit_error:
+            logger.error(f"[USAGE_LOGS] user_id={user_id} - Error fetching credit usage: {str(credit_error)}")
+            credit_usage_result = None
+        
+        # Create a map of message_id to credit usage
+        credit_usage_map = {}
+        if credit_usage_result and credit_usage_result.data:
+            for usage in credit_usage_result.data:
+                if usage.get('message_id'):
+                    try:
+                        credit_usage_map[usage['message_id']] = {
+                            'amount': float(usage['amount_dollars']),
+                            'created_at': usage['created_at']
+                        }
+                    except Exception as parse_error:
+                        logger.warning(f"[USAGE_LOGS] user_id={user_id} - Error parsing credit usage record: {str(parse_error)}")
+                        continue
+    
+        # Track cumulative usage to determine when credits started being used
+        cumulative_cost = 0.0
+        
+        # Process messages into usage log entries
+        processed_logs = []
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Starting to process {len(messages_result.data)} messages")
+        
+        for i, message in enumerate(messages_result.data):
+            try:
+                message_id = message.get('message_id', f'unknown_{i}')
+                logger.debug(f"[USAGE_LOGS] user_id={user_id} - Processing message {i+1}/{len(messages_result.data)}: {message_id}")
+                
+                # Safely extract usage data with defaults
+                content = message.get('content', {})
+                usage = content.get('usage', {})
+                
+                # Ensure usage has required fields with safe defaults
+                prompt_tokens = usage.get('prompt_tokens', 0)
+                completion_tokens = usage.get('completion_tokens', 0)
+                model = content.get('model', 'unknown')
+                
+                # Validate token values
+                if not isinstance(prompt_tokens, (int, float)) or prompt_tokens is None:
+                    logger.warning(f"[USAGE_LOGS] user_id={user_id} - Invalid prompt_tokens for message {message_id}: {prompt_tokens}")
+                    prompt_tokens = 0
+                if not isinstance(completion_tokens, (int, float)) or completion_tokens is None:
+                    logger.warning(f"[USAGE_LOGS] user_id={user_id} - Invalid completion_tokens for message {message_id}: {completion_tokens}")
+                    completion_tokens = 0
+                
+                # Safely calculate total tokens
+                total_tokens = int(prompt_tokens or 0) + int(completion_tokens or 0)
+                
+                # Calculate estimated cost using the same logic as calculate_monthly_usage
+                try:
+                    estimated_cost = calculate_token_cost(
+                        prompt_tokens,
+                        completion_tokens,
+                        model
+                    )
+                except Exception as cost_error:
+                    logger.warning(f"[USAGE_LOGS] user_id={user_id} - Error calculating cost for message {message_id}: {str(cost_error)}")
+                    estimated_cost = 0.0
+                
+                cumulative_cost += estimated_cost
+                
+                # Safely extract project_id from threads relationship
+                project_id = 'unknown'
+                try:
+                    if message.get('threads') and isinstance(message['threads'], list) and len(message['threads']) > 0:
+                        project_id = message['threads'][0].get('project_id', 'unknown')
+                except Exception as project_error:
+                    logger.warning(f"[USAGE_LOGS] user_id={user_id} - Error extracting project_id for message {message_id}: {str(project_error)}")
+                
+                # Check if credits were used for this message
+                credit_used = credit_usage_map.get(message_id, {})
+                
+                # Safely handle datetime serialization for created_at
+                created_at = message.get('created_at')
+                if created_at and isinstance(created_at, datetime):
+                    created_at = created_at.isoformat()
+                elif created_at and not isinstance(created_at, str):
+                    try:
+                        created_at = str(created_at)
+                    except Exception:
+                        logger.warning(f"[USAGE_LOGS] user_id={user_id} - Could not convert created_at to string for message {message_id}")
+                        created_at = None
+                
+                log_entry = {
+                    'message_id': str(message_id) if message_id else 'unknown',
+                    'thread_id': str(message.get('thread_id', 'unknown')),
+                    'created_at': created_at,
+                    'content': {
+                        'usage': {
+                            'prompt_tokens': int(prompt_tokens),
+                            'completion_tokens': int(completion_tokens)
+                        },
+                        'model': str(model)
                     },
-                    'model': model
-                },
-                'total_tokens': total_tokens,
-                'estimated_cost': estimated_cost,
-                'project_id': project_id,
-                # Add credit usage info
-                'credit_used': credit_used.get('amount', 0) if credit_used else 0,
-                'payment_method': 'credits' if credit_used else 'subscription',
-                'was_over_limit': cumulative_cost > subscription_limit if not credit_used else True
+                    'total_tokens': int(total_tokens),
+                    'estimated_cost': float(estimated_cost),
+                    'project_id': str(project_id),
+                    # Add credit usage info
+                    'credit_used': float(credit_used.get('amount', 0)) if credit_used else 0.0,
+                    'payment_method': 'credits' if credit_used else 'subscription',
+                    'was_over_limit': bool(cumulative_cost > subscription_limit if not credit_used else True)
+                }
+                
+                # Test JSON serialization of this entry before adding it
+                try:
+                    json.dumps(log_entry, default=str)
+                except Exception as json_error:
+                    logger.error(f"[USAGE_LOGS] user_id={user_id} - JSON serialization failed for message {message_id}: {str(json_error)}")
+                    logger.error(f"[USAGE_LOGS] user_id={user_id} - Problematic log_entry: {log_entry}")
+                    continue
+                
+                processed_logs.append(log_entry)
+                
+            except Exception as e:
+                logger.error(f"[USAGE_LOGS] user_id={user_id} - Error processing usage log entry for message {message.get('message_id', 'unknown')}: {str(e)}")
+                continue
+        
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Successfully processed {len(processed_logs)} messages")
+        
+        # Check if there are more results
+        has_more = len(processed_logs) == items_per_page
+        
+        result = {
+            "logs": processed_logs,
+            "has_more": bool(has_more),
+            "subscription_limit": float(subscription_limit),
+            "cumulative_cost": float(cumulative_cost)
+        }
+        
+        # Validate final JSON serialization
+        try:
+            json.dumps(result, default=str)
+            logger.debug(f"[USAGE_LOGS] user_id={user_id} - Final result JSON validation passed")
+        except Exception as final_json_error:
+            logger.error(f"[USAGE_LOGS] user_id={user_id} - Final result JSON serialization failed: {str(final_json_error)}")
+            logger.error(f"[USAGE_LOGS] user_id={user_id} - Problematic result keys: {list(result.keys())}")
+            # Return safe fallback
+            return {
+                "logs": [],
+                "has_more": False,
+                "subscription_limit": float(subscription_limit),
+                "cumulative_cost": 0.0,
+                "error": "Failed to serialize usage data"
             }
-            
-            processed_logs.append(log_entry)
-        except Exception as e:
-            logger.warning(f"Error processing usage log entry for message {message.get('message_id', 'unknown')}: {str(e)}")
-            continue
-    
-    # Check if there are more results
-    has_more = len(processed_logs) == items_per_page
-    
-    return {
-        "logs": processed_logs,
-        "has_more": has_more,
-        "subscription_limit": subscription_limit,
-        "cumulative_cost": cumulative_cost
-    }
+        
+        logger.debug(f"[USAGE_LOGS] user_id={user_id} - Returning {len(processed_logs)} logs, has_more={has_more}")
+        return result
+        
+    except Exception as outer_error:
+        logger.error(f"[USAGE_LOGS] user_id={user_id} - Outer exception in get_usage_logs: {str(outer_error)}")
+        raise
 
 
 def calculate_token_cost(prompt_tokens: int, completion_tokens: int, model: str) -> float:
@@ -578,9 +734,12 @@ def calculate_token_cost(prompt_tokens: int, completion_tokens: int, model: str)
         prompt_tokens = int(prompt_tokens) if prompt_tokens is not None else 0
         completion_tokens = int(completion_tokens) if completion_tokens is not None else 0
         
+        logger.debug(f"Calculating token cost for model '{model}' with {prompt_tokens} input tokens and {completion_tokens} output tokens")
+        
         # Try to resolve the model name using new model manager first
         from models import model_manager
         resolved_model = model_manager.resolve_model_id(model)
+        logger.debug(f"Model '{model}' resolved to '{resolved_model}'")
 
         # Check if we have hardcoded pricing for this model (try both original and resolved)
         hardcoded_pricing = get_model_pricing(model) or get_model_pricing(resolved_model)
@@ -665,8 +824,13 @@ async def get_allowed_models_for_user(client, user_id: str):
         if tier_info:
             tier_name = tier_info['name']
     
-    # Return allowed models for this tier
-    result = MODEL_ACCESS_TIERS.get(tier_name, MODEL_ACCESS_TIERS['free'])  # Default to free tier if unknown
+    # Return allowed models for this tier using model manager
+    if tier_name == 'free':
+        result = model_manager.get_models_for_tier('free')
+        result = [model.id for model in result]  # Convert to list of IDs
+    else:
+        result = model_manager.get_models_for_tier('paid')  
+        result = [model.id for model in result]  # Convert to list of IDs
     await Cache.set(f"allowed_models_for_user:{user_id}", result, ttl=1 * 60)
     return result
 
@@ -871,7 +1035,7 @@ async def is_user_on_highest_tier(user_id: str) -> bool:
         if subscription.get('items') and subscription['items'].get('data') and len(subscription['items']['data']) > 0:
             price_id = subscription['items']['data'][0]['price']['id']
         
-        logger.info(f"User {user_id} subscription price_id: {price_id}")
+        logger.debug(f"User {user_id} subscription price_id: {price_id}")
         
         # Check if it's one of the highest tier price IDs (200h/$1000 only)
         highest_tier_price_ids = [
@@ -884,7 +1048,7 @@ async def is_user_on_highest_tier(user_id: str) -> bool:
         ]
         
         is_highest = price_id in highest_tier_price_ids
-        logger.info(f"User {user_id} is_highest_tier: {is_highest}, price_id: {price_id}, checked against: {highest_tier_price_ids}")
+        logger.debug(f"User {user_id} is_highest_tier: {is_highest}, price_id: {price_id}, checked against: {highest_tier_price_ids}")
         
         return is_highest
         
@@ -904,11 +1068,26 @@ async def get_user_credit_balance(client: SupabaseClient, user_id: str) -> Credi
         if result.data and len(result.data) > 0:
             data = result.data[0]
             is_highest_tier = await is_user_on_highest_tier(user_id)
+            
+            # Safely handle last_updated datetime conversion
+            last_updated = None
+            if data.get('last_updated'):
+                try:
+                    # If it's already a datetime object, use it
+                    if isinstance(data['last_updated'], datetime):
+                        last_updated = data['last_updated']
+                    else:
+                        # Try to parse it as a string
+                        last_updated = dateutil_parser.parse(data['last_updated'])
+                except Exception as dt_error:
+                    logger.warning(f"Error parsing last_updated datetime for user {user_id}: {dt_error}")
+                    last_updated = None
+            
             return CreditBalance(
                 balance_dollars=float(data.get('balance_dollars', 0)),
                 total_purchased=float(data.get('total_purchased', 0)),
                 total_used=float(data.get('total_used', 0)),
-                last_updated=data.get('last_updated'),
+                last_updated=last_updated,
                 can_purchase_credits=is_highest_tier
             )
         else:
@@ -1540,20 +1719,51 @@ async def get_subscription(
 ):
     """Get the current subscription status for the current user, including scheduled changes and credit balance."""
     try:
-        # Get subscription from Stripe (this helper already handles filtering/cleanup)
-        subscription = await get_user_subscription(current_user_id)
-        # print("Subscription data for status:", subscription)
+        logger.debug(f"Getting subscription status for user {current_user_id}")
         
-        # Calculate current usage
-        db = DBConnection()
-        client = await db.client
-        current_usage = await calculate_monthly_usage(client, current_user_id)
+        # Initialize default values with safe fallbacks
+        subscription = None
+        current_usage = 0.0
+        credit_balance_info = None
         
-        # Get credit balance
-        credit_balance_info = await get_user_credit_balance(client, current_user_id)
+        # Get subscription from Stripe with error handling
+        try:
+            subscription = await get_user_subscription(current_user_id)
+            logger.debug(f"Retrieved subscription data for user {current_user_id}: {subscription is not None}")
+        except Exception as sub_error:
+            logger.error(f"Error retrieving subscription for user {current_user_id}: {str(sub_error)}")
+            # Continue with None subscription - will default to free tier
+        
+        # Calculate current usage with error handling
+        try:
+            db = DBConnection()
+            client = await db.client
+            current_usage = await calculate_monthly_usage(client, current_user_id)
+            logger.debug(f"Retrieved usage for user {current_user_id}: {current_usage}")
+        except Exception as usage_error:
+            logger.error(f"Error calculating usage for user {current_user_id}: {str(usage_error)}")
+            current_usage = 0.0  # Default to 0 if calculation fails
+        
+        # Get credit balance with error handling
+        try:
+            if 'client' not in locals():
+                db = DBConnection()
+                client = await db.client
+            credit_balance_info = await get_user_credit_balance(client, current_user_id)
+            logger.debug(f"Retrieved credit balance for user {current_user_id}: {credit_balance_info.balance_dollars if credit_balance_info else 'None'}")
+        except Exception as balance_error:
+            logger.error(f"Error getting credit balance for user {current_user_id}: {str(balance_error)}")
+            # Create safe fallback credit balance
+            credit_balance_info = CreditBalance(
+                balance_dollars=0.0,
+                total_purchased=0.0,
+                total_used=0.0,
+                can_purchase_credits=False
+            )
 
+        # Return free tier if no subscription
         if not subscription:
-            # Default to free tier status if no active subscription for our product
+            logger.debug(f"No subscription found for user {current_user_id}, returning free tier")
             free_tier_id = config.STRIPE_FREE_TIER_ID
             free_tier_info = SUBSCRIPTION_TIERS.get(free_tier_id)
             return SubscriptionStatus(
@@ -1563,77 +1773,181 @@ async def get_subscription(
                 minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0,
                 cost_limit=free_tier_info.get('cost') if free_tier_info else 0,
                 current_usage=current_usage,
-                credit_balance=credit_balance_info.balance_dollars,
-                can_purchase_credits=credit_balance_info.can_purchase_credits
+                credit_balance=credit_balance_info.balance_dollars if credit_balance_info else 0.0,
+                can_purchase_credits=credit_balance_info.can_purchase_credits if credit_balance_info else False
             )
         
-        # Extract current plan details
-        current_item = subscription['items']['data'][0]
-        current_price_id = current_item['price']['id']
-        current_tier_info = SUBSCRIPTION_TIERS.get(current_price_id)
-        if not current_tier_info:
-            # Fallback if somehow subscribed to an unknown price within our product
-            logger.warning(f"User {current_user_id} subscribed to unknown price {current_price_id}. Defaulting info.")
-            current_tier_info = {'name': 'unknown', 'minutes': 0}
-        
-        status_response = SubscriptionStatus(
-            status=subscription['status'], # 'active', 'trialing', etc.
-            plan_name=subscription['plan'].get('nickname') or current_tier_info['name'],
-            price_id=current_price_id,
-            current_period_end=datetime.fromtimestamp(current_item['current_period_end'], tz=timezone.utc),
-            cancel_at_period_end=subscription['cancel_at_period_end'],
-            trial_end=datetime.fromtimestamp(subscription['trial_end'], tz=timezone.utc) if subscription.get('trial_end') else None,
-            minutes_limit=current_tier_info['minutes'],
-            cost_limit=current_tier_info['cost'],
-            current_usage=current_usage,
-            has_schedule=False, # Default
-            subscription_id=subscription['id'],
-            subscription={
-                'id': subscription['id'],
-                'status': subscription['status'],
-                'cancel_at_period_end': subscription['cancel_at_period_end'],
-                'cancel_at': subscription.get('cancel_at'),
-                'current_period_end': current_item['current_period_end']
-            },
-            credit_balance=credit_balance_info.balance_dollars,
-            can_purchase_credits=credit_balance_info.can_purchase_credits
-        )
-
-        # Check for an attached schedule (indicates pending downgrade)
-        schedule_id = subscription.get('schedule')
-        if schedule_id:
-            try:
-                schedule = await stripe.SubscriptionSchedule.retrieve_async(schedule_id)
-                # Find the *next* phase after the current one
-                next_phase = None
-                current_phase_end = current_item['current_period_end']
+        # Safely extract current plan details with validation
+        try:
+            if not subscription.get('items') or not subscription['items'].get('data'):
+                raise ValueError("Subscription has no items data")
                 
-                for phase in schedule.get('phases', []):
-                    # Check if this phase starts exactly when the current one ends
-                    if phase.get('start_date') == current_phase_end:
-                        next_phase = phase
-                        break # Found the immediate next phase
+            current_item = subscription['items']['data'][0]
+            if not current_item.get('price') or not current_item['price'].get('id'):
+                raise ValueError("Subscription item has no price data")
+                
+            current_price_id = current_item['price']['id']
+            current_tier_info = SUBSCRIPTION_TIERS.get(current_price_id)
+            
+            if not current_tier_info:
+                logger.warning(f"User {current_user_id} subscribed to unknown price {current_price_id}. Using defaults.")
+                current_tier_info = {'name': 'unknown', 'minutes': 0, 'cost': 0}
+            
+            # Safely get timestamps with validation
+            current_period_end = None
+            trial_end = None
+            
+            try:
+                if current_item.get('current_period_end'):
+                    current_period_end = datetime.fromtimestamp(current_item['current_period_end'], tz=timezone.utc)
+            except (ValueError, TypeError, OSError) as ts_error:
+                logger.error(f"Error parsing current_period_end timestamp for user {current_user_id}: {ts_error}")
+                current_period_end = None
+                
+            try:
+                if subscription.get('trial_end'):
+                    trial_end = datetime.fromtimestamp(subscription['trial_end'], tz=timezone.utc)
+            except (ValueError, TypeError, OSError) as ts_error:
+                logger.error(f"Error parsing trial_end timestamp for user {current_user_id}: {ts_error}")
+                trial_end = None
+            
+            # Safely construct subscription object for response
+            subscription_data = {
+                'id': subscription.get('id', ''),
+                'status': subscription.get('status', 'unknown'),
+                'cancel_at_period_end': bool(subscription.get('cancel_at_period_end', False)),
+                'cancel_at': subscription.get('cancel_at'),
+                'current_period_end': current_item.get('current_period_end')
+            }
+            
+            # Get plan name safely
+            plan_name = 'unknown'
+            if subscription.get('plan') and subscription['plan'].get('nickname'):
+                plan_name = subscription['plan']['nickname']
+            elif current_tier_info.get('name'):
+                plan_name = current_tier_info['name']
+            
+            status_response = SubscriptionStatus(
+                status=subscription.get('status', 'unknown'),
+                plan_name=plan_name,
+                price_id=current_price_id,
+                current_period_end=current_period_end,
+                cancel_at_period_end=bool(subscription.get('cancel_at_period_end', False)),
+                trial_end=trial_end,
+                minutes_limit=current_tier_info.get('minutes', 0),
+                cost_limit=current_tier_info.get('cost', 0),
+                current_usage=current_usage,
+                has_schedule=False,
+                subscription_id=subscription.get('id'),
+                subscription=subscription_data,
+                credit_balance=credit_balance_info.balance_dollars if credit_balance_info else 0.0,
+                can_purchase_credits=credit_balance_info.can_purchase_credits if credit_balance_info else False
+            )
 
-                if next_phase:
-                    scheduled_item = next_phase['items'][0] # Assuming single item
-                    scheduled_price_id = scheduled_item['price'] # Price ID might be string here
-                    scheduled_tier_info = SUBSCRIPTION_TIERS.get(scheduled_price_id)
+            # Check for an attached schedule (indicates pending downgrade) with error handling
+            schedule_id = subscription.get('schedule')
+            if schedule_id:
+                try:
+                    logger.debug(f"Processing subscription schedule {schedule_id} for user {current_user_id}")
+                    schedule = await stripe.SubscriptionSchedule.retrieve_async(schedule_id)
                     
-                    status_response.has_schedule = True
-                    status_response.status = 'scheduled_downgrade' # Override status
-                    status_response.scheduled_plan_name = scheduled_tier_info.get('name', 'unknown') if scheduled_tier_info else 'unknown'
-                    status_response.scheduled_price_id = scheduled_price_id
-                    status_response.scheduled_change_date = datetime.fromtimestamp(next_phase['start_date'], tz=timezone.utc)
+                    # Find the *next* phase after the current one
+                    next_phase = None
+                    current_phase_end = current_item.get('current_period_end')
                     
-            except Exception as schedule_error:
-                logger.error(f"Error retrieving or parsing schedule {schedule_id} for sub {subscription['id']}: {schedule_error}")
-                # Proceed without schedule info if retrieval fails
+                    if current_phase_end and schedule.get('phases'):
+                        for phase in schedule.get('phases', []):
+                            if phase.get('start_date') == current_phase_end:
+                                next_phase = phase
+                                break
 
-        return status_response
+                    if next_phase and next_phase.get('items'):
+                        try:
+                            scheduled_item = next_phase['items'][0]
+                            scheduled_price_id = scheduled_item.get('price', '')
+                            scheduled_tier_info = SUBSCRIPTION_TIERS.get(scheduled_price_id, {})
+                            
+                            scheduled_change_date = None
+                            if next_phase.get('start_date'):
+                                try:
+                                    scheduled_change_date = datetime.fromtimestamp(next_phase['start_date'], tz=timezone.utc)
+                                except (ValueError, TypeError, OSError) as ts_error:
+                                    logger.error(f"Error parsing scheduled change date for user {current_user_id}: {ts_error}")
+                            
+                            status_response.has_schedule = True
+                            status_response.status = 'scheduled_downgrade'
+                            status_response.scheduled_plan_name = scheduled_tier_info.get('name', 'unknown')
+                            status_response.scheduled_price_id = scheduled_price_id
+                            status_response.scheduled_change_date = scheduled_change_date
+                            
+                        except Exception as schedule_parse_error:
+                            logger.error(f"Error parsing schedule details for user {current_user_id}: {schedule_parse_error}")
+                            
+                except Exception as schedule_error:
+                    logger.error(f"Error retrieving schedule {schedule_id} for user {current_user_id}: {schedule_error}")
+
+            logger.debug(f"Successfully constructed subscription response for user {current_user_id}")
+            
+            # Validate JSON serialization before returning
+            try:
+                # Test serialization using FastAPI's JSON encoder
+                test_dict = status_response.model_dump()
+                json.dumps(test_dict, default=str)  # Use default=str to handle datetime objects
+                logger.debug(f"JSON serialization validation passed for user {current_user_id}")
+            except Exception as json_error:
+                logger.error(f"JSON serialization failed for user {current_user_id}: {json_error}")
+                logger.error(f"Response data: {status_response.model_dump()}")
+                # Fall back to safe response
+                free_tier_id = config.STRIPE_FREE_TIER_ID
+                free_tier_info = SUBSCRIPTION_TIERS.get(free_tier_id)
+                return SubscriptionStatus(
+                    status="error",
+                    plan_name=free_tier_info.get('name', 'free') if free_tier_info else 'free',
+                    price_id=free_tier_id,
+                    minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0,
+                    cost_limit=free_tier_info.get('cost') if free_tier_info else 0,
+                    current_usage=current_usage,
+                    credit_balance=credit_balance_info.balance_dollars if credit_balance_info else 0.0,
+                    can_purchase_credits=credit_balance_info.can_purchase_credits if credit_balance_info else False
+                )
+            
+            return status_response
+            
+        except Exception as parsing_error:
+            logger.error(f"Error parsing subscription data for user {current_user_id}: {str(parsing_error)}")
+            # Fall back to free tier if subscription data is malformed
+            free_tier_id = config.STRIPE_FREE_TIER_ID
+            free_tier_info = SUBSCRIPTION_TIERS.get(free_tier_id)
+            return SubscriptionStatus(
+                status="no_subscription",
+                plan_name=free_tier_info.get('name', 'free') if free_tier_info else 'free',
+                price_id=free_tier_id,
+                minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0,
+                cost_limit=free_tier_info.get('cost') if free_tier_info else 0,
+                current_usage=current_usage,
+                credit_balance=credit_balance_info.balance_dollars if credit_balance_info else 0.0,
+                can_purchase_credits=credit_balance_info.can_purchase_credits if credit_balance_info else False
+            )
         
     except Exception as e:
-        logger.exception(f"Error getting subscription status for user {current_user_id}: {str(e)}") # Use logger.exception
-        raise HTTPException(status_code=500, detail="Error retrieving subscription status.")
+        logger.exception(f"Error getting subscription status for user {current_user_id}: {str(e)}")
+        # Return a safe fallback response instead of raising an error
+        try:
+            free_tier_id = config.STRIPE_FREE_TIER_ID
+            free_tier_info = SUBSCRIPTION_TIERS.get(free_tier_id)
+            return SubscriptionStatus(
+                status="error",
+                plan_name=free_tier_info.get('name', 'free') if free_tier_info else 'free',
+                price_id=free_tier_id,
+                minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0,
+                cost_limit=free_tier_info.get('cost') if free_tier_info else 0,
+                current_usage=0.0,
+                credit_balance=0.0,
+                can_purchase_credits=False
+            )
+        except Exception as fallback_error:
+            logger.exception(f"Error creating fallback response for user {current_user_id}: {str(fallback_error)}")
+            raise HTTPException(status_code=500, detail="Error retrieving subscription status.")
 
 @router.get("/check-status")
 async def check_status(
@@ -1728,7 +2042,7 @@ async def stripe_webhook(request: Request):
                     purchase_id = purchase_update.data[0]['id'] if purchase_update.data else None
                     new_balance = await add_credits_to_balance(client, user_id, credit_amount, purchase_id)
                     
-                    logger.info(f"Successfully added ${credit_amount} credits to user {user_id}. New balance: ${new_balance}")
+                    logger.debug(f"Successfully added ${credit_amount} credits to user {user_id}. New balance: ${new_balance}")
                     
                     # Clear cache for this user
                     await Cache.delete(f"monthly_usage:{user_id}")
@@ -1949,6 +2263,8 @@ async def get_usage_logs_endpoint(
     current_user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Get detailed usage logs for a user with pagination."""
+    logger.debug(f"[USAGE_LOGS_ENDPOINT] Starting get_usage_logs_endpoint for user_id={current_user_id}, page={page}, items_per_page={items_per_page}")
+    
     try:
         # Get Supabase client
         db = DBConnection()
@@ -1956,7 +2272,7 @@ async def get_usage_logs_endpoint(
         
         # Check if we're in local development mode
         if config.ENV_MODE == EnvMode.LOCAL:
-            logger.debug("Running in local development mode - usage logs are not available")
+            logger.debug(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Running in local development mode - usage logs are not available")
             return {
                 "logs": [], 
                 "has_more": False,
@@ -1965,20 +2281,35 @@ async def get_usage_logs_endpoint(
         
         # Validate pagination parameters
         if page < 0:
+            logger.error(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Invalid page parameter: {page}")
             raise HTTPException(status_code=400, detail="Page must be non-negative")
         if items_per_page < 1 or items_per_page > 1000:
+            logger.error(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Invalid items_per_page parameter: {items_per_page}")
             raise HTTPException(status_code=400, detail="Items per page must be between 1 and 1000")
         
         # Get usage logs
+        logger.debug(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Calling get_usage_logs")
         result = await get_usage_logs(client, current_user_id, page, items_per_page)
         
+        # Check if result contains an error
+        if isinstance(result, dict) and result.get('error'):
+            logger.error(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Usage logs returned error: {result['error']}")
+            raise HTTPException(status_code=400, detail=f"Failed to retrieve usage logs: {result['error']}")
+        
+        logger.debug(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Successfully returned {len(result.get('logs', []))} usage logs")
         return result
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting usage logs: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error getting usage logs: {str(e)}")
+        logger.exception(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Error getting usage logs: {str(e)}")
+        
+        # Check if this is a JSON serialization error
+        if "JSON could not be generated" in str(e) or "JSON" in str(e):
+            logger.error(f"[USAGE_LOGS_ENDPOINT] user_id={current_user_id} - Detected JSON serialization error")
+            raise HTTPException(status_code=400, detail=f"Data serialization error: {str(e)}")
+        else:
+            raise HTTPException(status_code=500, detail=f"Error getting usage logs: {str(e)}")
 
 @router.get("/subscription-commitment/{subscription_id}")
 async def get_subscription_commitment(
