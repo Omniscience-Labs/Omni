@@ -1656,3 +1656,240 @@ Approach each research task methodically, starting with broad searches and then 
             logger.error(f"Failed to delete scheduled trigger: {e}", exc_info=True)
             return self.fail_response("Failed to delete scheduled trigger")
     
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "update_agent_config",
+            "description": "Update an existing agent's configuration including system prompt, name, description, icon, and tool settings. Creates a new version to preserve history.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "agent_id": {
+                        "type": "string",
+                        "description": "The ID of the agent to update"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "New name for the agent (optional)"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "New description for the agent (optional)"
+                    },
+                    "system_prompt": {
+                        "type": "string",
+                        "description": "New system prompt that defines the agent's behavior and expertise (optional)"
+                    },
+                    "icon_name": {
+                        "type": "string",
+                        "description": "New icon name from available options (optional)"
+                    },
+                    "icon_color": {
+                        "type": "string",
+                        "description": "New hex color code for the icon (optional)"
+                    },
+                    "icon_background": {
+                        "type": "string",
+                        "description": "New hex color code for the icon background (optional)"
+                    },
+                    "agentpress_tools": {
+                        "type": "object",
+                        "description": "Updated AgentPress tool configuration (optional). Each key is a tool name, value is boolean for enabled/disabled.",
+                        "additionalProperties": {
+                            "type": "boolean"
+                        }
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "New model to use for this agent (optional)"
+                    },
+                    "change_description": {
+                        "type": "string",
+                        "description": "Description of what was changed in this update (optional)"
+                    },
+                    "is_default": {
+                        "type": "boolean",
+                        "description": "Whether this agent should become the user's default agent (optional)"
+                    }
+                },
+                "required": ["agent_id"]
+            }
+        }
+    })
+    @usage_example('''
+        <function_calls>
+        <invoke name="update_agent_config">
+        <parameter name="agent_id">agent-uuid-123</parameter>
+        <parameter name="system_prompt">Act as a senior software engineer and code reviewer. Your role is to analyze code, suggest improvements, identify bugs, and ensure best practices are followed.
+
+Key responsibilities:
+- Review code for bugs, security issues, and performance problems
+- Suggest architectural improvements and design patterns
+- Ensure code follows established conventions and standards
+- Provide constructive feedback with specific examples
+- Help optimize code for maintainability and readability
+
+When reviewing code:
+1. Check for potential bugs and edge cases
+2. Verify error handling and input validation
+3. Assess code organization and structure
+4. Recommend performance optimizations
+5. Ensure proper documentation and comments
+
+Always provide actionable feedback with code examples when possible.</parameter>
+        <parameter name="change_description">Updated system prompt to focus more on code review and best practices</parameter>
+        </invoke>
+        </function_calls>
+        ''')
+    async def update_agent_config(
+        self,
+        agent_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+        icon_name: Optional[str] = None,
+        icon_color: Optional[str] = None,
+        icon_background: Optional[str] = None,
+        agentpress_tools: Optional[Dict[str, bool]] = None,
+        model: Optional[str] = None,
+        change_description: Optional[str] = None,
+        is_default: Optional[bool] = None
+    ) -> ToolResult:
+        try:
+            account_id = self.account_id
+            if not account_id:
+                return self.fail_response("Unable to determine current account ID")
+
+            client = await self.db.client
+            
+            agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', account_id).execute()
+            if not agent_result.data:
+                return self.fail_response("Agent not found or access denied")
+            
+            agent_data = agent_result.data[0]
+            current_version_id = agent_data.get('current_version_id')
+            
+            if not current_version_id:
+                return self.fail_response("Agent has no current version configured")
+            
+            version_result = await client.table('agent_versions').select('config').eq('version_id', current_version_id).single().execute()
+            if not version_result.data:
+                return self.fail_response("Current agent version not found")
+            
+            current_config = version_result.data.get('config', {})
+            
+            updates = []
+            agent_updates = {}
+            
+            if name is not None:
+                agent_updates['name'] = name
+                updates.append(f"Name: '{name}'")
+                
+            if description is not None:
+                agent_updates['description'] = description
+                updates.append("Description updated")
+                
+            if icon_name is not None:
+                agent_updates['icon_name'] = icon_name
+                updates.append(f"Icon: {icon_name}")
+                
+            if icon_color is not None:
+                agent_updates['icon_color'] = icon_color
+                updates.append("Icon color updated")
+                
+            if icon_background is not None:
+                agent_updates['icon_background'] = icon_background
+                updates.append("Icon background updated")
+                
+            if is_default is not None:
+                if is_default:
+                    await client.table('agents').update({"is_default": False}).eq("account_id", account_id).eq("is_default", True).execute()
+                agent_updates['is_default'] = is_default
+                updates.append(f"Default agent: {'Yes' if is_default else 'No'}")
+            
+            if agent_updates:
+                await client.table('agents').update(agent_updates).eq('agent_id', agent_id).execute()
+            
+            version_changes = False
+            new_system_prompt = system_prompt if system_prompt is not None else current_config.get('system_prompt', '')
+            new_model = model if model is not None else current_config.get('model')
+            new_agentpress_tools = agentpress_tools if agentpress_tools is not None else current_config.get('tools', {}).get('agentpress', {})
+            
+            if system_prompt is not None:
+                updates.append("System prompt updated")
+                version_changes = True
+                
+            if model is not None:
+                updates.append(f"Model: {model}")
+                version_changes = True
+                
+            if agentpress_tools is not None:
+                updates.append("Tool configuration updated")
+                version_changes = True
+            
+            if version_changes:
+                from agent.versioning.version_service import get_version_service
+                
+                version_service = await get_version_service()
+                
+                current_tools = current_config.get('tools', {})
+                configured_mcps = current_tools.get('mcp', [])
+                custom_mcps = current_tools.get('custom_mcp', [])
+                
+                new_version = await version_service.create_version(
+                    agent_id=agent_id,
+                    user_id=account_id,
+                    system_prompt=new_system_prompt,
+                    model=new_model,
+                    configured_mcps=configured_mcps,
+                    custom_mcps=custom_mcps,
+                    agentpress_tools=new_agentpress_tools,
+                    change_description=change_description or f"Updated: {', '.join(updates)}"
+                )
+                
+                await client.table('agents').update({
+                    'current_version_id': new_version.version_id,
+                    'version_count': agent_data['version_count'] + 1
+                }).eq('agent_id', agent_id).execute()
+                
+                try:
+                    await self._sync_workflows_to_version_config(agent_id)
+                except Exception as e:
+                    logger.warning(f"Failed to sync workflows and triggers to new version: {e}")
+            
+            updated_agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).execute()
+            updated_agent = updated_agent_result.data[0] if updated_agent_result.data else agent_data
+            
+            success_message = f"✅ Successfully updated agent '{updated_agent['name']}'!\n\n"
+            success_message += f"**Changes Made:**\n"
+            for update in updates:
+                success_message += f"• {update}\n"
+            
+            if version_changes:
+                success_message += f"\n📝 **New Version Created**\n"
+                success_message += f"The agent now has version {updated_agent['version_count']} with your configuration changes.\n"
+            
+            success_message += f"\n🔧 **Current Configuration:**\n"
+            success_message += f"• Name: {updated_agent['name']}\n"
+            success_message += f"• Description: {updated_agent.get('description', 'No description')}\n"
+            success_message += f"• Icon: {updated_agent['icon_name']} ({updated_agent['icon_color']} on {updated_agent['icon_background']})\n"
+            success_message += f"• Default Agent: {'Yes' if updated_agent['is_default'] else 'No'}\n"
+            if version_changes:
+                success_message += f"• Model: {new_model}\n"
+                success_message += f"• Tools Enabled: {len([k for k, v in new_agentpress_tools.items() if v])}\n"
+            
+            success_message += f"\nYour agent has been updated and is ready to use!"
+
+            return self.success_response({
+                "message": success_message,
+                "agent_id": agent_id,
+                "agent_name": updated_agent['name'],
+                "updates_made": updates,
+                "new_version_created": version_changes,
+                "version_count": updated_agent['version_count']
+            })
+                
+        except Exception as e:
+            logger.error(f"Failed to update agent: {e}", exc_info=True)
+            return self.fail_response("Failed to update agent configuration")
+    
