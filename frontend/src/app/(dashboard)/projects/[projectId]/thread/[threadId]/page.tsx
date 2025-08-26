@@ -442,6 +442,7 @@ export default function ThreadPage({
 
   const handleOpenFileViewer = useCallback(
     (filePath?: string, filePathList?: string[]) => {
+      console.log('handleOpenFileViewer called with:', { filePath, filePathList, sandboxId });
       if (filePath) {
         setFileToView(filePath);
       } else {
@@ -450,7 +451,7 @@ export default function ThreadPage({
       setFilePathList(filePathList);
       setFileViewerOpen(true);
     },
-    [],
+    [sandboxId],
   );
 
   const toolViewAssistant = useCallback(

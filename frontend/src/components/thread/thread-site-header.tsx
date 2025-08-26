@@ -177,7 +177,10 @@ export function SiteHeader({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => onViewFiles()}
+                  onClick={() => {
+                    console.log('View Files button clicked');
+                    onViewFiles();
+                  }}
                   className="h-9 w-9 cursor-pointer"
                 >
                   <FolderOpen className="h-4 w-4" />
