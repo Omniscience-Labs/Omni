@@ -188,22 +188,20 @@ class OmniDefaultAgentService:
             # Generate new agent ID
             agent_id = str(uuid.uuid4())
             
-            # Create the agent
+            # Create the agent (updated for new schema)
             insert_query = """
             INSERT INTO agents (
                 agent_id, 
                 account_id, 
                 name, 
                 description,
-                system_prompt, 
-                model, 
                 is_default,
                 config,
                 metadata,
                 created_at,
                 updated_at
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()
+                $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
             )
             """
             
@@ -219,33 +217,27 @@ class OmniDefaultAgentService:
                 account_id,
                 config["name"],
                 config["description"],
-                config["system_prompt"],
-                config["model"],
                 config.get("is_default", True),
                 config,
                 metadata
             ])
             
-            # Create initial agent version
+            # Create initial agent version (updated for new schema)
             version_id = str(uuid.uuid4())
             version_query = """
             INSERT INTO agent_versions (
                 version_id,
                 agent_id,
                 account_id,
-                system_prompt,
-                model,
                 config,
                 created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            ) VALUES ($1, $2, $3, $4, NOW())
             """
             
             await self._db.execute_query(version_query, [
                 version_id,
                 agent_id,
                 account_id,
-                config["system_prompt"],
-                config["model"],
                 config
             ])
             
