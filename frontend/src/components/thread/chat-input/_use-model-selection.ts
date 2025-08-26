@@ -8,7 +8,7 @@ import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-model'
 export const STORAGE_KEY_MODEL = 'omni-preferred-model-v3';
 export const STORAGE_KEY_CUSTOM_MODELS = 'customModels';
 export const DEFAULT_PREMIUM_MODEL_ID = 'claude-sonnet-4';
-export const DEFAULT_FREE_MODEL_ID = 'moonshotai/kimi-k2';
+export const DEFAULT_FREE_MODEL_ID = 'openai/gpt-5';
 
 export const testLocalStorage = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -44,15 +44,15 @@ export interface CustomModel {
 
 export const MODELS = {
   'claude-sonnet-4': { 
-    tier: 'premium',
+    tier: 'free',
     priority: 100, 
     recommended: true,
     lowQuality: false
   },
   'gpt-5': { 
-    tier: 'premium', 
+    tier: 'free', 
     priority: 99,
-    recommended: false,
+    recommended: true,
     lowQuality: false
   },
   'google/gemini-2.5-pro': { 
@@ -82,7 +82,7 @@ export const MODELS = {
 
   'moonshotai/kimi-k2': { 
     tier: 'free', 
-    priority: 100,
+    priority: 90,
     recommended: true,
     lowQuality: false
   },
