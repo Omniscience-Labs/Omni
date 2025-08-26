@@ -289,7 +289,6 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
           
           return (
             <div key={agent.agent_id} className="relative group flex flex-col h-full">
-              {/* Deletion overlay */}
               {isDeleting && (
                 <div className="absolute inset-0 bg-destructive/10 backdrop-blur-sm rounded-lg z-20 flex items-center justify-center">
                   <div className="bg-background/95 backdrop-blur-sm rounded-lg px-4 py-3 flex items-center gap-2 shadow-lg border">
@@ -307,8 +306,6 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
                   onClick={() => !isDeleting && handleAgentClick(agent)}
                 />
               </div>
-              
-              {/* Delete button overlay */}
               <div className={`absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity ${isDeleting ? 'pointer-events-none' : ''}`}>
                 {!agent.is_default && (
                   <AlertDialog>

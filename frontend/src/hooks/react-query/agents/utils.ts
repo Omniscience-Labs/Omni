@@ -50,10 +50,12 @@ export type Agent = {
 };
 
 export type PaginationInfo = {
-  page: number;
-  limit: number;
-  total: number;
-  pages: number;
+  current_page: number;
+  page_size: number;
+  total_items: number;
+  total_pages: number;
+  has_next: boolean;
+  has_previous: boolean;
 };
 
 export type AgentsResponse = {
@@ -71,6 +73,7 @@ export type AgentsParams = {
   has_mcp_tools?: boolean;
   has_agentpress_tools?: boolean;
   tools?: string;
+  content_type?: string;
 };
 
 export type ThreadAgentResponse = {
@@ -185,6 +188,7 @@ export const getAgents = async (params: AgentsParams = {}): Promise<AgentsRespon
     if (params.has_mcp_tools !== undefined) queryParams.append('has_mcp_tools', params.has_mcp_tools.toString());
     if (params.has_agentpress_tools !== undefined) queryParams.append('has_agentpress_tools', params.has_agentpress_tools.toString());
     if (params.tools) queryParams.append('tools', params.tools);
+    if (params.content_type) queryParams.append('content_type', params.content_type);
 
     const url = `${API_URL}/agents${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 
