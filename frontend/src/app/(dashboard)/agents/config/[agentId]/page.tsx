@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
+import { useUpdateAgentMCPs } from '@/hooks/react-query/agents/use-update-agent-mcps';
 import { useCreateAgentVersion, useActivateAgentVersion } from '@/hooks/react-query/agents/use-agent-versions';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -23,7 +24,6 @@ import { useAgentConfigTour } from '@/hooks/use-agent-config-tour';
 import Joyride, { CallBackProps, STATUS, Step } from 'react-joyride';
 import { TourConfirmationDialog } from '@/components/tour/TourConfirmationDialog';
 
-// Tour steps for agent configuration
 const agentConfigTourSteps: Step[] = [
   {
     target: '[data-tour="agent-header"]',
@@ -90,7 +90,6 @@ const agentConfigTourSteps: Step[] = [
   },
 ];
 
-// Form data interface
 interface FormData {
   name: string;
   description: string;
@@ -119,9 +118,30 @@ function AgentConfigurationContent() {
   const { setHasUnsavedChanges } = useAgentVersionStore();
   
   const updateAgentMutation = useUpdateAgent();
+  const updateAgentMCPsMutation = useUpdateAgentMCPs();
   const createVersionMutation = useCreateAgentVersion();
   const activateVersionMutation = useActivateAgentVersion();
   const exportMutation = useExportAgent();
+
+  // Use refs for stable references to avoid callback recreation
+  const agentIdRef = useRef(agentId);
+  const mutationsRef = useRef({
+    updateAgent: updateAgentMutation,
+    updateMCPs: updateAgentMCPsMutation,
+    export: exportMutation,
+    activate: activateVersionMutation,
+  });
+
+  // Update refs when values change
+  useEffect(() => {
+    agentIdRef.current = agentId;
+    mutationsRef.current = {
+      updateAgent: updateAgentMutation,
+      updateMCPs: updateAgentMCPsMutation,
+      export: exportMutation,
+      activate: activateVersionMutation,
+    };
+  }, [agentId, updateAgentMutation, updateAgentMCPsMutation, exportMutation, activateVersionMutation]);
 
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -140,9 +160,19 @@ function AgentConfigurationContent() {
 
   const [originalData, setOriginalData] = useState<FormData>(formData);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [lastLoadedVersionId, setLastLoadedVersionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!agent) return;
+    
+    const currentVersionId = versionData?.version_id || agent.current_version_id || 'current';
+    const shouldResetForm = !lastLoadedVersionId || lastLoadedVersionId !== currentVersionId;
+    
+    if (!shouldResetForm) {
+      setLastLoadedVersionId(currentVersionId);
+      return;
+    }
+    
     let configSource = agent;
     if (versionData) {
       configSource = {
@@ -174,7 +204,8 @@ function AgentConfigurationContent() {
     };
     setFormData(newFormData);
     setOriginalData(newFormData);
-  }, [agent, versionData]);
+    setLastLoadedVersionId(currentVersionId);
+  }, [agent, versionData, lastLoadedVersionId]);
 
   const displayData = isViewingOldVersion && versionData ? {
     name: formData.name,
@@ -191,24 +222,127 @@ function AgentConfigurationContent() {
     icon_background: versionData.icon_background || formData.icon_background || '#e5e5e5',
   } : formData;
 
-  const handleFieldChange = useCallback((field: string, value: any) => {
+  const handleFieldChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
-  }, []);
+  };
 
   const handleMCPChange = useCallback((updates: { configured_mcps: any[]; custom_mcps: any[] }) => {
+    const previousConfigured = formData.configured_mcps;
+    const previousCustom = formData.custom_mcps;
+
     setFormData(prev => ({
       ...prev,
-      configured_mcps: updates.configured_mcps,
-      custom_mcps: updates.custom_mcps
+      configured_mcps: updates.configured_mcps || [],
+      custom_mcps: updates.custom_mcps || []
     }));
+
+    mutationsRef.current.updateMCPs.mutate({
+      agentId: agentIdRef.current,
+      configured_mcps: updates.configured_mcps || [],
+      custom_mcps: updates.custom_mcps || [],
+      replace_mcps: true
+    }, {
+      onSuccess: () => {
+        setOriginalData(prev => ({
+          ...prev,
+          configured_mcps: updates.configured_mcps || [],
+          custom_mcps: updates.custom_mcps || []
+        }));
+        toast.success('MCP configuration updated');
+      },
+      onError: (error) => {
+        setFormData(prev => ({
+          ...prev,
+          configured_mcps: previousConfigured,
+          custom_mcps: previousCustom
+        }));
+        toast.error('Failed to update MCP configuration');
+        console.error('MCP update error:', error);
+      }
+    });
   }, []);
 
-  const handleExport = useCallback(() => {
-    exportMutation.mutate(agentId);
-  }, [agentId, exportMutation]);
+  const saveField = useCallback(async (fieldData: Partial<FormData>) => {
+    try {
+      await mutationsRef.current.updateAgent.mutateAsync({
+        agentId: agentIdRef.current,
+        ...fieldData,
+      });
+      
+      setFormData(prev => ({ ...prev, ...fieldData }));
+      setOriginalData(prev => ({ ...prev, ...fieldData }));
+      return true;
+    } catch (error) {
+      console.error('Failed to save field:', error);
+      throw error;
+    }
+  }, []);
+
+  const handleNameSave = async (name: string) => {
+    try {
+      await saveField({ name });
+      toast.success('Agent name updated');
+    } catch {
+      toast.error('Failed to update agent name');
+      throw new Error('Failed to update agent name');
+    }
+  };
+
+  const handleProfileImageSave = async (profileImageUrl: string | null) => {
+    try {
+      await saveField({ profile_image_url: profileImageUrl || '' });
+    } catch {
+      toast.error('Failed to update profile picture');
+      throw new Error('Failed to update profile picture');
+    }
+  };
+  
+  const handleIconSave = async (iconName: string | null, iconColor: string, iconBackground: string) => {
+    try {
+      await saveField({ icon_name: iconName, icon_color: iconColor, icon_background: iconBackground });
+      toast.success('Agent icon updated');
+    } catch {
+      toast.error('Failed to update agent icon');
+      throw new Error('Failed to update agent icon');
+    }
+  };
+
+  const handleSystemPromptSave = async (system_prompt: string) => {
+    try {
+      await saveField({ system_prompt });
+      toast.success('System prompt updated');
+    } catch {
+      toast.error('Failed to update system prompt');
+      throw new Error('Failed to update system prompt');
+    }
+  };
+
+  const handleModelSave = async (model: string) => {
+    try {
+      await saveField({ model });
+      toast.success('Model updated');
+    } catch {
+      toast.error('Failed to update model');
+      throw new Error('Failed to update model');
+    }
+  };
+
+  const handleToolsSave = async (agentpress_tools: Record<string, boolean | { enabled: boolean; description: string }>) => {
+    try {
+      await saveField({ agentpress_tools });
+      toast.success('Tools updated');
+    } catch {
+      toast.error('Failed to update tools');
+      throw new Error('Failed to update tools');
+    }
+  };
+
+  const handleExport = () => {
+    mutationsRef.current.export.mutate(agentIdRef.current);
+  };
 
   const { hasUnsavedChanges, isCurrentVersion } = React.useMemo(() => {
     const formDataStr = JSON.stringify(formData);
@@ -234,141 +368,33 @@ function AgentConfigurationContent() {
 
   const handleActivateVersion = async (versionId: string) => {
     try {
-      await activateVersionMutation.mutateAsync({ agentId, versionId });
-      router.push(`/agents/config/${agentId}`);
+      await mutationsRef.current.activate.mutateAsync({ agentId: agentIdRef.current, versionId });
+      router.push(`/agents/config/${agentIdRef.current}`);
     } catch (error) {
       console.error('Failed to activate version:', error);
     }
   };
 
+  // OPTIMIZED: Simplified save with stable reference
   const handleSave = useCallback(async () => {
-    if (hasUnsavedChanges) {
+    const currentFormData = formData;
+    const hasChanges = JSON.stringify(currentFormData) !== JSON.stringify(originalData);
+    
+    if (hasChanges) {
       try {
-        await updateAgentMutation.mutateAsync({
-          agentId,
-          name: formData.name,
-          description: formData.description,
-          is_default: formData.is_default,
-          profile_image_url: formData.profile_image_url,
-          icon_name: formData.icon_name,
-          icon_color: formData.icon_color,
-          icon_background: formData.icon_background,
-          system_prompt: formData.system_prompt,
-          agentpress_tools: formData.agentpress_tools,
-          configured_mcps: formData.configured_mcps,
-          custom_mcps: formData.custom_mcps,
+        await mutationsRef.current.updateAgent.mutateAsync({
+          agentId: agentIdRef.current,
+          ...currentFormData,
         });
         
-        setOriginalData(formData);
+        setOriginalData(currentFormData);
         toast.success('Agent updated successfully');
       } catch (error) {
         toast.error('Failed to update agent');
         console.error('Failed to save agent:', error);
       }
     }
-  }, [agentId, formData, hasUnsavedChanges, updateAgentMutation]);
-
-  const handleNameSave = useCallback(async (name: string) => {
-    try {
-      await updateAgentMutation.mutateAsync({
-        agentId,
-        name,
-      });
-      
-      setFormData(prev => ({ ...prev, name }));
-      setOriginalData(prev => ({ ...prev, name }));
-      toast.success('Agent name updated');
-    } catch (error) {
-      toast.error('Failed to update agent name');
-      throw error;
-    }
-  }, [agentId, updateAgentMutation]);
-
-  const handleProfileImageSave = useCallback(async (profileImageUrl: string | null) => {
-    try {
-      await updateAgentMutation.mutateAsync({
-        agentId,
-        profile_image_url: profileImageUrl || '',
-      });
-      
-      setFormData(prev => ({ ...prev, profile_image_url: profileImageUrl || '' }));
-      setOriginalData(prev => ({ ...prev, profile_image_url: profileImageUrl || '' }));
-    } catch (error) {
-      toast.error('Failed to update profile picture');
-      throw error;
-    }
-  }, [agentId, updateAgentMutation]);
-  
-  const handleIconSave = useCallback(async (iconName: string | null, iconColor: string, iconBackground: string) => {
-    try {
-      await updateAgentMutation.mutateAsync({
-        agentId,
-        icon_name: iconName,
-        icon_color: iconColor,
-        icon_background: iconBackground,
-      });
-      
-      setFormData(prev => ({ 
-        ...prev, 
-        icon_name: iconName,
-        icon_color: iconColor,
-        icon_background: iconBackground,
-      }));
-      setOriginalData(prev => ({ 
-        ...prev, 
-        icon_name: iconName,
-        icon_color: iconColor,
-        icon_background: iconBackground,
-      }));
-      toast.success('Agent icon updated');
-    } catch (error) {
-      toast.error('Failed to update agent icon');
-      throw error;
-    }
-  }, [agentId, updateAgentMutation]);
-
-  const handleSystemPromptSave = useCallback(async (value: string) => {
-    try {
-      await updateAgentMutation.mutateAsync({
-        agentId,
-        system_prompt: value,
-      });
-      
-      setFormData(prev => ({ ...prev, system_prompt: value }));
-      setOriginalData(prev => ({ ...prev, system_prompt: value }));
-      toast.success('System prompt updated');
-    } catch (error) {
-      toast.error('Failed to update system prompt');
-      throw error;
-    }
-  }, [agentId, updateAgentMutation]);
-
-  const handleModelSave = useCallback(async (model: string) => {
-    try {
-      setFormData(prev => ({ ...prev, model }));
-      setOriginalData(prev => ({ ...prev, model }));
-      toast.success('Model updated');
-    } catch (error) {
-      toast.error('Failed to update model');
-      throw error;
-    }
-  }, []);
-
-  const handleToolsSave = useCallback(async (tools: Record<string, boolean | { enabled: boolean; description: string }>) => {
-    try {
-      await updateAgentMutation.mutateAsync({
-        agentId,
-        agentpress_tools: tools,
-      });
-      
-      setFormData(prev => ({ ...prev, agentpress_tools: tools }));
-      setOriginalData(prev => ({ ...prev, agentpress_tools: tools }));
-      toast.success('Tools updated');
-    } catch (error) {
-      toast.error('Failed to update tools');
-      throw error;
-    }
-  }, [agentId, updateAgentMutation]);
+  }, []); // Using snapshot of formData in function instead of dependency
 
   if (error) {
     return (
@@ -572,7 +598,8 @@ export default function AgentConfigurationPage() {
     handleWelcomeDecline,
   } = useAgentConfigTour();
 
-  const handleTourCallback = useCallback((data: CallBackProps) => {
+  // OPTIMIZED: Simple function instead of useCallback with stable dependencies
+  const handleTourCallback = (data: CallBackProps) => {
     const { status, type, index } = data;
     
     if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
@@ -580,7 +607,7 @@ export default function AgentConfigurationPage() {
     } else if (type === 'step:after') {
       setStepIndex(index + 1);
     }
-  }, [stopTour, setStepIndex]);
+  };
 
   return (
     <>
