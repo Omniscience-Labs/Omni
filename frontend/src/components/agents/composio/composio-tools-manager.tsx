@@ -60,7 +60,6 @@ export const ComposioToolsManager: React.FC<ComposioToolsManagerProps> = ({
           ) || [];
 
           const enabledTools = composioMcps.flatMap((mcp: any) => mcp.enabledTools || []);
-          console.log('Loading current tools for editing:', enabledTools);
           setSelectedTools(enabledTools);
         }
       } catch (error) {

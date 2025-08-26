@@ -161,15 +161,11 @@ export const ComposioToolsSelector: React.FC<ComposioToolsSelectorProps> = ({
 
   const loadCurrentAgentTools = async () => {
     if (!agentId || !profileId) {
-      console.log('Missing agentId or profileId:', { agentId, profileId });
       return;
     }
 
-    console.log('Loading tools for agent:', { agentId, profileId });
-
     try {
       const response = await backendApi.get(`/agents/${agentId}`);
-      console.log('Agent response:', response);
 
       if (response.success && response.data) {
         const agent = response.data;
@@ -177,25 +173,19 @@ export const ComposioToolsSelector: React.FC<ComposioToolsSelectorProps> = ({
           mcp.type === 'composio' && mcp.config?.profile_id === profileId
         ) || [];
 
-        console.log('Found composio MCPs:', composioMcps);
-
         const enabledTools = composioMcps.flatMap((mcp: any) => mcp.enabledTools || []);
-        console.log('Enabled tools from agent:', enabledTools);
 
         // If no existing tools found, auto-select important tools
         if (enabledTools.length === 0 && availableTools.length > 0) {
           const importantTools = availableTools.filter(tool => tool.tags?.includes('important'));
-          const importantToolNames = importantTools.map(tool => tool.name);
+          const importantToolSlugs = importantTools.map(tool => tool.slug);
 
-          if (importantToolNames.length > 0) {
-            console.log('No existing tools, selecting important tools:', importantToolNames);
-            onToolsChange(importantToolNames);
+          if (importantToolSlugs.length > 0) {
+            onToolsChange(importantToolSlugs);
           } else {
-            console.log('No existing tools and no important tools, selecting none');
             onToolsChange([]);
           }
         } else {
-          console.log('Setting tools from agent:', enabledTools);
           onToolsChange(enabledTools);
         }
 
@@ -206,9 +196,9 @@ export const ComposioToolsSelector: React.FC<ComposioToolsSelectorProps> = ({
       // If API call fails, fall back to important tools
       if (availableTools.length > 0) {
         const importantTools = availableTools.filter(tool => tool.tags?.includes('important'));
-        const importantToolNames = importantTools.map(tool => tool.name);
-        if (importantToolNames.length > 0) {
-          onToolsChange(importantToolNames);
+        const importantToolSlugs = importantTools.map(tool => tool.slug);
+        if (importantToolSlugs.length > 0) {
+          onToolsChange(importantToolSlugs);
         } else {
           onToolsChange([]);
         }
@@ -227,15 +217,9 @@ export const ComposioToolsSelector: React.FC<ComposioToolsSelectorProps> = ({
     // Only auto-select important tools for NEW agents (no agentId) when no tools are selected
     if (!agentId && availableTools.length > 0) {
       const importantTools = availableTools.filter(tool => tool.tags?.includes('important'));
-      const importantToolNames = importantTools.map(tool => tool.name);
+      const importantToolSlugs = importantTools.map(tool => tool.slug);
 
-      console.log('Auto-selecting important tools for new agent:', {
-        totalTools: availableTools.length,
-        importantTools: importantTools.length,
-        importantToolNames,
-      });
-
-      return importantToolNames;
+      return importantToolSlugs;
     }
 
     // For existing agents, return empty if no tools are explicitly selected
@@ -259,30 +243,20 @@ export const ComposioToolsSelector: React.FC<ComposioToolsSelectorProps> = ({
 
   // Sync the effective selection back to parent when tools load
   useEffect(() => {
-    console.log('useEffect triggered:', {
-      initialized: initializedRef.current,
-      availableToolsCount: availableTools.length,
-      agentId,
-      profileId,
-      selectedToolsCount: selectedTools.length
-    });
-
     if (!initializedRef.current && availableTools.length > 0) {
       initializedRef.current = true;
 
       if (agentId && profileId) {
         // For existing agents, load their tools
-        console.log('Loading tools for existing agent');
         loadCurrentAgentTools();
       } else if (selectedTools.length === 0) {
         // For new agents, sync the important tools selection
-        console.log('Setting up new agent with important tools');
-        const importantToolNames = availableTools
+        const importantToolSlugs = availableTools
           .filter(tool => tool.tags?.includes('important'))
-          .map(tool => tool.name);
+          .map(tool => tool.slug);
 
-        if (importantToolNames.length > 0) {
-          onToolsChange(importantToolNames);
+        if (importantToolSlugs.length > 0) {
+          onToolsChange(importantToolSlugs);
         }
       }
     }
@@ -312,17 +286,17 @@ export const ComposioToolsSelector: React.FC<ComposioToolsSelectorProps> = ({
     return tools;
   }, [availableTools, selectedTagFilters, searchTerm]);
 
-  const handleToolToggle = (toolName: string) => {
+  const handleToolToggle = (toolSlug: string) => {
     const effectiveSelected = getEffectiveSelectedTools;
-    const newTools = effectiveSelected.includes(toolName)
-      ? effectiveSelected.filter(t => t !== toolName)
-      : [...effectiveSelected, toolName];
+    const newTools = effectiveSelected.includes(toolSlug)
+      ? effectiveSelected.filter(t => t !== toolSlug)
+      : [...effectiveSelected, toolSlug];
     onToolsChange(newTools);
   };
 
   const handleSelectAll = () => {
-    const allToolNames = filteredTools.map(tool => tool.name);
-    onToolsChange(allToolNames);
+    const allToolSlugs = filteredTools.map(tool => tool.slug);
+    onToolsChange(allToolSlugs);
   };
 
   const handleSelectNone = () => {
@@ -514,8 +488,8 @@ export const ComposioToolsSelector: React.FC<ComposioToolsSelectorProps> = ({
                 <ToolCard
                   key={tool.slug}
                   tool={tool}
-                  isSelected={getEffectiveSelectedTools.includes(tool.name)}
-                  onToggle={() => handleToolToggle(tool.name)}
+                  isSelected={getEffectiveSelectedTools.includes(tool.slug)}
+                  onToggle={() => handleToolToggle(tool.slug)}
                   searchTerm={searchTerm}
                 />
               ))}
