@@ -16,8 +16,7 @@ import { StatusOverlay } from '@/components/ui/status-overlay';
 import { MaintenanceNotice } from './maintenance-notice';
 import { MaintenanceBanner } from './maintenance-banner';
 import { useMaintenanceNoticeQuery } from '@/hooks/react-query/edge-flags';
-import { TourProvider } from '@/components/tour/TourContext';
-import { TourManager } from '@/components/tour/TourManager';
+
 
 import { useProjects, useThreads } from '@/hooks/react-query/sidebar/use-sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -129,7 +128,6 @@ export default function DashboardLayoutContent({
   return (
     <DeleteOperationProvider>
       <SidebarProvider>
-        <TourProvider>
           <SidebarLeft />
           <SidebarInset>
             {mantenanceBanner}
@@ -155,9 +153,7 @@ export default function DashboardLayoutContent({
           {/* Floating mobile menu button */}
           <FloatingMobileMenuButton />
 
-          {/* Tour Manager */}
-          <TourManager />
-        </TourProvider>
+
       </SidebarProvider>
     </DeleteOperationProvider>
   );
