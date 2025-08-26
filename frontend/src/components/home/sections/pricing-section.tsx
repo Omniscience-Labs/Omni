@@ -311,7 +311,7 @@ function PricingTier({
   };
 
   const getDisplayedHours = (
-    tier: (typeof siteConfig.cloudPricingItems)[0],
+    tier: PricingTier,
   ) => {
     if (tier.name === 'Custom' && localSelectedPlan) {
       return localSelectedPlan;
