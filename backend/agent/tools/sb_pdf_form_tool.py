@@ -2,7 +2,7 @@ from typing import Optional, Dict, Any, List, Union
 import json
 import uuid
 import os
-from agentpress.tool import ToolResult, openapi_schema, xml_schema
+from agentpress.tool import ToolResult, openapi_schema
 from sandbox.tool_base import SandboxToolsBase
 from agentpress.thread_manager import ThreadManager
 from utils.logger import logger
@@ -530,32 +530,7 @@ except Exception as e:
             }
         }
     })
-    @xml_schema(
-        tag_name="fill-form-coordinates",
-        mappings=[
-            {"param_name": "file_path", "node_type": "attribute", "path": "."},
-            {"param_name": "form_data", "node_type": "element", "path": "form_data"},
-            {"param_name": "output_path", "node_type": "attribute", "path": "output_path", "required": False},
-            {"param_name": "custom_coordinates", "node_type": "element", "path": "custom_coordinates", "required": False},
-            {"param_name": "disable_overlap_detection", "node_type": "attribute", "path": "disable_overlap_detection", "required": False}
-        ],
-        example='''
-        <function_calls>
-        <invoke name="fill_form_coordinates">
-        <parameter name="file_path">forms/scanned_form.pdf</parameter>
-        <parameter name="form_data">{
-            "name": "John Doe",
-            "date": "01/15/2024",
-            "email": "john@example.com"
-        }</parameter>
-        <parameter name="custom_coordinates">{
-            "name": {"x": 150, "y": 200, "fontsize": 12, "type": "text"},
-            "date": {"x": 400, "y": 200, "fontsize": 10, "type": "text"}
-        }</parameter>
-        </invoke>
-        </function_calls>
-        '''
-    )
+
     async def fill_form_coordinates(self, file_path: str, form_data: Dict[str, Any], output_path: Optional[str] = None, custom_coordinates: Optional[Dict[str, Dict[str, Any]]] = None, disable_overlap_detection: bool = False) -> ToolResult:
         """Fill a PDF using coordinate-based text overlay (for scanned/non-fillable PDFs)."""
         try:
