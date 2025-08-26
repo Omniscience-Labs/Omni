@@ -56,15 +56,15 @@ export async function checkAndInstallOmniAgent(userId: string, userCreatedAt: st
   console.log('🔍 checkAndInstallOmniAgent called', { userId, userCreatedAt });
   
   const userCreatedDate = new Date(userCreatedAt);
-  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
   
   console.log('📅 Time check:', { 
     userCreatedDate: userCreatedDate.toISOString(), 
-    tenMinutesAgo: tenMinutesAgo.toISOString(),
-    isRecent: userCreatedDate > tenMinutesAgo 
+    oneHourAgo: oneHourAgo.toISOString(),
+    isRecent: userCreatedDate > oneHourAgo 
   });
   
-  if (userCreatedDate > tenMinutesAgo) {
+  if (userCreatedDate > oneHourAgo) {
     const installKey = `omni-install-attempted-${userId}`;
     const hasAttempted = typeof window !== 'undefined' && localStorage.getItem(installKey);
     
