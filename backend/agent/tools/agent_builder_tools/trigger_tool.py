@@ -18,7 +18,50 @@ class TriggerTool(AgentBuilderBaseTool):
     def __init__(self, thread_manager: ThreadManager, db_connection, agent_id: str):
         super().__init__(thread_manager, db_connection, agent_id)
 
-    # ===== SCHEDULED TRIGGERS =====
+    async def _sync_workflows_to_version_config(self) -> None:
+        try:
+            client = await self.db.client
+            
+            agent_result = await client.table('agents').select('current_version_id').eq('agent_id', self.agent_id).single().execute()
+            if not agent_result.data or not agent_result.data.get('current_version_id'):
+                logger.warning(f"No current version found for agent {self.agent_id}")
+                return
+            
+            current_version_id = agent_result.data['current_version_id']
+            
+            workflows_result = await client.table('agent_workflows').select('*').eq('agent_id', self.agent_id).execute()
+            workflows = workflows_result.data if workflows_result.data else []
+            
+            triggers_result = await client.table('agent_triggers').select('*').eq('agent_id', self.agent_id).execute()
+            triggers = []
+            if triggers_result.data:
+                import json
+                for trigger in triggers_result.data:
+                    trigger_copy = trigger.copy()
+                    if 'config' in trigger_copy and isinstance(trigger_copy['config'], str):
+                        try:
+                            trigger_copy['config'] = json.loads(trigger_copy['config'])
+                        except json.JSONDecodeError:
+                            logger.warning(f"Failed to parse trigger config for {trigger_copy.get('trigger_id')}")
+                            trigger_copy['config'] = {}
+                    triggers.append(trigger_copy)
+            
+            version_result = await client.table('agent_versions').select('config').eq('version_id', current_version_id).single().execute()
+            if not version_result.data:
+                logger.warning(f"Version {current_version_id} not found")
+                return
+            
+            config = version_result.data.get('config', {})
+            
+            config['workflows'] = workflows
+            config['triggers'] = triggers
+            
+            await client.table('agent_versions').update({'config': config}).eq('version_id', current_version_id).execute()
+            
+            logger.debug(f"Synced {len(workflows)} workflows and {len(triggers)} triggers to version config for agent {self.agent_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to sync workflows and triggers to version config: {e}")
 
     @openapi_schema({
         "type": "function",
@@ -143,27 +186,31 @@ class TriggerTool(AgentBuilderBaseTool):
                 
                 result_message += f"\nThe trigger is now active and will run according to the schedule."
                 
+                # Sync triggers to version config
+                try:
+                    await self._sync_workflows_to_version_config()
+                except Exception as e:
+                    logger.warning(f"Failed to sync triggers to version config: {e}")
+                
                 return self.success_response({
                     "message": result_message,
                     "trigger": {
-                        "id": trigger.trigger_id,
                         "name": trigger.name,
                         "description": trigger.description,
                         "cron_expression": cron_expression,
                         "execution_type": execution_type,
-                        "is_active": trigger.is_active,
-                        "created_at": trigger.created_at.isoformat()
+                        "is_active": trigger.is_active
                     }
                 })
             except ValueError as ve:
-                return self.fail_response(f"Validation error: {str(ve)}")
+                return self.fail_response("Validation error")
             except Exception as e:
                 logger.error(f"Error creating trigger through manager: {str(e)}")
-                return self.fail_response(f"Failed to create trigger: {str(e)}")
+                return self.fail_response("Failed to create trigger")
                     
         except Exception as e:
             logger.error(f"Error creating scheduled trigger: {str(e)}")
-            return self.fail_response(f"Error creating scheduled trigger: {str(e)}")
+            return self.fail_response("Error creating scheduled trigger")
 
     @openapi_schema({
         "type": "function",
@@ -212,13 +259,11 @@ class TriggerTool(AgentBuilderBaseTool):
             formatted_triggers = []
             for trigger in schedule_triggers:
                 formatted = {
-                    "id": trigger.trigger_id,
                     "name": trigger.name,
                     "description": trigger.description,
                     "cron_expression": trigger.config.get("cron_expression"),
                     "execution_type": trigger.config.get("execution_type", "agent"),
-                    "is_active": trigger.is_active,
-                    "created_at": trigger.created_at.isoformat()
+                    "is_active": trigger.is_active
                 }
                 
                 if trigger.config.get("execution_type") == "workflow":
@@ -237,7 +282,7 @@ class TriggerTool(AgentBuilderBaseTool):
                     
         except Exception as e:
             logger.error(f"Error getting scheduled triggers: {str(e)}")
-            return self.fail_response(f"Error getting scheduled triggers: {str(e)}")
+            return self.fail_response("Error getting scheduled triggers")
 
     @openapi_schema({
         "type": "function",
@@ -278,16 +323,21 @@ class TriggerTool(AgentBuilderBaseTool):
             success = await trigger_svc.delete_trigger(trigger_id)
             
             if success:
+                # Sync triggers to version config
+                try:
+                    await self._sync_workflows_to_version_config()
+                except Exception as e:
+                    logger.warning(f"Failed to sync triggers to version config: {e}")
+                
                 return self.success_response({
-                    "message": f"Scheduled trigger '{trigger_config.name}' deleted successfully",
-                    "trigger_id": trigger_id
+                    "message": f"Scheduled trigger '{trigger_config.name}' deleted successfully"
                 })
             else:
                 return self.fail_response("Failed to delete trigger")
                     
         except Exception as e:
             logger.error(f"Error deleting scheduled trigger: {str(e)}")
-            return self.fail_response(f"Error deleting scheduled trigger: {str(e)}")
+            return self.fail_response("Error deleting scheduled trigger")
 
     @openapi_schema({
         "type": "function",
@@ -337,10 +387,16 @@ class TriggerTool(AgentBuilderBaseTool):
             
             if updated_config:
                 status = "enabled" if is_active else "disabled"
+                
+                # Sync triggers to version config
+                try:
+                    await self._sync_workflows_to_version_config()
+                except Exception as e:
+                    logger.warning(f"Failed to sync triggers to version config: {e}")
+                
                 return self.success_response({
                     "message": f"Scheduled trigger '{updated_config.name}' has been {status}",
                     "trigger": {
-                        "id": updated_config.trigger_id,
                         "name": updated_config.name,
                         "is_active": updated_config.is_active
                     }
@@ -350,13 +406,12 @@ class TriggerTool(AgentBuilderBaseTool):
                     
         except Exception as e:
             logger.error(f"Error toggling scheduled trigger: {str(e)}")
-            return self.fail_response(f"Error toggling scheduled trigger: {str(e)}")
+            return self.fail_response("Error toggling scheduled trigger")
 
     # ===== EVENT-BASED TRIGGERS (Non-Production Only) =====
 
 # Event trigger methods - only available in non-production environments  
 if config.ENV_MODE != EnvMode.PRODUCTION:
-
     @openapi_schema({
         "type": "function",
         "function": {
@@ -387,7 +442,7 @@ if config.ENV_MODE != EnvMode.PRODUCTION:
             })
         except Exception as e:
             logger.error(f"Error listing event trigger apps: {e}")
-            return self.fail_response(f"Error listing apps: {str(e)}")
+            return self.fail_response("Error listing apps")
     
     TriggerTool.list_event_trigger_apps = list_event_trigger_apps
 
@@ -429,7 +484,7 @@ if config.ENV_MODE != EnvMode.PRODUCTION:
             })
         except Exception as e:
             logger.error(f"Error listing triggers for app {toolkit_slug}: {e}")
-            return self.fail_response(f"Error listing triggers: {str(e)}")
+            return self.fail_response("Error listing triggers")
     
     TriggerTool.list_app_event_triggers = list_app_event_triggers
 
@@ -471,10 +526,9 @@ if config.ENV_MODE != EnvMode.PRODUCTION:
             items = []
             for p in profiles:
                 items.append({
-                    "profile_id": p.profile_id,
+                    "profile_name": p.profile_name,
                     "display_name": p.display_name,
-                    "is_connected": p.is_connected,
-                    "connected_account_id": getattr(p, 'connected_account_id', None)
+                    "is_connected": p.is_connected
                 })
 
             return self.success_response({
@@ -484,7 +538,7 @@ if config.ENV_MODE != EnvMode.PRODUCTION:
             })
         except Exception as e:
             logger.error(f"Error listing event profiles: {e}")
-            return self.fail_response(f"Error listing profiles: {str(e)}")
+            return self.fail_response("Error listing profiles")
     
     TriggerTool.list_event_profiles = list_event_profiles
 
@@ -630,7 +684,7 @@ if config.ENV_MODE != EnvMode.PRODUCTION:
                 except httpx.HTTPStatusError:
                     ct = resp.headers.get("content-type", "")
                     detail = resp.json() if "application/json" in ct else resp.text
-                    return self.fail_response(f"Composio upsert error: {detail}")
+                    return self.fail_response("Composio upsert error")
                 created = resp.json()
 
             def _extract_id(obj: Dict[str, Any]) -> Optional[str]:
@@ -711,20 +765,22 @@ if config.ENV_MODE != EnvMode.PRODUCTION:
             else:
                 message += "Agent execution configured."
 
+            # Sync triggers to version config
+            try:
+                await self._sync_workflows_to_version_config()
+            except Exception as e:
+                logger.warning(f"Failed to sync triggers to version config: {e}")
+
             return self.success_response({
                 "message": message,
                 "trigger": {
-                    "id": trigger.trigger_id,
-                    "agent_id": trigger.agent_id,
                     "provider": "composio",
                     "slug": slug,
-                    "config": trigger.config,
-                    "is_active": trigger.is_active,
-                    "created_at": trigger.created_at.isoformat()
+                    "is_active": trigger.is_active
                 }
             })
         except Exception as e:
             logger.error(f"Error creating event trigger: {e}", exc_info=True)
-            return self.fail_response(f"Error creating event trigger: {str(e)}")
+            return self.fail_response("Error creating event trigger")
     
     TriggerTool.create_event_trigger = create_event_trigger

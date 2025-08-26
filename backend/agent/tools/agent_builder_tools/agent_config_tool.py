@@ -240,8 +240,8 @@ class AgentConfigTool(AgentBuilderBaseTool):
                     logger.debug(f"Created new version {new_version.version_id} for agent {self.agent_id}")
                     
                 except Exception as e:
-                    logger.error(f"Failed to create new version: {e}")
-                    return self.fail_response(f"Failed to create new version: {str(e)}")
+                    logger.error(f"Failed to create new version: {str(e)}")
+                    return self.fail_response("Failed to create new version")
             
             agent_result = await client.table('agents').select('*').eq('agent_id', self.agent_id).execute()
             updated_agent = agent_result.data[0] if agent_result.data else current_agent
@@ -258,7 +258,8 @@ class AgentConfigTool(AgentBuilderBaseTool):
             })
             
         except Exception as e:
-            return self.fail_response(f"Error updating agent: {str(e)}")
+            logger.error(f"Error updating agent: {str(e)}")
+            return self.fail_response("Error updating agent")
 
     @openapi_schema({
         "type": "function",
@@ -304,7 +305,6 @@ class AgentConfigTool(AgentBuilderBaseTool):
             agent_config = extract_agent_config(agent_data, version_data)
             
             config_summary = {
-                "agent_id": agent_config["agent_id"],
                 "name": agent_config.get("name", "Untitled Agent"),
                 "description": agent_config.get("description", "No description set"),
                 "system_prompt": agent_config.get("system_prompt", "No system prompt set"),
@@ -338,4 +338,5 @@ class AgentConfigTool(AgentBuilderBaseTool):
             })
             
         except Exception as e:
-            return self.fail_response(f"Error getting agent configuration: {str(e)}") 
+            logger.error(f"Error getting agent configuration: {str(e)}")
+            return self.fail_response("Error getting agent configuration") 

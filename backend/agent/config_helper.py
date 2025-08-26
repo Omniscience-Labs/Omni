@@ -213,7 +213,6 @@ def build_unified_config(
 
 
 def _get_default_agentpress_tools() -> Dict[str, bool]:
-    """Get default AgentPress tools configuration for new custom agents."""
     return {
         "sb_shell_tool": True,
         "sb_files_tool": True,
@@ -232,13 +231,13 @@ def _get_default_agentpress_tools() -> Dict[str, bool]:
         "agent_config_tool": True,
         "mcp_search_tool": True,
         "credential_profile_tool": True,
+        "agent_creation_tool": True,
         "workflow_tool": True,
         "trigger_tool": True
     }
 
 
 def _extract_agentpress_tools_for_run(agentpress_config: Dict[str, Any]) -> Dict[str, Any]:
-    """Convert agentpress tools config to runtime format."""
     if not agentpress_config:
         return {}
     
