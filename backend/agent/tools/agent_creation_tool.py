@@ -19,11 +19,16 @@ class AgentCreationTool(Tool):
 
     async def _sync_workflows_to_version_config(self, agent_id: str) -> None:
         try:
+            account_id = self.account_id
+            if not account_id:
+                logger.warning(f"No account ID available for sync operation on agent {agent_id}")
+                return
+                
             client = await self.db.client
-            
-            agent_result = await client.table('agents').select('current_version_id').eq('agent_id', agent_id).single().execute()
+
+            agent_result = await client.table('agents').select('current_version_id').eq('agent_id', agent_id).eq('account_id', account_id).single().execute()
             if not agent_result.data or not agent_result.data.get('current_version_id'):
-                logger.warning(f"No current version found for agent {agent_id}")
+                logger.warning(f"No current version found for agent {agent_id} or access denied")
                 return
             
             current_version_id = agent_result.data['current_version_id']
