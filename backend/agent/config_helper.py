@@ -53,19 +53,24 @@ async def enrich_agent_config_with_llamacloud_kb(config: Dict[str, Any]) -> Dict
 
 
 def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Extract agent configuration with simplified logic for Suna vs custom agents."""
+    """Extract agent configuration with simplified logic for Suna/Omni vs custom agents."""
     agent_id = agent_data.get('agent_id', 'Unknown')
     metadata = agent_data.get('metadata', {})
     is_suna_default = metadata.get('is_suna_default', False)
+    is_omni_default = metadata.get('is_omni_default', False)
     
     # Debug logging
     if os.getenv("ENV_MODE", "").upper() == "STAGING":
-        print(f"[DEBUG] extract_agent_config: Called for agent {agent_id}, is_suna_default={is_suna_default}")
+        print(f"[DEBUG] extract_agent_config: Called for agent {agent_id}, is_suna_default={is_suna_default}, is_omni_default={is_omni_default}")
         print(f"[DEBUG] extract_agent_config: Input agent_data has icon_name={agent_data.get('icon_name')}, icon_color={agent_data.get('icon_color')}, icon_background={agent_data.get('icon_background')}")
     
     # Handle Suna agents with special logic
     if is_suna_default:
         return _extract_suna_agent_config(agent_data, version_data)
+    
+    # Handle Omni agents with special logic  
+    if is_omni_default:
+        return _extract_omni_agent_config(agent_data, version_data)
     
     # Handle custom agents with versioning
     return _extract_custom_agent_config(agent_data, version_data)
@@ -90,6 +95,61 @@ def _extract_suna_agent_config(agent_data: Dict[str, Any], version_data: Optiona
         'avatar_color': SUNA_CONFIG['avatar_color'],
         'is_default': True,
         'is_suna_default': True,
+        'centrally_managed': True,
+        'account_id': agent_data.get('account_id'),
+        'current_version_id': agent_data.get('current_version_id'),
+        'version_name': version_data.get('version_name', 'v1') if version_data else 'v1',
+        'profile_image_url': agent_data.get('profile_image_url'),
+        'restrictions': {
+            'system_prompt_editable': False,
+            'tools_editable': False,
+            'name_editable': False,
+            'description_editable': False,
+            'mcps_editable': True
+        }
+    }
+    
+    if version_data:
+        if version_data.get('config'):
+            version_config = version_data['config']
+            tools = version_config.get('tools', {})
+            config['configured_mcps'] = tools.get('mcp', [])
+            config['custom_mcps'] = tools.get('custom_mcp', [])
+            config['workflows'] = version_config.get('workflows', [])
+            config['triggers'] = version_config.get('triggers', [])
+        else:
+            config['configured_mcps'] = version_data.get('configured_mcps', [])
+            config['custom_mcps'] = version_data.get('custom_mcps', [])
+            config['workflows'] = []
+            config['triggers'] = []
+    else:
+        config['configured_mcps'] = agent_data.get('configured_mcps', [])
+        config['custom_mcps'] = agent_data.get('custom_mcps', [])
+        config['workflows'] = []
+        config['triggers'] = []
+    
+    return config
+
+
+def _extract_omni_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Extract config for Omni agents - always use central config with user customizations."""
+    from agent.omni_config import OMNI_CONFIG
+    
+    agent_id = agent_data.get('agent_id', 'Unknown')
+    logger.debug(f"Using Omni central config for agent {agent_id}")
+    
+    # Start with central Omni config
+    config = {
+        'agent_id': agent_data['agent_id'],
+        'name': OMNI_CONFIG['name'],
+        'description': OMNI_CONFIG['description'],
+        'system_prompt': OMNI_CONFIG['system_prompt'],
+        'model': OMNI_CONFIG['model'],
+        'agentpress_tools': _extract_agentpress_tools_for_run(OMNI_CONFIG['agentpress_tools']),
+        'avatar': OMNI_CONFIG['avatar'],
+        'avatar_color': OMNI_CONFIG['avatar_color'],
+        'is_default': True,
+        'is_omni_default': True,
         'centrally_managed': True,
         'account_id': agent_data.get('account_id'),
         'current_version_id': agent_data.get('current_version_id'),
@@ -174,6 +234,7 @@ def _extract_custom_agent_config(agent_data: Dict[str, Any], version_data: Optio
             'icon_background': agent_data.get('icon_background'),
             'is_default': agent_data.get('is_default', False),
             'is_suna_default': False,
+            'is_omni_default': False,
             'centrally_managed': False,
             'account_id': agent_data.get('account_id'),
             'current_version_id': agent_data.get('current_version_id'),
@@ -208,6 +269,7 @@ def _extract_custom_agent_config(agent_data: Dict[str, Any], version_data: Optio
         'icon_background': agent_data.get('icon_background'),
         'is_default': agent_data.get('is_default', False),
         'is_suna_default': False,
+        'is_omni_default': False,
         'centrally_managed': False,
         'account_id': agent_data.get('account_id'),
         'current_version_id': agent_data.get('current_version_id'),
@@ -345,7 +407,8 @@ def get_mcp_configs(config: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def is_suna_default_agent(config: Dict[str, Any]) -> bool:
-    return config.get('is_suna_default', False)
+    """Check if agent is a default agent (Suna or Omni) - backward compatibility."""
+    return config.get('is_suna_default', False) or config.get('is_omni_default', False)
 
 
 def get_agent_restrictions(config: Dict[str, Any]) -> Dict[str, bool]:
@@ -361,8 +424,13 @@ def can_edit_field(config: Dict[str, Any], field_name: str) -> bool:
 
 
 def get_default_system_prompt_for_suna_agent() -> str:
-    from agent.suna.config import SunaConfig
-    return SunaConfig.get_system_prompt()
+    from agent.suna_config import SUNA_CONFIG
+    return SUNA_CONFIG['system_prompt']
+
+
+def get_default_system_prompt_for_omni_agent() -> str:
+    from agent.omni_config import OMNI_CONFIG
+    return OMNI_CONFIG['system_prompt']
 
 
 async def get_agent_llamacloud_knowledge_bases(agent_id: str) -> List[Dict[str, Any]]:

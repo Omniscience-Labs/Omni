@@ -10,7 +10,7 @@ import React, {
 import { createClient } from '@/lib/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { checkAndInstallOmniAgent } from '@/lib/utils/install-suna-agent';
+import { checkAndInstallOmniAgent } from '@/lib/utils/install-omni-agent';
 import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
 
 type AuthContextType = {
