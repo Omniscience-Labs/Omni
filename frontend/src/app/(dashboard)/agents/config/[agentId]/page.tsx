@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
+import { useUpdateAgentMCPs } from '@/hooks/react-query/agents/use-update-agent-mcps';
 import { useCreateAgentVersion, useActivateAgentVersion } from '@/hooks/react-query/agents/use-agent-versions';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -23,7 +24,6 @@ import { useAgentConfigTour } from '@/hooks/use-agent-config-tour';
 import Joyride, { CallBackProps, STATUS, Step } from 'react-joyride';
 import { TourConfirmationDialog } from '@/components/tour/TourConfirmationDialog';
 
-// Tour steps for agent configuration
 const agentConfigTourSteps: Step[] = [
   {
     target: '[data-tour="agent-header"]',
@@ -90,7 +90,6 @@ const agentConfigTourSteps: Step[] = [
   },
 ];
 
-// Form data interface
 interface FormData {
   name: string;
   description: string;
@@ -119,6 +118,7 @@ function AgentConfigurationContent() {
   const { setHasUnsavedChanges } = useAgentVersionStore();
   
   const updateAgentMutation = useUpdateAgent();
+  const updateAgentMCPsMutation = useUpdateAgentMCPs();
   const createVersionMutation = useCreateAgentVersion();
   const activateVersionMutation = useActivateAgentVersion();
   const exportMutation = useExportAgent();
@@ -199,12 +199,41 @@ function AgentConfigurationContent() {
   }, []);
 
   const handleMCPChange = useCallback((updates: { configured_mcps: any[]; custom_mcps: any[] }) => {
+    const previousConfiguredMcps = formData.configured_mcps;
+    const previousCustomMcps = formData.custom_mcps;
+
     setFormData(prev => ({
       ...prev,
-      configured_mcps: updates.configured_mcps,
-      custom_mcps: updates.custom_mcps
+      configured_mcps: updates.configured_mcps || [],
+      custom_mcps: updates.custom_mcps || []
     }));
-  }, []);
+
+    updateAgentMCPsMutation.mutate({
+      agentId,
+      configured_mcps: updates.configured_mcps || [],
+      custom_mcps: updates.custom_mcps || [],
+      replace_mcps: true
+    }, {
+      onSuccess: (updatedAgent) => {
+        setOriginalData(prev => ({
+          ...prev,
+          configured_mcps: updates.configured_mcps || [],
+          custom_mcps: updates.custom_mcps || []
+        }));
+        
+        toast.success('MCP configuration updated');
+      },
+      onError: (error) => {
+        setFormData(prev => ({
+          ...prev,
+          configured_mcps: previousConfiguredMcps,
+          custom_mcps: previousCustomMcps
+        }));
+        toast.error('Failed to update MCP configuration');
+        console.error('MCP update error:', error);
+      }
+    });
+  }, [agentId, updateAgentMCPsMutation, formData.configured_mcps, formData.custom_mcps]);
 
   const handleExport = useCallback(() => {
     exportMutation.mutate(agentId);
