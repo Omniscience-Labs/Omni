@@ -320,7 +320,7 @@ function PricingTier({
   };
 
   const getSelectedPlanPriceId = (
-    tier: (typeof siteConfig.cloudPricingItems)[0],
+    tier: PricingTier,
   ): string => {
     if (tier.name === 'Custom' && tier.upgradePlans) {
       const selectedPlan = tier.upgradePlans.find(
