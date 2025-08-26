@@ -643,7 +643,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                               <h4 className="font-medium text-foreground">Connect to {app.name}</h4>
                               <p className="text-xs text-muted-foreground">Choose an existing profile or create a new connection</p>
                             </div>
-                            <Button variant="outline" size="sm" onClick={() => setShowToolsManager(!showToolsManager)} type="button">
+                            <Button variant="outline" size="sm" onClick={() => setShowToolsManager(!showToolsManager)}>
                               {showToolsManager ? 'Hide' : 'View'} Tools
                             </Button>
                           </div>
@@ -810,7 +810,6 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                             variant="outline"
                             onClick={() => onOpenChange(false)}
                             className="px-6"
-                            type="button"
                           >
                             Cancel
                           </Button>
@@ -824,7 +823,6 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                             }}
                             disabled={!selectedConnectionType || (selectedConnectionType === 'existing' && !selectedProfileId)}
                             className="px-8 min-w-[120px]"
-                            type="button"
                           >
                             {selectedConnectionType === 'new' ? (
                               <>
@@ -921,7 +919,6 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                         onClick={handleBack}
                         disabled={isCreating}
                         className="flex-1"
-                        type="button"
                       >
                         <ArrowLeft className="h-4 w-4" />
                         Back
@@ -930,7 +927,6 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                         onClick={handleCreateProfile}
                         disabled={isCreating || isLoadingToolkitDetails || !profileName.trim()}
                         className="flex-1"
-                        type="button"
                       >
                         {isCreating ? (
                           <>
@@ -987,7 +983,6 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                     <Button
                       onClick={handleAuthComplete}
                       className="w-full"
-                      type="button"
                     >
                       I've Completed Authentication
                       <ChevronRight className="h-4 w-4" />
@@ -1083,7 +1078,6 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                         <Button
                           variant="outline"
                           onClick={handleBack}
-                          type="button"
                         >
                           <ArrowLeft className="h-4 w-4" />
                           Back
@@ -1091,7 +1085,6 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                         <Button
                           onClick={handleSaveTools}
                           className="min-w-[80px]"
-                          type="button"
                         >
                           <Save className="h-4 w-4" />
                           Save Tools
