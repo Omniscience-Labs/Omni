@@ -60,7 +60,7 @@ export function AskToolView({
 
   const isPreviewableFile = (filePath: string): boolean => {
     const ext = filePath.split('.').pop()?.toLowerCase() || '';
-    return ext === 'html' || ext === 'htm' || ext === 'md' || ext === 'markdown' || ext === 'csv' || ext === 'tsv' || ext === 'pdf';
+    return ext === 'html' || ext === 'htm' || ext === 'md' || ext === 'markdown' || ext === 'csv' || ext === 'tsv' || ext === 'pdf' || ext === 'xlsx' || ext === 'xls';
   };
 
   const toolTitle = getToolTitle(name) || 'Ask User';
