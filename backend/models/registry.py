@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional, Set
 from .models import Model, ModelProvider, ModelCapability, ModelPricing
 
-DEFAULT_FREE_MODEL = "Claude Sonnet 4"
+DEFAULT_FREE_MODEL = "GPT-5"
 DEFAULT_PREMIUM_MODEL = "Claude Sonnet 4"
 
 class ModelRegistry:
@@ -33,45 +33,45 @@ class ModelRegistry:
             enabled=True
         ))
         
-        self.register(Model(
-            id="anthropic/claude-3-7-sonnet-latest",
-            name="Claude 3.7 Sonnet",
-            provider=ModelProvider.ANTHROPIC,
-            aliases=["sonnet-3.7", "claude-3.7", "Claude 3.7 Sonnet", "claude-3-7-sonnet-latest"],
-            context_window=200_000,
-            capabilities=[
-                ModelCapability.CHAT,
-                ModelCapability.FUNCTION_CALLING,
-                ModelCapability.VISION,
-            ],
-            pricing=ModelPricing(
-                input_cost_per_million_tokens=3.00,
-                output_cost_per_million_tokens=15.00
-            ),
-            tier_availability=["paid"],
-            priority=93,
-            enabled=True
-        ))
+        # self.register(Model(
+        #     id="anthropic/claude-3-7-sonnet-latest",
+        #     name="Claude 3.7 Sonnet",
+        #     provider=ModelProvider.ANTHROPIC,
+        #     aliases=["sonnet-3.7", "claude-3.7", "Claude 3.7 Sonnet", "claude-3-7-sonnet-latest"],
+        #     context_window=200_000,
+        #     capabilities=[
+        #         ModelCapability.CHAT,
+        #         ModelCapability.FUNCTION_CALLING,
+        #         ModelCapability.VISION,
+        #     ],
+        #     pricing=ModelPricing(
+        #         input_cost_per_million_tokens=3.00,
+        #         output_cost_per_million_tokens=15.00
+        #     ),
+        #     tier_availability=["paid"],
+        #     priority=93,
+        #     enabled=True
+        # ))
         
-        self.register(Model(
-            id="anthropic/claude-3-5-sonnet-latest",
-            name="Claude 3.5 Sonnet",
-            provider=ModelProvider.ANTHROPIC,
-            aliases=["sonnet-3.5", "claude-3.5", "Claude 3.5 Sonnet", "claude-3-5-sonnet-latest"],
-            context_window=200_000,
-            capabilities=[
-                ModelCapability.CHAT,
-                ModelCapability.FUNCTION_CALLING,
-                ModelCapability.VISION,
-            ],
-            pricing=ModelPricing(
-                input_cost_per_million_tokens=3.00,
-                output_cost_per_million_tokens=15.00
-            ),
-            tier_availability=["paid"],
-            priority=90,
-            enabled=True
-        ))
+        # self.register(Model(
+        #     id="anthropic/claude-3-5-sonnet-latest",
+        #     name="Claude 3.5 Sonnet",
+        #     provider=ModelProvider.ANTHROPIC,
+        #     aliases=["sonnet-3.5", "claude-3.5", "Claude 3.5 Sonnet", "claude-3-5-sonnet-latest"],
+        #     context_window=200_000,
+        #     capabilities=[
+        #         ModelCapability.CHAT,
+        #         ModelCapability.FUNCTION_CALLING,
+        #         ModelCapability.VISION,
+        #     ],
+        #     pricing=ModelPricing(
+        #         input_cost_per_million_tokens=3.00,
+        #         output_cost_per_million_tokens=15.00
+        #     ),
+        #     tier_availability=["paid"],
+        #     priority=90,
+        #     enabled=True
+        # ))
         
         self.register(Model(
             id="openai/gpt-5",
@@ -94,84 +94,84 @@ class ModelRegistry:
             enabled=True
         ))
         
-        self.register(Model(
-            id="openai/gpt-5-mini",
-            name="GPT-5 Mini",
-            provider=ModelProvider.OPENAI,
-            aliases=["gpt-5-mini", "GPT-5 Mini"],
-            context_window=400_000,
-            capabilities=[
-                ModelCapability.CHAT,
-                ModelCapability.FUNCTION_CALLING,
-                ModelCapability.STRUCTURED_OUTPUT,
-            ],
-            pricing=ModelPricing(
-                input_cost_per_million_tokens=0.25,
-                output_cost_per_million_tokens=2.00
-            ),
-            tier_availability=["free", "paid"],
-            priority=85,
-            enabled=True
-        ))
+        # self.register(Model(
+        #     id="openai/gpt-5-mini",
+        #     name="GPT-5 Mini",
+        #     provider=ModelProvider.OPENAI,
+        #     aliases=["gpt-5-mini", "GPT-5 Mini"],
+        #     context_window=400_000,
+        #     capabilities=[
+        #         ModelCapability.CHAT,
+        #         ModelCapability.FUNCTION_CALLING,
+        #         ModelCapability.STRUCTURED_OUTPUT,
+        #     ],
+        #     pricing=ModelPricing(
+        #         input_cost_per_million_tokens=0.25,
+        #         output_cost_per_million_tokens=2.00
+        #     ),
+        #     tier_availability=["free", "paid"],
+        #     priority=85,
+        #     enabled=True
+        # ))
         
-        self.register(Model(
-            id="gemini/gemini-2.5-pro",
-            name="Gemini 2.5 Pro",
-            provider=ModelProvider.GEMINI,
-            aliases=["google/gemini-2.5-pro", "gemini-2.5-pro", "Gemini 2.5 Pro"],
-            context_window=2_000_000,
-            capabilities=[
-                ModelCapability.CHAT,
-                ModelCapability.FUNCTION_CALLING,
-                ModelCapability.VISION,
-                ModelCapability.STRUCTURED_OUTPUT,
-            ],
-            pricing=ModelPricing(
-                input_cost_per_million_tokens=1.25,
-                output_cost_per_million_tokens=10.00
-            ),
-            tier_availability=["paid"],
-            priority=96,
-            enabled=True
-        ))
+        # self.register(Model(
+        #     id="gemini/gemini-2.5-pro",
+        #     name="Gemini 2.5 Pro",
+        #     provider=ModelProvider.GOOGLE,
+        #     aliases=["google/gemini-2.5-pro", "gemini-2.5-pro", "Gemini 2.5 Pro"],
+        #     context_window=2_000_000,
+        #     capabilities=[
+        #         ModelCapability.CHAT,
+        #         ModelCapability.FUNCTION_CALLING,
+        #         ModelCapability.VISION,
+        #         ModelCapability.STRUCTURED_OUTPUT,
+        #     ],
+        #     pricing=ModelPricing(
+        #         input_cost_per_million_tokens=1.25,
+        #         output_cost_per_million_tokens=10.00
+        #     ),
+        #     tier_availability=["paid"],
+        #     priority=96,
+        #     enabled=True
+        # ))
         
-        self.register(Model(
-            id="xai/grok-4",
-            name="Grok 4",
-            provider=ModelProvider.XAI,
-            aliases=["grok-4", "x-ai/grok-4", "openrouter/x-ai/grok-4", "Grok 4"],
-            context_window=128_000,
-            capabilities=[
-                ModelCapability.CHAT,
-                ModelCapability.FUNCTION_CALLING,
-            ],
-            pricing=ModelPricing(
-                input_cost_per_million_tokens=5.00,
-                output_cost_per_million_tokens=15.00
-            ),
-            tier_availability=["paid"],
-            priority=94,
-            enabled=True
-        ))
+        # self.register(Model(
+        #     id="xai/grok-4",
+        #     name="Grok 4",
+        #     provider=ModelProvider.XAI,
+        #     aliases=["grok-4", "x-ai/grok-4", "openrouter/x-ai/grok-4", "Grok 4"],
+        #     context_window=128_000,
+        #     capabilities=[
+        #         ModelCapability.CHAT,
+        #         ModelCapability.FUNCTION_CALLING,
+        #     ],
+        #     pricing=ModelPricing(
+        #         input_cost_per_million_tokens=5.00,
+        #         output_cost_per_million_tokens=15.00
+        #     ),
+        #     tier_availability=["paid"],
+        #     priority=94,
+        #     enabled=True
+        # ))
         
-        self.register(Model(
-            id="openrouter/moonshotai/kimi-k2",
-            name="Kimi K2",
-            provider=ModelProvider.MOONSHOTAI,
-            aliases=["moonshotai/kimi-k2", "kimi-k2", "Kimi K2"],
-            context_window=200_000,
-            capabilities=[
-                ModelCapability.CHAT,
-                ModelCapability.FUNCTION_CALLING,
-            ],
-            pricing=ModelPricing(
-                input_cost_per_million_tokens=1.00,
-                output_cost_per_million_tokens=3.00
-            ),
-            tier_availability=["free", "paid"],
-            priority=100,
-            enabled=True
-        ))
+        # self.register(Model(
+        #     id="openrouter/moonshotai/kimi-k2",
+        #     name="Kimi K2",
+        #     provider=ModelProvider.MOONSHOTAI,
+        #     aliases=["moonshotai/kimi-k2", "kimi-k2", "Kimi K2"],
+        #     context_window=200_000,
+        #     capabilities=[
+        #         ModelCapability.CHAT,
+        #         ModelCapability.FUNCTION_CALLING,
+        #     ],
+        #     pricing=ModelPricing(
+        #         input_cost_per_million_tokens=1.00,
+        #         output_cost_per_million_tokens=3.00
+        #     ),
+        #     tier_availability=["free", "paid"],
+        #     priority=100,
+        #     enabled=True
+        # ))
 
         """
         # DeepSeek Models
