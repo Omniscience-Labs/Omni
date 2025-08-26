@@ -20,8 +20,15 @@ class OmniDefaultAgentService:
         logger.info("🔄 Syncing all Omni agents")
         
         try:
-            # Get all Omni default agents using the database function
-            query = "SELECT * FROM get_all_omni_default_agents();"
+            # Get all Omni default agents (direct query to avoid broken function)
+            query = """
+            SELECT agent_id, account_id, name, description, created_at, updated_at, 
+                   current_version_id, is_default, metadata, config, 
+                   COALESCE(version_count, 1) as version_count
+            FROM agents 
+            WHERE COALESCE((metadata->>'is_omni_default')::boolean, false) = true
+            ORDER BY created_at DESC
+            """
             result = await self._db.execute_query(query)
             
             if not result:
@@ -162,7 +169,9 @@ class OmniDefaultAgentService:
         logger.info(f"🔄 Installing Omni agent for user: {account_id}")
         
         try:
+            logger.debug(f"🔍 Starting installation process for user {account_id}, replace_existing={replace_existing}")
             if replace_existing:
+                logger.debug(f"🗑️ Deleting existing Omni agent for replacement")
                 # Delete existing Omni agent if it exists
                 delete_query = """
                 DELETE FROM agents 
@@ -170,23 +179,31 @@ class OmniDefaultAgentService:
                 AND COALESCE((metadata->>'is_omni_default')::boolean, false) = true
                 """
                 await self._db.execute_query(delete_query, [account_id])
-                logger.info(f"Deleted existing Omni agent for replacement")
+                logger.info(f"✅ Deleted existing Omni agent for replacement")
             else:
-                # Check if user already has an Omni agent
+                logger.debug(f"🔍 Checking if user already has an Omni agent")
+                # Check if user already has an Omni agent (direct query to avoid broken function)
                 check_query = """
                 SELECT agent_id 
-                FROM find_omni_default_agent_for_account($1)
+                FROM agents 
+                WHERE account_id = $1 
+                AND COALESCE((metadata->>'is_omni_default')::boolean, false) = true
+                LIMIT 1
                 """
                 existing = await self._db.execute_query(check_query, [account_id])
                 if existing:
-                    logger.info(f"User {account_id} already has an Omni agent")
+                    logger.info(f"✅ User {account_id} already has an Omni agent: {existing[0]['agent_id']}")
                     return str(existing[0]['agent_id'])
+                logger.debug(f"👤 User does not have an existing Omni agent, proceeding with installation")
             
             # Get the Omni configuration
+            logger.debug(f"📋 Getting Omni default config")
             config = await self.get_omni_default_config()
+            logger.debug(f"✅ Config retrieved: {list(config.keys())}")
             
             # Generate new agent ID
             agent_id = str(uuid.uuid4())
+            logger.debug(f"🆔 Generated agent ID: {agent_id}")
             
             # Create the agent (updated for new schema)
             insert_query = """
@@ -212,15 +229,21 @@ class OmniDefaultAgentService:
                 "management_version": "1.0.0"
             }
             
-            await self._db.execute_query(insert_query, [
-                agent_id,
-                account_id,
-                config["name"],
-                config["description"],
-                config.get("is_default", True),
-                config,
-                metadata
-            ])
+            logger.debug(f"🏗️ Creating agent in database")
+            try:
+                await self._db.execute_query(insert_query, [
+                    agent_id,
+                    account_id,
+                    config["name"],
+                    config["description"],
+                    config.get("is_default", True),
+                    config,
+                    metadata
+                ])
+                logger.debug(f"✅ Agent created successfully")
+            except Exception as e:
+                logger.error(f"❌ Failed to create agent: {e}")
+                raise
             
             # Create initial agent version (updated for new schema)
             version_id = str(uuid.uuid4())
@@ -234,12 +257,18 @@ class OmniDefaultAgentService:
             ) VALUES ($1, $2, $3, $4, NOW())
             """
             
-            await self._db.execute_query(version_query, [
-                version_id,
-                agent_id,
-                account_id,
-                config
-            ])
+            logger.debug(f"📝 Creating agent version")
+            try:
+                await self._db.execute_query(version_query, [
+                    version_id,
+                    agent_id,
+                    account_id,
+                    config
+                ])
+                logger.debug(f"✅ Version created successfully")
+            except Exception as e:
+                logger.error(f"❌ Failed to create version: {e}")
+                raise
             
             # Update agent with current version
             update_version_query = """
@@ -247,7 +276,13 @@ class OmniDefaultAgentService:
             SET current_version_id = $1, version_count = 1
             WHERE agent_id = $2
             """
-            await self._db.execute_query(update_version_query, [version_id, agent_id])
+            logger.debug(f"🔄 Updating agent with version reference")
+            try:
+                await self._db.execute_query(update_version_query, [version_id, agent_id])
+                logger.debug(f"✅ Agent updated with version successfully")
+            except Exception as e:
+                logger.error(f"❌ Failed to update agent with version: {e}")
+                raise
             
             logger.info(f"✅ Successfully installed Omni agent {agent_id} for user: {account_id}")
             return agent_id
