@@ -1,15 +1,16 @@
-import React, { useState, useRef, KeyboardEvent } from 'react';
-import { Sparkles, Settings, Download, Image as ImageIcon } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+'use client';
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Download } from 'lucide-react';
+import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { ProfilePictureDialog } from './profile-picture-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { AgentIconAvatar } from './agent-icon-avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { OmniLogo } from '@/components/sidebar/omni-logo';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { ProfilePictureDialog } from './profile-picture-dialog';
 import { AgentVersionSwitcher } from '../agent-version-switcher';
 import { UpcomingRunsDropdown } from '../upcoming-runs-dropdown';
 
@@ -19,6 +20,9 @@ interface AgentHeaderProps {
     name: string;
     description?: string;
     profile_image_url?: string;
+    icon_name?: string | null;
+    icon_color?: string | null;
+    icon_background?: string | null;
   };
   isViewingOldVersion: boolean;
   onFieldChange: (field: string, value: any) => void;
@@ -32,7 +36,6 @@ interface AgentHeaderProps {
       name_editable?: boolean;
     };
   };
-  // Version control props
   currentVersionId?: string;
   currentFormData?: {
     system_prompt: string;
@@ -44,6 +47,7 @@ interface AgentHeaderProps {
   onVersionCreated?: () => void;
   onNameSave?: (name: string) => Promise<void>;
   onProfileImageSave?: (profileImageUrl: string | null) => Promise<void>;
+  onIconSave?: (iconName: string | null, iconColor: string, iconBackground: string) => Promise<void>;
 }
 
 export function AgentHeader({
@@ -60,6 +64,7 @@ export function AgentHeader({
   onVersionCreated,
   onNameSave,
   onProfileImageSave,
+  onIconSave,
 }: AgentHeaderProps) {
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -100,7 +105,6 @@ export function AgentHeader({
         return;
       }
       
-      // Use dedicated save handler if available, otherwise fallback to generic onFieldChange
       if (onNameSave) {
         await onNameSave(editName);
       } else {
@@ -111,7 +115,7 @@ export function AgentHeader({
     setIsEditing(false);
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       saveNewName();
     } else if (e.key === 'Escape') {
@@ -120,18 +124,30 @@ export function AgentHeader({
   };
 
   const handleImageUpdate = (url: string | null) => {
-    // Use dedicated save handler if available, otherwise fallback to generic onFieldChange
     if (onProfileImageSave) {
       onProfileImageSave(url);
     } else {
       onFieldChange('profile_image_url', url);
     }
   };
+  
+  const handleIconUpdate = async (iconName: string | null, iconColor: string, backgroundColor: string) => {
+    if (onIconSave) {
+      await onIconSave(iconName, iconColor, backgroundColor);
+    } else {
+      onFieldChange('icon_name', iconName);
+      onFieldChange('icon_color', iconColor);
+      onFieldChange('icon_background', backgroundColor);
+    }
+    
+    if (iconName && displayData.profile_image_url) {
+      handleImageUpdate(null);
+    }
+  };
 
   return (
     <>
     <header className="bg-background sticky top-0 flex h-14 shrink-0 items-center gap-3 z-20 w-full px-8 mb-2">
-      {/* Left side - Agent info */}
       <div className="flex items-center gap-3 min-w-0">
         <div className="relative flex-shrink-0">
           {isSunaAgent ? (
@@ -144,19 +160,15 @@ export function AgentHeader({
               onClick={() => setIsProfileDialogOpen(true)}
               type="button"
             >
-              <Avatar className="h-9 w-9 rounded-lg ring-1 ring-black/5 hover:ring-black/10 transition-colors">
-                {displayData.profile_image_url ? (
-                  <AvatarImage 
-                    src={displayData.profile_image_url} 
-                    alt={displayData.name}
-                    className="object-cover rounded-lg"
-                  />
-                ) : (
-                  <AvatarFallback className="rounded-lg text-xs hover:bg-muted">
-                    <ImageIcon className="h-4 w-4" />
-                  </AvatarFallback>
-                )}
-              </Avatar>
+              <AgentIconAvatar
+                profileImageUrl={displayData.profile_image_url}
+                iconName={displayData.icon_name}
+                iconColor={displayData.icon_color}
+                backgroundColor={displayData.icon_background}
+                agentName={displayData.name}
+                size={36}
+                className="ring-1 ring-black/5 hover:ring-black/10 transition-all"
+              />
             </button>
           )}
         </div>
@@ -189,10 +201,7 @@ export function AgentHeader({
       </div>
 
       <div className="flex flex-1 items-center gap-2">
-        {/* Spacer to push content to the right */}
       </div>
-
-      {/* Right side - Version controls, tabs and actions aligned together */}
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1">
           {!isSunaAgent && currentFormData && (
@@ -230,8 +239,12 @@ export function AgentHeader({
       isOpen={isProfileDialogOpen}
       onClose={() => setIsProfileDialogOpen(false)}
       currentImageUrl={displayData.profile_image_url}
+      currentIconName={displayData.icon_name}
+      currentIconColor={displayData.icon_color}
+      currentBackgroundColor={displayData.icon_background}
       agentName={displayData.name}
       onImageUpdate={handleImageUpdate}
+      onIconUpdate={handleIconUpdate}
     />
     </>
   );

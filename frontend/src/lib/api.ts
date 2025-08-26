@@ -1587,6 +1587,7 @@ export interface SubscriptionStatus {
     id: string;
     status: string;
     cancel_at_period_end: boolean;
+    cancel_at?: number; // timestamp for yearly commitment cancellations
     current_period_end: number; // timestamp
   };
   // Credit information

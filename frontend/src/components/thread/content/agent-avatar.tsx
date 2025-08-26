@@ -38,6 +38,25 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({
     return <OmniLogo size={size} />;
   }
 
+  if (agent?.icon_name) {
+    return (
+      <div 
+        className={`flex items-center justify-center rounded ${className}`}
+        style={{ 
+          width: size, 
+          height: size,
+          backgroundColor: agent.icon_background || '#F3F4F6'
+        }}
+      >
+        <DynamicIcon 
+          name={agent.icon_name as any} 
+          size={size * 0.6} 
+          color={agent.icon_color || '#000000'}
+        />
+      </div>
+    );
+  }
+
   if (agent?.profile_image_url) {
     return (
       <img 

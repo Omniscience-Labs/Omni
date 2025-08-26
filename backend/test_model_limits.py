@@ -7,16 +7,17 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from utils.constants import get_model_context_window, MODEL_CONTEXT_WINDOWS
+from models import model_manager
 
 def test_model_limits():
     """Test the model context window limits."""
     
     print("=== All Model Context Windows ===")
-    for model, window in sorted(MODEL_CONTEXT_WINDOWS.items()):
-        print(f'{model}: {window:,} tokens')
+    all_models = model_manager.get_all_models()
+    for model in sorted(all_models, key=lambda m: m.id):
+        print(f'{model.id}: {model.context_window:,} tokens')
 
-    print("\n=== Testing get_model_context_window function ===")
+    print("\n=== Testing get_context_window function ===")
     test_models = [
         'gpt-5', 
         'sonnet-3.5', 
@@ -29,12 +30,12 @@ def test_model_limits():
     ]
     
     for model in test_models:
-        window = get_model_context_window(model)
+        window = model_manager.get_context_window(model)
         print(f'{model}: {window:,} tokens')
 
     print("\n=== Context Manager Logic Simulation ===")
     for model in ['gpt-5', 'anthropic/claude-sonnet-4', 'gemini/gemini-2.5-pro', 'unknown-model']:
-        context_window = get_model_context_window(model)
+        context_window = model_manager.get_context_window(model)
         
         # Simulate the logic from context manager
         if context_window >= 1_000_000:  # Very large context models (Gemini)

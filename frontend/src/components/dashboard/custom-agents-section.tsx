@@ -43,7 +43,6 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
   const [installingItemId, setInstallingItemId] = React.useState<string | null>(null);
 
   const handleCardClick = (template: any) => {
-    // Map the template to MarketplaceTemplate format
     const marketplaceTemplate: MarketplaceTemplate = {
       id: template.template_id,
       template_id: template.template_id,
@@ -58,6 +57,9 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
       profile_image_url: template.profile_image_url,
       avatar: template.avatar,
       avatar_color: template.avatar_color,
+      icon_name: template.icon_name,
+      icon_color: template.icon_color,
+      icon_background: template.icon_background,
       mcp_requirements: template.mcp_requirements || [],
       agentpress_tools: template.agentpress_tools || {},
       model: template.metadata?.model,
@@ -68,7 +70,6 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
     setIsPreviewOpen(true);
   };
 
-  // Handle clicking Install from the preview dialog - opens the streamlined install dialog
   const handlePreviewInstall = (agent: MarketplaceTemplate) => {
     setIsPreviewOpen(false);
     setSelectedTemplate(agent);

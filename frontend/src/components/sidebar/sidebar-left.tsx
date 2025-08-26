@@ -189,7 +189,7 @@ export function SidebarLeft({
           {!flagsLoading && customAgentsEnabled && (
             <SidebarMenu>
               <Collapsible
-                defaultOpen={pathname?.includes('/agents')}
+                defaultOpen={true}
                 className="group/collapsible"
               >
                 <SidebarMenuItem>
@@ -218,7 +218,7 @@ export function SidebarLeft({
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
+                      <SidebarMenuSubItem data-tour="my-agents">
                         <SidebarMenuSubButton className={cn('pl-3 touch-manipulation', {
                           'bg-accent text-accent-foreground font-medium': pathname === '/agents' && (searchParams.get('tab') === 'my-agents' || searchParams.get('tab') === null),
                         })} asChild>
@@ -227,7 +227,7 @@ export function SidebarLeft({
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
+                      <SidebarMenuSubItem data-tour="new-agent">
                         <SidebarMenuSubButton 
                           onClick={() => {
                             setShowNewAgentDialog(true);

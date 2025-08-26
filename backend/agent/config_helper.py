@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional, List
 from utils.logger import logger
 from services.supabase import DBConnection
+import os
 
 
 async def get_agent_llamacloud_knowledge_bases(agent_id: str) -> List[Dict[str, Any]]:
@@ -57,6 +58,11 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
     metadata = agent_data.get('metadata', {})
     is_suna_default = metadata.get('is_suna_default', False)
     
+    # Debug logging
+    if os.getenv("ENV_MODE", "").upper() == "STAGING":
+        print(f"[DEBUG] extract_agent_config: Called for agent {agent_id}, is_suna_default={is_suna_default}")
+        print(f"[DEBUG] extract_agent_config: Input agent_data has icon_name={agent_data.get('icon_name')}, icon_color={agent_data.get('icon_color')}, icon_background={agent_data.get('icon_background')}")
+    
     # Handle Suna agents with special logic
     if is_suna_default:
         return _extract_suna_agent_config(agent_data, version_data)
@@ -98,9 +104,7 @@ def _extract_suna_agent_config(agent_data: Dict[str, Any], version_data: Optiona
         }
     }
     
-    # Add user customizations from version or agent data
     if version_data:
-        # Get customizations from version data
         if version_data.get('config'):
             version_config = version_data['config']
             tools = version_config.get('tools', {})
@@ -109,13 +113,11 @@ def _extract_suna_agent_config(agent_data: Dict[str, Any], version_data: Optiona
             config['workflows'] = version_config.get('workflows', [])
             config['triggers'] = version_config.get('triggers', [])
         else:
-            # Legacy version format
             config['configured_mcps'] = version_data.get('configured_mcps', [])
             config['custom_mcps'] = version_data.get('custom_mcps', [])
             config['workflows'] = []
             config['triggers'] = []
     else:
-        # Fallback to agent data or empty
         config['configured_mcps'] = agent_data.get('configured_mcps', [])
         config['custom_mcps'] = agent_data.get('custom_mcps', [])
         config['workflows'] = []
@@ -125,13 +127,15 @@ def _extract_suna_agent_config(agent_data: Dict[str, Any], version_data: Optiona
 
 
 def _extract_custom_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Extract config for custom agents using versioning system."""
     agent_id = agent_data.get('agent_id', 'Unknown')
+    
+    # Debug logging for icon fields
+    if os.getenv("ENV_MODE", "").upper() == "STAGING":
+        print(f"[DEBUG] _extract_custom_agent_config: Input agent_data has icon_name={agent_data.get('icon_name')}, icon_color={agent_data.get('icon_color')}, icon_background={agent_data.get('icon_background')}")
     
     if version_data:
         logger.debug(f"Using version data for custom agent {agent_id} (version: {version_data.get('version_name', 'unknown')})")
         
-        # Extract from version data
         if version_data.get('config'):
             config = version_data['config'].copy()
             system_prompt = config.get('system_prompt', '')
@@ -143,7 +147,6 @@ def _extract_custom_agent_config(agent_data: Dict[str, Any], version_data: Optio
             workflows = config.get('workflows', [])
             triggers = config.get('triggers', [])
         else:
-            # Legacy version format
             system_prompt = version_data.get('system_prompt', '')
             model = version_data.get('model')
             configured_mcps = version_data.get('configured_mcps', [])
@@ -152,7 +155,7 @@ def _extract_custom_agent_config(agent_data: Dict[str, Any], version_data: Optio
             workflows = []
             triggers = []
         
-        return {
+        config = {
             'agent_id': agent_data['agent_id'],
             'name': agent_data['name'],
             'description': agent_data.get('description'),
@@ -166,6 +169,9 @@ def _extract_custom_agent_config(agent_data: Dict[str, Any], version_data: Optio
             'avatar': agent_data.get('avatar'),
             'avatar_color': agent_data.get('avatar_color'),
             'profile_image_url': agent_data.get('profile_image_url'),
+            'icon_name': agent_data.get('icon_name'),
+            'icon_color': agent_data.get('icon_color'),
+            'icon_background': agent_data.get('icon_background'),
             'is_default': agent_data.get('is_default', False),
             'is_suna_default': False,
             'centrally_managed': False,
@@ -174,11 +180,16 @@ def _extract_custom_agent_config(agent_data: Dict[str, Any], version_data: Optio
             'version_name': version_data.get('version_name', 'v1'),
             'restrictions': {}
         }
+        
+        # Debug logging for returned config
+        if os.getenv("ENV_MODE", "").upper() == "STAGING":
+            print(f"[DEBUG] _extract_custom_agent_config: Returning config with icon_name={config.get('icon_name')}, icon_color={config.get('icon_color')}, icon_background={config.get('icon_background')}")
+        
+        return config
     
-    # Fallback: create default config for custom agents without version data
     logger.warning(f"No version data found for custom agent {agent_id}, creating default configuration")
     
-    return {
+    fallback_config = {
         'agent_id': agent_data['agent_id'],
         'name': agent_data.get('name', 'Unnamed Agent'),
         'description': agent_data.get('description', ''),
@@ -192,6 +203,9 @@ def _extract_custom_agent_config(agent_data: Dict[str, Any], version_data: Optio
         'avatar': agent_data.get('avatar'),
         'avatar_color': agent_data.get('avatar_color'),
         'profile_image_url': agent_data.get('profile_image_url'),
+        'icon_name': agent_data.get('icon_name'),
+        'icon_color': agent_data.get('icon_color'),
+        'icon_background': agent_data.get('icon_background'),
         'is_default': agent_data.get('is_default', False),
         'is_suna_default': False,
         'centrally_managed': False,
@@ -200,6 +214,12 @@ def _extract_custom_agent_config(agent_data: Dict[str, Any], version_data: Optio
         'version_name': 'v1',
         'restrictions': {}
     }
+    
+    # Debug logging for fallback config
+    if os.getenv("ENV_MODE", "").upper() == "STAGING":
+        print(f"[DEBUG] _extract_custom_agent_config: Fallback config with icon_name={fallback_config.get('icon_name')}, icon_color={fallback_config.get('icon_color')}, icon_background={fallback_config.get('icon_background')}")
+    
+    return fallback_config
 
 
 def build_unified_config(

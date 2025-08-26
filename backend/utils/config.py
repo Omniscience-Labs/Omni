@@ -227,6 +227,30 @@ class Configuration:
             return self.STRIPE_CREDITS_25_PRICE_ID_STAGING
         return self.STRIPE_CREDITS_25_PRICE_ID_PROD
     
+    @property
+    def STRIPE_CREDITS_50_PRICE_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_CREDITS_50_PRICE_ID_STAGING
+        return self.STRIPE_CREDITS_50_PRICE_ID_PROD
+    
+    @property
+    def STRIPE_CREDITS_100_PRICE_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_CREDITS_100_PRICE_ID_STAGING
+        return self.STRIPE_CREDITS_100_PRICE_ID_PROD
+    
+    @property
+    def STRIPE_CREDITS_250_PRICE_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_CREDITS_250_PRICE_ID_STAGING
+        return self.STRIPE_CREDITS_250_PRICE_ID_PROD
+    
+    @property
+    def STRIPE_CREDITS_500_PRICE_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_CREDITS_500_PRICE_ID_STAGING
+        return self.STRIPE_CREDITS_500_PRICE_ID_PROD
+    
     # LLM API keys
     ANTHROPIC_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
@@ -236,6 +260,8 @@ class Configuration:
     MORPH_API_KEY: Optional[str] = None
     GEMINI_API_KEY: Optional[str] = None
     OPENROUTER_API_BASE: Optional[str] = "https://openrouter.ai/api/v1"
+    OPENAI_COMPATIBLE_API_KEY: Optional[str] = None
+    OPENAI_COMPATIBLE_API_BASE: Optional[str] = None
     OR_SITE_URL: Optional[str] = "https://kortix.ai"
     OR_APP_NAME: Optional[str] = "Kortix AI"    
     
@@ -283,8 +309,8 @@ class Configuration:
     STRIPE_PRODUCT_ID_STAGING: str = 'prod_SCgIj3G7yPOAWY'
     
     # Sandbox configuration
-    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.3.7"
-    SANDBOX_SNAPSHOT_NAME = "kortix/suna:0.1.3.7"
+    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.3.11"
+    SANDBOX_SNAPSHOT_NAME = "kortix/suna:0.1.3.11"
     SANDBOX_ENTRYPOINT = "/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf"
 
     # LangFuse configuration

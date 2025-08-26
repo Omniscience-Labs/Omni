@@ -8,7 +8,8 @@ import { useRouter } from 'next/navigation';
 import { useCreateTemplate, useUnpublishTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { toast } from 'sonner';
 import { AgentCard } from './custom-agents-page/agent-card';
-import { OmniLogo } from '../sidebar/omni-logo';
+import { KortixLogo } from '../sidebar/omni-logo';
+import { DynamicIcon } from 'lucide-react/dynamic';
 
 interface Agent {
   agent_id: string;
@@ -44,6 +45,10 @@ interface Agent {
     };
   };
   profile_image_url?: string;
+  // Icon system fields
+  icon_name?: string | null;
+  icon_color?: string | null;
+  icon_background?: string | null;
 }
 
 interface AgentsGridProps {
@@ -99,7 +104,18 @@ const AgentModal: React.FC<AgentModalProps> = ({
               <div className="p-6">
                 <OmniLogo size={48} />
               </div>
-) : agent.profile_image_url ? (
+            ) : agent.icon_name ? (
+              <div 
+                className="h-16 w-16 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: agent.icon_background || '#F3F4F6' }}
+              >
+                <DynamicIcon 
+                  name={agent.icon_name as any} 
+                  size={32} 
+                  color={agent.icon_color || '#000000'}
+                />
+              </div>
+            ) : agent.profile_image_url ? (
               <img src={agent.profile_image_url} alt={agent.name} className="h-16 w-16 rounded-xl object-cover" />
             ) : (
               <div className="h-16 w-16 rounded-xl bg-muted flex items-center justify-center">

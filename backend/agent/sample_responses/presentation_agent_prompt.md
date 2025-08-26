@@ -116,6 +116,110 @@ Use the `presentation_styles` tool to show available options:
 - **Style Consistency**: All slides in a presentation should use the same style
 - **Color Classes**: Use `.primary-color`, `.accent-color`, `.primary-bg`, `.accent-bg`, `.text-color`
 
+### 🚨 CRITICAL BOUNDARY & CONTAINMENT RULES
+
+**ABSOLUTE REQUIREMENT**: **MAKE SURE EVERYTHING STAYS WITHIN BOUNDS AND NOTHING GOES OUT**
+
+#### **1. Slide Boundary Enforcement**
+- **Fixed Container**: Every slide MUST use `height: 100vh; width: 100vw; overflow: hidden;` on the root container
+- **No Overflow**: NEVER allow any element to extend beyond 1920x1080 boundaries
+- **Safe Margins**: Always maintain minimum 40px margins from all edges for critical content
+- **Edge Protection**: Keep important text/elements at least 60px from slide edges
+
+#### **2. Content Containment Rules**
+- **Text Wrapping**: All text MUST wrap properly within containers using `word-wrap: break-word;`
+- **Image Sizing**: Images MUST use `max-width: 100%; height: auto;` and proper container constraints
+- **Absolute Positioning**: When using `position: absolute`, always set explicit boundaries with `max-width` and `max-height`
+- **Flex/Grid Overflow**: Use `min-width: 0` on flex/grid items to prevent overflow
+
+#### **3. CSS Containment Requirements**
+```css
+/* MANDATORY root container styles */
+.slide-container {
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    position: relative;
+    box-sizing: border-box;
+}
+
+/* REQUIRED for all content containers */
+.content-container {
+    max-width: 100%;
+    max-height: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+```
+
+#### **4. Element-Specific Boundary Rules**
+- **Long Titles**: Use `font-size: clamp()` or responsive sizing to prevent title overflow
+- **Lists**: Limit list items and use `overflow-y: auto` with max-height if needed
+- **Tables**: Always use `table-layout: fixed; width: 100%;` with column width constraints
+- **Charts/Graphics**: Set explicit `width` and `height` with `max-width: 100%`
+- **Background Images**: Use `background-size: cover` or `contain` appropriately, never `background-size: auto`
+
+#### **5. Animation & Transform Boundaries**
+- **CSS Animations**: Ensure all keyframes keep elements within slide bounds
+- **Transforms**: Use `transform-origin` carefully and test all transform states
+- **Floating Elements**: Animated floating elements MUST have boundary constraints
+- **Hover Effects**: Hover states cannot cause elements to exceed slide dimensions
+
+#### **6. Responsive Containment**
+- **Viewport Units**: Use `vw/vh` cautiously, prefer `%` within containers
+- **Media Queries**: Include breakpoints to handle edge cases in different viewing contexts
+- **Scaling**: When scaling content, maintain aspect ratios and boundary compliance
+- **Dynamic Content**: Test with varying content lengths to ensure no overflow
+
+#### **7. Testing & Validation Requirements**
+- **Boundary Testing**: Mentally verify every element stays within 1920x1080 bounds
+- **Content Stress Testing**: Test with maximum expected content length
+- **Edge Case Validation**: Check corners, edges, and extreme content scenarios
+- **Cross-browser Consistency**: Ensure containment works across different rendering engines
+
+#### **8. Emergency Containment Techniques**
+```css
+/* Use when content might overflow */
+.overflow-protection {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap; /* for single line */
+}
+
+/* For multi-line text containment */
+.multiline-containment {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* For absolute positioned elements */
+.absolute-contained {
+    position: absolute;
+    max-width: calc(100% - 80px); /* account for margins */
+    max-height: calc(100% - 80px);
+    overflow: hidden;
+}
+```
+
+#### **9. Content Priority Rules**
+- **Critical Content First**: Most important content gets priority positioning within safe zones
+- **Progressive Enhancement**: Less critical content can be hidden/truncated if space is limited
+- **Hierarchy Preservation**: Maintain visual hierarchy even when constraining content
+- **Readability Over Quantity**: Better to have less content that's fully visible than overflow
+
+#### **10. Quality Assurance Checklist**
+Before finalizing any slide, verify:
+- ✅ All text is fully visible and readable
+- ✅ All images are completely within bounds
+- ✅ No horizontal or vertical scrollbars appear
+- ✅ Animations stay within slide boundaries
+- ✅ Content adapts gracefully to container constraints
+- ✅ No elements are cut off at any edge
+- ✅ Safe margins are maintained around critical content
+- ✅ Responsive behavior maintains containment
+
 ## Image Integration & Visual Content
 
 ### Image Sources & Integration

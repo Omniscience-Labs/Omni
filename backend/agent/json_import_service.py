@@ -54,11 +54,12 @@ class JsonImportService:
         agent_info = {
             'name': json_data.get('name', 'Imported Agent'),
             'description': json_data.get('description', ''),
-            # Deprecated fields
             'avatar': json_data.get('avatar'),
             'avatar_color': json_data.get('avatar_color'),
-            # New field
-            'profile_image_url': json_data.get('profile_image_url') or json_data.get('metadata', {}).get('profile_image_url')
+            'profile_image_url': json_data.get('profile_image_url') or json_data.get('metadata', {}).get('profile_image_url'),
+            'icon_name': json_data.get('icon_name', 'brain'),
+            'icon_color': json_data.get('icon_color', '#000000'),
+            'icon_background': json_data.get('icon_background', '#F3F4F6')
         }
         
         return JsonImportAnalysis(
@@ -93,11 +94,12 @@ class JsonImportService:
                 agent_info={
                     'name': json_data.get('name', 'Imported Agent'),
                     'description': json_data.get('description', ''),
-                    # Deprecated
                     'avatar': json_data.get('avatar'),
                     'avatar_color': json_data.get('avatar_color'),
-                    # New
-                    'profile_image_url': json_data.get('profile_image_url') or json_data.get('metadata', {}).get('profile_image_url')
+                    'profile_image_url': json_data.get('profile_image_url') or json_data.get('metadata', {}).get('profile_image_url'),
+                    'icon_name': json_data.get('icon_name', 'brain'),
+                    'icon_color': json_data.get('icon_color', '#000000'),
+                    'icon_background': json_data.get('icon_background', '#F3F4F6')
                 }
             )
         
@@ -299,6 +301,10 @@ class JsonImportService:
             "description": json_data.get('description', ''),
             "avatar": json_data.get('avatar'),
             "avatar_color": json_data.get('avatar_color'),
+            "profile_image_url": json_data.get('profile_image_url'),
+            "icon_name": json_data.get('icon_name', 'brain'),
+            "icon_color": json_data.get('icon_color', '#000000'),
+            "icon_background": json_data.get('icon_background', '#F3F4F6'),
             "is_default": False,
             "tags": json_data.get('tags', []),
             "version_count": 1,

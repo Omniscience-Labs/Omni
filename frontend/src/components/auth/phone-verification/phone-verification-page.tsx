@@ -13,6 +13,7 @@ import {
   useUnenrollFactor,
 } from '@/hooks/react-query/phone-verification';
 import { signOut } from '@/app/auth/actions';
+import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LogOut, Loader2 } from 'lucide-react';
@@ -194,6 +195,8 @@ export function PhoneVerificationPage({
 
   const signOutMutation = useMutation({
     mutationFn: async () => {
+      // Clear local storage before sign out
+      clearUserLocalStorage();
       await signOut().catch(() => void 0);
       window.location.href = '/';
     },

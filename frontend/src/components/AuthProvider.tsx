@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { checkAndInstallOmniAgent } from '@/lib/utils/install-suna-agent';
+import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
 
 type AuthContextType = {
   supabase: SupabaseClient;
@@ -57,6 +58,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
             break;
           case 'SIGNED_OUT':
+            // Clear local storage when user is signed out (handles all logout scenarios)
+            clearUserLocalStorage();
             break;
           case 'TOKEN_REFRESHED':
             break;
@@ -75,6 +78,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
+      // Clear local storage after successful sign out
+      clearUserLocalStorage();
     } catch (error) {
       console.error('❌ Error signing out:', error);
     }

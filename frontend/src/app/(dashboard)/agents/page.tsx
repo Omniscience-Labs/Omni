@@ -120,12 +120,22 @@ export default function AgentsPage() {
     return params;
   }, [agentsPage, agentsSearchQuery, agentsSortBy, agentsSortOrder, agentsFilters]);
 
-  const marketplaceQueryParams = useMemo(() => ({
-    limit: 20,
-    offset: (marketplacePage - 1) * 20,
-    search: marketplaceSearchQuery || undefined,
-    tags: marketplaceSelectedTags.length > 0 ? marketplaceSelectedTags.join(',') : undefined,
-  }), [marketplacePage, marketplaceSearchQuery, marketplaceSelectedTags]);
+  const marketplaceQueryParams = useMemo(() => {
+    const params: any = {
+      limit: 20,
+      offset: (marketplacePage - 1) * 20,
+      search: marketplaceSearchQuery || undefined,
+      tags: marketplaceSelectedTags.length > 0 ? marketplaceSelectedTags.join(',') : undefined,
+    };
+    
+    if (marketplaceFilter === 'kortix') {
+      params.is_kortix_team = true;
+    } else if (marketplaceFilter === 'community') {
+      params.is_kortix_team = false;
+    }
+    
+    return params;
+  }, [marketplacePage, marketplaceSearchQuery, marketplaceSelectedTags, marketplaceFilter]);
 
   const { data: agentsResponse, isLoading: agentsLoading, error: agentsError, refetch: loadAgents } = useAgents(agentsQueryParams);
   const { data: marketplaceTemplates, isLoading: marketplaceLoading } = useMarketplaceTemplates(marketplaceQueryParams);
@@ -145,9 +155,8 @@ export default function AgentsPage() {
   const agents = agentsResponse?.agents || [];
   const agentsPagination = agentsResponse?.pagination;
 
-  const { kortixTeamItems, communityItems, mineItems } = useMemo(() => {
-    const kortixItems: MarketplaceTemplate[] = [];
-    const communityItems: MarketplaceTemplate[] = [];
+  const { allMarketplaceItems, mineItems } = useMemo(() => {
+    const allItems: MarketplaceTemplate[] = [];
     const mineItems: MarketplaceTemplate[] = [];
 
     if (marketplaceTemplates) {
@@ -163,67 +172,30 @@ export default function AgentsPage() {
           created_at: template.created_at,
           marketplace_published_at: template.marketplace_published_at,
           profile_image_url: template.profile_image_url,
+          avatar: template.avatar,
+          avatar_color: template.avatar_color,
+          icon_name: template.icon_name,
+          icon_color: template.icon_color,
+          icon_background: template.icon_background,
           template_id: template.template_id,
           is_kortix_team: template.is_kortix_team,
           mcp_requirements: template.mcp_requirements,
           metadata: template.metadata,
         };
 
-        const matchesSearch = !marketplaceSearchQuery.trim() || (() => {
-          const searchLower = marketplaceSearchQuery.toLowerCase();
-          return item.name.toLowerCase().includes(searchLower) ||
-                 item.description?.toLowerCase().includes(searchLower) ||
-                 item.tags.some(tag => tag.toLowerCase().includes(searchLower)) ||
-                 item.creator_name?.toLowerCase().includes(searchLower);
-        })();
-
-        if (!matchesSearch) return;
+        allItems.push(item);
 
         if (user?.id === template.creator_id) {
           mineItems.push(item);
         }
-        
-        if (template.is_kortix_team === true) {
-          kortixItems.push(item);
-        } else {
-          communityItems.push(item);
-        }
       });
     }
-
-    const sortItems = (items: MarketplaceTemplate[]) =>
-      items.sort((a, b) => {
-        switch (marketplaceSortBy) {
-          case 'newest':
-            return new Date(b.marketplace_published_at || b.created_at).getTime() - 
-                   new Date(a.marketplace_published_at || a.created_at).getTime();
-          case 'popular':
-          case 'most_downloaded':
-            return b.download_count - a.download_count;
-          case 'name':
-            return a.name.localeCompare(b.name);
-          default:
-            return 0;
-        }
-      });
 
     return {
-      kortixTeamItems: sortItems(kortixItems),
-      communityItems: sortItems(communityItems),
-      mineItems: sortItems(mineItems)
+      allMarketplaceItems: allItems,
+      mineItems: mineItems
     };
-  }, [marketplaceTemplates, marketplaceSortBy, user?.id, marketplaceSearchQuery]);
-
-  const allMarketplaceItems = useMemo(() => {
-    if (marketplaceFilter === 'kortix') {
-      return kortixTeamItems;
-    } else if (marketplaceFilter === 'community') {
-      return communityItems;
-    } else if (marketplaceFilter === 'mine') {
-      return mineItems;
-    }
-    return [...kortixTeamItems, ...communityItems];
-  }, [kortixTeamItems, communityItems, mineItems, marketplaceFilter]);
+  }, [marketplaceTemplates, user?.id]);
 
   const handleTabChange = (newTab: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -630,9 +602,7 @@ export default function AgentsPage() {
               marketplaceFilter={marketplaceFilter}
               setMarketplaceFilter={setMarketplaceFilter}
               marketplaceLoading={marketplaceLoading}
-              allMarketplaceItems={allMarketplaceItems}
-              kortixTeamItems={kortixTeamItems}
-              communityItems={communityItems}
+              allMarketplaceItems={marketplaceFilter === 'mine' ? mineItems : allMarketplaceItems}
               mineItems={mineItems}
               installingItemId={installingItemId}
               onInstallClick={handleInstallClick}

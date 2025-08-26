@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Download, CheckCircle, Loader2, Globe, GlobeLock, GitBranch, Trash2, MoreVertical, User } from 'lucide-react';
+import { DynamicIcon } from 'lucide-react/dynamic';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,7 +10,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -21,7 +21,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import type { MarketplaceTemplate } from '@/components/agents/installation/types';
 import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 export type AgentCardMode = 'marketplace' | 'template' | 'agent';
@@ -338,7 +337,21 @@ const TemplateActions: React.FC<{
   </div>
 );
 
-const CardAvatar: React.FC<{ isSunaAgent?: boolean; profileImageUrl?: string; agentName?: string }> = ({ isSunaAgent = false, profileImageUrl, agentName }) => {
+const CardAvatar: React.FC<{ 
+  isSunaAgent?: boolean; 
+  profileImageUrl?: string; 
+  agentName?: string;
+  iconName?: string;
+  iconColor?: string;
+  iconBackground?: string;
+}> = ({ 
+  isSunaAgent = false, 
+  profileImageUrl, 
+  agentName,
+  iconName,
+  iconColor = '#000000',
+  iconBackground = '#F3F4F6'
+}) => {
   if (isSunaAgent) {
     return (
       <div className="h-14 w-14 bg-muted border flex items-center justify-center rounded-2xl">
@@ -346,11 +359,28 @@ const CardAvatar: React.FC<{ isSunaAgent?: boolean; profileImageUrl?: string; ag
       </div>
     )
   }
+  
+  if (iconName) {
+    return (
+      <div 
+        className="h-14 w-14 flex items-center justify-center rounded-2xl"
+        style={{ backgroundColor: iconBackground }}
+      >
+        <DynamicIcon 
+          name={iconName as any} 
+          size={28} 
+          color={iconColor}
+        />
+      </div>
+    );
+  }
+  
   if (profileImageUrl) {
     return (
       <img src={profileImageUrl} alt="Agent" className="h-14 w-14 rounded-2xl object-cover" />
     );
   }
+  
   return (
     <div className="h-14 w-14 bg-muted border flex items-center justify-center rounded-2xl">
       <span className="text-lg font-semibold">{agentName?.charAt(0).toUpperCase() || '?'}</span>
@@ -454,7 +484,14 @@ export const AgentCard: React.FC<AgentCardProps> = ({
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
       <div className="relative p-6 flex flex-col flex-1">
         <div className="flex items-start justify-between mb-4">
-          <CardAvatar isSunaAgent={isSunaAgent} profileImageUrl={(data as any)?.profile_image_url} agentName={data.name} />
+          <CardAvatar 
+            isSunaAgent={isSunaAgent} 
+            profileImageUrl={(data as any)?.profile_image_url} 
+            agentName={data.name}
+            iconName={(data as any)?.icon_name}
+            iconColor={(data as any)?.icon_color}
+            iconBackground={(data as any)?.icon_background}
+          />
           <div className="flex items-center gap-2">
             {renderBadge()}
           </div>
