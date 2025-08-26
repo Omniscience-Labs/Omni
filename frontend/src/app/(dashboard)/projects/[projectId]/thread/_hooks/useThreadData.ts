@@ -76,7 +76,9 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
             id: projectQuery.data.id,
             name: projectQuery.data.name,
             sandbox: projectQuery.data.sandbox,
-            sandboxType: typeof projectQuery.data.sandbox
+            sandboxType: typeof projectQuery.data.sandbox,
+            sandboxKeys: projectQuery.data.sandbox ? Object.keys(projectQuery.data.sandbox) : null,
+            sandboxId: projectQuery.data.sandbox?.id
           });
           setProject(projectQuery.data);
           if (typeof projectQuery.data.sandbox === 'string') {
