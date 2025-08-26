@@ -3,7 +3,7 @@
 import React from 'react';
 import { DynamicIcon } from 'lucide-react/dynamic';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { cn } from '@/lib/utils';
 
 interface AgentIconAvatarProps {
@@ -36,7 +36,7 @@ export function AgentIconAvatar({
         )}
         style={{ width: size, height: size }}
       >
-        <KortixLogo size={size * 0.6} />
+        <OmniLogo size={size * 0.6} />
       </div>
     );
   }
