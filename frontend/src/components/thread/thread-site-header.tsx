@@ -32,7 +32,7 @@ interface ThreadSiteHeaderProps {
   threadId: string;
   projectId: string;
   projectName: string;
-  onViewFiles: () => void;
+  onViewFiles: (filePath?: string, filePathList?: string[]) => void;
   onToggleSidePanel: () => void;
   onProjectRenamed?: (newName: string) => void;
   isMobileView?: boolean;
