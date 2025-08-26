@@ -13,8 +13,8 @@ SUNA_CONFIG = {
     "agentpress_tools": {
         "sb_shell_tool": True,
         "sb_files_tool": True,
-        "sb_deploy_tool": False,
-        "sb_expose_tool": False,
+        "sb_deploy_tool": True,
+        "sb_expose_tool": True,
         "web_search_tool": True,
         "sb_vision_tool": True,
         "sb_image_edit_tool": True,
