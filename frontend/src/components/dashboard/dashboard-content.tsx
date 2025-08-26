@@ -41,7 +41,7 @@ const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 const dashboardTourSteps: Step[] = [
   {
     target: '[data-tour="chat-input"]',
-    content: 'Type your questions or tasks here. Suna can help with research, analysis, automation, and much more.',
+    content: 'Type your questions or tasks here. Omni can help with research, analysis, automation, and much more.',
     title: 'Start a Conversation',
     placement: 'top',
     disableBeacon: true,
