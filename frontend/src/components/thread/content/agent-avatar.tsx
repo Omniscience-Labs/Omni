@@ -4,6 +4,7 @@ import React from 'react';
 import { useAgent } from '@/hooks/react-query/agents/use-agents';
 import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DynamicIcon } from 'lucide-react/dynamic';
 
 interface AgentAvatarProps {
   agentId?: string;

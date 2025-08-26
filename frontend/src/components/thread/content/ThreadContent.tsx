@@ -1,4 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
+import Image from 'next/image';
 import { CircleDashed, CheckCircle, AlertTriangle } from 'lucide-react';
 import { UnifiedMessage, ParsedContent, ParsedMetadata } from '@/components/thread/types';
 import { FileAttachmentGrid } from '@/components/thread/file-attachment';
@@ -393,7 +394,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
         if (agentData && !isSunaDefaultAgent) {
             const profileUrl = agentData.profile_image_url;
             const avatar = profileUrl ? (
-                <img src={profileUrl} alt={agentData.name || agentName} className="h-5 w-5 rounded object-cover" />
+                <Image src={profileUrl} alt={agentData.name || agentName} className="h-5 w-5 rounded object-cover" width={20} height={20} />
             ) : agentData.avatar ? (
                 <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
                     <span className="text-lg">{agentData.avatar}</span>
