@@ -47,10 +47,23 @@ class OmniDefaultAgentService:
                     updated_metadata = agent_row.get('metadata', {}).copy() if agent_row.get('metadata') else {}
                     updated_metadata['last_central_update'] = datetime.now().isoformat()
                     
+                    # Update the agent record
                     result = await client.table('agents').update({
-                        'config': config,
+                        'name': config.get("name", agent_row.get('name')),
+                        'description': config.get("description", agent_row.get('description')),
                         'metadata': updated_metadata
                     }).eq('agent_id', agent_id).execute()
+                    
+                    # Update the current version with new config
+                    current_version_id = agent_row.get('current_version_id')
+                    if current_version_id:
+                        await client.table('agent_versions').update({
+                            'system_prompt': config.get("system_prompt", ""),
+                            'configured_mcps': config.get("tools", {}).get("mcp", []),
+                            'custom_mcps': config.get("tools", {}).get("custom_mcp", []),
+                            'agentpress_tools': config.get("tools", {}).get("agentpress", {}),
+                            'config': config
+                        }).eq('version_id', current_version_id).execute()
                     updated_count += 1
                     details.append({
                         "agent_id": str(agent_id),
@@ -208,7 +221,7 @@ class OmniDefaultAgentService:
                     'name': config["name"],
                     'description': config["description"],
                     'is_default': config.get("is_default", True),
-                    'config': config,
+                    'version_count': 1,
                     'metadata': metadata
                 }).execute()
                 logger.debug(f"✅ Agent created successfully")
@@ -226,7 +239,15 @@ class OmniDefaultAgentService:
                     'version_id': version_id,
                     'agent_id': agent_id,
                     'account_id': account_id,
-                    'config': config
+                    'version_number': 1,
+                    'version_name': "v1",
+                    'system_prompt': config.get("system_prompt", ""),
+                    'configured_mcps': config.get("tools", {}).get("mcp", []),
+                    'custom_mcps': config.get("tools", {}).get("custom_mcp", []),
+                    'agentpress_tools': config.get("tools", {}).get("agentpress", {}),
+                    'config': config,
+                    'is_active': True,
+                    'created_by': account_id
                 }).execute()
                 logger.debug(f"✅ Version created successfully")
             except Exception as e:
@@ -266,12 +287,13 @@ class OmniDefaultAgentService:
                     "agent_id": str(agent['agent_id']),
                     "name": agent['name'],
                     "account_id": str(agent['account_id']),
-                    "system_prompt": agent['system_prompt'],
-                    "model": agent['model'],
+                    "description": agent.get('description'),
                     "created_at": agent['created_at'].isoformat() if agent['created_at'] else None,
                     "updated_at": agent['updated_at'].isoformat() if agent['updated_at'] else None,
-                    "config": agent['config'],
-                    "metadata": agent['metadata']
+                    "is_default": agent['is_default'],
+                    "current_version_id": agent.get('current_version_id'),
+                    "version_count": agent.get('version_count', 1),
+                    "metadata": agent.get('metadata', {})
                 }
             return None
             
