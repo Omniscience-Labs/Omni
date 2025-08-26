@@ -1,3 +1,5 @@
+'use client';
+
 import { EnterpriseSecuritySection } from '@/components/home/sections/enterprise-security-section';
 import { CompanyShowcase } from '@/components/home/sections/company-showcase';
 import { CTASection } from '@/components/home/sections/cta-section';
