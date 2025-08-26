@@ -68,7 +68,7 @@ export const useModelSelection = () => {
           id: 'moonshotai/kimi-k2', 
           label: 'Kimi K2', 
           requiresSubscription: false,
-          priority: 100,
+          priority: 90,
           recommended: true
         },
         { 
