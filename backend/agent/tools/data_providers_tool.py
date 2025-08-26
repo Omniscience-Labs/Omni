@@ -7,6 +7,8 @@ from agent.tools.data_providers.YahooFinanceProvider import YahooFinanceProvider
 from agent.tools.data_providers.AmazonProvider import AmazonProvider
 from agent.tools.data_providers.ZillowProvider import ZillowProvider
 from agent.tools.data_providers.TwitterProvider import TwitterProvider
+from agent.tools.data_providers.ApolloProvider import ApolloProvider
+from agent.tools.data_providers.ActiveJobsProvider import ActiveJobsProvider
 
 class DataProvidersTool(Tool):
     """Tool for making requests to various data providers."""
@@ -19,7 +21,9 @@ class DataProvidersTool(Tool):
             "yahoo_finance": YahooFinanceProvider(),
             "amazon": AmazonProvider(),
             "zillow": ZillowProvider(),
-            "twitter": TwitterProvider()
+            "twitter": TwitterProvider(),
+            "apollo": ApolloProvider(),
+            "active_jobs": ActiveJobsProvider()
         }
 
     @openapi_schema({
@@ -32,7 +36,7 @@ class DataProvidersTool(Tool):
                 "properties": {
                     "service_name": {
                         "type": "string",
-                        "description": "The name of the data provider (e.g., 'linkedin', 'twitter', 'zillow', 'amazon', 'yahoo_finance')"
+                        "description": "The name of the data provider (e.g., 'linkedin', 'twitter', 'zillow', 'amazon', 'yahoo_finance', 'apollo', 'active_jobs')"
                     }
                 },
                 "required": ["service_name"]
@@ -89,7 +93,7 @@ Use this tool when you need to discover what endpoints are available.
                 "properties": {
                     "service_name": {
                         "type": "string",
-                        "description": "The name of the API service (e.g., 'linkedin')"
+                        "description": "The name of the API service (e.g., 'linkedin', 'twitter', 'zillow', 'amazon', 'yahoo_finance', 'apollo', 'active_jobs')"
                     },
                     "route": {
                         "type": "string",
