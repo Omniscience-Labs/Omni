@@ -6,7 +6,7 @@ OMNI_CONFIG = {
     "description": "Omni is your AI assistant with access to various tools and integrations to help you with tasks across domains.",
     "avatar": "🌟",
     "avatar_color": "#8B5CF6",
-    "model": "openrouter/moonshotai/kimi-k2",
+    "model": "openrouter/anthropic/sonnet-4",
     "system_prompt": SYSTEM_PROMPT,
     "configured_mcps": [],
     "custom_mcps": [],
