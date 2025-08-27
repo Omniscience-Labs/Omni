@@ -1,5 +1,6 @@
 import httpx
 import json
+import asyncio
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from agentpress.tool import Tool, ToolResult, openapi_schema, usage_example
@@ -43,7 +44,7 @@ class SandboxPodcastTool(SandboxToolsBase):
                         "type": "string",
                         "description": "TTS model to use: 'openai' (cost-effective, ~307KB files) or 'elevenlabs' (premium quality, ~1.6MB files)",
                         "enum": ["openai", "elevenlabs"],
-                        "default": "openai"
+                        "default": "elevenlabs"
                     }
                 },
                 "required": ["agent_run_id"]
@@ -64,7 +65,7 @@ class SandboxPodcastTool(SandboxToolsBase):
         agent_run_id: str,
         podcast_title: str = "",
         include_thinking: bool = False,
-        tts_model: str = "openai"
+        tts_model: str = "elevenlabs"
     ) -> ToolResult:
         """
         Generate a podcast from an agent run conversation.
@@ -267,11 +268,11 @@ class SandboxPodcastTool(SandboxToolsBase):
         content: str, 
         title: str, 
         agent_run_id: str,
-        tts_model: str = "openai"
+        tts_model: str = "elevenlabs"
     ) -> Dict[str, Any]:
-        """Call the Podcastfy service to generate the podcast."""
+        """Call the Podcastfy service to generate the podcast asynchronously."""
         try:
-            logger.info(f"Calling Podcastfy service for agent run: {agent_run_id}")
+            logger.info(f"Starting async podcast generation for agent run: {agent_run_id}")
             
             # Configure TTS model and voice
             voice_config = self._get_tts_config(tts_model)
@@ -291,66 +292,132 @@ class SandboxPodcastTool(SandboxToolsBase):
                 }
             }
             
-            # First, let's check if the service is available
-            async with httpx.AsyncClient(timeout=180.0) as client:  # Increased for OpenAI TTS
-                # Check health/status endpoint first
-                try:
-                    health_response = await client.get(f"{self.podcastfy_url}/api/health")
-                    logger.info(f"Podcastfy health check status: {health_response.status_code}")
-                except Exception as e:
-                    logger.warning(f"Health check failed: {str(e)}")
+            # Submit job asynchronously and get job ID
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                logger.info(f"Submitting async podcast job...")
                 
-                # Make the main podcast generation request
+                # Submit job and get immediate response with job ID
                 response = await client.post(
-                    f"{self.podcastfy_url}/api/generate", 
+                    f"{self.podcastfy_url}/api/generate/async", 
                     json=payload,
                     headers={"Content-Type": "application/json"}
                 )
                 
-                logger.info(f"Podcastfy response status: {response.status_code}")
-                
                 if response.status_code == 200:
-                    result = response.json()
-                    return {
-                        "success": True,
-                        "podcast_url": result.get("podcast_url"),
-                        "podcast_id": result.get("podcast_id"),
-                        "status": result.get("status"),
-                        "full_response": result
-                    }
+                    job_result = response.json()
+                    job_id = job_result.get("job_id")
+                    
+                    if not job_id:
+                        return {
+                            "success": False,
+                            "error": "No job ID returned from service"
+                        }
+                    
+                    logger.info(f"Podcast job submitted: {job_id}")
+                    
+                    # Now poll for completion
+                    return await self._poll_podcast_job(job_id)
+                    
                 else:
                     error_text = response.text
-                    logger.error(f"Podcastfy service error: {response.status_code} - {error_text}")
-                    
-                    # Provide user-friendly error messages
-                    if response.status_code == 502:
-                        user_error = "Podcast service is temporarily unavailable (Bad Gateway). Please try again later."
-                    elif response.status_code == 503:
-                        user_error = "Podcast service is temporarily unavailable. Please try again later."
-                    elif response.status_code == 500:
-                        user_error = "Internal server error in podcast service. Please try again later."
-                    else:
-                        user_error = f"Podcast service returned HTTP {response.status_code}"
-                    
+                    logger.error(f"Async job submission failed: {response.status_code} - {error_text}")
                     return {
                         "success": False,
-                        "error": user_error,
-                        "status_code": response.status_code,
+                        "error": f"Failed to submit job: HTTP {response.status_code}",
                         "raw_error": error_text[:200] if error_text else None
                     }
                     
         except httpx.TimeoutException:
-            logger.error("Podcastfy service timeout")
+            logger.error("Podcast service timeout during job submission")
             return {
                 "success": False,
-                "error": "Request to Podcastfy service timed out"
+                "error": "Job submission timed out"
             }
         except Exception as e:
-            logger.error(f"Error calling Podcastfy service: {str(e)}")
+            logger.error(f"Error submitting podcast job: {str(e)}")
             return {
                 "success": False,
-                "error": f"Failed to call Podcastfy service: {str(e)}"
+                "error": f"Failed to submit podcast job: {str(e)}"
             }
+
+    async def _poll_podcast_job(self, job_id: str, max_wait_time: int = 300) -> Dict[str, Any]:
+        """Poll podcast job until completion with smart intervals like video tool."""
+        logger.info(f"🔄 Starting intelligent polling for podcast job: {job_id} (max wait: {max_wait_time}s)")
+        
+        start_time = asyncio.get_event_loop().time()
+        check_count = 0
+        
+        while (asyncio.get_event_loop().time() - start_time) < max_wait_time:
+            try:
+                check_count += 1
+                
+                # Smart polling intervals like video tool
+                if check_count <= 2:
+                    wait_time = 5  # Quick initial checks
+                elif check_count <= 6:
+                    wait_time = 10  # Medium checks 
+                elif check_count <= 12:
+                    wait_time = 15  # Slower checks
+                else:
+                    wait_time = 20  # Final slow checks
+                
+                logger.info(f"📻 Polling job {job_id} (check #{check_count}, waiting {wait_time}s next)")
+                
+                # Check job status
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    response = await client.get(f"{self.podcastfy_url}/api/status/{job_id}")
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        status = result.get("status")
+                        progress = result.get("progress", 0)
+                        
+                        logger.info(f"📊 Job {job_id} status: {status} ({progress}%)")
+                        
+                        if status == "completed":
+                            logger.info(f"✅ Podcast job {job_id} completed!")
+                            return {
+                                "success": True,
+                                "podcast_url": result.get("podcast_url"),
+                                "audio_url": result.get("audio_url"),
+                                "podcast_id": result.get("podcast_id"),
+                                "status": "completed",
+                                "job_id": job_id
+                            }
+                        elif status == "failed":
+                            error_msg = result.get("error", "Unknown error")
+                            logger.error(f"❌ Podcast job {job_id} failed: {error_msg}")
+                            return {
+                                "success": False,
+                                "error": f"Podcast generation failed: {error_msg}",
+                                "job_id": job_id
+                            }
+                        elif status in ["pending", "processing"]:
+                            # Continue polling
+                            await asyncio.sleep(wait_time)
+                            continue
+                        else:
+                            logger.warning(f"⚠️ Unknown status: {status}")
+                            await asyncio.sleep(wait_time)
+                            continue
+                            
+                    else:
+                        logger.warning(f"Status check failed: {response.status_code}")
+                        await asyncio.sleep(wait_time)
+                        continue
+                        
+            except Exception as e:
+                logger.warning(f"Polling error: {str(e)}")
+                await asyncio.sleep(wait_time)
+                continue
+        
+        # Timeout reached
+        logger.error(f"⏰ Podcast job {job_id} timed out after {max_wait_time}s")
+        return {
+            "success": False,
+            "error": f"Podcast generation timed out after {max_wait_time} seconds",
+            "job_id": job_id
+        }
 
     @openapi_schema({
         "type": "function",
@@ -413,7 +480,7 @@ class SandboxPodcastTool(SandboxToolsBase):
                         "type": "string",
                         "description": "TTS model to use: 'openai' (cost-effective, ~307KB files) or 'elevenlabs' (premium quality, ~1.6MB files)",
                         "enum": ["openai", "elevenlabs"],
-                        "default": "openai"
+                        "default": "elevenlabs"
                     }
                 },
                 "required": ["url"]
@@ -433,7 +500,7 @@ class SandboxPodcastTool(SandboxToolsBase):
         self,
         url: str,
         podcast_title: str = "",
-        tts_model: str = "openai"
+        tts_model: str = "elevenlabs"
     ) -> ToolResult:
         """
         Generate a podcast from web content at the provided URL.
@@ -508,7 +575,7 @@ class SandboxPodcastTool(SandboxToolsBase):
                         "type": "string",
                         "description": "TTS model to use: 'openai' (cost-effective, ~307KB files) or 'elevenlabs' (premium quality, ~1.6MB files)",
                         "enum": ["openai", "elevenlabs"],
-                        "default": "openai"
+                        "default": "elevenlabs"
                     }
                 },
                 "required": ["agent_run_id"]
@@ -528,7 +595,7 @@ class SandboxPodcastTool(SandboxToolsBase):
         self,
         agent_run_id: str,
         podcast_title: str = "",
-        tts_model: str = "openai"
+        tts_model: str = "elevenlabs"
     ) -> ToolResult:
         """
         Generate a bite-sized podcast from an agent run conversation.
@@ -603,7 +670,7 @@ class SandboxPodcastTool(SandboxToolsBase):
         self, 
         url: str, 
         title: str, 
-        tts_model: str = "openai"
+        tts_model: str = "elevenlabs"
     ) -> Dict[str, Any]:
         """Call the Podcastfy service to generate podcast from URL."""
         try:
@@ -729,7 +796,7 @@ class SandboxPodcastTool(SandboxToolsBase):
                         "type": "string",
                         "description": "TTS model to use: 'openai' (cost-effective, ~307KB files) or 'elevenlabs' (premium quality, ~1.6MB files)",
                         "enum": ["openai", "elevenlabs"],
-                        "default": "openai"
+                        "default": "elevenlabs"
                     },
                     "conversation_style": {
                         "type": "string",
@@ -756,7 +823,7 @@ class SandboxPodcastTool(SandboxToolsBase):
         self,
         text: str,
         podcast_title: str = "Custom Text Podcast",
-        tts_model: str = "openai",
+        tts_model: str = "elevenlabs",
         conversation_style: str = "informative"
     ) -> ToolResult:
         """
