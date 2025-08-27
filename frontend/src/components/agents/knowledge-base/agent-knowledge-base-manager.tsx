@@ -350,7 +350,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
   const handleCloseDialog = () => {
     setEditDialog({ isOpen: false });
     setAddDialogOpen(false);
-    setAddDialogMode('selection');
+    setAddDialogMode('manual');
     setFormData({
       name: '',
       description: '',
