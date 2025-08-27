@@ -102,8 +102,8 @@ class OmniPodcastToolFixed:
         payload = {
             "text": text,
             "title": title,
-            "tts_model": "elevenlabs",
-            "voice_id": "ErXwobaYiN019PkySvjV",
+            "tts_model": "openai",
+            "voice_id": "alloy",
             "conversation_style": style,
             "metadata": {
                 "source": "omni_agent_text",
@@ -130,8 +130,8 @@ class OmniPodcastToolFixed:
         payload = {
             "urls": urls,
             "title": title,
-            "tts_model": "elevenlabs",
-            "voice_id": "ErXwobaYiN019PkySvjV",
+            "tts_model": "openai",
+            "voice_id": "alloy",
             "max_tokens": 8000,  # Prevent context window issues
             "metadata": {
                 "source": "omni_agent_urls",

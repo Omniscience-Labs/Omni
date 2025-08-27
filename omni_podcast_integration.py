@@ -81,8 +81,8 @@ class OmniPodcastTool:
         payload = {
             "urls": [url],
             "title": title,
-            "tts_model": "elevenlabs",
-            "voice_id": "ErXwobaYiN019PkySvjV",
+            "tts_model": "openai",
+            "voice_id": "alloy",
             "max_tokens": max_length
         }
         
@@ -142,8 +142,8 @@ class OmniPodcastTool:
         payload = {
             "text": text,
             "title": title,
-            "tts_model": "elevenlabs",
-            "voice_id": "ErXwobaYiN019PkySvjV",
+            "tts_model": "openai",
+            "voice_id": "alloy",
             "conversation_style": conversation_style
         }
         

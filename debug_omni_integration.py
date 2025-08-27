@@ -74,7 +74,7 @@ async def debug_omni_integration():
             payload = {
                 "text": "This is a test from the Omni integration debug script.",
                 "title": "Omni Debug Test",
-                "tts_model": "elevenlabs"
+                "tts_model": "openai"
             }
             
             response = await client.post(

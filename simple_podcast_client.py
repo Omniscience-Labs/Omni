@@ -136,7 +136,7 @@ class SimplePodcastClient:
         return await self.generate_podcast_simple(
             text=formatted_text,
             title=title,
-            tts_model="elevenlabs"
+            tts_model="openai"
         )
     
     def _format_conversation(self, messages: List[Dict[str, str]], include_thinking: bool = False) -> str:
@@ -184,7 +184,7 @@ async def test_simple_client():
     result = await client.generate_podcast_simple(
         text="This is a test of the simple podcast client integration.",
         title="Simple Test",
-        tts_model="elevenlabs"
+        tts_model="openai"
     )
     print(f"Result: {result}")
     
@@ -193,7 +193,7 @@ async def test_simple_client():
     result = await client.generate_podcast_simple(
         urls=["https://httpbin.org/json"],
         title="JSON Test",
-        tts_model="elevenlabs"
+        tts_model="openai"
     )
     print(f"Result: {result}")
 

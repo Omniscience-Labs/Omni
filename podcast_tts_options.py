@@ -75,7 +75,7 @@ async def premium_quality_podcast(text: str, title: str = "Premium Podcast") -> 
     return await interface.generate_podcast(
         text=text,
         title=title,
-        tts_model="elevenlabs"  # ✅ WORKING - 1.6MB premium files  
+        tts_model="openai"  # ✅ WORKING - 1.6MB premium files  
     )
 
 async def smart_tts_fallback(text: str, title: str = "Smart Podcast") -> Dict[str, Any]:
@@ -102,7 +102,7 @@ async def smart_tts_fallback(text: str, title: str = "Smart Podcast") -> Dict[st
         result = await interface.generate_podcast(
             text=text,
             title=title,
-            tts_model="elevenlabs"
+            tts_model="openai"
         )
         
         if result.get("success"):
