@@ -22,7 +22,7 @@ export function OmniLogo({ size = 24 }: OmniLogoProps) {
 
   return (
     <Image
-      src="/omni-ball.svg"
+      src={shouldInvert ? '/OMNI-Logo-Dark.png' : '/OMNI-Logo-light.png'}
       alt="Operator"
       width={size}
       height={size}
