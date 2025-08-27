@@ -34,7 +34,7 @@ from langfuse.client import StatefulTraceClient
 from agent.tools.mcp_tool_wrapper import MCPToolWrapper
 from agent.tools.task_list_tool import TaskListTool
 from agentpress.tool import SchemaType
-from agent.tools.sb_sheets_tool import SandboxSheetsTool
+
 from agent.tools.sb_web_dev_tool import SandboxWebDevTool
 from agent.tools.sb_upload_file_tool import SandboxUploadFileTool
 
