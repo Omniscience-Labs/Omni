@@ -68,7 +68,7 @@ class ProfileService:
         config: Dict[str, Any],
         is_default: bool = False
     ) -> str:
-        logger.info(f"Storing profile '{profile_name}' for {mcp_qualified_name}")
+        logger.debug(f"Storing profile '{profile_name}' for {mcp_qualified_name}")
         
         profile_id = str(uuid.uuid4())
         encrypted_config, config_hash = self._encryption.encrypt_config(config)
@@ -82,7 +82,6 @@ class ProfileService:
                 'updated_at': datetime.now(timezone.utc).isoformat()
             }).eq('account_id', account_id)\
               .eq('mcp_qualified_name', mcp_qualified_name)\
-              .eq('is_active', True)\
               .execute()
         
         result = await client.table('user_mcp_credential_profiles').insert({
@@ -99,14 +98,13 @@ class ProfileService:
             'updated_at': datetime.now(timezone.utc).isoformat()
         }).execute()
         
-        logger.info(f"Stored profile {profile_id} '{profile_name}' for {mcp_qualified_name}")
+        logger.debug(f"Stored profile {profile_id} '{profile_name}' for {mcp_qualified_name}")
         return profile_id
     
     async def get_profile(self, account_id: str, profile_id: str) -> Optional[MCPCredentialProfile]:
         client = await self._db.client
         result = await client.table('user_mcp_credential_profiles').select('*')\
             .eq('profile_id', profile_id)\
-            .eq('is_active', True)\
             .execute()
         
         if not result.data:
@@ -128,7 +126,6 @@ class ProfileService:
         result = await client.table('user_mcp_credential_profiles').select('*')\
             .eq('account_id', account_id)\
             .eq('mcp_qualified_name', mcp_qualified_name)\
-            .eq('is_active', True)\
             .order('is_default', desc=True)\
             .order('created_at', desc=True)\
             .execute()
@@ -139,7 +136,6 @@ class ProfileService:
         client = await self._db.client
         result = await client.table('user_mcp_credential_profiles').select('*')\
             .eq('account_id', account_id)\
-            .eq('is_active', True)\
             .order('created_at', desc=True)\
             .execute()
         
@@ -159,7 +155,7 @@ class ProfileService:
         return profiles[0] if profiles else None
     
     async def set_default_profile(self, account_id: str, profile_id: str) -> bool:
-        logger.info(f"Setting profile {profile_id} as default")
+        logger.debug(f"Setting profile {profile_id} as default")
         
         profile = await self.get_profile(account_id, profile_id)
         if not profile:
@@ -172,7 +168,6 @@ class ProfileService:
             'updated_at': datetime.now(timezone.utc).isoformat()
         }).eq('account_id', account_id)\
           .eq('mcp_qualified_name', profile.mcp_qualified_name)\
-          .eq('is_active', True)\
           .execute()
         
         result = await client.table('user_mcp_credential_profiles').update({
@@ -184,25 +179,22 @@ class ProfileService:
         
         success = len(result.data) > 0
         if success:
-            logger.info(f"Set profile {profile_id} as default")
+            logger.debug(f"Set profile {profile_id} as default")
         
-        return success
+        return success 
     
     async def delete_profile(self, account_id: str, profile_id: str) -> bool:
-        logger.info(f"Deleting profile {profile_id}")
+        logger.debug(f"Deleting profile {profile_id}")
         
         client = await self._db.client
-        result = await client.table('user_mcp_credential_profiles').update({
-            'is_active': False,
-            'updated_at': datetime.now(timezone.utc).isoformat()
-        }).eq('profile_id', profile_id)\
+        result = await client.table('user_mcp_credential_profiles').delete()\
+          .eq('profile_id', profile_id)\
           .eq('account_id', account_id)\
-          .eq('is_active', True)\
           .execute()
         
         success = len(result.data) > 0
         if success:
-            logger.info(f"Deleted profile {profile_id}")
+            logger.debug(f"Deleted profile {profile_id}")
         
         return success
     

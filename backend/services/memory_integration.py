@@ -158,9 +158,6 @@ async def store_conversation_memory(
                         logger.info(f"Memory already stored for agent run {agent_run_id}, skipping duplicate")
                         return True  # Consider it successful since memory already exists
         
-        # Create memory text from conversation
-        memory_text = _format_conversation_for_memory(conversation_messages, additional_context)
-        
         # Prepare metadata for memory storage
         memory_metadata = {
             "type": "conversation",
@@ -171,9 +168,12 @@ async def store_conversation_memory(
         if agent_run_id:
             memory_metadata["agent_run_id"] = agent_run_id
         
-        # Store memory with mem0ai
+        if additional_context:
+            memory_metadata["additional_context"] = additional_context
+        
+        # Store memory with mem0ai - pass conversation messages directly for better semantic understanding
         success = await memory_service.add_memory(
-            text=memory_text,
+            content=conversation_messages,  # Pass messages directly instead of formatted text
             user_id=user_id,
             thread_id=thread_id,
             metadata=memory_metadata

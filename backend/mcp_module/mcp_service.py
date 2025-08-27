@@ -116,14 +116,14 @@ class MCPService:
         return await self._connect_server_internal(request)
     
     async def _connect_server_internal(self, request: MCPConnectionRequest) -> MCPConnection:
-        self._logger.info(f"Connecting to MCP server: {request.qualified_name}")
+        self._logger.debug(f"Connecting to MCP server: {request.qualified_name}")
         
         try:
             server_url = await self._get_server_url(request.qualified_name, request.config, request.provider)
             headers = self._get_headers(request.qualified_name, request.config, request.provider, request.external_user_id)
             
             # Add debugging
-            self._logger.info(f"MCP connection details - Provider: {request.provider}, URL: {server_url}, Headers: {headers}")
+            self._logger.debug(f"MCP connection details - Provider: {request.provider}, URL: {server_url}, Headers: {headers}")
             
             # Add timeout to prevent hanging
             async with asyncio.timeout(30):
@@ -148,7 +148,7 @@ class MCPService:
                     )
                     
                     self._connections[request.qualified_name] = connection
-                    self._logger.info(f"Connected to {request.qualified_name} ({len(tools)} tools available)")
+                    self._logger.debug(f"Connected to {request.qualified_name} ({len(tools)} tools available)")
                     
                     return connection
                     
@@ -188,7 +188,7 @@ class MCPService:
         if connection and connection.session:
             try:
                 await connection.session.close()
-                self._logger.info(f"Disconnected from {qualified_name}")
+                self._logger.debug(f"Disconnected from {qualified_name}")
             except Exception as e:
                 self._logger.warning(f"Error disconnecting from {qualified_name}: {str(e)}")
         
@@ -198,7 +198,7 @@ class MCPService:
         for qualified_name in list(self._connections.keys()):
             await self.disconnect_server(qualified_name)
         self._connections.clear()
-        self._logger.info("Disconnected from all MCP servers")
+        self._logger.debug("Disconnected from all MCP servers")
     
     def get_connection(self, qualified_name: str) -> Optional[MCPConnection]:
         return self._connections.get(qualified_name)
@@ -238,7 +238,7 @@ class MCPService:
         return await self._execute_tool_internal(request)
     
     async def _execute_tool_internal(self, request: ToolExecutionRequest) -> ToolExecutionResult:
-        self._logger.info(f"Executing tool: {request.tool_name}")
+        self._logger.debug(f"Executing tool: {request.tool_name}")
         
         connection = self._find_tool_connection(request.tool_name)
         if not connection:
@@ -253,7 +253,7 @@ class MCPService:
         try:
             result = await connection.session.call_tool(request.tool_name, request.arguments)
             
-            self._logger.info(f"Tool {request.tool_name} executed successfully")
+            self._logger.debug(f"Tool {request.tool_name} executed successfully")
             
             if hasattr(result, 'content'):
                 content = result.content
@@ -435,7 +435,7 @@ class MCPService:
             profile_service = ComposioProfileService(db)
             mcp_url = await profile_service.get_mcp_url_for_runtime(profile_id)
             
-            self._logger.info(f"Resolved Composio profile {profile_id} to MCP URL {mcp_url}")
+            self._logger.debug(f"Resolved Composio profile {profile_id} to MCP URL {mcp_url}")
             return mcp_url
             
         except Exception as e:

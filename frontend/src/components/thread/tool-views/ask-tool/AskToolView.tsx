@@ -51,6 +51,8 @@ export function AskToolView({
     assistantTimestamp
   );
 
+
+
   const isImageFile = (filePath: string): boolean => {
     const filename = filePath.split('/').pop() || '';
     return filename.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i) !== null;
@@ -58,7 +60,7 @@ export function AskToolView({
 
   const isPreviewableFile = (filePath: string): boolean => {
     const ext = filePath.split('.').pop()?.toLowerCase() || '';
-    return ext === 'html' || ext === 'htm' || ext === 'md' || ext === 'markdown' || ext === 'csv' || ext === 'tsv' || ext === 'pdf';
+    return ext === 'html' || ext === 'htm' || ext === 'md' || ext === 'markdown' || ext === 'csv' || ext === 'tsv' || ext === 'pdf' || ext === 'xlsx' || ext === 'xls';
   };
 
   const toolTitle = getToolTitle(name) || 'Ask User';

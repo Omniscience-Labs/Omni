@@ -103,8 +103,8 @@ async def add_memory(
             )
         
         success = await memory_service.add_memory(
-            text=request.text,
-            user_id=user.id,
+            content=request.text,
+            user_id=user_id,
             thread_id=request.thread_id,
             metadata=request.metadata
         )
@@ -150,7 +150,7 @@ async def search_memories(
         
         memories = await memory_service.search_memories(
             query=request.query,
-            user_id=user.id,
+            user_id=user_id,
             thread_id=request.thread_id,
             limit=request.limit,
             version=request.version,
@@ -191,7 +191,7 @@ async def get_thread_memories(
             )
         
         memories = await memory_service.get_thread_memories(
-            user_id=user.id,
+            user_id=user_id,
             thread_id=thread_id,
             limit=min(limit, 100)  # Cap at 100
         )
@@ -230,7 +230,7 @@ async def delete_memory(
         
         success = await memory_service.delete_memory(
             memory_id=memory_id,
-            user_id=user.id
+            user_id=user_id
         )
         
         if success:
@@ -273,7 +273,7 @@ async def clear_thread_memories(
             )
         
         success = await memory_service.clear_thread_memories(
-            user_id=user.id,
+            user_id=user_id,
             thread_id=thread_id
         )
         

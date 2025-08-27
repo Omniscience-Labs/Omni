@@ -251,7 +251,7 @@ export const JsonImportDialog: React.FC<JsonImportDialogProps> = ({
   }, [currentStep, setupSteps.length]);
 
   const renderPasteStep = () => (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <div className="space-y-2">
         <Label htmlFor="json-content">Agent JSON</Label>
         <Textarea

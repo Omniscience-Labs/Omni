@@ -19,6 +19,7 @@ import {
   Sun,
   Moon,
   KeyRound,
+  Plug,
 } from 'lucide-react';
 import { useAccounts } from '@/hooks/use-accounts';
 import NewTeamForm from '@/components/basejump/new-team-form';
@@ -52,6 +53,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useTheme } from 'next-themes';
 import { isLocalMode } from '@/lib/config';
 import { useFeatureFlag } from '@/lib/feature-flags';
+import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
 
 export function NavUserWithTeams({
   user,
@@ -147,6 +149,8 @@ export function NavUserWithTeams({
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
+    // Clear local storage after sign out
+    clearUserLocalStorage();
     router.push('/auth');
   };
 
@@ -291,6 +295,14 @@ export function NavUserWithTeams({
                     Billing
                   </Link>
                 </DropdownMenuItem>
+                {!flagLoading && customAgentsEnabled && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings/credentials">
+                      <Plug className="h-4 w-4" />
+                      Integrations
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 {!flagLoading && customAgentsEnabled && (
                   <DropdownMenuItem asChild>
                     <Link href="/settings/api-keys">

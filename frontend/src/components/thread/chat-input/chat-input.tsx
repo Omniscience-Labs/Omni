@@ -14,7 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { handleFiles } from './file-upload-handler';
 import { MessageInput } from './message-input';
 import { AttachmentGroup } from '../attachment-group';
-import { useModelSelection } from './_use-model-selection';
+import { useModelSelection } from './_use-model-selection-new';
 import { useFileDelete } from '@/hooks/react-query/files';
 import { useQueryClient } from '@tanstack/react-query';
 import { ToolCallInput } from './floating-tool-preview';
@@ -24,8 +24,8 @@ import { useComposioToolkitIcon } from '@/hooks/react-query/composio/use-composi
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { IntegrationsRegistry } from '@/components/agents/integrations-registry';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { useSubscriptionWithStreaming } from '@/hooks/react-query/subscriptions/use-subscriptions';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useSubscriptionData } from '@/contexts/SubscriptionContext';
 import { isLocalMode } from '@/lib/config';
 import { BillingModal } from '@/components/billing/billing-modal';
 import { useRouter } from 'next/navigation';
@@ -154,7 +154,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       refreshCustomModels,
     } = useModelSelection();
 
-    const { data: subscriptionData } = useSubscriptionWithStreaming(isAgentRunning);
+    const { data: subscriptionData } = useSubscriptionData();
     const deleteFileMutation = useFileDelete();
     const queryClient = useQueryClient();
 
@@ -506,7 +506,6 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             <DialogContent className="p-0 max-w-6xl h-[90vh] overflow-hidden">
               <DialogHeader className="sr-only">
                 <DialogTitle>Integrations</DialogTitle>
-                <DialogDescription>Browse and configure integrations for your agent</DialogDescription>
               </DialogHeader>
               <IntegrationsRegistry
                 showAgentSelector={true}

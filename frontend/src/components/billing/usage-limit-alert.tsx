@@ -2,8 +2,9 @@
 
 import { AlertTriangle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { BillingModal } from './billing-modal';
+import { useState } from 'react';
 
 interface BillingErrorAlertProps {
   message?: string;
@@ -22,12 +23,18 @@ export function BillingErrorAlert({
   onDismiss,
   isOpen,
 }: BillingErrorAlertProps) {
-  const router = useRouter();
+  const [showBillingModal, setShowBillingModal] = useState(false);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-[9999]">
+    <>
+      <BillingModal 
+        open={showBillingModal} 
+        onOpenChange={setShowBillingModal}
+        showUsageLimitAlert={true}
+      />
+      <div className="fixed bottom-4 right-4 z-[9999]">
       <div className="bg-destructive/15 backdrop-blur-sm border border-destructive/30 rounded-lg p-5 shadow-lg max-w-md">
         <div className="flex items-start gap-4">
           <div className="flex-shrink-0 bg-destructive/20 p-2 rounded-full">
@@ -60,9 +67,7 @@ export function BillingErrorAlert({
               </Button>
               <Button
                 size="sm"
-                onClick={() =>
-                  router.push(`/settings/billing?accountId=${accountId}`)
-                }
+                onClick={() => setShowBillingModal(true)}
                 className="text-xs bg-destructive hover:bg-destructive/90"
               >
                 Upgrade Plan
@@ -71,6 +76,7 @@ export function BillingErrorAlert({
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

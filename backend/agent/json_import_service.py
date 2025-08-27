@@ -40,7 +40,7 @@ class JsonImportService:
         self._db = db_connection
     
     async def analyze_json(self, json_data: Dict[str, Any], account_id: str) -> JsonImportAnalysis:
-        logger.info(f"Analyzing imported JSON for user {account_id}")
+        logger.debug(f"Analyzing imported JSON for user {account_id}")
         
         mcp_requirements = self._extract_mcp_requirements_from_json(json_data)
         
@@ -54,11 +54,12 @@ class JsonImportService:
         agent_info = {
             'name': json_data.get('name', 'Imported Agent'),
             'description': json_data.get('description', ''),
-            # Deprecated fields
             'avatar': json_data.get('avatar'),
             'avatar_color': json_data.get('avatar_color'),
-            # New field
-            'profile_image_url': json_data.get('profile_image_url') or json_data.get('metadata', {}).get('profile_image_url')
+            'profile_image_url': json_data.get('profile_image_url') or json_data.get('metadata', {}).get('profile_image_url'),
+            'icon_name': json_data.get('icon_name', 'brain'),
+            'icon_color': json_data.get('icon_color', '#000000'),
+            'icon_background': json_data.get('icon_background', '#F3F4F6')
         }
         
         return JsonImportAnalysis(
@@ -69,7 +70,7 @@ class JsonImportService:
         )
     
     async def import_json(self, request: JsonImportRequest) -> JsonImportResult:
-        logger.info(f"Importing agent from JSON for user {request.account_id}")
+        logger.debug(f"Importing agent from JSON for user {request.account_id}")
         
         json_data = request.json_data
         
@@ -93,11 +94,12 @@ class JsonImportService:
                 agent_info={
                     'name': json_data.get('name', 'Imported Agent'),
                     'description': json_data.get('description', ''),
-                    # Deprecated
                     'avatar': json_data.get('avatar'),
                     'avatar_color': json_data.get('avatar_color'),
-                    # New
-                    'profile_image_url': json_data.get('profile_image_url') or json_data.get('metadata', {}).get('profile_image_url')
+                    'profile_image_url': json_data.get('profile_image_url') or json_data.get('metadata', {}).get('profile_image_url'),
+                    'icon_name': json_data.get('icon_name', 'brain'),
+                    'icon_color': json_data.get('icon_color', '#000000'),
+                    'icon_background': json_data.get('icon_background', '#F3F4F6')
                 }
             )
         
@@ -123,7 +125,7 @@ class JsonImportService:
         from utils.cache import Cache
         await Cache.invalidate(f"agent_count_limit:{request.account_id}")
         
-        logger.info(f"Successfully imported agent {agent_id} from JSON")
+        logger.debug(f"Successfully imported agent {agent_id} from JSON")
         
         return JsonImportResult(
             status='success',
@@ -299,6 +301,10 @@ class JsonImportService:
             "description": json_data.get('description', ''),
             "avatar": json_data.get('avatar'),
             "avatar_color": json_data.get('avatar_color'),
+            "profile_image_url": json_data.get('profile_image_url'),
+            "icon_name": json_data.get('icon_name', 'brain'),
+            "icon_color": json_data.get('icon_color', '#000000'),
+            "icon_background": json_data.get('icon_background', '#F3F4F6'),
             "is_default": False,
             "tags": json_data.get('tags', []),
             "version_count": 1,

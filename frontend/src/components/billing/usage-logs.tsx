@@ -25,12 +25,12 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Loader2 } from 'lucide-react';
+import { ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { OpenInNewWindowIcon } from '@radix-ui/react-icons';
 import { useUsageLogs } from '@/hooks/react-query/subscriptions/use-billing';
 import { UsageLogEntry } from '@/lib/api';
-
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 interface DailyUsage {
@@ -84,6 +84,11 @@ export default function UsageLogs({ accountId }: Props) {
       return typeof cost === 'string' ? cost : '$0.0000';
     }
     return `$${cost.toFixed(4)}`;
+  };
+
+  const formatCreditAmount = (amount: number) => {
+    if (amount === 0) return null;
+    return `$${amount.toFixed(4)}`;
   };
 
   const formatDateOnly = (dateString: string) => {
@@ -200,8 +205,23 @@ export default function UsageLogs({ accountId }: Props) {
     0,
   );
 
+  // Get subscription limit from the first page data
+  const subscriptionLimit = currentPageData?.subscription_limit || 0;
+
   return (
     <div className="space-y-6">
+      {/* Show credit usage info if user has gone over limit */}
+      {subscriptionLimit > 0 && totalUsage > subscriptionLimit && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Credits Being Used</AlertTitle>
+          <AlertDescription>
+            You've exceeded your monthly subscription limit of ${subscriptionLimit.toFixed(2)}. 
+            Additional usage is being deducted from your credit balance.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Usage Logs Accordion */}
       <Card>
         <CardHeader>
@@ -253,52 +273,69 @@ export default function UsageLogs({ accountId }: Props) {
                       <div className="rounded-md border mt-4">
                         <Table>
                           <TableHeader>
-                            <TableRow>
-                              <TableHead>Time</TableHead>
-                              <TableHead>Model</TableHead>
-                              <TableHead className="text-right">
-                                Tokens
-                              </TableHead>
-                              <TableHead className="text-right">Cost</TableHead>
-                              <TableHead className="text-center">
-                                Thread
-                              </TableHead>
+                            <TableRow className="hover:bg-transparent">
+                              <TableHead className="w-[180px] text-xs">Time</TableHead>
+                              <TableHead className="text-xs">Model</TableHead>
+                              <TableHead className="text-xs text-right">Prompt</TableHead>
+                              <TableHead className="text-xs text-right">Completion</TableHead>
+                              <TableHead className="text-xs text-right">Total</TableHead>
+                              <TableHead className="text-xs text-right">Cost</TableHead>
+                              <TableHead className="text-xs text-right">Payment</TableHead>
+                              <TableHead className="w-[100px] text-xs text-center">Thread</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {day.logs.map((log) => (
-                              <TableRow key={log.message_id}>
-                                <TableCell className="font-mono text-sm">
-                                  {new Date(
-                                    log.created_at,
-                                  ).toLocaleTimeString()}
+                            {day.logs.map((log, index) => (
+                              <TableRow
+                                key={`${log.message_id}_${index}`}
+                                className="hover:bg-muted/50 group"
+                              >
+                                <TableCell className="font-mono text-xs text-muted-foreground">
+                                  {new Date(log.created_at).toLocaleTimeString()}
                                 </TableCell>
-                                <TableCell>
-                                  <Badge className="font-mono text-xs">
-                                    {log.content.model}
+                                <TableCell className="text-xs">
+                                  <Badge variant="secondary" className="font-mono text-xs">
+                                    {log.content.model.replace('openrouter/', '').replace('anthropic/', '')}
                                   </Badge>
                                 </TableCell>
-                                <TableCell className="text-right font-mono font-medium text-sm">
-                                  {log.content.usage.prompt_tokens.toLocaleString()}{' '}
-                                  -&gt;{' '}
+                                <TableCell className="text-right font-mono text-xs">
+                                  {log.content.usage.prompt_tokens.toLocaleString()}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-xs">
                                   {log.content.usage.completion_tokens.toLocaleString()}
                                 </TableCell>
-                                <TableCell className="text-right font-mono font-medium text-sm">
+                                <TableCell className="text-right font-mono text-xs">
+                                  {log.total_tokens.toLocaleString()}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-xs">
                                   {formatCost(log.estimated_cost)}
+                                </TableCell>
+                                <TableCell className="text-right text-xs">
+                                  {log.payment_method === 'credits' ? (
+                                    <div className="flex items-center justify-end gap-2">
+                                      <Badge variant="outline" className="text-xs">
+                                        Credits
+                                      </Badge>
+                                      {log.credit_used && log.credit_used > 0 && (
+                                        <span className="text-xs text-muted-foreground">
+                                          -{formatCreditAmount(log.credit_used)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <Badge variant="secondary" className="text-xs">
+                                      Subscription
+                                    </Badge>
+                                  )}
                                 </TableCell>
                                 <TableCell className="text-center">
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() =>
-                                      handleThreadClick(
-                                        log.thread_id,
-                                        log.project_id,
-                                      )
-                                    }
-                                    className="h-8 w-8 p-0"
+                                    onClick={() => handleThreadClick(log.thread_id, log.project_id)}
+                                    className="h-6 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
                                   >
-                                    <ExternalLink className="h-4 w-4" />
+                                    <ExternalLink className="h-3 w-3" />
                                   </Button>
                                 </TableCell>
                               </TableRow>

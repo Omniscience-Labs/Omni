@@ -38,8 +38,8 @@ class AuthConfigService:
         initiation_fields: Optional[Dict[str, str]] = None
     ) -> AuthConfig:
         try:
-            logger.info(f"Creating auth config for toolkit: {toolkit_slug}")
-            logger.info(f"Initiation fields: {initiation_fields}")
+            logger.debug(f"Creating auth config for toolkit: {toolkit_slug}")
+            logger.debug(f"Initiation fields: {initiation_fields}")
             
             credentials = {"region": "ind"}
             
@@ -51,7 +51,7 @@ class AuthConfigService:
                         else:
                             credentials[field_name] = str(field_value)
             
-            logger.info(f"Using credentials: {credentials}")
+            logger.debug(f"Using credentials: {credentials}")
             
             response = self.client.auth_configs.create(
                 toolkit={
@@ -73,7 +73,7 @@ class AuthConfigService:
                 toolkit_slug=toolkit_slug
             )
             
-            logger.info(f"Successfully created auth config: {auth_config.id}")
+            logger.debug(f"Successfully created auth config: {auth_config.id}")
             return auth_config
             
         except Exception as e:
@@ -82,7 +82,7 @@ class AuthConfigService:
     
     async def get_auth_config(self, auth_config_id: str) -> Optional[AuthConfig]:
         try:
-            logger.info(f"Fetching auth config: {auth_config_id}")
+            logger.debug(f"Fetching auth config: {auth_config_id}")
             
             response = self.client.auth_configs.get(auth_config_id)
             
@@ -103,7 +103,7 @@ class AuthConfigService:
     
     async def list_auth_configs(self, toolkit_slug: Optional[str] = None) -> List[AuthConfig]:
         try:
-            logger.info(f"Listing auth configs for toolkit: {toolkit_slug}")
+            logger.debug(f"Listing auth configs for toolkit: {toolkit_slug}")
             
             if toolkit_slug:
                 response = self.client.auth_configs.list(toolkit=toolkit_slug)
@@ -123,7 +123,7 @@ class AuthConfigService:
                 )
                 auth_configs.append(auth_config)
             
-            logger.info(f"Successfully listed {len(auth_configs)} auth configs")
+            logger.debug(f"Successfully listed {len(auth_configs)} auth configs")
             return auth_configs
             
         except Exception as e:

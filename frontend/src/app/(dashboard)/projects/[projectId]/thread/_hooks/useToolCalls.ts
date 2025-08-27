@@ -6,6 +6,7 @@ import { safeJsonParse } from '@/components/thread/utils';
 import { ParsedContent } from '@/components/thread/types';
 import { extractToolName } from '@/components/thread/tool-views/xml-parser';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { extractAskData } from '@/components/thread/tool-views/ask-tool/_utils';
 
 interface UseToolCallsReturn {
   toolCalls: ToolCallInput[];
@@ -63,6 +64,16 @@ function parseToolContent(content: any): {
   }
   
   return null;
+}
+
+// Helper function to check if an ask tool should be filtered out (no attachments)
+function shouldFilterAskTool(toolName: string, assistantContent: any, toolContent: any): boolean {
+  if (toolName.toLowerCase() !== 'ask') {
+    return false; // Not an ask tool, don't filter
+  }
+  
+  const { attachments } = extractAskData(assistantContent, toolContent, true);
+  return !attachments || attachments.length === 0;
 }
 
 export function useToolCalls(
@@ -184,6 +195,12 @@ export function useToolCalls(
               }
             }
           } catch { }
+        }
+
+        // Check if this ask tool should be filtered out
+        if (shouldFilterAskTool(toolName, assistantMsg.content, resultMessage.content)) {
+          // Skip this tool call - don't add it to historicalToolPairs
+          return;
         }
 
         const toolIndex = historicalToolPairs.length;

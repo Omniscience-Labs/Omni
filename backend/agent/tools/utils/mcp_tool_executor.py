@@ -17,7 +17,7 @@ class MCPToolExecutor:
         self.tool_wrapper = tool_wrapper
     
     async def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> ToolResult:
-        logger.info(f"Executing MCP tool {tool_name} with arguments {arguments}")
+        logger.debug(f"Executing MCP tool {tool_name} with arguments {arguments}")
 
         try:
             if tool_name in self.custom_tools:

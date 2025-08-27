@@ -10,25 +10,27 @@ import { BinaryRenderer } from './binary-renderer';
 import { HtmlRenderer } from './html-renderer';
 import { constructHtmlPreviewUrl } from '@/lib/utils/url';
 import { CsvRenderer } from './csv-renderer';
-import { VideoRenderer } from './video-renderer';
+import { XlsxRenderer } from './xlsx-renderer';
 
 export type FileType =
   | 'markdown'
   | 'code'
   | 'pdf'
   | 'image'
-  | 'video'
   | 'text'
   | 'binary'
-  | 'csv';
+  | 'csv'
+  | 'xlsx';
 
 interface FileRendererProps {
   content: string | null;
   binaryUrl: string | null;
   fileName: string;
+  filePath?: string;
   className?: string;
   project?: {
     sandbox?: {
+      id?: string;
       sandbox_url?: string;
       vnc_preview?: string;
       pass?: string;
@@ -92,8 +94,8 @@ export function getFileTypeFromExtension(fileName: string): FileType {
     'ico',
   ];
   const pdfExtensions = ['pdf'];
-  const videoExtensions = ['mp4', 'webm', 'ogg', 'avi', 'mov', 'wmv', 'flv', 'mkv'];
   const csvExtensions = ['csv', 'tsv'];
+  const xlsxExtensions = ['xlsx', 'xls'];
   const textExtensions = ['txt', 'log', 'env', 'ini'];
 
   if (markdownExtensions.includes(extension)) {
@@ -104,10 +106,10 @@ export function getFileTypeFromExtension(fileName: string): FileType {
     return 'image';
   } else if (pdfExtensions.includes(extension)) {
     return 'pdf';
-  } else if (videoExtensions.includes(extension)) {
-    return 'video';
   } else if (csvExtensions.includes(extension)) {
     return 'csv';
+  } else if (xlsxExtensions.includes(extension)) {
+    return 'xlsx';
   } else if (textExtensions.includes(extension)) {
     return 'text';
   } else {
@@ -154,6 +156,7 @@ export function FileRenderer({
   content,
   binaryUrl,
   fileName,
+  filePath,
   className,
   project,
   markdownRef,
@@ -175,8 +178,8 @@ export function FileRenderer({
 
   // Construct HTML file preview URL if we have a sandbox and the file is HTML
   const htmlPreviewUrl =
-    isHtmlFile && project?.sandbox?.sandbox_url && fileName
-      ? constructHtmlPreviewUrl(project.sandbox.sandbox_url, fileName)
+    isHtmlFile && project?.sandbox?.sandbox_url && (filePath || fileName)
+      ? constructHtmlPreviewUrl(project.sandbox.sandbox_url, filePath || fileName)
       : blobHtmlUrl; // Use blob URL as fallback
 
   // Clean up blob URL on unmount
@@ -194,14 +197,21 @@ export function FileRenderer({
         <BinaryRenderer url={binaryUrl || ''} fileName={fileName} onDownload={onDownload} isDownloading={isDownloading} />
       ) : fileType === 'image' && binaryUrl ? (
         <ImageRenderer url={binaryUrl} />
-      ) : fileType === 'video' && binaryUrl ? (
-        <VideoRenderer url={binaryUrl} fileName={fileName} onDownload={onDownload} isDownloading={isDownloading} />
       ) : fileType === 'pdf' && binaryUrl ? (
         <PdfRenderer url={binaryUrl} />
       ) : fileType === 'markdown' ? (
         <MarkdownRenderer content={content || ''} ref={markdownRef} />
       ) : fileType === 'csv' ? (
         <CsvRenderer content={content || ''} />
+      ) : fileType === 'xlsx' ? (
+        <XlsxRenderer 
+          content={content}
+          filePath={filePath}
+          fileName={fileName}
+          project={project}
+          onDownload={onDownload}
+          isDownloading={isDownloading}
+        />
       ) : isHtmlFile ? (
         <HtmlRenderer
           content={content || ''}

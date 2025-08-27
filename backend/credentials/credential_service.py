@@ -69,8 +69,8 @@ class EncryptionService:
             logger.error(f"Invalid encryption key: {e}")
             logger.warning("Generating new encryption key for this session")
             key = Fernet.generate_key()
-            logger.info(f"Generated new encryption key. Set this in your environment:")
-            logger.info(f"MCP_CREDENTIAL_ENCRYPTION_KEY={key.decode()}")
+            logger.debug(f"Generated new encryption key. Set this in your environment:")
+            logger.debug(f"MCP_CREDENTIAL_ENCRYPTION_KEY={key.decode()}")
             return key
     
     def encrypt_config(self, config: Dict[str, Any]) -> Tuple[bytes, str]:
@@ -110,7 +110,7 @@ class CredentialService:
         display_name: str,
         config: Dict[str, Any]
     ) -> str:
-        logger.info(f"Storing credential for {mcp_qualified_name}")
+        logger.debug(f"Storing credential for {mcp_qualified_name}")
         
         credential_id = str(uuid.uuid4())
         encrypted_config, config_hash = self._encryption.encrypt_config(config)
@@ -142,7 +142,7 @@ class CredentialService:
             'updated_at': datetime.now(timezone.utc).isoformat()
         }).execute()
         
-        logger.info(f"Stored credential {credential_id} for {mcp_qualified_name}")
+        logger.debug(f"Stored credential {credential_id} for {mcp_qualified_name}")
         return credential_id
     
     async def get_credential(
@@ -177,7 +177,7 @@ class CredentialService:
         account_id: str, 
         mcp_qualified_name: str
     ) -> bool:
-        logger.info(f"Deleting credential for {mcp_qualified_name}")
+        logger.debug(f"Deleting credential for {mcp_qualified_name}")
         
         client = await self._db.client
         result = await client.table('user_mcp_credentials').update({
@@ -190,7 +190,7 @@ class CredentialService:
         
         success = len(result.data) > 0
         if success:
-            logger.info(f"Deleted credential for {mcp_qualified_name}")
+            logger.debug(f"Deleted credential for {mcp_qualified_name}")
         
         return success
     

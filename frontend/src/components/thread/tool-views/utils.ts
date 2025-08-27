@@ -61,6 +61,11 @@ export function getToolTitle(toolName: string): string {
     'get-credential-profiles': 'Get Credential Profiles',
     'get-current-agent-config': 'Get Current Agent Config',
     'deploy': 'Deploy',
+    'create-presentation': 'Create Presentation',
+    'export-presentation': 'Export Presentation',
+    'create-presentation-outline': 'Create Presentation Outline',
+    'list-presentation-templates': 'List Presentation Templates',
+    'upload-file': 'Upload File',
 
     'generic-tool': 'Tool',
     'default': 'Tool',
@@ -1312,6 +1317,14 @@ export function getToolComponent(toolName: string): string {
     //Deploy
     case 'deploy':
       return 'DeployToolView';
+
+    // Upload operations
+    case 'upload-file':
+      return 'UploadFileToolView';
+
+    // Port operations
+    case 'expose-port':
+      return 'ExposePortToolView';
 
     // Default
     default:

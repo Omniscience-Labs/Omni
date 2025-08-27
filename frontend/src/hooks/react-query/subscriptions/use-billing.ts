@@ -23,8 +23,11 @@ export const useBillingStatus = createQueryHook(
   ['billing', 'status'],
   checkBillingStatus,
   {
-    staleTime: 2 * 60 * 1000,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes cache time
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnMount: false, // Don't refetch on mount if data exists
+    refetchOnReconnect: true, // Only refetch when network reconnects
   }
 );
 

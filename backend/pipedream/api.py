@@ -164,7 +164,7 @@ async def create_connection_token(
     request: CreateConnectionTokenRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    logger.info(f"Creating Pipedream connection token for user: {user_id}, app: {request.app}")
+    logger.debug(f"Creating Pipedream connection token for user: {user_id}, app: {request.app}")
     
     actual_app = _strip_pipedream_prefix(request.app)
     
@@ -192,7 +192,7 @@ async def create_connection_token(
 async def get_user_connections(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    logger.info(f"Getting connections for user: {user_id}")
+    logger.debug(f"Getting connections for user: {user_id}")
     
     try:
         from .connection_service import ExternalUserId
@@ -230,7 +230,7 @@ async def discover_mcp_servers(
     request: MCPDiscoveryRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    logger.info(f"Discovering MCP servers for user: {user_id}, app: {request.app_slug}")
+    logger.debug(f"Discovering MCP servers for user: {user_id}, app: {request.app_slug}")
     
     actual_app_slug = _strip_pipedream_prefix(request.app_slug)
     
@@ -279,7 +279,7 @@ async def discover_mcp_servers_for_profile(
     request: MCPProfileDiscoveryRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    logger.info(f"Discovering MCP servers for profile: {request.external_user_id}")
+    logger.debug(f"Discovering MCP servers for profile: {request.external_user_id}")
     
     actual_app_slug = _strip_pipedream_prefix(request.app_slug)
     
@@ -328,7 +328,7 @@ async def create_mcp_connection(
     request: MCPConnectionRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    logger.info(f"Creating MCP connection for user: {user_id}, app: {request.app_slug}")
+    logger.debug(f"Creating MCP connection for user: {user_id}, app: {request.app_slug}")
     
     actual_app_slug = _strip_pipedream_prefix(request.app_slug)
     
@@ -378,7 +378,7 @@ async def get_pipedream_apps(
     q: Optional[str] = Query(None),
     category: Optional[str] = Query(None)
 ):
-    logger.info(f"Fetching Pipedream apps: query='{q}', category='{category}'")
+    logger.debug(f"Fetching Pipedream apps: query='{q}', category='{category}'")
     
     try:
         result = await app_service.search_apps(
@@ -427,7 +427,7 @@ async def get_pipedream_apps(
 
 @router.get("/apps/popular", response_model=Dict[str, Any])
 async def get_popular_pipedream_apps():
-    logger.info("Fetching popular Pipedream apps")
+    logger.debug("Fetching popular Pipedream apps")
     
     try:
         apps = await app_service.get_popular_apps(limit=100)
@@ -476,7 +476,7 @@ async def get_popular_pipedream_apps():
 
 @router.get("/apps/{app_slug}/icon")
 async def get_app_icon(app_slug: str):
-    logger.info(f"Fetching icon for app: {app_slug}")
+    logger.debug(f"Fetching icon for app: {app_slug}")
     try:
         app = await app_service.get_app_by_slug(app_slug)
         icon_url = app.logo_url if app else None
@@ -498,7 +498,7 @@ async def get_app_icon(app_slug: str):
 
 @router.get("/apps/{app_slug}/tools")
 async def get_app_tools(app_slug: str):
-    logger.info(f"Getting tools for app: {app_slug}")
+    logger.debug(f"Getting tools for app: {app_slug}")
     url = f"https://remote.mcp.pipedream.net/?app={app_slug}&externalUserId=tools_preview"
     payload = {"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1}
     headers = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
@@ -537,7 +537,7 @@ async def create_credential_profile(
     request: ProfileRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    logger.info(f"Creating credential profile for user: {user_id}, app: {request.app_slug}")
+    logger.debug(f"Creating credential profile for user: {user_id}, app: {request.app_slug}")
     
     try:
         profile = await profile_service.create_profile(
@@ -565,7 +565,7 @@ async def get_credential_profiles(
     is_active: Optional[bool] = Query(None),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    logger.info(f"Getting credential profiles for user: {user_id}, app: {app_slug}")
+    logger.debug(f"Getting credential profiles for user: {user_id}, app: {app_slug}")
     
     actual_app_slug = _strip_pipedream_prefix(app_slug)
     
@@ -583,7 +583,7 @@ async def get_credential_profile(
     profile_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    logger.info(f"Getting credential profile: {profile_id} for user: {user_id}")
+    logger.debug(f"Getting credential profile: {profile_id} for user: {user_id}")
     
     try:
         profile = await profile_service.get_profile(user_id, profile_id)
@@ -605,7 +605,7 @@ async def update_credential_profile(
     request: UpdateProfileRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    logger.info(f"Updating credential profile: {profile_id} for user: {user_id}")
+    logger.debug(f"Updating credential profile: {profile_id} for user: {user_id}")
     
     try:
         profile = await profile_service.update_profile(
@@ -630,7 +630,7 @@ async def delete_credential_profile(
     profile_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    logger.info(f"Deleting credential profile: {profile_id} for user: {user_id}")
+    logger.debug(f"Deleting credential profile: {profile_id} for user: {user_id}")
     
     try:
         success = await profile_service.delete_profile(user_id, profile_id)
@@ -651,7 +651,7 @@ async def connect_credential_profile(
     app: Optional[str] = Query(None),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    logger.info(f"Connecting credential profile: {profile_id} for user: {user_id}")
+    logger.debug(f"Connecting credential profile: {profile_id} for user: {user_id}")
     
     actual_app = _strip_pipedream_prefix(app)
     
@@ -688,7 +688,7 @@ async def get_profile_connections(
     profile_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    logger.info(f"Getting connections for profile: {profile_id}, user: {user_id}")
+    logger.debug(f"Getting connections for profile: {profile_id}, user: {user_id}")
     
     try:
         from uuid import UUID

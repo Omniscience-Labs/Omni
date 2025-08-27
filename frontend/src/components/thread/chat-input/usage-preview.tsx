@@ -84,7 +84,7 @@ export const UsagePreview: React.FC<UsagePreviewProps> = ({
             <div className="flex-1 min-w-0">
                 <motion.div className="flex items-center gap-2 mb-1">
                     <h4 className="text-sm font-medium text-foreground truncate">
-                        Upgrade for more usage & better AI Models
+                        Upgrade for the best AI Models & more usage
                     </h4>
                 </motion.div>
 

@@ -13,7 +13,8 @@ import {
   Code,
   Settings,
   ChevronRight,
-  Globe
+  Globe,
+  Search
 } from 'lucide-react';
 import { ToolViewProps } from '../types';
 import { formatTimestamp, getToolTitle } from '../utils';
@@ -71,6 +72,14 @@ const PROVIDER_CONFIG = {
     bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
     textColor: 'text-indigo-700 dark:text-indigo-300',
     borderColor: 'border-indigo-200 dark:border-indigo-800'
+  },
+  'apollo': {
+    name: 'Apollo Data Provider',
+    icon: Search,
+    color: 'from-teal-500 to-teal-600',
+    bgColor: 'bg-teal-50 dark:bg-teal-900/20',
+    textColor: 'text-teal-700 dark:text-teal-300',
+    borderColor: 'border-teal-200 dark:border-teal-800'
   }
 };
 

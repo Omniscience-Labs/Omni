@@ -165,7 +165,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
       }
       // Unified compact menu for both logged and non-logged (non-logged shows only models subset via menu trigger)
       return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" data-tour="agent-selector">
           <UnifiedConfigMenu
             isLoggedIn={isLoggedIn}
             selectedAgentId={showAdvancedFeatures && !hideAgentSelection ? selectedAgentId : undefined}
@@ -229,7 +229,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
                   <p role='button' className='text-sm text-amber-500 hidden sm:block cursor-pointer' onClick={() => setBillingModalOpen(true)}>Upgrade for more usage</p>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>The free tier is severely limited by the amount of usage. Upgrade to experience the full power of Suna.</p>
+                  <p>The free tier is severely limited by the amount of usage. Upgrade to experience the full power of Omni.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

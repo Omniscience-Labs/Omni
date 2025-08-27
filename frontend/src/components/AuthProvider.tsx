@@ -10,7 +10,8 @@ import React, {
 import { createClient } from '@/lib/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { checkAndInstallOmniAgent } from '@/lib/utils/install-suna-agent';
+import { checkAndInstallOmniAgent } from '@/lib/utils/install-omni-agent';
+import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
 
 type AuthContextType = {
   supabase: SupabaseClient;
@@ -53,10 +54,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         switch (event) {
           case 'SIGNED_IN':
             if (newSession?.user) {
-              await checkAndInstallOmniAgent(newSession.user.id, newSession.user.created_at);
+              try {
+                await checkAndInstallOmniAgent(newSession.user.id, newSession.user.created_at);
+              } catch (error) {
+                console.error('checkAndInstallOmniAgent failed:', error);
+              }
             }
             break;
           case 'SIGNED_OUT':
+            // Clear local storage when user is signed out (handles all logout scenarios)
+            clearUserLocalStorage();
             break;
           case 'TOKEN_REFRESHED':
             break;
@@ -75,6 +82,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
+      // Clear local storage after successful sign out
+      clearUserLocalStorage();
     } catch (error) {
       console.error('❌ Error signing out:', error);
     }

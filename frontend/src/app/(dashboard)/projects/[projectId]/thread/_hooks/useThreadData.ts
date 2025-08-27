@@ -72,11 +72,23 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
         if (!isMounted) return;
 
         if (projectQuery.data) {
+          console.log('Project data loaded:');
+          console.log('- id:', projectQuery.data.id);
+          console.log('- name:', projectQuery.data.name);
+          console.log('- sandbox:', JSON.stringify(projectQuery.data.sandbox, null, 2));
+          console.log('- sandboxType:', typeof projectQuery.data.sandbox);
+          console.log('- sandboxKeys:', projectQuery.data.sandbox ? Object.keys(projectQuery.data.sandbox) : null);
+          console.log('- sandboxId:', projectQuery.data.sandbox?.id);
           setProject(projectQuery.data);
           if (typeof projectQuery.data.sandbox === 'string') {
+            console.log('Setting sandboxId from string:', projectQuery.data.sandbox);
             setSandboxId(projectQuery.data.sandbox);
           } else if (projectQuery.data.sandbox?.id) {
+            console.log('Setting sandboxId from object:', projectQuery.data.sandbox.id);
             setSandboxId(projectQuery.data.sandbox.id);
+          } else {
+            console.log('No valid sandbox found in project data');
+            setSandboxId(null);
           }
 
           setProjectName(projectQuery.data.name || '');

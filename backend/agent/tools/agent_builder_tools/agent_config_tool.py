@@ -15,7 +15,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
         "type": "function",
         "function": {
             "name": "update_agent",
-            "description": "Update the agent's configuration including name, description, system prompt, tools, and MCP servers. Call this whenever the user wants to modify any aspect of the agent.",
+            "description": "Update the agent's configuration including name, description, tools, and MCP servers. System prompt additions are appended to existing instructions with high priority markers. Call this whenever the user wants to modify any aspect of the agent.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -29,7 +29,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
                     },
                     "system_prompt": {
                         "type": "string",
-                        "description": "The system instructions that define the agent's behavior, expertise, and approach. This should be comprehensive and well-structured."
+                        "description": "Critical additional instructions that define agent's behavior, expertise and approach to append with HIGH PRIORITY. Must be concise and specific. Use imperative verbs, avoid filler words. Include 'Act as [role]' statement where role is the agent's primary function (e.g., 'Act as a lawyer', 'Act as security officer', 'Act as medical assistant')."
                     },
                     "agentpress_tools": {
                         "type": "object",
@@ -73,7 +73,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
         <invoke name="update_agent">
         <parameter name="name">Research Assistant</parameter>
         <parameter name="description">An AI assistant specialized in conducting research and providing comprehensive analysis</parameter>
-        <parameter name="system_prompt">You are a research assistant with expertise in gathering, analyzing, and synthesizing information. Your approach is thorough and methodical...</parameter>
+        <parameter name="system_prompt">Act as a research analyst. Always verify sources</parameter>
                         <parameter name="agentpress_tools">{"web_search_tool": true, "sb_files_tool": true, "sb_shell_tool": false}</parameter>
         <parameter name="avatar">🔬</parameter>
         <parameter name="avatar_color">#4F46E5</parameter>
@@ -101,24 +101,22 @@ class AgentConfigTool(AgentBuilderBaseTool):
             current_agent = agent_result.data[0]
 
             metadata = current_agent.get('metadata', {})
-            is_suna_default = metadata.get('is_suna_default', False)
+            is_default_agent = metadata.get('is_suna_default', False) or metadata.get('is_omni_default', False)
             
-            if is_suna_default:
+            # Enforce default agent restrictions (simplified)
+            if is_default_agent:
                 restricted_fields = []
                 if name is not None:
                     restricted_fields.append("name")
-                if description is not None:
-                    restricted_fields.append("description") 
                 if system_prompt is not None:
                     restricted_fields.append("system prompt")
                 if agentpress_tools is not None:
-                    restricted_fields.append("default tools")
+                    restricted_fields.append("core tools")
                 
                 if restricted_fields:
                     return self.fail_response(
-                        f"Cannot modify {', '.join(restricted_fields)} for the default Suna agent. "
-                        f"Suna's core identity is managed centrally. However, you can still add MCP integrations, "
-                        f"create workflows, set up triggers, and customize other aspects of Suna."
+                        f"Cannot modify {', '.join(restricted_fields)} for default agents. "
+                        f"Default agent core identity is centrally managed. You can still add MCPs, workflows, and triggers."
                     )
 
             agent_update_fields = {}
@@ -161,7 +159,12 @@ class AgentConfigTool(AgentBuilderBaseTool):
                     if not current_version:
                         return self.fail_response("No current version found to update from")
                     
-                    current_system_prompt = system_prompt if system_prompt is not None else current_version.get('system_prompt', '')
+                    if system_prompt is not None:
+                        existing_prompt = current_version.get('system_prompt', '')
+                        priority_addition = f"\n\n=== CRITICAL ADDITION ===\n{system_prompt}\n=== END CRITICAL ADDITION ==="
+                        current_system_prompt = f"{existing_prompt}{priority_addition}" if existing_prompt else system_prompt
+                    else:
+                        current_system_prompt = current_version.get('system_prompt', '')
                     
                     if agentpress_tools is not None:
                         formatted_tools = {}
@@ -215,7 +218,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
                                     existing_identifiers.add(identifier)
                         
                         current_configured_mcps = merged_mcps
-                        logger.info(f"MCP merge result: {len(current_configured_mcps)} total MCPs (was {len(current_version.get('configured_mcps', []))}, adding {len(configured_mcps)})")
+                        logger.debug(f"MCP merge result: {len(current_configured_mcps)} total MCPs (was {len(current_version.get('configured_mcps', []))}, adding {len(configured_mcps)})")
                     
                     current_custom_mcps = current_version.get('custom_mcps', [])
                     
@@ -234,7 +237,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
                     )
                     
                     version_created = True
-                    logger.info(f"Created new version {new_version.version_id} for agent {self.agent_id}")
+                    logger.debug(f"Created new version {new_version.version_id} for agent {self.agent_id}")
                     
                 except Exception as e:
                     logger.error(f"Failed to create new version: {e}")

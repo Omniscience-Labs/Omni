@@ -17,10 +17,10 @@ import { MaintenanceNotice } from './maintenance-notice';
 import { MaintenanceBanner } from './maintenance-banner';
 import { useMaintenanceNoticeQuery } from '@/hooks/react-query/edge-flags';
 
-
 import { useProjects, useThreads } from '@/hooks/react-query/sidebar/use-sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
+import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 
 interface DashboardLayoutContentProps {
   children: React.ReactNode;
@@ -127,7 +127,8 @@ export default function DashboardLayoutContent({
 
   return (
     <DeleteOperationProvider>
-      <SidebarProvider>
+      <SubscriptionProvider>
+        <SidebarProvider>
           <SidebarLeft />
           <SidebarInset>
             {mantenanceBanner}
@@ -152,9 +153,8 @@ export default function DashboardLayoutContent({
           
           {/* Floating mobile menu button */}
           <FloatingMobileMenuButton />
-
-
-      </SidebarProvider>
+        </SidebarProvider>
+      </SubscriptionProvider>
     </DeleteOperationProvider>
   );
 }

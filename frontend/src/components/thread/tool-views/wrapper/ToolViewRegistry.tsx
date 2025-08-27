@@ -27,10 +27,17 @@ import { ConfigureProfileForAgentToolView } from '../configure-profile-for-agent
 import { GetCredentialProfilesToolView } from '../get-credential-profiles/get-credential-profiles';
 import { GetCurrentAgentConfigToolView } from '../get-current-agent-config/get-current-agent-config';
 import { TaskListToolView } from '../task-list/TaskListToolView';
+import { PresentationOutlineToolView } from '../presentation-tools/PresentationOutlineToolView';
+import { ListPresentationTemplatesToolView } from '../presentation-tools/ListPresentationTemplatesToolView';
+import { PresentationViewer } from '../presentation-tools/PresentationViewer';
+import { ListPresentationsToolView } from '../presentation-tools/ListPresentationsToolView';
+import { DeleteSlideToolView } from '../presentation-tools/DeleteSlideToolView';
+import { DeletePresentationToolView } from '../presentation-tools/DeletePresentationToolView';
+import { PresentationStylesToolView } from '../presentation-tools/PresentationStylesToolView';
 import { SheetsToolView } from '../sheets-tools/sheets-tool-view';
 import { GetProjectStructureView } from '../web-dev/GetProjectStructureView';
-import { PodcastToolView } from '../podcast-tool/PodcastToolView';
-import { VideoAvatarToolView } from '../video-avatar-tool/VideoAvatarToolView';
+import { ImageEditGenerateToolView } from '../image-edit-generate-tool/ImageEditGenerateToolView';
+import { UploadFileToolView } from '../UploadFileToolView';
 
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
@@ -81,43 +88,35 @@ const defaultRegistry: ToolViewRegistryType = {
   'expose-port': ExposePortToolView,
 
   'see-image': SeeImageToolView,
+  'image-edit-or-generate': ImageEditGenerateToolView,
 
   'ask': AskToolView,
   'complete': CompleteToolView,
 
   'deploy': DeployToolView,
 
-  // Excel operations
-  'excel_operations': GenericToolView,
+  'create-presentation-outline': PresentationOutlineToolView,
+  'list-presentation-templates': ListPresentationTemplatesToolView,
   
-  // PDF form operations
-  'read_form_fields': GenericToolView,
-  'fill_form': GenericToolView,
-  'flatten_form': GenericToolView,
-  'get_form_field_value': GenericToolView,
-  'fill_form_coordinates': GenericToolView,
-  'analyze_form_layout': GenericToolView,
-  'create_coordinate_template': GenericToolView,
-  'detect_and_remove_overlays': GenericToolView,
-  'generate_coordinate_grid': GenericToolView,
-  'smart_form_fill': GenericToolView,
+  // New per-slide presentation tools
+  'create-slide': PresentationViewer,
+  'list-slides': PresentationViewer,
+  'list-presentations': ListPresentationsToolView,
+  'delete-slide': DeleteSlideToolView,
+  'delete-presentation': DeletePresentationToolView,
+  'presentation-styles': PresentationStylesToolView,
+  
+  'create-sheet': SheetsToolView,
+  'update-sheet': SheetsToolView,
+  'view-sheet': SheetsToolView,
+  'analyze-sheet': SheetsToolView,
+  'visualize-sheet': SheetsToolView,
+  'format-sheet': SheetsToolView,
 
   'get-project-structure': GetProjectStructureView,
   'list-web-projects': GenericToolView,
 
-  // Podcast generation
-  'generate_podcast': PodcastToolView,
-  'generate_podcast_from_url': PodcastToolView,
-  'generate_bite_sized_podcast': PodcastToolView,
-  'check_podcast_status': PodcastToolView,
-
-  // Video avatar generation
-  'generate_avatar_video': VideoAvatarToolView,
-  'create_avatar_session': VideoAvatarToolView,
-  'make_avatar_speak': VideoAvatarToolView,
-  'check_video_status': VideoAvatarToolView,
-  'list_avatar_options': VideoAvatarToolView,
-  'close_avatar_session': VideoAvatarToolView,
+  'upload-file': UploadFileToolView,
 
   'default': GenericToolView,
 };

@@ -15,7 +15,7 @@ class ComposioClient:
                 if not api_key:
                     raise ValueError("COMPOSIO_API_KEY is required")
             
-            logger.info("Initializing Composio client")
+            logger.debug("Initializing Composio client")
             cls._instance = Composio(api_key=api_key)
         
         return cls._instance

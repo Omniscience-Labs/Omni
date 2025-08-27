@@ -15,6 +15,8 @@ import { useStartAgentMutation, useStopAgentMutation } from '@/hooks/react-query
 import { BillingError } from '@/lib/api';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 import { OmniLogo } from '../sidebar/omni-logo';
+import { DynamicIcon } from 'lucide-react/dynamic';
+
 
 interface Agent {
   agent_id: string;
@@ -27,6 +29,10 @@ interface Agent {
   created_at?: string;
   updated_at?: string;
   profile_image_url?: string;
+  // Icon system fields
+  icon_name?: string | null;
+  icon_color?: string | null;
+  icon_background?: string | null;
 }
 
 interface AgentPreviewProps {
@@ -45,7 +51,6 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
   const [agentStatus, setAgentStatus] = useState<'idle' | 'running' | 'connecting' | 'error'>('idle');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasStartedConversation, setHasStartedConversation] = useState(false);
-  const [profileImageError, setProfileImageError] = useState(false);
 
   const isSunaAgent = agentMetadata?.is_suna_default || agentMetadata?.is_omni_default || false;
 
@@ -65,16 +70,26 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
     if (isSunaAgent) {
       return <OmniLogo size={16} />;
     }
-    if (agent.profile_image_url && !profileImageError) {
+    if (agent.icon_name) {
+      return (
+        <div 
+          className="h-4 w-4 flex items-center justify-center rounded-sm"
+          style={{ backgroundColor: agent.icon_background || '#F3F4F6' }}
+        >
+          <DynamicIcon 
+            name={agent.icon_name as any} 
+            size={14} 
+            color={agent.icon_color || '#000000'}
+          />
+        </div>
+      );
+    }
+    if (agent.profile_image_url) {
       return (
         <img 
           src={agent.profile_image_url} 
           alt={agent.name}
           className="h-4 w-4 rounded-sm object-cover"
-          onError={() => {
-            console.warn(`Failed to load agent profile image: ${agent.profile_image_url}`);
-            setProfileImageError(true);
-          }}
         />
       );
     }
@@ -82,7 +97,7 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
       return <div className="text-base leading-none">{avatar}</div>;
     }
     return <OmniLogo size={16} />;
-  }, [agent.profile_image_url, agent.name, avatar, isSunaAgent, profileImageError]);
+  }, [agent.profile_image_url, agent.icon_name, agent.icon_color, agent.icon_background, agent.name, avatar, isSunaAgent]);
 
   const initiateAgentMutation = useInitiateAgentWithInvalidation();
   const addUserMessageMutation = useAddUserMessageMutation();
@@ -129,14 +144,9 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
   }, []);
 
   const handleStreamError = useCallback((errorMessage: string) => {
-    // Suppress expected errors that are part of normal operation
-    const isExpectedError = errorMessage.toLowerCase().includes('not found') ||
-      errorMessage.toLowerCase().includes('agent run is not running') ||
-      errorMessage.toLowerCase().includes('does not exist') ||
-      errorMessage.toLowerCase().includes('404');
-    
-    if (!isExpectedError) {
-      console.error(`[PREVIEW] Stream error: ${errorMessage}`);
+    console.error(`[PREVIEW] Stream error: ${errorMessage}`);
+    if (!errorMessage.toLowerCase().includes('not found') &&
+      !errorMessage.toLowerCase().includes('agent run is not running')) {
       toast.error(`Stream Error: ${errorMessage}`);
     }
   }, []);
@@ -161,6 +171,7 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
     },
     threadId,
     setMessages,
+    agent.agent_id,
   );
 
   useEffect(() => {
@@ -359,9 +370,22 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
             agentData={agent}
             emptyStateComponent={
               <div className="flex flex-col items-center text-center text-muted-foreground/80">
-                <div className="flex w-20 aspect-square items-center justify-center rounded-2xl bg-muted-foreground/10 p-4 mb-4">
+                <div className="flex w-20 aspect-square items-center justify-center rounded-2xl bg-muted-foreground/10 mb-4">
                   {isSunaAgent ? (
                     <OmniLogo size={36} />
+                  ) : agent.icon_name ? (
+                    <div 
+                      className="w-full h-full rounded-3xl flex items-center justify-center"
+                      style={{ 
+                        backgroundColor: agent.icon_background || '#e5e5e5'
+                      }}
+                    >
+                      <DynamicIcon 
+                        name={agent.icon_name as any} 
+                        size={36}
+                        style={{ color: agent.icon_color || '#000000' }}
+                      />
+                    </div>
                   ) : agent.profile_image_url ? (
                     <img 
                       src={agent.profile_image_url} 
@@ -373,7 +397,7 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
                   )}
                 </div>
                 <p className='w-[60%] text-2xl mb-3'>Start conversation with <span className='text-primary/80 font-semibold'>{agent.name}</span></p>
-                <p className='w-[70%] text-sm text-muted-foreground/60'>Test your agent's configuration and chat back and forth to see how it performs with your current settings, tools, and knowledge base.</p>
+                <p className='w-[70%] text-sm text-muted-foreground/60'>Build and test your agent by previewing how it will behave and respond. Here you can also ask the agent to self-configure</p>
               </div>
             }
           />

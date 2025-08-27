@@ -65,7 +65,7 @@ class DBConnection:
     async def disconnect(cls):
         """Disconnect from the database."""
         if cls._instance and cls._instance._client:
-            logger.info("Disconnecting from Supabase database")
+            logger.debug("Disconnecting from Supabase database")
             try:
                 # Close Supabase client
                 if hasattr(cls._instance._client, 'close'):
@@ -76,7 +76,7 @@ class DBConnection:
             finally:
                 cls._instance._initialized = False
                 cls._instance._client = None
-                logger.info("Database disconnected successfully")
+                logger.debug("Database disconnected successfully")
 
     @property
     async def client(self) -> AsyncClient:

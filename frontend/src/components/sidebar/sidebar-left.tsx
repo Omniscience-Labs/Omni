@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bot, Menu, Store, Plus, Zap, Plug, ChevronRight, Loader2 } from 'lucide-react';
+import { Bot, Menu, Store, Plus, Zap, ChevronRight, Loader2 } from 'lucide-react';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
@@ -189,7 +189,7 @@ export function SidebarLeft({
           {!flagsLoading && customAgentsEnabled && (
             <SidebarMenu>
               <Collapsible
-                defaultOpen={pathname?.includes('/agents')}
+                defaultOpen={true}
                 className="group/collapsible"
               >
                 <SidebarMenuItem>
@@ -218,7 +218,7 @@ export function SidebarLeft({
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
+                      <SidebarMenuSubItem data-tour="my-agents">
                         <SidebarMenuSubButton className={cn('pl-3 touch-manipulation', {
                           'bg-accent text-accent-foreground font-medium': pathname === '/agents' && (searchParams.get('tab') === 'my-agents' || searchParams.get('tab') === null),
                         })} asChild>
@@ -227,7 +227,7 @@ export function SidebarLeft({
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
+                      <SidebarMenuSubItem data-tour="new-agent">
                         <SidebarMenuSubButton 
                           onClick={() => {
                             setShowNewAgentDialog(true);
@@ -244,21 +244,7 @@ export function SidebarLeft({
               </Collapsible>
             </SidebarMenu>
           )}
-          {!flagsLoading && customAgentsEnabled && (
-            <Link href="/settings/credentials">
-              <SidebarMenuButton 
-                className={cn('touch-manipulation', {
-                  'bg-accent text-accent-foreground font-medium': pathname === '/settings/credentials',
-                })}
-                onClick={() => isMobile && setOpenMobile(false)}
-              >
-                <Plug className="h-4 w-4 mr-1" />
-                <span className="flex items-center justify-between w-full">
-                  Integrations
-                </span>
-              </SidebarMenuButton>
-            </Link>
-          )}
+
         </SidebarGroup>
         <NavAgents />
       </SidebarContent>

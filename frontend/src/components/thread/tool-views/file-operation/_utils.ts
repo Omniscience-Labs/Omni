@@ -440,6 +440,7 @@ export const isFileType = {
   markdown: (fileExtension: string): boolean => fileExtension === 'md',
   html: (fileExtension: string): boolean => fileExtension === 'html' || fileExtension === 'htm',
   csv: (fileExtension: string): boolean => fileExtension === 'csv',
+  xlsx: (fileExtension: string): boolean => fileExtension === 'xlsx' || fileExtension === 'xls',
 };
 
 export const hasLanguageHighlighting = (language: string): boolean => {

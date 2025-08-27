@@ -146,7 +146,7 @@ class ExampleTool(AgentBuilderBaseTool):
     })
     async def example_action(self, param1: str, param2: int = 0) -> ToolResult:
         try:
-            logger.info(f"Executing example_action with params: {param1}, {param2}")
+            logger.debug(f"Executing example_action with params: {param1}, {param2}")
 
             # Implementation logic here
             result = await self.perform_action(param1, param2)
@@ -221,7 +221,7 @@ class ExampleTool(AgentBuilderBaseTool):
 from utils.logger import logger
 
 # Example usage
-logger.info(
+logger.debug(
     "Agent execution started",
     agent_id=agent_id,
     user_id=user_id,

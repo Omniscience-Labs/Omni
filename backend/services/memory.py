@@ -13,7 +13,7 @@ Features:
 """
 
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from mem0 import MemoryClient
 from utils.config import config
 from utils.logger import logger
@@ -55,7 +55,7 @@ class MemoryService:
     
     async def add_memory(
         self, 
-        text: str, 
+        content: Union[str, List[Dict[str, str]]], 
         user_id: str, 
         thread_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None
@@ -64,7 +64,7 @@ class MemoryService:
         Add a memory to the user's memory store.
         
         Args:
-            text: The memory content to store
+            content: The memory content to store - either a string or list of message dicts
             user_id: User identifier for memory isolation
             thread_id: Optional thread identifier for conversation context
             metadata: Additional metadata to store with the memory
@@ -88,9 +88,16 @@ class MemoryService:
             if metadata:
                 memory_data.update(metadata)
             
-            # Add memory using mem0 client
+            # Add memory using mem0 client - messages parameter expects a list
+            if isinstance(content, str):
+                # Handle string content - wrap in list as expected by mem0 API
+                messages = [content]
+            else:
+                # Handle list of message dictionaries - pass directly to mem0 API
+                messages = content
+            
             result = self.client.add(
-                messages=text,
+                messages=messages,
                 user_id=user_id,
                 metadata=memory_data
             )

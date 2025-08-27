@@ -49,14 +49,26 @@ export const ProfileConnector: React.FC<ProfileConnectorProps> = ({
   const isComposioStep = step.type === 'composio_profile';
   
   const composioQualifiedName = React.useMemo(() => {
-    if (!isComposioStep || !step.app_slug) return null;
-    return `composio.${step.app_slug}`;
-  }, [isComposioStep, step.app_slug]);
+    if (!isComposioStep) return null;
+    
+    // Handle different cases:
+    // 1. Generic 'composio' (from triggers) - use 'composio' as the qualified name
+    // 2. Specific app like 'composio.gmail' - already formatted correctly
+    // 3. App slug like 'gmail' - format as 'composio.gmail'
+    if (step.qualified_name === 'composio') {
+      return 'composio';
+    } else if (step.qualified_name?.startsWith('composio.')) {
+      return step.qualified_name;
+    } else if (step.app_slug && step.app_slug !== 'composio') {
+      return `composio.${step.app_slug}`;
+    }
+    return 'composio';
+  }, [isComposioStep, step.app_slug, step.qualified_name]);
   
   const { data: composioProfiles } = useCredentialProfilesForMcp(composioQualifiedName);
   
   const { data: composioToolkits } = useComposioToolkits(
-    isComposioStep ? step.app_slug : undefined,
+    isComposioStep && step.app_slug !== 'composio' ? step.app_slug : undefined,
     undefined
   );
   const configProperties = serverDetails?.connections?.[0]?.configSchema?.properties || {};
@@ -102,19 +114,20 @@ export const ProfileConnector: React.FC<ProfileConnectorProps> = ({
       };
 
       const response = await createProfileMutation.mutateAsync(request);
-      toast.success('Profile created successfully!');
       
-      onProfileSelect(step.qualified_name, response.profile_id || 'new-profile');
-      setProfileStep('select');
-      setNewProfileName('');
-      setConfig({});
-      onComplete?.();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create profile');
+      if (response.profile_id) {
+        toast.success('Profile created successfully');
+        // Use step.id instead of step.qualified_name to support trigger-specific profiles
+        onProfileSelect(step.id, response.profile_id || 'new-profile');
+        onComplete?.();
+      }
+    } catch (error) {
+      console.error('Error creating profile:', error);
+      toast.error('Failed to create profile');
     } finally {
       setIsCreatingProfile(false);
     }
-  }, [newProfileName, config, step.qualified_name, step.service_name, createProfileMutation, onProfileSelect, onComplete]);
+  }, [newProfileName, config, step.id, step.qualified_name, step.service_name, createProfileMutation, onProfileSelect, onComplete]);
 
   const handleConfigChange = useCallback((key: string, value: string) => {
     setConfig(prev => ({
@@ -147,7 +160,11 @@ export const ProfileConnector: React.FC<ProfileConnectorProps> = ({
               toolkitName={step.service_name}
               selectedProfileId={selectedProfileId}
               onProfileSelect={(profileId) => {
-                onProfileSelect(step.qualified_name, profileId);
+                // Use step.id to support trigger-specific profiles
+                onProfileSelect(step.id, profileId);
+                if (profileId) {
+                  onComplete?.();
+                }
               }}
             />
           ) : (
@@ -195,7 +212,11 @@ export const ProfileConnector: React.FC<ProfileConnectorProps> = ({
             mcpDisplayName={step.service_name}
             selectedProfileId={selectedProfileId}
             onProfileSelect={(profileId) => {
-              onProfileSelect(step.qualified_name, profileId);
+              // Use step.id to support trigger-specific profiles
+              onProfileSelect(step.id, profileId);
+              if (profileId) {
+                onComplete?.();
+              }
             }}
           />
 
@@ -226,7 +247,8 @@ export const ProfileConnector: React.FC<ProfileConnectorProps> = ({
     isComposioStep,
     selectedProfileId,
     hasConnectedComposioProfile,
-    onProfileSelect
+    onProfileSelect,
+    onComplete
   ]);
 
   const CreateProfileStep = useMemo(() => (
@@ -350,9 +372,9 @@ export const ProfileConnector: React.FC<ProfileConnectorProps> = ({
           onOpenChange={setShowComposioConnector}
           mode="profile-only"
           onComplete={(profileId, appName, appSlug) => {
-            onProfileSelect(step.qualified_name, profileId);
+            // Use step.id to support trigger-specific profiles
+            onProfileSelect(step.id, profileId);
             setShowComposioConnector(false);
-            toast.success(`Connected to ${appName} successfully!`);
             onComplete?.();
           }}
         />

@@ -82,7 +82,7 @@ class MCPSchemaRedisCache:
             
             if keys:
                 await self._redis_client.delete(*keys)
-                logger.info(f"Cleared {len(keys)} MCP schema cache entries from Redis")
+                logger.debug(f"Cleared {len(keys)} MCP schema cache entries from Redis")
             
         except Exception as e:
             logger.warning(f"Error clearing Redis cache: {e}")
@@ -167,7 +167,7 @@ class MCPToolWrapper(Tool):
                 initialization_tasks.append(('custom', config, task))
         
         if cached_tools_data:
-            logger.info(f"⚡ Loaded {len(cached_configs)} MCP schemas from Redis cache: {', '.join(cached_configs)}")
+            logger.debug(f"⚡ Loaded {len(cached_configs)} MCP schemas from Redis cache: {', '.join(cached_configs)}")
             for cached_data in cached_tools_data:
                 try:
                     if cached_data.get('type') == 'standard':
@@ -181,7 +181,7 @@ class MCPToolWrapper(Tool):
                     logger.warning(f"Failed to restore cached tools: {e}")
         
         if initialization_tasks:
-            logger.info(f"🚀 Initializing {len(initialization_tasks)} MCP servers in parallel (cache enabled: {self.use_cache})...")
+            logger.debug(f"🚀 Initializing {len(initialization_tasks)} MCP servers in parallel (cache enabled: {self.use_cache})...")
             
             tasks = [task for _, _, task in initialization_tasks]
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -201,13 +201,13 @@ class MCPToolWrapper(Tool):
                         await _redis_cache.set(config, result)
             
             elapsed_time = time.time() - start_time
-            logger.info(f"⚡ MCP initialization completed in {elapsed_time:.2f}s - {successful} successful, {failed} failed, {len(cached_configs)} from cache")
+            logger.debug(f"⚡ MCP initialization completed in {elapsed_time:.2f}s - {successful} successful, {failed} failed, {len(cached_configs)} from cache")
         else:
             if cached_configs:
                 elapsed_time = time.time() - start_time
-                logger.info(f"⚡ All {len(cached_configs)} MCP schemas loaded from Redis cache in {elapsed_time:.2f}s - instant startup!")
+                logger.debug(f"⚡ All {len(cached_configs)} MCP schemas loaded from Redis cache in {elapsed_time:.2f}s - instant startup!")
             else:
-                logger.info("No MCP servers to initialize")
+                logger.debug("No MCP servers to initialize")
     
     async def _initialize_single_standard_server(self, config: Dict[str, Any]):
         try:
@@ -241,8 +241,8 @@ class MCPToolWrapper(Tool):
             available_tools = self.mcp_manager.get_all_tools_openapi()
             custom_tools = self.custom_handler.get_custom_tools()
             
-            logger.info(f"MCPManager returned {len(available_tools)} tools")
-            logger.info(f"Custom handler returned {len(custom_tools)} custom tools")
+            logger.debug(f"MCPManager returned {len(available_tools)} tools")
+            logger.debug(f"Custom handler returned {len(custom_tools)} custom tools")
             
             self._custom_tools = custom_tools
             
@@ -261,10 +261,10 @@ class MCPToolWrapper(Tool):
             
             self._schemas.update(self.tool_builder.get_schemas())
             
-            logger.info(f"Created {len(self._dynamic_tools)} dynamic MCP tool methods")
+            logger.debug(f"Created {len(self._dynamic_tools)} dynamic MCP tool methods")
             
             self._register_schemas()
-            logger.info(f"Re-registered schemas after creating dynamic tools - total: {len(self._schemas)}")
+            logger.debug(f"Re-registered schemas after creating dynamic tools - total: {len(self._schemas)}")
             
         except Exception as e:
             logger.error(f"Error creating dynamic MCP tools: {e}")
@@ -317,7 +317,7 @@ class MCPToolWrapper(Tool):
     async def initialize_and_register_tools(self, tool_registry=None):
         await self._ensure_initialized()
         if tool_registry and self._dynamic_tools:
-            logger.info(f"Updating tool registry with {len(self._dynamic_tools)} MCP tools")
+            logger.debug(f"Updating tool registry with {len(self._dynamic_tools)} MCP tools")
             
     async def get_available_tools(self) -> List[Dict[str, Any]]:
         await self._ensure_initialized()

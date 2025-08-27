@@ -39,7 +39,7 @@ class MCPConnectionManager:
                         }
                         
                         self.connected_servers[server_name] = server_info
-                        logger.info(f"Connected to {server_name} via SSE ({len(tools_info)} tools)")
+                        logger.debug(f"Connected to {server_name} via SSE ({len(tools_info)} tools)")
                         return server_info
                         
             except TypeError as e:
@@ -66,7 +66,7 @@ class MCPConnectionManager:
                             }
                             
                             self.connected_servers[server_name] = server_info
-                            logger.info(f"Connected to {server_name} via SSE ({len(tools_info)} tools)")
+                            logger.debug(f"Connected to {server_name} via SSE ({len(tools_info)} tools)")
                             return server_info
                 else:
                     raise
@@ -97,7 +97,7 @@ class MCPConnectionManager:
                     }
                     
                     self.connected_servers[server_name] = server_info
-                    logger.info(f"Connected to {server_name} via HTTP ({len(tools_info)} tools)")
+                    logger.debug(f"Connected to {server_name} via HTTP ({len(tools_info)} tools)")
                     return server_info
     
     async def connect_stdio_server(self, server_name: str, server_config: Dict[str, Any], timeout: int = 15) -> Dict[str, Any]:
@@ -129,7 +129,7 @@ class MCPConnectionManager:
                     }
                     
                     self.connected_servers[server_name] = server_info
-                    logger.info(f"Connected to {server_name} via stdio ({len(tools_info)} tools)")
+                    logger.debug(f"Connected to {server_name} via stdio ({len(tools_info)} tools)")
                     return server_info
     
     def get_server_info(self, server_name: str) -> Dict[str, Any]:

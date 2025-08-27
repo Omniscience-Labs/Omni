@@ -9,6 +9,7 @@ import {
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { handleApiError } from '@/lib/error-handler';
 import { isLocalMode } from '@/lib/config';
+import { BillingError, AgentRunLimitError } from '@/lib/api';
 
 export function ReactQueryProvider({
   children,
@@ -39,6 +40,10 @@ export function ReactQueryProvider({
               return failureCount < 1;
             },
             onError: (error: any, variables: any, context: any) => {
+              // Don't globally handle errors that are expected to be handled by components
+              if (error instanceof BillingError || error instanceof AgentRunLimitError) {
+                return; // Let components handle these specific errors
+              }
               handleApiError(error, {
                 operation: 'perform action',
                 silent: false,

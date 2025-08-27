@@ -58,7 +58,7 @@ class EmailService:
             
             response = self.client.send(mail)
             
-            logger.info(f"Welcome email sent to {to_email}. Response: {response}")
+            logger.debug(f"Welcome email sent to {to_email}. Response: {response}")
             return True
                 
         except Exception as e:

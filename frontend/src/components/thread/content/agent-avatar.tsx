@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useAgent } from '@/hooks/react-query/agents/use-agents';
 import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DynamicIcon } from 'lucide-react/dynamic';
 
 interface AgentAvatarProps {
   agentId?: string;
@@ -19,7 +20,6 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({
   fallbackName = "Omni" 
 }) => {
   const { data: agent, isLoading } = useAgent(agentId || '');
-  const [imageError, setImageError] = useState(false);
 
   if (isLoading && agentId) {
     return (
@@ -39,20 +39,36 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({
     return <OmniLogo size={size} />;
   }
 
-  if (agent?.profile_image_url && !imageError) {
+  if (agent?.icon_name) {
+    return (
+      <div 
+        className={`flex items-center justify-center rounded ${className}`}
+        style={{ 
+          width: size, 
+          height: size,
+          backgroundColor: agent.icon_background || '#F3F4F6'
+        }}
+      >
+        <DynamicIcon 
+          name={agent.icon_name as any} 
+          size={size * 0.6} 
+          color={agent.icon_color || '#000000'}
+        />
+      </div>
+    );
+  }
+
+  if (agent?.profile_image_url) {
     return (
       <img 
         src={agent.profile_image_url} 
         alt={agent.name || fallbackName}
         className={`rounded object-cover ${className}`}
         style={{ width: size, height: size }}
-        onError={() => {
-          console.warn(`Failed to load agent profile image: ${agent.profile_image_url}`);
-          setImageError(true);
-        }}
       />
     );
   }
+
 
   return <OmniLogo size={size} />;
 };

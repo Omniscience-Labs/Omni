@@ -25,7 +25,7 @@ async def transcribe_audio(
             'audio/wav', 'audio/webm', 'audio/mpga'
         ]
         
-        logger.info(f"Received audio file: {audio_file.filename}, content_type: {audio_file.content_type}")
+        logger.debug(f"Received audio file: {audio_file.filename}, content_type: {audio_file.content_type}")
         
         if audio_file.content_type not in allowed_types:
             raise HTTPException(
@@ -61,7 +61,7 @@ async def transcribe_audio(
                     response_format="text"
                 )
             
-            logger.info(f"Successfully transcribed audio for user {user_id}")
+            logger.debug(f"Successfully transcribed audio for user {user_id}")
             return TranscriptionResponse(text=transcription)
             
         finally:

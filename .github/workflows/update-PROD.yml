@@ -23,3 +23,9 @@ jobs:
           git checkout PRODUCTION
           git rebase origin/main
           git push origin PRODUCTION --force
+      - name: Trigger Docker Build
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: production-updated
+          client-payload: '{"ref": "PRODUCTION"}'

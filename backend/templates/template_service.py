@@ -3,6 +3,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 from uuid import uuid4
+import secrets
+import string
 
 from services.supabase import DBConnection
 from utils.logger import logger
@@ -20,6 +22,8 @@ class MCPRequirementValue:
     custom_type: Optional[str] = None
     toolkit_slug: Optional[str] = None
     app_slug: Optional[str] = None
+    source: Optional[str] = None
+    trigger_index: Optional[int] = None
     
     def is_custom(self) -> bool:
         if self.qualified_name.startswith('pipedream:'):
@@ -45,8 +49,13 @@ class AgentTemplate:
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
     profile_image_url: Optional[str] = None
+    icon_name: Optional[str] = None
+    icon_color: Optional[str] = None
+    icon_background: Optional[str] = None
     metadata: ConfigType = field(default_factory=dict)
     creator_name: Optional[str] = None
+    sharing_preferences: Optional[Dict[str, bool]] = None
+    
     
     def with_public_status(self, is_public: bool, published_at: Optional[datetime] = None) -> 'AgentTemplate':
         return AgentTemplate(
@@ -64,6 +73,10 @@ class AgentTemplate:
         return self.config.get('tools', {}).get('agentpress', {})
     
     @property
+    def workflows(self) -> List[Dict[str, Any]]:
+        return self.config.get('workflows', [])
+    
+    @property
     def mcp_requirements(self) -> List[MCPRequirementValue]:
         requirements = []
         
@@ -76,7 +89,8 @@ class AgentTemplate:
                     qualified_name=qualified_name,
                     display_name=mcp.get('display_name') or mcp['name'],
                     enabled_tools=mcp.get('enabledTools', []),
-                    required_config=mcp.get('requiredConfig', [])
+                    required_config=mcp.get('requiredConfig', []),
+                    source='tool'
                 ))
         
         custom_mcps = self.config.get('tools', {}).get('custom_mcp', [])
@@ -113,8 +127,47 @@ class AgentTemplate:
                     required_config=required_config,
                     custom_type=mcp_type,
                     toolkit_slug=mcp.get('toolkit_slug') if mcp_type == 'composio' else None,
-                    app_slug=mcp.get('app_slug') if mcp_type == 'pipedream' else None
+                    app_slug=mcp.get('app_slug') if mcp_type == 'pipedream' else None,
+                    source='tool'
                 ))
+        
+        triggers = self.config.get('triggers', [])
+        
+        for i, trigger in enumerate(triggers):
+            config = trigger.get('config', {})
+            provider_id = config.get('provider_id', '')
+            
+            if provider_id == 'composio':
+                qualified_name = config.get('qualified_name')
+                
+                if not qualified_name:
+                    trigger_slug = config.get('trigger_slug', '')
+                    if trigger_slug:
+                        app_name = trigger_slug.split('_')[0].lower() if '_' in trigger_slug else 'composio'
+                        qualified_name = f'composio.{app_name}'
+                    else:
+                        qualified_name = 'composio'
+                
+                if qualified_name:
+                    if qualified_name.startswith('composio.'):
+                        app_name = qualified_name.split('.', 1)[1]
+                    else:
+                        app_name = 'composio'
+                    
+                    trigger_name = trigger.get('name', f'Trigger {i+1}')
+                    
+                    composio_req = MCPRequirementValue(
+                        qualified_name=qualified_name,
+                        display_name=f"{app_name.title()} ({trigger_name})",
+                        enabled_tools=[],
+                        required_config=[],
+                        custom_type=None,
+                        toolkit_slug=app_name,
+                        app_slug=app_name,
+                        source='trigger',
+                        trigger_index=i
+                    )
+                    requirements.append(composio_req)
         
         return requirements
 
@@ -143,9 +196,11 @@ class TemplateService:
         agent_id: str,
         creator_id: str,
         make_public: bool = False,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
+        sharing_preferences: Optional[Dict[str, bool]] = None,
+        
     ) -> str:
-        logger.info(f"Creating template from agent {agent_id} for user {creator_id}")
+        logger.debug(f"Creating template from agent {agent_id} for user {creator_id}")
         
         agent = await self._get_agent_by_id(agent_id)
         if not agent:
@@ -161,7 +216,20 @@ class TemplateService:
         if not version_config:
             raise TemplateNotFoundError("Agent has no version configuration")
         
-        sanitized_config = await self._sanitize_config_for_template(version_config)
+        # Set default sharing preferences if not provided
+        if sharing_preferences is None:
+            sharing_preferences = {
+                "include_system_prompt": True,
+                "include_model_settings": True,
+                "include_default_tools": True,
+                "include_integrations": True,
+                "include_knowledge_bases": True,
+                "include_playbooks": True,
+                "include_triggers": True
+            }
+        
+        # Apply sharing preferences during sanitization
+        sanitized_config = await self._sanitize_config_for_template(version_config, sharing_preferences, agent_id)
         
         template = AgentTemplate(
             template_id=str(uuid4()),
@@ -175,12 +243,17 @@ class TemplateService:
             avatar=agent.get('avatar'),
             avatar_color=agent.get('avatar_color'),
             profile_image_url=agent.get('profile_image_url'),
-            metadata=agent.get('metadata', {})
+            icon_name=agent.get('icon_name'),
+            icon_color=agent.get('icon_color'),
+            icon_background=agent.get('icon_background'),
+            metadata=agent.get('metadata', {}),
+            sharing_preferences=sharing_preferences
+
         )
         
         await self._save_template(template)
         
-        logger.info(f"Created template {template.template_id} from agent {agent_id}")
+        logger.debug(f"Created template {template.template_id} from agent {agent_id}")
         return template.template_id
     
     async def get_template(self, template_id: str) -> Optional[AgentTemplate]:
@@ -264,12 +337,21 @@ class TemplateService:
             return []
         
         creator_ids = list(set(template['creator_id'] for template in result.data))
-        accounts_result = await client.schema('basejump').from_('accounts').select('id, name, slug').in_('id', creator_ids).execute()
+        
+        from utils.query_utils import batch_query_in
+        
+        accounts_data = await batch_query_in(
+            client=client,
+            table_name='accounts',
+            select_fields='id, name, slug',
+            in_field='id',
+            in_values=creator_ids,
+            schema='basejump'
+        )
         
         creator_names = {}
-        if accounts_result.data:
-            for account in accounts_result.data:
-                creator_names[account['id']] = account.get('name') or account.get('slug')
+        for account in accounts_data:
+            creator_names[account['id']] = account.get('name') or account.get('slug')
         
         templates = []
         for template_data in result.data:
@@ -279,26 +361,45 @@ class TemplateService:
         
         return templates
     
-    async def publish_template(self, template_id: str, creator_id: str) -> bool:
+    async def publish_template(
+        self, 
+        template_id: str, 
+        creator_id: str,
+        sharing_preferences: Optional[Dict[str, bool]] = None,
+        
+    ) -> bool:
         logger.info(f"Publishing template {template_id}")
+        
+        # Set default sharing preferences if not provided
+        if sharing_preferences is None:
+            sharing_preferences = {
+                "include_system_prompt": True,
+                "include_model_settings": True,
+                "include_default_tools": True,
+                "include_integrations": True,
+                "include_knowledge_bases": True,
+                "include_playbooks": True,
+                "include_triggers": True
+            }
         
         client = await self._db.client
         result = await client.table('agent_templates').update({
             'is_public': True,
             'marketplace_published_at': datetime.now(timezone.utc).isoformat(),
-            'updated_at': datetime.now(timezone.utc).isoformat()
+            'updated_at': datetime.now(timezone.utc).isoformat(),
+            'sharing_preferences': sharing_preferences
         }).eq('template_id', template_id)\
           .eq('creator_id', creator_id)\
           .execute()
         
         success = len(result.data) > 0
         if success:
-            logger.info(f"Published template {template_id}")
+            logger.debug(f"Published template {template_id}")
         
         return success
     
     async def unpublish_template(self, template_id: str, creator_id: str) -> bool:
-        logger.info(f"Unpublishing template {template_id}")
+        logger.debug(f"Unpublishing template {template_id}")
         
         client = await self._db.client
         result = await client.table('agent_templates').update({
@@ -311,13 +412,13 @@ class TemplateService:
         
         success = len(result.data) > 0
         if success:
-            logger.info(f"Unpublished template {template_id}")
+            logger.debug(f"Unpublished template {template_id}")
         
         return success
     
     async def delete_template(self, template_id: str, creator_id: str) -> bool:
         """Delete a template. Only the creator can delete their templates."""
-        logger.info(f"Deleting template {template_id} for user {creator_id}")
+        logger.debug(f"Deleting template {template_id} for user {creator_id}")
         
         client = await self._db.client
         
@@ -344,7 +445,7 @@ class TemplateService:
         
         success = len(result.data) > 0
         if success:
-            logger.info(f"Successfully deleted template {template_id}")
+            logger.debug(f"Successfully deleted template {template_id}")
         
         return success
     
@@ -381,8 +482,67 @@ class TemplateService:
         
         return {}
     
-    async def _sanitize_config_for_template(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        return self._fallback_sanitize_config(config)
+    async def _sanitize_config_for_template(
+        self, 
+        config: Dict[str, Any], 
+        sharing_preferences: Dict[str, bool], 
+        agent_id: str
+    ) -> Dict[str, Any]:
+        sanitized = self._fallback_sanitize_config(config)
+        
+        # Apply sharing preferences to filter components
+        sanitized = await self._apply_sharing_preferences(sanitized, sharing_preferences, agent_id)
+        
+        return sanitized
+    
+    async def _apply_sharing_preferences(
+        self, 
+        config: Dict[str, Any], 
+        sharing_preferences: Dict[str, bool], 
+        agent_id: str
+    ) -> Dict[str, Any]:
+        """Apply sharing preferences to filter what gets included in the template"""
+        filtered_config = config.copy()
+        
+        # 1. System Prompt
+        if not sharing_preferences.get('include_system_prompt', True):
+            filtered_config['system_prompt'] = ''
+            logger.info(f"Removed system prompt from template for agent {agent_id}")
+        
+        # 2. Model Settings
+        if not sharing_preferences.get('include_model_settings', True):
+            filtered_config['model'] = None
+            logger.info(f"Removed model settings from template for agent {agent_id}")
+        
+        # 3. Default Tools (AgentPress tools)
+        if not sharing_preferences.get('include_default_tools', True):
+            if 'tools' in filtered_config:
+                filtered_config['tools']['agentpress'] = {}
+            logger.info(f"Removed default tools from template for agent {agent_id}")
+        
+        # 4. Integrations (MCP tools)
+        if not sharing_preferences.get('include_integrations', True):
+            if 'tools' in filtered_config:
+                filtered_config['tools']['mcp'] = []
+                filtered_config['tools']['custom_mcp'] = []
+            logger.info(f"Removed integrations from template for agent {agent_id}")
+        
+        # 5. Knowledge Bases (will be handled during installation)
+        # Note: Knowledge bases are stored in separate table, handled in installation service
+        if not sharing_preferences.get('include_knowledge_bases', True):
+            logger.info(f"Knowledge bases will be excluded during template installation for agent {agent_id}")
+        
+        # 6. Playbooks (Workflows)
+        # Note: Workflows are stored in separate table, handled in installation service  
+        if not sharing_preferences.get('include_playbooks', True):
+            logger.info(f"Playbooks will be excluded during template installation for agent {agent_id}")
+        
+        # 7. Triggers
+        # Note: Triggers are stored in separate table, handled in installation service
+        if not sharing_preferences.get('include_triggers', True):
+            logger.info(f"Triggers will be excluded during template installation for agent {agent_id}")
+        
+        return filtered_config
     
     def _fallback_sanitize_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         agentpress_tools = config.get('tools', {}).get('agentpress', {})
@@ -396,6 +556,64 @@ class TemplateService:
             else:
                 sanitized_agentpress[tool_name] = False
         
+        workflows = config.get('workflows', [])
+        sanitized_workflows = []
+        for workflow in workflows:
+            if isinstance(workflow, dict):
+                sanitized_workflow = {
+                    'name': workflow.get('name'),
+                    'description': workflow.get('description'),
+                    'status': workflow.get('status', 'draft'),
+                    'trigger_phrase': workflow.get('trigger_phrase'),
+                    'is_default': workflow.get('is_default', False),
+                    'steps': workflow.get('steps', [])
+                }
+                sanitized_workflows.append(sanitized_workflow)
+        
+        triggers = config.get('triggers', [])
+        sanitized_triggers = []
+        for trigger in triggers:
+            if isinstance(trigger, dict):
+                trigger_config = trigger.get('config', {})
+                provider_id = trigger_config.get('provider_id', '')
+                
+                sanitized_config = {
+                    'provider_id': provider_id,
+                    'agent_prompt': trigger_config.get('agent_prompt', ''),
+                    'execution_type': trigger_config.get('execution_type', 'agent')
+                }
+                
+                if sanitized_config['execution_type'] == 'workflow':
+                    workflow_id = trigger_config.get('workflow_id')
+                    if workflow_id:
+                        workflow_name = None
+                        for workflow in workflows:
+                            if workflow.get('id') == workflow_id:
+                                workflow_name = workflow.get('name')
+                                break
+                        if workflow_name:
+                            sanitized_config['workflow_name'] = workflow_name
+                    
+                    if 'workflow_input' in trigger_config:
+                        sanitized_config['workflow_input'] = trigger_config['workflow_input']
+                
+                if provider_id == 'schedule':
+                    sanitized_config['cron_expression'] = trigger_config.get('cron_expression', '')
+                    sanitized_config['timezone'] = trigger_config.get('timezone', 'UTC')
+                elif provider_id == 'composio':
+                    sanitized_config['trigger_slug'] = trigger_config.get('trigger_slug', '')
+                    if 'qualified_name' in trigger_config:
+                        sanitized_config['qualified_name'] = trigger_config['qualified_name']
+
+                sanitized_trigger = {
+                    'name': trigger.get('name'),
+                    'description': trigger.get('description'),
+                    'trigger_type': trigger.get('trigger_type'),
+                    'is_active': trigger.get('is_active', True),
+                    'config': sanitized_config
+                }
+                sanitized_triggers.append(sanitized_trigger)
+        
         sanitized = {
             'system_prompt': config.get('system_prompt', ''),
             'model': config.get('model'),
@@ -404,6 +622,8 @@ class TemplateService:
                 'mcp': config.get('tools', {}).get('mcp', []),
                 'custom_mcp': []
             },
+            'workflows': sanitized_workflows,
+            'triggers': sanitized_triggers,
             'metadata': {
                 'avatar': config.get('metadata', {}).get('avatar'),
                 'avatar_color': config.get('metadata', {}).get('avatar_color')
@@ -446,7 +666,7 @@ class TemplateService:
                     sanitized_mcp['config'] = {
                         'url': original_config.get('url'),
                         'headers': {k: v for k, v in original_config.get('headers', {}).items() 
-                                  if k not in ['profile_id', 'x-pd-app-slug']}  # Remove profile-specific data
+                                  if k not in ['profile_id', 'x-pd-app-slug']}
                     }
                     
                 elif mcp_type == 'composio':
@@ -454,7 +674,7 @@ class TemplateService:
                     qualified_name = (
                         mcp.get('mcp_qualified_name') or 
                         original_config.get('mcp_qualified_name') or
-                        mcp.get('qualifiedName') or  # fallback for old format
+                        mcp.get('qualifiedName') or
                         original_config.get('qualifiedName')
                     )
                     toolkit_slug = (
@@ -476,7 +696,7 @@ class TemplateService:
                     sanitized_mcp['mcp_qualified_name'] = qualified_name
                     sanitized_mcp['toolkit_slug'] = toolkit_slug
                     sanitized_mcp['config'] = {}
-                    
+                
                 else:
                     qualified_name = mcp.get('qualifiedName')
                     if not qualified_name:
@@ -512,7 +732,12 @@ class TemplateService:
             'avatar': template.avatar,
             'avatar_color': template.avatar_color,
             'profile_image_url': template.profile_image_url,
-            'metadata': template.metadata
+            'icon_name': template.icon_name,
+            'icon_color': template.icon_color,
+            'icon_background': template.icon_background,
+            'metadata': template.metadata,
+            'sharing_preferences': template.sharing_preferences
+
         }
         
         await client.table('agent_templates').insert(template_data).execute()
@@ -536,9 +761,108 @@ class TemplateService:
             avatar=data.get('avatar'),
             avatar_color=data.get('avatar_color'),
             profile_image_url=data.get('profile_image_url'),
+            icon_name=data.get('icon_name'),
+            icon_color=data.get('icon_color'),
+            icon_background=data.get('icon_background'),
             metadata=data.get('metadata', {}),
-            creator_name=creator_name
+            creator_name=creator_name,
+            sharing_preferences=data.get('sharing_preferences')
         )
+    
+    def _generate_share_id(self) -> str:
+        alphabet = string.ascii_lowercase + string.digits
+        alphabet = alphabet.replace('0', '').replace('o', '').replace('1', '').replace('l', '').replace('i', '')
+        return ''.join(secrets.choice(alphabet) for _ in range(10))
+    
+    async def create_share_link(self, template_id: str, creator_id: str) -> str:
+        logger.debug(f"Creating share link for template {template_id} by user {creator_id}")
+        
+        template = await self.get_template(template_id)
+        if not template:
+            raise TemplateNotFoundError("Template not found")
+        
+        if template.creator_id != creator_id:
+            raise TemplateAccessDeniedError("You can only create share links for your own templates")
+        
+        client = await self._db.client
+        
+        existing = await client.table('template_share_links')\
+            .select('share_id')\
+            .eq('template_id', template_id)\
+            .eq('created_by', creator_id)\
+            .maybe_single()\
+            .execute()
+        
+        if existing and existing.data:
+            logger.debug(f"Returning existing share link {existing.data['share_id']} for template {template_id}")
+            return existing.data['share_id']
+        
+        max_attempts = 10
+        for _ in range(max_attempts):
+            share_id = self._generate_share_id()
+            
+            try:
+                result = await client.table('template_share_links').insert({
+                    'share_id': share_id,
+                    'template_id': template_id,
+                    'created_by': creator_id
+                }).execute()
+                
+                logger.debug(f"Created share link {share_id} for template {template_id}")
+                return share_id
+            except Exception as e:
+                if 'duplicate key' in str(e).lower():
+                    continue
+                raise
+        
+        raise Exception("Failed to generate unique share ID after multiple attempts")
+    
+    async def get_template_by_share_id(self, share_id: str) -> Optional[AgentTemplate]:
+        logger.debug(f"Getting template by share ID {share_id}")
+        
+        client = await self._db.client
+        
+        share_link = await client.table('template_share_links')\
+            .select('template_id')\
+            .eq('share_id', share_id)\
+            .maybe_single()\
+            .execute()
+        
+        if not share_link or not share_link.data:
+            logger.debug(f"Share link {share_id} not found")
+            return None
+        
+        current = await client.table('template_share_links')\
+            .select('views_count')\
+            .eq('share_id', share_id)\
+            .single()\
+            .execute()
+        
+        views_count = 0
+        if current and current.data:
+            views_count = (current.data.get('views_count', 0) or 0)
+        
+        await client.table('template_share_links')\
+            .update({
+                'views_count': views_count + 1,
+                'last_viewed_at': datetime.now(timezone.utc).isoformat()
+            })\
+            .eq('share_id', share_id)\
+            .execute()
+        
+        template = await self.get_template(share_link.data['template_id'])
+        return template
+    
+    async def get_share_links_for_user(self, user_id: str) -> List[Dict[str, Any]]:
+        client = await self._db.client
+        
+        result = await client.table('template_share_links')\
+            .select('share_id, template_id, created_at, views_count, last_viewed_at')\
+            .eq('created_by', user_id)\
+            .order('created_at', desc=True)\
+            .execute()
+        
+        return result.data if result.data else []
 
 def get_template_service(db_connection: DBConnection) -> TemplateService:
     return TemplateService(db_connection) 

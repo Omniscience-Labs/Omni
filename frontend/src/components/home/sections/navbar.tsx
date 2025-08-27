@@ -1,6 +1,5 @@
 'use client';
 
-import { Icons } from '@/components/home/icons';
 import { NavMenu } from '@/components/home/nav-menu';
 import { ThemeToggle } from '@/components/home/theme-toggle';
 import { siteConfig } from '@/lib/home';

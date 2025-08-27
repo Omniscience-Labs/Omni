@@ -245,7 +245,7 @@ class ProfileService:
             if not result.data:
                 raise ProfileServiceError("Failed to create profile")
             
-            logger.info(f"Created profile {profile_id} for app {app_slug}")
+            logger.debug(f"Created profile {profile_id} for app {app_slug}")
             
             return Profile(
                 profile_id=profile_id,
@@ -369,7 +369,7 @@ class ProfileService:
             if not result.data:
                 raise ProfileServiceError("Failed to update profile")
             
-            logger.info(f"Updated profile {profile_id}")
+            logger.debug(f"Updated profile {profile_id}")
             
             return await self.get_profile(account_id, profile_id)
             
@@ -389,7 +389,7 @@ class ProfileService:
             
             success = bool(result.data)
             if success:
-                logger.info(f"Deleted profile {profile_id}")
+                logger.debug(f"Deleted profile {profile_id}")
             
             return success
             

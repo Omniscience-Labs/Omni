@@ -79,7 +79,7 @@ class ToolkitService:
     
     async def list_categories(self) -> List[CategoryInfo]:
         try:
-            logger.info("Fetching Composio categories")
+            logger.debug("Fetching Composio categories")
             popular_categories = [
                 {"id": "popular", "name": "Popular"},
                 {"id": "productivity", "name": "Productivity"},
@@ -98,7 +98,7 @@ class ToolkitService:
             ]
             
             categories = [CategoryInfo(**cat) for cat in popular_categories]
-            logger.info(f"Successfully fetched {len(categories)} categories")
+            logger.debug(f"Successfully fetched {len(categories)} categories")
             return categories
             
         except Exception as e:
@@ -107,7 +107,7 @@ class ToolkitService:
     
     async def list_toolkits(self, limit: int = 500, cursor: Optional[str] = None, category: Optional[str] = None) -> Dict[str, Any]:
         try:
-            logger.info(f"Fetching toolkits with limit: {limit}, cursor: {cursor}, category: {category}")
+            logger.debug(f"Fetching toolkits with limit: {limit}, cursor: {cursor}, category: {category}")
             params = {
                 "limit": limit,
                 "managed_by": "composio"
@@ -151,10 +151,6 @@ class ToolkitService:
                 
                 if not logo_url:
                     logo_url = toolkit_data.get("logo")
-                
-                # Fix broken Simple Icons URLs
-                if logo_url:
-                    logo_url = self._fix_simple_icons_url(logo_url, toolkit_data.get("slug", ""))
                 
                 tags = []
                 categories = []
@@ -200,7 +196,7 @@ class ToolkitService:
                 "next_cursor": response_data.get("next_cursor")
             }
             
-            logger.info(f"Successfully fetched {len(toolkits)} toolkits with OAUTH2 in both auth schemes" + (f" for category {category}" if category else ""))
+            logger.debug(f"Successfully fetched {len(toolkits)} toolkits with OAUTH2 in both auth schemes" + (f" for category {category}" if category else ""))
             return result
             
         except Exception as e:
@@ -242,49 +238,13 @@ class ToolkitService:
                 "next_cursor": None
             }
             
-            logger.info(f"Found {len(filtered_toolkits)} toolkits with OAUTH2 in both auth schemes matching query: {query}" + (f" in category {category}" if category else ""))
+            logger.debug(f"Found {len(filtered_toolkits)} toolkits with OAUTH2 in both auth schemes matching query: {query}" + (f" in category {category}" if category else ""))
             return result
             
         except Exception as e:
             logger.error(f"Failed to search toolkits: {e}", exc_info=True)
             raise
     
-    def _fix_simple_icons_url(self, logo_url: str, toolkit_slug: str) -> str:
-        """Fix broken Simple Icons CDN URLs to use the correct format."""
-        if not logo_url:
-            return logo_url
-
-        # Check if it's a broken Simple Icons URL
-        if 'cdn.simpleicons.org' in logo_url:
-            # Extract the icon name from the broken URL
-            # Format: cdn.simpleicons.org/oracle/oracle:1 -> oracle
-            parts = logo_url.split('/')
-            if len(parts) >= 2:
-                icon_name = parts[-2] if len(parts) > 2 else parts[-1]
-                # Remove any version suffix (like :1)
-                icon_name = icon_name.split(':')[0]
-
-                # Use the simpler and more reliable Simple Icons CDN format
-                fixed_url = f"https://cdn.simpleicons.org/{icon_name}"
-                logger.debug(f"Fixed Simple Icons URL: {logo_url} -> {fixed_url}")
-                return fixed_url
-
-        # Check for other common broken Simple Icons patterns
-        if logo_url.startswith('simpleicons.org/') or logo_url.startswith('//cdn.simpleicons.org'):
-            # Extract icon name and fix
-            icon_name = toolkit_slug.lower()
-            fixed_url = f"https://cdn.simpleicons.org/{icon_name}"
-            logger.debug(f"Fixed Simple Icons URL pattern: {logo_url} -> {fixed_url}")
-            return fixed_url
-
-        # Handle protocol-less URLs
-        if logo_url.startswith('//'):
-            fixed_url = f"https:{logo_url}"
-            logger.debug(f"Fixed protocol-less URL: {logo_url} -> {fixed_url}")
-            return fixed_url
-
-        return logo_url
-
     async def get_toolkit_icon(self, toolkit_slug: str) -> Optional[str]:
         try:
             logger.debug(f"Fetching toolkit icon for: {toolkit_slug}")
@@ -305,10 +265,6 @@ class ToolkitService:
             else:
                 logo = None
             
-            # Fix broken Simple Icons URLs
-            if logo:
-                logo = self._fix_simple_icons_url(logo, toolkit_slug)
-            
             logger.debug(f"Successfully fetched icon for {toolkit_slug}: {logo}")
             return logo
             
@@ -318,7 +274,7 @@ class ToolkitService:
 
     async def get_detailed_toolkit_info(self, toolkit_slug: str) -> Optional[DetailedToolkitInfo]:
         try:
-            logger.info(f"Fetching detailed toolkit info for: {toolkit_slug}")
+            logger.debug(f"Fetching detailed toolkit info for: {toolkit_slug}")
             toolkit_response = self.client.toolkits.retrieve(toolkit_slug)
             
             if hasattr(toolkit_response, 'model_dump'):
@@ -328,22 +284,17 @@ class ToolkitService:
             else:
                 toolkit_dict = dict(toolkit_response)
             
-            logger.info(f"Raw toolkit response for {toolkit_slug}: {toolkit_response}")
+            logger.debug(f"Raw toolkit response for {toolkit_slug}: {toolkit_response}")
             
             meta = toolkit_dict.get('meta', {})
             if hasattr(meta, '__dict__'):
                 meta = meta.__dict__
             
-            logo_url = meta.get('logo') if isinstance(meta, dict) else getattr(meta, 'logo', None)
-            # Fix broken Simple Icons URLs
-            if logo_url:
-                logo_url = self._fix_simple_icons_url(logo_url, toolkit_dict.get('slug', ''))
-            
             detailed_toolkit = DetailedToolkitInfo(
                 slug=toolkit_dict.get('slug', ''),
                 name=toolkit_dict.get('name', ''),
                 description=meta.get('description', '') if isinstance(meta, dict) else getattr(meta, 'description', ''),
-                logo=logo_url,
+                logo=meta.get('logo') if isinstance(meta, dict) else getattr(meta, 'logo', None),
                 tags=[],
                 auth_schemes=toolkit_dict.get('composio_managed_auth_schemes', []),
                 categories=[],
@@ -356,7 +307,7 @@ class ToolkitService:
                 for cat in categories_data
             ]
             
-            logger.info(f"Parsed basic toolkit info: {detailed_toolkit}")
+            logger.debug(f"Parsed basic toolkit info: {detailed_toolkit}")
             
             auth_config_details = []
             raw_auth_configs = toolkit_dict.get('auth_config_details', [])
@@ -456,8 +407,8 @@ class ToolkitService:
             
             detailed_toolkit.connected_account_initiation_fields = connected_account_initiation
             
-            logger.info(f"Successfully fetched detailed info for {toolkit_slug}")
-            logger.info(f"Initiation fields: {connected_account_initiation}")
+            logger.debug(f"Successfully fetched detailed info for {toolkit_slug}")
+            logger.debug(f"Initiation fields: {connected_account_initiation}")
             return detailed_toolkit
             
         except Exception as e:
@@ -466,7 +417,7 @@ class ToolkitService:
 
     async def get_toolkit_tools(self, toolkit_slug: str, limit: int = 50, cursor: Optional[str] = None) -> ToolsListResponse:
         try:
-            logger.info(f"Fetching tools for toolkit: {toolkit_slug}")
+            logger.debug(f"Fetching tools for toolkit: {toolkit_slug}")
             
             params = {
                 "limit": limit,
@@ -528,7 +479,7 @@ class ToolkitService:
                 next_cursor=response_data.get("next_cursor")
             )
             
-            logger.info(f"Successfully fetched {len(tools)} tools for toolkit {toolkit_slug}")
+            logger.debug(f"Successfully fetched {len(tools)} tools for toolkit {toolkit_slug}")
             return result
             
         except Exception as e:

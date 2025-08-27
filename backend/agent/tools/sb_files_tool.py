@@ -495,7 +495,7 @@ def authenticate_user(username, password):
             original_content = (await self.sandbox.fs.download_file(full_path)).decode()
             
             # Try Morph AI editing first
-            logger.info(f"Attempting AI-powered edit for file '{target_file}' with instructions: {instructions[:100]}...")
+            logger.debug(f"Attempting AI-powered edit for file '{target_file}' with instructions: {instructions[:100]}...")
             new_content, error_message = await self._call_morph_api(original_content, code_edit, instructions, target_file)
 
             if error_message:

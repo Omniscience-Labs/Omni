@@ -109,6 +109,7 @@ export interface ComposioProfile {
   toolkit_name: string;
   mcp_url: string;
   redirect_url?: string;
+  connected_account_id?: string;
   is_connected: boolean;
   is_default: boolean;
   created_at: string;

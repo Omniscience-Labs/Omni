@@ -25,8 +25,12 @@ from services.memory_integration import retrieve_relevant_memories
 from utils.logger import logger
 from langfuse.client import StatefulGenerationClient, StatefulTraceClient
 from services.langfuse import langfuse
-import datetime
 from litellm.utils import token_counter
+from services.billing import calculate_token_cost, handle_usage_with_credits
+import re
+from datetime import datetime, timezone, timedelta
+import aiofiles
+import yaml
 
 # Type alias for tool choice
 ToolChoice = Literal["auto", "required", "none"]
@@ -39,20 +43,19 @@ class ThreadManager:
     XML-based tool execution patterns.
     """
 
-    def __init__(self, trace: Optional[StatefulTraceClient] = None, is_agent_builder: bool = False, target_agent_id: Optional[str] = None, agent_config: Optional[dict] = None):
-        """Initialize ThreadManager.
-
+    def __init__(self, trace: Optional[StatefulTraceClient] = None, agent_config: Optional[dict] = None):
+        """
+        Initialize the ThreadManager
+        
         Args:
-            trace: Optional trace client for logging
-            is_agent_builder: Whether this is an agent builder session
-            target_agent_id: ID of the agent being built (if in agent builder mode)
-            agent_config: Optional agent configuration with version information
+            trace: Optional trace client for telemetry
+            agent_config: Optional agent configuration
         """
         self.db = DBConnection()
         self.tool_registry = ToolRegistry()
         self.trace = trace
-        self.is_agent_builder = is_agent_builder
-        self.target_agent_id = target_agent_id
+        self.is_agent_builder = False  # Deprecated - keeping for compatibility
+        self.target_agent_id = None  # Deprecated - keeping for compatibility
         self.agent_config = agent_config
         if not self.trace:
             self.trace = langfuse.trace(name="anonymous:thread_manager")
@@ -60,8 +63,6 @@ class ThreadManager:
             tool_registry=self.tool_registry,
             add_message_callback=self.add_message,
             trace=self.trace,
-            is_agent_builder=self.is_agent_builder,
-            target_agent_id=self.target_agent_id,
             agent_config=self.agent_config
         )
         self.context_manager = ContextManager()
@@ -112,7 +113,7 @@ class ThreadManager:
             
             if result.data and len(result.data) > 0 and isinstance(result.data[0], dict) and 'thread_id' in result.data[0]:
                 thread_id = result.data[0]['thread_id']
-                logger.info(f"Successfully created thread: {thread_id}")
+                logger.debug(f"Successfully created thread: {thread_id}")
                 return thread_id
             else:
                 logger.error(f"Thread creation failed or did not return expected data structure. Result data: {result.data}")
@@ -167,10 +168,35 @@ class ThreadManager:
         try:
             # Insert the message and get the inserted row data including the id
             result = await client.table('messages').insert(data_to_insert).execute()
-            logger.info(f"Successfully added message to thread {thread_id}")
+            logger.debug(f"Successfully added message to thread {thread_id}")
 
             if result.data and len(result.data) > 0 and isinstance(result.data[0], dict) and 'message_id' in result.data[0]:
-                return result.data[0]
+                saved_message = result.data[0]
+                # If this is an assistant_response_end, attempt to deduct credits if over limit
+                if type == "assistant_response_end" and isinstance(content, dict):
+                    try:
+                        usage = content.get("usage", {}) if isinstance(content, dict) else {}
+                        prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
+                        completion_tokens = int(usage.get("completion_tokens", 0) or 0)
+                        model = content.get("model") if isinstance(content, dict) else None
+                        # Compute token cost
+                        token_cost = calculate_token_cost(prompt_tokens, completion_tokens, model or "unknown")
+                        # Fetch account_id for this thread, which equals user_id for personal accounts
+                        thread_row = await client.table('threads').select('account_id').eq('thread_id', thread_id).limit(1).execute()
+                        user_id = thread_row.data[0]['account_id'] if thread_row.data and len(thread_row.data) > 0 else None
+                        if user_id and token_cost > 0:
+                            # Deduct credits if applicable and record usage against this message
+                            await handle_usage_with_credits(
+                                client,
+                                user_id,
+                                token_cost,
+                                thread_id=thread_id,
+                                message_id=saved_message['message_id'],
+                                model=model or "unknown"
+                            )
+                    except Exception as billing_e:
+                        logger.error(f"Error handling credit usage for message {saved_message.get('message_id')}: {str(billing_e)}", exc_info=True)
+                return saved_message
             else:
                 logger.error(f"Insert operation failed or did not return expected data structure for thread {thread_id}. Result data: {result.data}")
                 return None
@@ -287,13 +313,13 @@ class ThreadManager:
             An async generator yielding response chunks or error dict
         """
 
-        logger.info(f"Starting thread execution for thread {thread_id}")
-        logger.info(f"Using model: {llm_model}")
-        logger.info(f"Parameters: model={llm_model}, temperature={llm_temperature}, max_tokens={llm_max_tokens}")
-        logger.info(f"Auto-continue: max={native_max_auto_continues}, XML tool limit={max_xml_tool_calls}")
+        logger.debug(f"Starting thread execution for thread {thread_id}")
+        logger.debug(f"Using model: {llm_model}")
+        logger.debug(f"Parameters: model={llm_model}, temperature={llm_temperature}, max_tokens={llm_max_tokens}")
+        logger.debug(f"Auto-continue: max={native_max_auto_continues}, XML tool limit={max_xml_tool_calls}")
 
         # Log model info
-        logger.info(f"🤖 Thread {thread_id}: Using model {llm_model}")
+        logger.debug(f"🤖 Thread {thread_id}: Using model {llm_model}")
 
         # Ensure processor_config is not None
         config = processor_config or ProcessorConfig()
@@ -400,7 +426,7 @@ When using the tools:
                     # Use the potentially modified working_system_prompt for token counting
                     token_count = token_counter(model=llm_model, messages=[working_system_prompt] + messages)
                     token_threshold = self.context_manager.token_threshold
-                    logger.info(f"Thread {thread_id} token count: {token_count}/{token_threshold} ({(token_count/token_threshold)*100:.1f}%)")
+                    logger.debug(f"Thread {thread_id} token count: {token_count}/{token_threshold} ({(token_count/token_threshold)*100:.1f}%)")
 
                 except Exception as e:
                     logger.error(f"Error counting tokens or summarizing: {str(e)}")
@@ -438,7 +464,7 @@ When using the tools:
                         "content": partial_content
                     }
                     prepared_messages.append(temporary_assistant_message)
-                    logger.info(f"Added temporary assistant message with {len(partial_content)} chars for auto-continue context")
+                    logger.debug(f"Added temporary assistant message with {len(partial_content)} chars for auto-continue context")
 
                 # 4. Prepare tools for LLM call
                 openapi_tool_schemas = None
@@ -503,7 +529,7 @@ When using the tools:
                     if generation:
                         generation.update(
                             input=prepared_messages,
-                            start_time=datetime.datetime.now(datetime.timezone.utc),
+                            start_time=datetime.now(timezone.utc),
                             model=llm_model,
                             model_parameters={
                               "max_tokens": llm_max_tokens,
@@ -607,14 +633,14 @@ When using the tools:
                                     if chunk.get('finish_reason') == 'tool_calls':
                                         # Only auto-continue if enabled (max > 0)
                                         if native_max_auto_continues > 0:
-                                            logger.info(f"Detected finish_reason='tool_calls', auto-continuing ({auto_continue_count + 1}/{native_max_auto_continues})")
+                                            logger.debug(f"Detected finish_reason='tool_calls', auto-continuing ({auto_continue_count + 1}/{native_max_auto_continues})")
                                             auto_continue = True
                                             auto_continue_count += 1
                                             # Don't yield the finish chunk to avoid confusing the client
                                             continue
                                     elif chunk.get('finish_reason') == 'xml_tool_limit_reached':
                                         # Don't auto-continue if XML tool limit was reached
-                                        logger.info(f"Detected finish_reason='xml_tool_limit_reached', stopping auto-continue")
+                                        logger.debug(f"Detected finish_reason='xml_tool_limit_reached', stopping auto-continue")
                                         auto_continue = False
                                         # Still yield the chunk to inform the client
 
@@ -622,7 +648,7 @@ When using the tools:
                                     # if the finish reason is length, auto-continue
                                     content = json.loads(chunk.get('content'))
                                     if content.get('finish_reason') == 'length':
-                                        logger.info(f"Detected finish_reason='length', auto-continuing ({auto_continue_count + 1}/{native_max_auto_continues})")
+                                        logger.debug(f"Detected finish_reason='length', auto-continuing ({auto_continue_count + 1}/{native_max_auto_continues})")
                                         auto_continue = True
                                         auto_continue_count += 1
                                         continue
@@ -673,7 +699,7 @@ When using the tools:
 
         # If auto-continue is disabled (max=0), just run once
         if native_max_auto_continues == 0:
-            logger.info("Auto-continue is disabled (native_max_auto_continues=0)")
+            logger.debug("Auto-continue is disabled (native_max_auto_continues=0)")
             # Pass the potentially modified system prompt and temp message
             return await _run_once(temporary_message)
 

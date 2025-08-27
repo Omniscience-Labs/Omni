@@ -24,8 +24,8 @@ def get_encryption_key() -> bytes:
     # Generate a new key as fallback
     logger.warning("No encryption key found, generating new key for this session")
     key = Fernet.generate_key()
-    logger.info(f"Generated new encryption key. Set this in your environment:")
-    logger.info(f"MCP_CREDENTIAL_ENCRYPTION_KEY={key.decode()}")
+    logger.debug(f"Generated new encryption key. Set this in your environment:")
+    logger.debug(f"MCP_CREDENTIAL_ENCRYPTION_KEY={key.decode()}")
     return key
 
 

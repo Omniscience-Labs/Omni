@@ -15,6 +15,7 @@ async def main():
     """
     Please ignore the asyncio.exceptions.CancelledError that is thrown when the MCP server is stopped. I couldn't fix it.
     """
+    
     # Start the MCP server in the background
     asyncio.create_task(
         mcp.run_http_async(
