@@ -190,115 +190,280 @@ class OptimizedHTMLToPPTXConverter:
         visual_elements = []
         
         try:
-            # Set exact viewport dimensions
+            # Set viewport and load HTML
             await page.set_viewport_size({"width": 1920, "height": 1080})
             await page.emulate_media(media='screen')
             
-            # Force device pixel ratio to 1 for exact measurements
-            await page.evaluate(r"""
-                () => {
-                    Object.defineProperty(window, 'devicePixelRatio', {
-                        get: () => 1
-                    });
-                }
-            """)
-            
-            # Load HTML content directly
             with open(html_path, 'r', encoding='utf-8') as f:
                 html_content = f.read()
             
             await page.set_content(html_content, wait_until="domcontentloaded", timeout=10000)
+            await page.wait_for_timeout(1000)
             
-            # Reduced wait time
-            await page.wait_for_timeout(2000)
+            def handle_console(msg):
+                print(f"BROWSER CONSOLE: {msg.text}")
+
+            page.on("console", handle_console)
             
-            # Extract all visual elements with precise positioning
-            visual_data = await page.evaluate(r"""
+            # Step 1: First extract icons BEFORE making text transparent
+            icon_data = await page.evaluate(r"""
                 () => {
-                    function extractVisualElements(element, depth = 0) {
+                    function isIcon(element) {
+                        // Check for Font Awesome icons
+                        if (element.classList.contains('fas') || 
+                            element.classList.contains('far') || 
+                            element.classList.contains('fab') || 
+                            element.classList.contains('fa')) {
+                            return true;
+                        }
+                        
+                        return false;
+                    }
+                    
+                    function extractIconElements(element, depth = 0) {
                         if (!element || element.nodeType !== Node.ELEMENT_NODE) return [];
                         
-                        const computedStyle = window.getComputedStyle(element);
+                        const computed = window.getComputedStyle(element);
                         const rect = element.getBoundingClientRect();
                         
-                        // Skip hidden elements
-                        if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden') return [];
+                        // Skip if no dimensions or hidden
                         if (rect.width === 0 || rect.height === 0) return [];
+                        if (computed.display === 'none' || computed.visibility === 'hidden') return [];
                         
                         const results = [];
                         
-                        // Check if this element has meaningful text content
-                        const hasText = element.textContent && element.textContent.trim().length > 0;
-                        
-                        // Check if this element is primarily a text container
-                        const isTextContainer = (
-                            element.tagName === 'P' ||
-                            element.tagName === 'H1' || element.tagName === 'H2' || element.tagName === 'H3' ||
-                            element.tagName === 'H4' || element.tagName === 'H5' || element.tagName === 'H6' ||
-                            element.tagName === 'SPAN' ||
-                            element.tagName === 'DIV' ||
-                            element.tagName === 'LI' ||
-                            element.tagName === 'A'
-                        );
-                        
-                        // Check if this element has pure visual content
-                        const hasPureVisualContent = (
-                            element.tagName === 'IMG' ||
-                            element.tagName === 'SVG' ||
-                            element.tagName === 'CANVAS' ||
-                            element.tagName === 'I' ||
-                            element.classList.contains('fas') ||
-                            element.classList.contains('far') ||
-                            element.classList.contains('fab') ||
-                            element.classList.contains('fa')
-                        );
-                        
-                        // Check if this element has decorative visual styling
-                        const hasDecorativeStyling = (
-                            computedStyle.backgroundImage !== 'none' ||
-                            computedStyle.backgroundColor !== 'rgba(0, 0, 0, 0)' ||
-                            computedStyle.borderStyle !== 'none' ||
-                            computedStyle.borderImage !== 'none' ||
-                            computedStyle.boxShadow !== 'none' ||
-                            computedStyle.borderRadius !== '0px'
-                        );
-                        
-                        // Skip very large elements that are likely the main background
-                        const isLikelyBackground = rect.width > 1000 || rect.height > 800;
-                        
-                        // Only capture elements that are pure visual or have decorative styling but no text
-                        const shouldCaptureAsVisual = (
-                            (hasPureVisualContent) ||
-                            (hasDecorativeStyling && !hasText && !isTextContainer)
-                        ) && !isLikelyBackground;
-                        
-                        if (shouldCaptureAsVisual) {
-                            const x = Math.round(rect.left * 100) / 100;
-                            const y = Math.round(rect.top * 100) / 100;
-                            const width = Math.round(rect.width * 100) / 100;
-                            const height = Math.round(rect.height * 100) / 100;
-                            
-                            // Skip elements with invalid dimensions
-                            if (width <= 0 || height <= 0) return [];
-                            
-                            // Skip elements that are completely outside reasonable bounds
-                            const maxReasonableSize = 2000;
-                            if (x < -maxReasonableSize || y < -maxReasonableSize || 
-                                x > maxReasonableSize || y > maxReasonableSize) {
-                                return [];
-                            }
+                        // Check if this element is an icon
+                        if (isIcon(element)) {
+                            console.log('ICON ELEMENT FOUND:', element.tagName, element.textContent?.trim().substring(0, 30));
                             
                             results.push({
-                                type: 'visual',
-                                x: x,
-                                y: y,
-                                width: width,
-                                height: height,
+                                type: 'icon',
+                                x: Math.round(rect.left * 100) / 100,
+                                y: Math.round(rect.top * 100) / 100,
+                                width: Math.round(rect.width * 100) / 100,
+                                height: Math.round(rect.height * 100) / 100,
                                 tag: element.tagName.toLowerCase(),
                                 className: element.className,
                                 id: element.id,
-                                depth: depth
+                                depth: depth,
+                                // Add debug info
+                                debugInfo: {
+                                    textContent: element.textContent?.trim().substring(0, 50) || 'No text'
+                                }
                             });
+                        }
+                        
+                        // Process children for nested icons
+                        Array.from(element.children).forEach(child => {
+                            results.push(...extractIconElements(child, depth + 1));
+                        });
+                        
+                        return results;
+                    }
+                    
+                    // Execute icon extraction
+                    const allIconElements = extractIconElements(document.body);
+                    
+                    return allIconElements;
+                }
+            """)
+            
+            # Capture icons as visual elements
+            print(f"🔍 Total icon elements found: {len(icon_data) if icon_data else 0}")
+            icon_visual_elements = []
+            
+            for i, data in enumerate(icon_data or []):
+                if data and data['type'] == 'icon':
+                    try:
+                        # Ensure coordinates are within viewport bounds
+                        x = max(0, min(data['x'], 1920))
+                        y = max(0, min(data['y'], 1080))
+                        width = min(data['width'], 1920 - x)
+                        height = min(data['height'], 1080 - y)
+                        
+                        # Skip if area is too small
+                        if width < 5 or height < 5:
+                            continue
+                        
+                        # Capture the icon
+                        element_path = temp_dir / f"icon_element_{html_path.stem}_{i:03d}.png"
+                        await page.screenshot(
+                            path=str(element_path),
+                            full_page=False,
+                            clip={"x": x, "y": y, "width": width, "height": height}
+                        )
+                        
+                        icon_element = {
+                            'type': 'visual',  # Treat as visual element for consistency
+                            'x': data['x'],
+                            'y': data['y'],
+                            'width': data['width'],
+                            'height': data['height'],
+                            'tag': data['tag'],
+                            'image_path': element_path,
+                            'depth': data['depth'],
+                            'isIcon': True
+                        }
+                        
+                        icon_visual_elements.append(icon_element)
+                        
+                    except Exception as e:
+                        print(f"Failed to capture icon element {i}: {e}")
+            
+            # Step 2: Now make all text transparent while preserving visual styling
+            await page.evaluate(r"""
+                () => {
+                    function makeTextTransparent(element) {
+                        if (element.nodeType === Node.ELEMENT_NODE) {
+                            const computed = window.getComputedStyle(element);
+                            
+                            // If element has text content, make it transparent
+                            if (element.textContent && element.textContent.trim()) {
+                                element.style.color = 'transparent';
+                                element.style.textShadow = 'none';
+                                element.style.webkitTextStroke = 'none';
+                                element.style.webkitTextFillColor = 'transparent';
+                            }
+                            
+                            // Process children
+                            Array.from(element.children).forEach(makeTextTransparent);
+                        }
+                    }
+                    
+                    makeTextTransparent(document.body);
+                }
+            """)
+            
+            await page.wait_for_timeout(500)
+            
+            # Step 3: Extract other visual elements by depth and visual properties
+            visual_data = await page.evaluate(r"""
+                () => {
+                    function hasActualVisualContent(element, computed) {
+                        
+                        // Always include explicit visual elements
+                        if (['IMG', 'SVG', 'CANVAS', 'VIDEO', 'IFRAME'].includes(element.tagName)) {
+                            return true;
+                        }
+                        
+                        // 2. Check for actual background images and gradients (not just 'none')
+                        if (computed.backgroundImage && computed.backgroundImage !== 'none') {
+                            return true;
+                        }
+                        
+                        // 3. Check for meaningful background colors (not just transparent)
+                        const bgColor = computed.backgroundColor;
+                        if (bgColor && 
+                            bgColor !== 'rgba(0, 0, 0, 0)' && 
+                            bgColor !== 'transparent' && 
+                            bgColor !== 'inherit' &&
+                            bgColor !== 'initial' &&
+                            bgColor !== 'unset') {
+                            return true;
+                        }
+                        
+                        // 4. Check for borders (but ignore default/none)
+                        if (computed.borderStyle && 
+                            computed.borderStyle !== 'none' && 
+                            computed.borderStyle !== 'initial' &&
+                            computed.borderWidth && 
+                            computed.borderWidth !== '0px') {
+                            return true;
+                        }
+                        
+                        // 5. Check for box shadows
+                        if (computed.boxShadow && 
+                            computed.boxShadow !== 'none' && 
+                            computed.boxShadow !== 'initial') {
+                            return true;
+                        }
+                        
+                        // 6. Check for gradients in background (comprehensive check)
+                        if (computed.background && 
+                            (computed.background.includes('gradient') || 
+                            computed.background.includes('url('))) {
+                            return true;
+                        }
+                        
+                        // Also check backgroundImage for gradients (browsers often store gradients here)
+                        if (computed.backgroundImage && 
+                            (computed.backgroundImage.includes('gradient') ||
+                            computed.backgroundImage.includes('url('))) {
+                            return true;
+                        }
+                        
+                        return false;
+                    }
+                                    
+                    function shouldSkipElement(element, computed) {
+                        // Skip text-only elements
+                        const textOnlyTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'A', 'SPAN', 
+                                            'STRONG', 'EM', 'U', 'BUTTON', 'LABEL', 'SMALL', 'CODE'];
+                        if (textOnlyTags.includes(element.tagName)) {
+                            return true;
+                        }
+                        
+                        // Skip hidden elements
+                        if (computed.display === 'none' || computed.visibility === 'hidden') {
+                            return true;
+                        }
+                        
+                        return false;
+                    }
+                                                
+                    function extractVisualElements(element, depth = 0) {
+                        if (!element || element.nodeType !== Node.ELEMENT_NODE) return [];
+                        
+                        const computed = window.getComputedStyle(element);
+                        const rect = element.getBoundingClientRect();
+                        
+                        // Skip if no dimensions
+                        if (rect.width === 0 || rect.height === 0) {
+                            return [];
+                        }
+                        
+                        // Skip if should be filtered out
+                        if (shouldSkipElement(element, computed)) {
+                            return [];
+                        }
+                        
+                        const results = [];
+                        
+                        // Check if element has actual visual content
+                        if (hasActualVisualContent(element, computed)) {
+                            console.log('VISUAL ELEMENT FOUND:', element.tagName, element.textContent?.trim().substring(0, 30));
+                            console.log('backgroundImage:', computed.backgroundImage);
+                            console.log('backgroundColor:', computed.backgroundColor);
+                            console.log('borderStyle:', computed.borderStyle);
+                            
+                            // Skip very large elements that are likely backgrounds
+                            const isLikelyBackground = rect.width > 1200 || rect.height > 900;
+                            
+                            if (!isLikelyBackground) {
+                                results.push({
+                                    type: 'visual',
+                                    x: Math.round(rect.left * 100) / 100,
+                                    y: Math.round(rect.top * 100) / 100,
+                                    width: Math.round(rect.width * 100) / 100,
+                                    height: Math.round(rect.height * 100) / 100,
+                                    tag: element.tagName.toLowerCase(),
+                                    className: element.className,
+                                    id: element.id,
+                                    depth: depth,
+                                    hasBackground: computed.backgroundImage !== 'none' || 
+                                                (computed.backgroundColor !== 'rgba(0, 0, 0, 0)' && 
+                                                computed.backgroundColor !== 'transparent'),
+                                    hasBorder: computed.borderStyle !== 'none',
+                                    hasShadow: computed.boxShadow !== 'none',
+                                    // Add debug info
+                                    debugInfo: {
+                                        backgroundColor: computed.backgroundColor,
+                                        backgroundImage: computed.backgroundImage,
+                                        borderStyle: computed.borderStyle,
+                                        textContent: element.textContent?.trim().substring(0, 50) || 'No text'
+                                    }
+                                });
+                            }
                         }
                         
                         // Process children for nested elements
@@ -309,7 +474,7 @@ class OptimizedHTMLToPPTXConverter:
                         return results;
                     }
                     
-                    // Start extraction from body
+                    // Actually execute the extraction and return results
                     const allVisualElements = extractVisualElements(document.body);
                     
                     // Sort by depth (background elements first) then by position
@@ -323,45 +488,91 @@ class OptimizedHTMLToPPTXConverter:
                 }
             """)
             
-            # Limit number of visual elements to prevent memory issues
-            if visual_data and len(visual_data) > 10:
-                visual_data = visual_data[:10]
+            # Debug: Log what we found in Python console
+            print(f"🔍 Total visual elements found: {len(visual_data) if visual_data else 0}")
+            if visual_data:
+                for i, data in enumerate(visual_data):  # Show first 5
+                    print(f"🔍 Element {i}: {data['tag']} - {data.get('className', 'No class')}")
+                    print(f"   Position: ({data['x']}, {data['y']}) {data['width']}x{data['height']}")
+                    print(f"   Has background: {data.get('hasBackground', False)}")
+                    print(f"   Has border: {data.get('hasBorder', False)}")
+                    print(f"   Has shadow: {data.get('hasShadow', False)}")
+                    print("--- 🔍", data)
             
-            # Capture each visual element as an individual image
+            # Step 3: Capture each visual element as an image
             for i, data in enumerate(visual_data or []):
                 if data and data['type'] == 'visual':
                     try:
-                        # Skip elements that are completely outside the viewport
-                        viewport_width = 1920
-                        viewport_height = 1080
+                        # Ensure coordinates are within viewport bounds
+                        x = max(0, min(data['x'], 1920))
+                        y = max(0, min(data['y'], 1080))
+                        width = min(data['width'], 1920 - x)
+                        height = min(data['height'], 1920 - y)
                         
-                        if (data['x'] + data['width'] < 0 or data['y'] + data['height'] < 0 or 
-                            data['x'] > viewport_width or data['y'] > viewport_height):
+                        # Skip if area is too small
+                        if width < 5 or height < 5:
                             continue
                         
-                        # Clip coordinates to viewport bounds for safe screenshot
-                        safe_x = max(0, data['x'])
-                        safe_y = max(0, data['y'])
-                        safe_width = min(data['width'], viewport_width - safe_x)
-                        safe_height = min(data['height'], viewport_height - safe_y)
+                        # Temporarily hide child elements to prevent interference
+                        await page.evaluate(r"""
+                            (elementData) => {
+                                // Find the element to capture
+                                const elements = document.querySelectorAll('*');
+                                for (let el of elements) {
+                                    const rect = el.getBoundingClientRect();
+                                    if (Math.abs(rect.left - elementData.x) < 2 && 
+                                        Math.abs(rect.top - elementData.y) < 2 &&
+                                        Math.abs(rect.width - elementData.width) < 2 &&
+                                        Math.abs(rect.height - elementData.height) < 2) {
+                                        
+                                        // Store original visibility of children
+                                        const children = el.querySelectorAll('*');
+                                        children.forEach(child => {
+                                            child.setAttribute('data-original-visibility', child.style.visibility);
+                                            child.style.visibility = 'hidden';
+                                        });
+                                        
+                                        // Mark this element for restoration
+                                        el.setAttribute('data-capture-in-progress', 'true');
+                                        break;
+                                    }
+                                }
+                            }
+                        """, data)
                         
-                        # Skip if clipped area is too small
-                        if safe_width <= 2 or safe_height <= 2:
-                            continue
-                        
-                        # Capture this specific element with safe bounds
+                        # Capture the element
                         element_path = temp_dir / f"visual_element_{html_path.stem}_{i:03d}.png"
-                        
                         await page.screenshot(
                             path=str(element_path),
                             full_page=False,
-                            clip={
-                                "x": safe_x, 
-                                "y": safe_y, 
-                                "width": safe_width, 
-                                "height": safe_height
-                            }
+                            clip={"x": x, "y": y, "width": width, "height": height}
                         )
+                        
+                        # Restore child elements visibility
+                        await page.evaluate(r"""
+                            (elementData) => {
+                                const elements = document.querySelectorAll('*');
+                                for (let el of elements) {
+                                    if (el.getAttribute('data-capture-in-progress')) {
+                                        // Restore children visibility
+                                        const children = el.querySelectorAll('*');
+                                        children.forEach(child => {
+                                            const originalVisibility = child.getAttribute('data-original-visibility');
+                                            if (originalVisibility) {
+                                                child.style.visibility = originalVisibility;
+                                                child.removeAttribute('data-original-visibility');
+                                            } else {
+                                                child.style.visibility = 'visible';
+                                            }
+                                        });
+                                        
+                                        // Clean up
+                                        el.removeAttribute('data-capture-in-progress');
+                                        break;
+                                    }
+                                }
+                            }
+                        """, data)
                         
                         visual_element = {
                             'type': 'visual',
@@ -371,17 +582,52 @@ class OptimizedHTMLToPPTXConverter:
                             'height': data['height'],
                             'tag': data['tag'],
                             'image_path': element_path,
-                            'depth': data['depth']
+                            'depth': data['depth'],
+                            'hasBackground': data.get('hasBackground', False),
+                            'hasBorder': data.get('hasBorder', False),
+                            'hasShadow': data.get('hasShadow', False)
                         }
                         
                         visual_elements.append(visual_element)
                         
-                    except Exception:
+                    except Exception as e:
+                        print(f"Failed to capture visual element {i}: {e}")
+                        # Ensure we restore visibility even if capture fails
+                        try:
+                            await page.evaluate(r"""
+                                (elementData) => {
+                                    const elements = document.querySelectorAll('*');
+                                    for (let el of elements) {
+                                        if (el.getAttribute('data-capture-in-progress')) {
+                                            const children = el.querySelectorAll('*');
+                                            children.forEach(child => {
+                                                const originalVisibility = child.getAttribute('data-original-visibility');
+                                                if (originalVisibility) {
+                                                    child.style.visibility = originalVisibility;
+                                                    child.removeAttribute('data-original-visibility');
+                                                } else {
+                                                    child.style.visibility = 'visible';
+                                                }
+                                            });
+                                            el.removeAttribute('data-capture-in-progress');
+                                            break;
+                                        }
+                                    }
+                                }
+                            """, data)
+                        except:
+                            pass
                         continue
+            
+            # Add the previously captured icon elements to our visual elements collection
+            if icon_visual_elements:
+                print(f"Adding {len(icon_visual_elements)} icon elements to visual elements")
+                visual_elements.extend(icon_visual_elements)
             
             return visual_elements
             
-        except Exception:
+        except Exception as e:
+            print(f"Visual element extraction failed: {e}")
             return []
 
     async def capture_clean_background(self, page, html_path: Path, temp_dir: Path, visual_elements: List[Dict]) -> Path:
