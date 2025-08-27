@@ -152,6 +152,10 @@ class ToolkitService:
                 if not logo_url:
                     logo_url = toolkit_data.get("logo")
                 
+                # Fix broken Simple Icons URLs
+                if logo_url:
+                    logo_url = self._fix_simple_icons_url(logo_url, toolkit_data.get("slug", ""))
+                
                 tags = []
                 categories = []
                 if isinstance(meta, dict) and "categories" in meta:
@@ -245,9 +249,45 @@ class ToolkitService:
             logger.error(f"Failed to search toolkits: {e}", exc_info=True)
             raise
     
+    def _fix_simple_icons_url(self, logo_url: str, toolkit_slug: str) -> str:
+        """Fix broken Simple Icons CDN URLs to use the correct format."""
+        if not logo_url:
+            return logo_url
+
+        # Check if it's a broken Simple Icons URL
+        if 'cdn.simpleicons.org' in logo_url:
+            # Extract the icon name from the broken URL
+            # Format: cdn.simpleicons.org/oracle/oracle:1 -> oracle
+            parts = logo_url.split('/')
+            if len(parts) >= 2:
+                icon_name = parts[-2] if len(parts) > 2 else parts[-1]
+                # Remove any version suffix (like :1)
+                icon_name = icon_name.split(':')[0]
+
+                # Use the simpler and more reliable Simple Icons CDN format
+                fixed_url = f"https://cdn.simpleicons.org/{icon_name}"
+                logger.debug(f"Fixed Simple Icons URL: {logo_url} -> {fixed_url}")
+                return fixed_url
+
+        # Check for other common broken Simple Icons patterns
+        if logo_url.startswith('simpleicons.org/') or logo_url.startswith('//cdn.simpleicons.org'):
+            # Extract icon name and fix
+            icon_name = toolkit_slug.lower()
+            fixed_url = f"https://cdn.simpleicons.org/{icon_name}"
+            logger.debug(f"Fixed Simple Icons URL pattern: {logo_url} -> {fixed_url}")
+            return fixed_url
+
+        # Handle protocol-less URLs
+        if logo_url.startswith('//'):
+            fixed_url = f"https:{logo_url}"
+            logger.debug(f"Fixed protocol-less URL: {logo_url} -> {fixed_url}")
+            return fixed_url
+
+        return logo_url
+
     async def get_toolkit_icon(self, toolkit_slug: str) -> Optional[str]:
         try:
-            logger.info(f"Fetching toolkit icon for: {toolkit_slug}")
+            logger.debug(f"Fetching toolkit icon for: {toolkit_slug}")
             toolkit_response = self.client.toolkits.retrieve(toolkit_slug)
             
             if hasattr(toolkit_response, 'model_dump'):
@@ -265,7 +305,11 @@ class ToolkitService:
             else:
                 logo = None
             
-            logger.info(f"Successfully fetched icon for {toolkit_slug}: {logo}")
+            # Fix broken Simple Icons URLs
+            if logo:
+                logo = self._fix_simple_icons_url(logo, toolkit_slug)
+            
+            logger.debug(f"Successfully fetched icon for {toolkit_slug}: {logo}")
             return logo
             
         except Exception as e:
@@ -290,11 +334,16 @@ class ToolkitService:
             if hasattr(meta, '__dict__'):
                 meta = meta.__dict__
             
+            logo_url = meta.get('logo') if isinstance(meta, dict) else getattr(meta, 'logo', None)
+            # Fix broken Simple Icons URLs
+            if logo_url:
+                logo_url = self._fix_simple_icons_url(logo_url, toolkit_dict.get('slug', ''))
+            
             detailed_toolkit = DetailedToolkitInfo(
                 slug=toolkit_dict.get('slug', ''),
                 name=toolkit_dict.get('name', ''),
                 description=meta.get('description', '') if isinstance(meta, dict) else getattr(meta, 'description', ''),
-                logo=meta.get('logo') if isinstance(meta, dict) else getattr(meta, 'logo', None),
+                logo=logo_url,
                 tags=[],
                 auth_schemes=toolkit_dict.get('composio_managed_auth_schemes', []),
                 categories=[],
