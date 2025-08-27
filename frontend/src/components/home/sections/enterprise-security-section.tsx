@@ -167,9 +167,9 @@ export function EnterpriseSecuritySection() {
     "zapier", "uipath", "workato"
   ];
 
-  // Convert slugs to image URLs
+  // Convert slugs to image URLs - use correct Simple Icons format
   const enterpriseIntegrationImages = enterpriseIntegrationSlugs.map(
-    (slug) => `https://cdn.simpleicons.org/${slug}/${slug}`
+    (slug) => `https://cdn.simpleicons.org/${slug}`
   );
 
   return (
