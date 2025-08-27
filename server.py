@@ -118,7 +118,7 @@ async def generate_podcast(request: PodcastGenerateRequest):
             )
         
         # Get the actual Podcastfy service URL from environment
-        podcastfy_service_url = os.getenv("PODCASTFY_SERVICE_URL", "https://podcastfy-omni.onrender.com")
+        podcastfy_service_url = os.getenv("PODCASTFY_SERVICE_URL", "https://varnica-dev-podcastfy.onrender.com")
         
         # Prepare the payload for the actual Podcastfy service
         payload = {
@@ -256,7 +256,7 @@ async def _process_podcast_job(job_id: str, request: PodcastGenerateRequest):
         job_storage[job_id]["progress"] = 10
         
         # Get the actual Podcastfy service URL from environment
-        podcastfy_service_url = os.getenv("PODCASTFY_SERVICE_URL", "https://podcastfy-omni.onrender.com")
+        podcastfy_service_url = os.getenv("PODCASTFY_SERVICE_URL", "https://varnica-dev-podcastfy.onrender.com")
         
         # Prepare the payload for the actual Podcastfy service
         payload = {
