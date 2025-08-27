@@ -37,6 +37,8 @@ from agentpress.tool import SchemaType
 
 from agent.tools.sb_web_dev_tool import SandboxWebDevTool
 from agent.tools.sb_upload_file_tool import SandboxUploadFileTool
+from agent.tools.podcast_tool import SandboxPodcastTool
+from agent.tools.sb_video_avatar_tool import SandboxVideoAvatarTool
 
 load_dotenv()
 
@@ -115,6 +117,8 @@ class ToolManager:
 
             ('sb_web_dev_tool', SandboxWebDevTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
             ('sb_upload_file_tool', SandboxUploadFileTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('podcast_tool', SandboxPodcastTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_video_avatar_tool', SandboxVideoAvatarTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
         ]
         
         for tool_name, tool_class, kwargs in sandbox_tools:
