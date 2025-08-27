@@ -2,6 +2,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { OmniFallbackIcon } from '@/components/ui/omni-fallback-icon';
 import { Settings, X, Sparkles, Key, AlertTriangle, Trash2 } from 'lucide-react';
 import {
   AlertDialog,
@@ -67,14 +68,15 @@ const MCPLogo: React.FC<{ mcp: MCPConfiguration }> = ({ mcp }) => {
           alt={mcp.name}
           className="w-full h-full object-cover rounded"
           onError={(e) => {
+            console.warn(`Failed to load image: ${logoUrl}`);
             const target = e.target as HTMLImageElement;
             target.style.display = 'none';
             target.nextElementSibling?.classList.remove('hidden');
           }}
         />
       ) : null}
-      <div className={logoUrl ? "hidden" : "flex w-full h-full items-center justify-center bg-muted rounded-md text-xs font-medium text-muted-foreground"}>
-        {firstLetter}
+      <div className={logoUrl ? "hidden" : "flex w-full h-full items-center justify-center"}>
+        <OmniFallbackIcon size={16} />
       </div>
     </div>
   );

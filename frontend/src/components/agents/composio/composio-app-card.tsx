@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { OmniFallbackIcon } from '@/components/ui/omni-fallback-icon';
 import type { ComposioToolkit } from '@/hooks/react-query/composio/utils';
 
 interface ComposioAppCardProps {
@@ -34,11 +35,14 @@ export const ComposioAppCard: React.FC<ComposioAppCardProps> = ({
                 src={app.logo}
                 alt={`${app.name} logo`}
                 className="h-full w-full object-cover"
-                onError={() => setImageError(true)}
+                onError={() => {
+                  console.warn(`Failed to load image: ${app.logo}`);
+                  setImageError(true);
+                }}
               />
             ) : (
-              <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 text-primary font-semibold text-lg">
-                {app.name.charAt(0).toUpperCase()}
+              <div className="h-full w-full flex items-center justify-center">
+                <OmniFallbackIcon size={48} />
               </div>
             )}
           </div>

@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
 import { useComposioToolkitIcon } from '@/hooks/react-query/composio/use-composio';
 import { useRouter } from 'next/navigation';
+import { OmniFallbackIcon } from '@/components/ui/omni-fallback-icon';
 
 interface MarketplaceAgentPreviewDialogProps {
   agent: MarketplaceTemplate | null;
@@ -59,14 +60,15 @@ const IntegrationLogo: React.FC<{
           alt={displayName}
           className="w-full h-full object-cover"
           onError={(e) => {
+            console.warn(`Failed to load image: ${logoUrl}`);
             const target = e.target as HTMLImageElement;
             target.style.display = 'none';
             target.nextElementSibling?.classList.remove('hidden');
           }}
         />
       ) : null}
-      <div className={logoUrl ? "hidden" : "flex w-full h-full items-center justify-center bg-muted rounded-sm text-xs font-medium text-muted-foreground"}>
-        {firstLetter}
+      <div className={logoUrl ? "hidden" : "flex w-full h-full items-center justify-center"}>
+        <OmniFallbackIcon size={20} />
       </div>
     </div>
   );
