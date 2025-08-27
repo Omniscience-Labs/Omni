@@ -53,17 +53,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (isLoading) setIsLoading(false);
         switch (event) {
           case 'SIGNED_IN':
-            console.log('🔐 SIGNED_IN event detected!', { 
-              userId: newSession?.user?.id, 
-              userCreatedAt: newSession?.user?.created_at 
-            });
             if (newSession?.user) {
-              console.log('👤 Calling checkAndInstallOmniAgent...');
               try {
                 await checkAndInstallOmniAgent(newSession.user.id, newSession.user.created_at);
-                console.log('✅ checkAndInstallOmniAgent completed');
               } catch (error) {
-                console.error('❌ checkAndInstallOmniAgent failed:', error);
+                console.error('checkAndInstallOmniAgent failed:', error);
               }
             }
             break;

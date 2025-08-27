@@ -9,7 +9,7 @@ from datetime import datetime
 class OmniDefaultAgentService:
     def __init__(self, db: DBConnection = None):
         self._db = db or DBConnection()
-        logger.info("🔄 OmniDefaultAgentService initialized")
+        logger.info("OmniDefaultAgentService initialized")
     
     async def get_omni_default_config(self) -> Dict[str, Any]:
         """Get the current Omni default configuration"""
@@ -17,7 +17,7 @@ class OmniDefaultAgentService:
     
     async def sync_all_omni_agents(self) -> Dict[str, Any]:
         """Sync all Omni agents to current configuration"""
-        logger.info("🔄 Syncing all Omni agents")
+        logger.info("Syncing all Omni agents")
         
         try:
             # Get all Omni default agents (direct query to avoid broken function)
@@ -95,12 +95,12 @@ class OmniDefaultAgentService:
     
     async def update_all_omni_agents(self, target_version: Optional[str] = None) -> Dict[str, Any]:
         """Update all Omni agents (alias for sync)"""
-        logger.info("🔄 Updating all Omni agents")
+        logger.info("Updating all Omni agents")
         return await self.sync_all_omni_agents()
     
     async def install_for_all_users(self) -> Dict[str, Any]:
         """Install Omni agent for all users who don't have it"""
-        logger.info("🔄 Installing Omni agents for all missing users")
+        logger.info("Installing Omni agents for all missing users")
         
         try:
             # Get all accounts that don't have an Omni default agent
@@ -173,35 +173,35 @@ class OmniDefaultAgentService:
     
     async def install_omni_agent_for_user(self, account_id: str, replace_existing: bool = False) -> Optional[str]:
         """Install Omni agent for a specific user"""
-        logger.info(f"🔄 Installing Omni agent for user: {account_id}")
+        logger.info(f"Installing Omni agent for user: {account_id}")
         
         try:
-            logger.debug(f"🔍 Starting installation process for user {account_id}, replace_existing={replace_existing}")
+            logger.debug(f"Starting installation process for user {account_id}, replace_existing={replace_existing}")
             if replace_existing:
-                logger.debug(f"🗑️ Deleting existing Omni agent for replacement")
+                logger.debug(f"Deleting existing Omni agent for replacement")
                 # Delete existing Omni agent if it exists
                 client = await self._db.client
                 await client.table('agents').delete().eq('account_id', account_id).eq('metadata->>is_omni_default', True).execute()
-                logger.info(f"✅ Deleted existing Omni agent for replacement")
+                logger.info(f"Deleted existing Omni agent for replacement")
             else:
-                logger.debug(f"🔍 Checking if user already has an Omni agent")
+                logger.debug(f"Checking if user already has an Omni agent")
                 # Check if user already has an Omni agent (direct query to avoid broken function)
                 client = await self._db.client
                 existing = await client.table('agents').select('agent_id').eq('account_id', account_id).eq('metadata->>is_omni_default', True).limit(1).execute()
                 existing = existing.data
                 if existing:
-                    logger.info(f"✅ User {account_id} already has an Omni agent: {existing[0]['agent_id']}")
+                    logger.info(f"User {account_id} already has an Omni agent: {existing[0]['agent_id']}")
                     return str(existing[0]['agent_id'])
-                logger.debug(f"👤 User does not have an existing Omni agent, proceeding with installation")
+                logger.debug(f"User does not have an existing Omni agent, proceeding with installation")
             
             # Get the Omni configuration
-            logger.debug(f"📋 Getting Omni default config")
+            logger.debug(f"Getting Omni default config")
             config = await self.get_omni_default_config()
-            logger.debug(f"✅ Config retrieved: {list(config.keys())}")
+            logger.debug(f"Config retrieved: {list(config.keys())}")
             
             # Generate new agent ID
             agent_id = str(uuid.uuid4())
-            logger.debug(f"🆔 Generated agent ID: {agent_id}")
+            logger.debug(f"Generated agent ID: {agent_id}")
             
             # Create the agent (updated for new schema)
             
@@ -212,7 +212,7 @@ class OmniDefaultAgentService:
                 "management_version": "1.0.0"
             }
             
-            logger.debug(f"🏗️ Creating agent in database")
+            logger.debug(f"Creating agent in database")
             try:
                 client = await self._db.client
                 result = await client.table('agents').insert({
@@ -224,15 +224,15 @@ class OmniDefaultAgentService:
                     'version_count': 1,
                     'metadata': metadata
                 }).execute()
-                logger.debug(f"✅ Agent created successfully")
+                logger.debug(f"Agent created successfully")
             except Exception as e:
-                logger.error(f"❌ Failed to create agent: {e}")
+                logger.error(f"Failed to create agent: {e}")
                 raise
             
             # Create initial agent version (updated for new schema)
             version_id = str(uuid.uuid4())
             
-            logger.debug(f"📝 Creating agent version")
+            logger.debug(f"Creating agent version")
             try:
                 client = await self._db.client
                 result = await client.table('agent_versions').insert({
@@ -249,29 +249,29 @@ class OmniDefaultAgentService:
                     'is_active': True,
                     'created_by': account_id
                 }).execute()
-                logger.debug(f"✅ Version created successfully")
+                logger.debug(f"Version created successfully")
             except Exception as e:
-                logger.error(f"❌ Failed to create version: {e}")
+                logger.error(f"Failed to create version: {e}")
                 raise
             
             # Update agent with current version
-            logger.debug(f"🔄 Updating agent with version reference")
+            logger.debug(f"Updating agent with version reference")
             try:
                 client = await self._db.client
                 result = await client.table('agents').update({
                     'current_version_id': version_id,
                     'version_count': 1
                 }).eq('agent_id', agent_id).execute()
-                logger.debug(f"✅ Agent updated with version successfully")
+                logger.debug(f"Agent updated with version successfully")
             except Exception as e:
-                logger.error(f"❌ Failed to update agent with version: {e}")
+                logger.error(f"Failed to update agent with version: {e}")
                 raise
             
-            logger.info(f"✅ Successfully installed Omni agent {agent_id} for user: {account_id}")
+            logger.info(f"Successfully installed Omni agent {agent_id} for user: {account_id}")
             return agent_id
                 
         except Exception as e:
-            logger.error(f"❌ Error installing Omni agent for user {account_id}: {e}")
+            logger.error(f"Error installing Omni agent for user {account_id}: {e}")
             return None
     
     async def get_agent_for_user(self, account_id: str) -> Optional[Dict[str, Any]]:
