@@ -835,21 +835,21 @@ print(json.dumps(result))
             }
         }
     })
-    @xml_schema(
-        tag_name="analyze-form-layout",
-        mappings=[
-            {"param_name": "file_path", "node_type": "attribute", "path": "."},
-            {"param_name": "page_number", "node_type": "attribute", "path": "page_number", "required": False}
-        ],
-        example='''
-        <function_calls>
-        <invoke name="analyze_form_layout">
-        <parameter name="file_path">forms/application.pdf</parameter>
-        <parameter name="page_number">0</parameter>
-        </invoke>
-        </function_calls>
-        '''
-    )
+    # @xml_schema(
+    #     tag_name="analyze-form-layout",
+    #     mappings=[
+    #         {"param_name": "file_path", "node_type": "attribute", "path": "."},
+    #         {"param_name": "page_number", "node_type": "attribute", "path": "page_number", "required": False}
+    #     ],
+    #     example='''
+    #     <function_calls>
+    #     <invoke name="analyze_form_layout">
+    #     <parameter name="file_path">forms/application.pdf</parameter>
+    #     <parameter name="page_number">0</parameter>
+    #     </invoke>
+    #     </function_calls>
+    #     '''
+    # )
     async def analyze_form_layout(self, file_path: str, page_number: Optional[int] = None) -> ToolResult:
         """Analyze PDF layout to identify potential form field positions."""
         try:
@@ -1073,22 +1073,22 @@ print(json.dumps(result))
             }
         }
     })
-    @xml_schema(
-        tag_name="generate-coordinate-grid",
-        mappings=[
-            {"param_name": "file_path", "node_type": "attribute", "path": "."},
-            {"param_name": "grid_spacing", "node_type": "attribute", "path": "grid_spacing", "required": False},
-            {"param_name": "output_path", "node_type": "attribute", "path": "output_path", "required": False}
-        ],
-        example='''
-        <function_calls>
-        <invoke name="generate_coordinate_grid">
-        <parameter name="file_path">forms/blank_form.pdf</parameter>
-        <parameter name="grid_spacing">25</parameter>
-        </invoke>
-        </function_calls>
-        '''
-    )
+    # @xml_schema(
+    #     tag_name="generate-coordinate-grid",
+    #     mappings=[
+    #         {"param_name": "file_path", "node_type": "attribute", "path": "."},
+    #         {"param_name": "grid_spacing", "node_type": "attribute", "path": "grid_spacing", "required": False},
+    #         {"param_name": "output_path", "node_type": "attribute", "path": "output_path", "required": False}
+    #     ],
+    #     example='''
+    #     <function_calls>
+    #     <invoke name="generate_coordinate_grid">
+    #     <parameter name="file_path">forms/blank_form.pdf</parameter>
+    #     <parameter name="grid_spacing">25</parameter>
+    #     </invoke>
+    #     </function_calls>
+    #     '''
+    # )
     async def generate_coordinate_grid(self, file_path: str, grid_spacing: int = 50, output_path: Optional[str] = None) -> ToolResult:
         """Generate visual coordinate grid overlay on PDF for positioning guidance."""
         try:
