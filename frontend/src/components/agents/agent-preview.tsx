@@ -45,6 +45,7 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
   const [agentStatus, setAgentStatus] = useState<'idle' | 'running' | 'connecting' | 'error'>('idle');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasStartedConversation, setHasStartedConversation] = useState(false);
+  const [profileImageError, setProfileImageError] = useState(false);
 
   const isSunaAgent = agentMetadata?.is_suna_default || agentMetadata?.is_omni_default || false;
 
@@ -64,12 +65,16 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
     if (isSunaAgent) {
       return <OmniLogo size={16} />;
     }
-    if (agent.profile_image_url) {
+    if (agent.profile_image_url && !profileImageError) {
       return (
         <img 
           src={agent.profile_image_url} 
           alt={agent.name}
           className="h-4 w-4 rounded-sm object-cover"
+          onError={() => {
+            console.warn(`Failed to load agent profile image: ${agent.profile_image_url}`);
+            setProfileImageError(true);
+          }}
         />
       );
     }
@@ -77,7 +82,7 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
       return <div className="text-base leading-none">{avatar}</div>;
     }
     return <OmniLogo size={16} />;
-  }, [agent.profile_image_url, agent.name, avatar, isSunaAgent]);
+  }, [agent.profile_image_url, agent.name, avatar, isSunaAgent, profileImageError]);
 
   const initiateAgentMutation = useInitiateAgentWithInvalidation();
   const addUserMessageMutation = useAddUserMessageMutation();
