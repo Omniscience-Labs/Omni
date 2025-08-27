@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { CodeRenderer } from './code-renderer';
 import { useImageContent } from '@/hooks/use-image-content';
-import type { Project } from '@/lib/api';
+import type { FileRendererProject } from './index';
 
 // Process Unicode escape sequences in content
 export const processUnicodeContent = (content: string): string => {
@@ -36,7 +36,7 @@ interface AuthenticatedImageProps {
   src: string;
   alt?: string;
   className?: string;
-  project?: Project;
+  project?: FileRendererProject;
 }
 
 function AuthenticatedImage({ src, alt, className, project }: AuthenticatedImageProps) {
@@ -80,7 +80,7 @@ function AuthenticatedImage({ src, alt, className, project }: AuthenticatedImage
 interface MarkdownRendererProps {
   content: string;
   className?: string;
-  project?: Project;
+  project?: FileRendererProject;
 }
 
 export const MarkdownRenderer = forwardRef<
