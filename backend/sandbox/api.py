@@ -370,14 +370,63 @@ async def ensure_project_sandbox_active(
     try:
         # Get sandbox ID from project data
         sandbox_info = project_data.get('sandbox', {})
-        if not sandbox_info.get('id'):
-            raise HTTPException(status_code=404, detail="No sandbox found for this project")
-            
-        sandbox_id = sandbox_info['id']
+        sandbox_id = sandbox_info.get('id')
         
-        # Get or start the sandbox
-        logger.debug(f"Ensuring sandbox is active for project {project_id}")
-        sandbox = await get_or_start_sandbox(sandbox_id)
+        # If no sandbox exists, create one
+        if not sandbox_id:
+            logger.info(f"No sandbox found for project {project_id}, creating new sandbox")
+            
+            try:
+                from sandbox.sandbox import create_sandbox
+                import uuid
+                
+                # Create new sandbox
+                sandbox_pass = str(uuid.uuid4())
+                sandbox = await create_sandbox(sandbox_pass, project_id)
+                sandbox_id = sandbox.id
+                logger.debug(f"Created new sandbox {sandbox_id} for project {project_id}")
+                
+                # Get preview links
+                vnc_link = await sandbox.get_preview_link(6080)
+                website_link = await sandbox.get_preview_link(8080)
+                vnc_url = vnc_link.url if hasattr(vnc_link, 'url') else str(vnc_link).split("url='")[1].split("'")[0]
+                website_url = website_link.url if hasattr(website_link, 'url') else str(website_link).split("url='")[1].split("'")[0]
+                
+                token = None
+                if hasattr(vnc_link, 'token'):
+                    token = vnc_link.token
+                elif "token='" in str(vnc_link):
+                    token = str(vnc_link).split("token='")[1].split("'")[0]
+                
+                # Update project with new sandbox info
+                update_result = await client.table('projects').update({
+                    'sandbox': {
+                        'id': sandbox_id,
+                        'pass': sandbox_pass,
+                        'vnc_preview': vnc_url,
+                        'sandbox_url': website_url,
+                        'token': token
+                    }
+                }).eq('project_id', project_id).execute()
+                
+                if not update_result.data:
+                    # Clean up sandbox if database update fails
+                    try:
+                        from sandbox.sandbox import delete_sandbox
+                        await delete_sandbox(sandbox_id)
+                    except Exception as cleanup_err:
+                        logger.error(f"Failed to cleanup sandbox after DB update failure: {cleanup_err}")
+                    raise HTTPException(status_code=500, detail="Failed to update project with sandbox information")
+                    
+                logger.info(f"Successfully created and linked sandbox {sandbox_id} to project {project_id}")
+                
+            except Exception as e:
+                logger.error(f"Failed to create sandbox for project {project_id}: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Failed to create sandbox: {str(e)}")
+        else:
+            # Get or start the existing sandbox
+            logger.debug(f"Ensuring existing sandbox {sandbox_id} is active for project {project_id}")
+            sandbox = await get_or_start_sandbox(sandbox_id)
         
         logger.debug(f"Successfully ensured sandbox {sandbox_id} is active for project {project_id}")
         
