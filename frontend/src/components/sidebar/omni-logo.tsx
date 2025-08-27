@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import { OmniFallbackIcon } from '@/components/ui/omni-fallback-icon';
@@ -28,12 +27,12 @@ export function OmniLogo({ size = 24 }: OmniLogoProps) {
   }
 
   return (
-    <Image
-      src="/omni-ball-exact.png"
+    <img
+      src={shouldInvert ? '/omni-ball-light.svg' : '/omni-ball-dark.svg'}
       alt="Omni"
       width={size}
       height={size}
-      className={`flex-shrink-0 ${shouldInvert ? 'invert' : ''}`}
+      className="flex-shrink-0"
       style={{ width: size, height: size, minWidth: size, minHeight: size }}
       onError={() => {
         console.warn('Failed to load OmniLogo, using geometric fallback');
