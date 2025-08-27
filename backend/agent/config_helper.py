@@ -336,7 +336,7 @@ def _get_default_agentpress_tools() -> Dict[str, bool]:
         "sb_presentation_outline_tool": True,
         "sb_presentation_tool": True,
 
-        "sb_sheets_tool": True,
+
         "sb_web_dev_tool": True,
         "browser_tool": True,
         "data_providers_tool": True,
