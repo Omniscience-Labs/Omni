@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -392,6 +392,9 @@ export const JsonImportDialog: React.FC<JsonImportDialogProps> = ({
             <FileJson className="h-5 w-5" />
             Import Agent from JSON
           </DialogTitle>
+          <DialogDescription>
+            Upload and configure an agent from JSON format
+          </DialogDescription>
         </DialogHeader>
         {analysis && !analysis.requires_setup && step === 'paste' && (
           <Alert>

@@ -809,7 +809,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
           
           <div className="flex-1 overflow-y-auto">
             <Tabs value={addDialogTab} onValueChange={(value) => setAddDialogTab(value as any)} className="w-full">
-              <TabsList className="grid w-80 grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="manual" className="gap-2">
                   <PenTool className="h-4 w-4" />
                   Write Knowledge
@@ -822,6 +822,10 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                       {uploadedFiles.length}
                     </Badge>
                   )}
+                </TabsTrigger>
+                <TabsTrigger value="repo" className="gap-2">
+                  <GitBranch className="h-4 w-4" />
+                  Git Repository
                 </TabsTrigger>
               </TabsList>
 
@@ -1065,6 +1069,87 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                       </Button>
                     </div>
                   )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="repo" className="space-y-6 mt-6">
+                <div className="space-y-4">
+                  <div className="border-2 border-dashed border-border rounded-lg p-8">
+                    <GitBranch className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="text-lg font-medium mb-2 text-center">Clone Git Repository</h3>
+                    <p className="text-sm text-muted-foreground mb-6 text-center">
+                      Clone a public GitHub repository to add its files to the knowledge base.<br />
+                      Supported formats: Documents, Code files, Markdown
+                    </p>
+                    
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        const gitUrl = formData.get('git_url') as string;
+                        const branch = formData.get('branch') as string || 'main';
+                        
+                        if (!gitUrl.trim()) {
+                          toast.error('Please enter a repository URL');
+                          return;
+                        }
+                        
+                        cloneMutation.mutate({ 
+                          agentId, 
+                          git_url: gitUrl.trim(),
+                          branch: branch.trim() || 'main'
+                        });
+                      }}
+                      className="space-y-4"
+                    >
+                      <div className="space-y-2">
+                        <Label htmlFor="git_url" className="text-sm font-medium">Repository URL *</Label>
+                        <Input
+                          id="git_url"
+                          name="git_url"
+                          type="url"
+                          placeholder="https://github.com/username/repository"
+                          required
+                          className="w-full"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Enter the full GitHub repository URL
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="branch" className="text-sm font-medium">Branch</Label>
+                        <Input
+                          id="branch"
+                          name="branch"
+                          placeholder="main"
+                          defaultValue="main"
+                          className="w-full"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Leave empty to use the default branch
+                        </p>
+                      </div>
+                      
+                      <div className="flex justify-end gap-3 pt-4 border-t">
+                        <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                          Cancel
+                        </Button>
+                        <Button 
+                          type="submit" 
+                          disabled={cloneMutation.isPending}
+                          className="gap-2"
+                        >
+                          {cloneMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <GitBranch className="h-4 w-4" />
+                          )}
+                          Clone Repository
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>
