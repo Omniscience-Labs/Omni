@@ -708,6 +708,142 @@ class SandboxPodcastTool(SandboxToolsBase):
         }
         return configs.get(tts_model, configs["openai"])
 
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "generate_podcast_from_text", 
+            "description": "Generate a podcast directly from text content. This is the FASTEST method - no database lookups required! Perfect for creating quick podcasts from any text content like articles, summaries, or custom content. Works instantly without needing agent run IDs.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": "The text content to convert into a podcast. Can be any text - articles, summaries, conversations, etc."
+                    },
+                    "podcast_title": {
+                        "type": "string",
+                        "description": "Title for the podcast",
+                        "default": "Custom Text Podcast"
+                    },
+                    "tts_model": {
+                        "type": "string",
+                        "description": "TTS model to use: 'openai' (cost-effective, ~307KB files) or 'elevenlabs' (premium quality, ~1.6MB files)",
+                        "enum": ["openai", "elevenlabs"],
+                        "default": "openai"
+                    },
+                    "conversation_style": {
+                        "type": "string",
+                        "description": "Style of the podcast conversation",
+                        "enum": ["informative", "casual", "formal", "educational", "news_analysis"],
+                        "default": "informative"
+                    }
+                },
+                "required": ["text"]
+            }
+        }
+    })
+    @usage_example('''
+        <function_calls>
+        <invoke name="generate_podcast_from_text">
+        <parameter name="text">Rate limits are essential for API management. They prevent abuse and ensure fair usage across all users. Common rate limit types include per-second, per-minute, and per-hour limits.</parameter>
+        <parameter name="podcast_title">Understanding API Rate Limits</parameter>
+        <parameter name="tts_model">openai</parameter>
+        <parameter name="conversation_style">educational</parameter>
+        </invoke>
+        </function_calls>
+    ''')
+    async def generate_podcast_from_text(
+        self,
+        text: str,
+        podcast_title: str = "Custom Text Podcast",
+        tts_model: str = "openai",
+        conversation_style: str = "informative"
+    ) -> ToolResult:
+        """
+        Generate a podcast directly from text content - FASTEST method!
+        
+        Args:
+            text: The text content to convert into a podcast
+            podcast_title: Title for the podcast
+            tts_model: TTS model to use for generation
+            conversation_style: Style of the conversation
+            
+        Returns:
+            ToolResult with podcast URL or generation status
+        """
+        try:
+            logger.info(f"Starting fast podcast generation from text: {podcast_title}")
+            
+            # Validate input
+            if not text or not text.strip():
+                return self.fail_response("Please provide some text content for the podcast.")
+            
+            # Configure TTS model and voice
+            voice_config = self._get_tts_config(tts_model)
+            
+            # Prepare payload for direct text generation
+            payload = {
+                "text": text.strip(),
+                "title": podcast_title,
+                "tts_model": tts_model,
+                "voice_id": voice_config["voice_id"],
+                "conversation_style": conversation_style,
+                "metadata": {
+                    "source": "omni_direct_text",
+                    "generated_at": datetime.now().isoformat(),
+                    "tts_model": tts_model,
+                    "quality": voice_config["quality"]
+                }
+            }
+            
+            # Call Podcastfy service directly (no database lookups!)
+            async with httpx.AsyncClient(timeout=180.0) as client:
+                # Make the podcast generation request
+                response = await client.post(
+                    f"{self.podcastfy_url}/api/generate", 
+                    json=payload,
+                    headers={"Content-Type": "application/json"}
+                )
+                
+                logger.info(f"Podcastfy response status: {response.status_code}")
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    return self.success_response({
+                        "status": "Fast podcast generated successfully from text",
+                        "podcast_url": result.get("podcast_url"),
+                        "audio_url": result.get("audio_url"), 
+                        "podcast_id": result.get("podcast_id"),
+                        "title": podcast_title,
+                        "tts_model": tts_model,
+                        "conversation_style": conversation_style,
+                        "text_length": len(text),
+                        "method": "direct_text_generation",
+                        "service_response": result
+                    })
+                else:
+                    error_text = response.text
+                    logger.error(f"Podcastfy service error: {response.status_code} - {error_text}")
+                    
+                    # Provide user-friendly error messages
+                    if response.status_code == 502:
+                        user_error = "Podcast service is temporarily unavailable (Bad Gateway). Please try again later."
+                    elif response.status_code == 503:
+                        user_error = "Podcast service is temporarily unavailable. Please try again later."
+                    elif response.status_code == 500:
+                        user_error = "Internal server error in podcast service. Please try again later."
+                    else:
+                        user_error = f"Podcast service returned HTTP {response.status_code}"
+                    
+                    return self.fail_response(f"{user_error}: {error_text[:200] if error_text else 'No details'}")
+                    
+        except httpx.TimeoutException:
+            logger.error("Podcastfy service timeout for text generation")
+            return self.fail_response("Request to Podcastfy service timed out. Please try again.")
+        except Exception as e:
+            logger.error(f"Error generating podcast from text: {str(e)}", exc_info=True)
+            return self.fail_response(f"Failed to generate podcast from text: {str(e)}")
+
 
 if __name__ == "__main__":
     import asyncio
