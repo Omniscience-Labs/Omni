@@ -288,6 +288,7 @@ export function extractDataProviderEndpointsData(
         if (content_lower.includes('zillow')) return 'zillow';
         if (content_lower.includes('amazon')) return 'amazon';
         if (content_lower.includes('yahoo') || content_lower.includes('finance')) return 'yahoo_finance';
+        if (content_lower.includes('apollo')) return 'apollo';
         if (content_lower.includes('jobs') || content_lower.includes('active')) return 'active_jobs';
         
         return 'linkedin';
