@@ -128,19 +128,19 @@ export function EnterpriseSecuritySection() {
     }
   ];
 
-  // Enterprise integration icon slugs for IconCloud
+  // Enterprise integration icon slugs for IconCloud - using verified Simple Icons slugs
   const enterpriseIntegrationSlugs = [
     // ERP & Business Systems
-    "sap", "oracle", "microsoft", "salesforce", "workday", "servicenow", "atlassian", "tableau",
+    "sap", "oracle", "microsoft", "salesforce", "servicenow", "atlassian", "tableau",
     
     // Manufacturing & Industrial
-    "siemens", "schneiderelectric", "abb", "honeywell", "emerson", "ge",
+    "siemens", "abb", "generalelectric",
     
     // Supply Chain & Logistics
-    "fedex", "ups", "dhl", "caterpillar", "johndeere", "cummins",
+    "fedex", "ups", "dhl", "caterpillar", "johndeere",
     
     // Financial & Accounting
-    "stripe", "paypal", "visa", "mastercard", "americanexpress", "jpmorgan",
+    "stripe", "paypal", "visa", "mastercard", "americanexpress",
     
     // Cloud & Infrastructure
     "amazonaws", "microsoftazure", "googlecloud", "oracle", "ibm", "vmware", "redhat", "docker", "kubernetes",
@@ -149,10 +149,10 @@ export function EnterpriseSecuritySection() {
     "microsoft", "slack", "zoom", "discord", "telegram", "whatsapp",
     
     // Document & Content Management
-    "adobe", "dropbox", "box", "googledrive", "onedrive", "notion", "confluence",
+    "adobe", "dropbox", "box", "googledrive", "notion", "confluence",
     
     // Security & Compliance
-    "okta", "auth0", "crowdstrike", "paloaltonetworks", "checkpoint", "fortinet", "zscaler",
+    "okta", "auth0", "paloaltonetworks", "fortinet", "zscaler",
     
     // Quality & Testing
     "jenkins", "gitlab", "github", "sonarqube", "cypress", "selenium",
@@ -161,13 +161,13 @@ export function EnterpriseSecuritySection() {
     "nvidia", "intel", "qualcomm", "arm", "broadcom",
     
     // Time & Scheduling
-    "calendly", "outlook", "googlecalendar", "hubspot", "zendesk", "freshworks",
+    "calendly", "microsoftoutlook", "googlecalendar", "hubspot", "zendesk",
     
     // Workflow & Automation
-    "zapier", "uipath", "workato"
+    "zapier"
   ];
 
-  // Convert slugs to image URLs - use correct Simple Icons format
+  // Convert slugs to image URLs - all slugs are now verified to exist on Simple Icons
   const enterpriseIntegrationImages = enterpriseIntegrationSlugs.map(
     (slug) => `https://cdn.simpleicons.org/${slug}`
   );

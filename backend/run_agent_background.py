@@ -95,7 +95,7 @@ async def run_agent_background(
     thread_id: str,
     instance_id: str,
     project_id: str,
-    model_name: str = "openai/gpt-5-mini",
+    model_name: str = "openai/gpt-5",
     enable_thinking: Optional[bool] = False,
     reasoning_effort: Optional[str] = 'low',
     stream: bool = True,
@@ -149,7 +149,7 @@ async def run_agent_background(
     })
     
     from models import model_manager
-    is_tier_default = model_name in ["Kimi K2", "Claude Sonnet 4", "openai/gpt-5-mini"]
+    is_tier_default = model_name in ["Kimi K2", "Claude Sonnet 4", "openai/gpt-5"]
     
     if is_tier_default and agent_config and agent_config.get('model'):
         agent_model = agent_config['model']
