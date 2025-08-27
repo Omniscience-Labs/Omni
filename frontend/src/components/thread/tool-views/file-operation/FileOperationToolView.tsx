@@ -183,7 +183,7 @@ export function FileOperationToolView({
 
     if (isHtml && htmlPreviewUrl) {
       return (
-        <div className="flex flex-col h-[calc(100vh-16rem)]">
+        <div className="flex flex-col h-full min-h-[400px]">
           <iframe
             src={htmlPreviewUrl}
             title={`HTML Preview of ${fileName}`}
@@ -199,6 +199,7 @@ export function FileOperationToolView({
         <div className="p-1 py-0 prose dark:prose-invert prose-zinc max-w-none">
           <MarkdownRenderer
             content={processUnicodeContent(fileContent)}
+            project={project}
           />
         </div>
       );
@@ -206,8 +207,8 @@ export function FileOperationToolView({
 
     if (isCsv) {
       return (
-        <div className="h-full w-full p-4">
-          <div className="h-[calc(100vh-17rem)] w-full bg-muted/20 border rounded-xl overflow-auto">
+        <div className="h-full w-full p-4 flex flex-col">
+          <div className="flex-1 min-h-[400px] w-full bg-muted/20 border rounded-xl overflow-hidden">
             <CsvRenderer content={processUnicodeContent(fileContent)} />
           </div>
         </div>
@@ -216,8 +217,8 @@ export function FileOperationToolView({
 
     if (isXlsx) {
       return (
-        <div className="h-full w-full p-4">
-          <div className="h-[calc(100vh-17rem)] w-full bg-muted/20 border rounded-xl overflow-auto">
+        <div className="h-full w-full p-4 flex flex-col">
+          <div className="flex-1 min-h-[400px] w-full bg-muted/20 border rounded-xl overflow-hidden">
             <XlsxRenderer 
               content={fileContent}
               filePath={processedFilePath}
@@ -379,7 +380,7 @@ export function FileOperationToolView({
 
         <CardContent className="p-0 -my-2 h-full flex-1 overflow-hidden relative">
           <TabsContent value="code" className="flex-1 h-full mt-0 p-0 overflow-hidden">
-            <ScrollArea className="h-screen w-full min-h-0">
+            <ScrollArea className="h-full w-full min-h-0">
               {isStreaming && !fileContent ? (
                 <LoadingState
                   icon={Icon}

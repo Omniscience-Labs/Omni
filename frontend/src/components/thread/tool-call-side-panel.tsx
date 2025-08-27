@@ -893,7 +893,7 @@ export function ToolCallSidePanel({
           />
         )}
 
-        <div className={`flex-1 ${currentView === 'browser' ? 'overflow-hidden' : 'overflow-auto'} scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent`}>
+        <div className={`flex-1 ${currentView === 'browser' ? 'overflow-hidden' : 'overflow-hidden'} scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent`}>
           {/* Always render VNC iframe to maintain connection when available */}
           {persistentVncIframe && (
             <div className={`${currentView === 'browser' ? 'h-full flex flex-col' : 'hidden'}`}>
@@ -1013,7 +1013,7 @@ export function ToolCallSidePanel({
             overflow: 'hidden',
           }}
         >
-          <div className="flex-1 flex flex-col overflow-scroll bg-card">
+          <div className="flex-1 flex flex-col overflow-hidden bg-card">
             {renderContent()}
           </div>
           {(displayTotalCalls > 1 || (isCurrentToolStreaming && totalCompletedCalls > 0)) && (

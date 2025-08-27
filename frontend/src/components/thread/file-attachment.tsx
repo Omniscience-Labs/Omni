@@ -552,6 +552,7 @@ export function FileAttachment({
                                     content={fileContent}
                                     previewUrl={fileUrl}
                                     className="h-full w-full"
+                                    project={project}
                                 />
                             )}
                         </>
