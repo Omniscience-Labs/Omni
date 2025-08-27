@@ -95,6 +95,27 @@ class ModelRegistry:
             recommended=True
         ))
         
+        # Add GPT-4o-mini for compatibility
+        self.register(Model(
+            id="openai/gpt-4o-mini",
+            name="GPT-4o Mini",
+            provider=ModelProvider.OPENAI,
+            aliases=["gpt-4o-mini", "openai/gpt-4o-mini"],
+            context_window=128_000,
+            capabilities=[
+                ModelCapability.CHAT,
+                ModelCapability.FUNCTION_CALLING,
+                ModelCapability.STRUCTURED_OUTPUT,
+            ],
+            pricing=ModelPricing(
+                input_cost_per_million_tokens=0.15,
+                output_cost_per_million_tokens=0.60
+            ),
+            tier_availability=["free", "paid"],
+            priority=70,
+            enabled=True
+        ))
+        
         # self.register(Model(
         #     id="openai/gpt-5-mini",
         #     name="GPT-5 Mini",
