@@ -16,7 +16,7 @@ import {
   getToolTitle,
   extractToolData,
 } from '../utils';
-import { downloadPresentationAsPDF, downloadPresentationAsPPTX } from '../utils/presentation-utils';
+import { downloadPresentation, DownloadFormat } from '../utils/presentation-utils';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -75,45 +75,25 @@ export function PresentPresentationToolView({
   };
 
   // Download state
-  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
-  const [isDownloadingPPTX, setIsDownloadingPPTX] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Download handlers
-  const handlePDFDownload = async () => {
+  const handleDownload = async (format: DownloadFormat) => {
     if (!project?.sandbox?.sandbox_url || !presentationName) return;
 
-    setIsDownloadingPDF(true);
+    setIsDownloading(true);
     try {
-      await downloadPresentationAsPDF(
+      await downloadPresentation(format,
         project.sandbox.sandbox_url, 
         `/workspace/${presentationPath}`, 
         presentationName
       );
-      toast.success('PDF downloaded successfully');
+      toast.success(`${format} downloaded successfully`);
     } catch (error) {
-      console.error('Error downloading PDF:', error);
-      toast.error(`Failed to download PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(`Error downloading ${format}:`, error);
+      toast.error(`Failed to download ${format}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      setIsDownloadingPDF(false);
-    }
-  };
-
-  const handlePPTXDownload = async () => {
-    if (!project?.sandbox?.sandbox_url || !presentationName) return;
-
-    setIsDownloadingPPTX(true);
-    try {
-      await downloadPresentationAsPPTX(
-        project.sandbox.sandbox_url, 
-        `/workspace/${presentationPath}`, 
-        presentationName
-      );
-      toast.success('PPTX downloaded successfully');
-    } catch (error) {
-      console.error('Error downloading PPTX:', error);
-      toast.error(`Failed to download PPTX: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsDownloadingPPTX(false);
+      setIsDownloading(false);
     }
   };
 
@@ -216,10 +196,10 @@ export function PresentPresentationToolView({
                       variant="outline" 
                       size="sm"
                       className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-950"
-                      disabled={isDownloadingPDF || isDownloadingPPTX}
+                      disabled={isDownloading}
                       title="Download presentation as PDF or PPTX"
                     >
-                      {(isDownloadingPDF || isDownloadingPPTX) ? (
+                      {isDownloading ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       ) : (
                         <Download className="h-4 w-4 mr-2" />
@@ -229,17 +209,17 @@ export function PresentPresentationToolView({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-32">
                     <DropdownMenuItem 
-                      onClick={() => handlePDFDownload()}
+                      onClick={() => handleDownload(DownloadFormat.PDF)}
                       className="cursor-pointer"
-                      disabled={isDownloadingPDF}
+                      disabled={isDownloading}
                     >
                       <FileText className="h-4 w-4 mr-2" />
                       PDF
                     </DropdownMenuItem>
                     <DropdownMenuItem 
-                      onClick={() => handlePPTXDownload()}
+                      onClick={() => handleDownload(DownloadFormat.PPTX)}
                       className="cursor-pointer"
-                      disabled={isDownloadingPPTX}
+                      disabled={isDownloading}
                     >
                       <Presentation className="h-4 w-4 mr-2" />
                       PPTX

@@ -30,12 +30,13 @@ import {
 } from 'lucide-react';
 import { ToolViewProps } from '../types';
 import { formatTimestamp, extractToolData, getToolTitle } from '../utils';
-import { downloadPresentationAsPDF, downloadPresentationAsPPTX } from '../utils/presentation-utils';
+import { downloadPresentation } from '../utils/presentation-utils';
 import { constructHtmlPreviewUrl } from '@/lib/utils/url';
 import { CodeBlockCode } from '@/components/ui/code-block';
 import { LoadingState } from '../shared/LoadingState';
 import { FullScreenPresentationViewer } from './FullScreenPresentationViewer';
 import { toast } from 'sonner';
+import { DownloadFormat } from '../utils/presentation-utils';
 
 interface SlideMetadata {
   title: string;
@@ -79,8 +80,7 @@ export function PresentationViewer({
   const [visibleSlide, setVisibleSlide] = useState<number | null>(null);
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
   const [fullScreenInitialSlide, setFullScreenInitialSlide] = useState<number | null>(null);
-  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
-  const [isDownloadingPPTX, setIsDownloadingPPTX] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Extract presentation info from tool data
   const { toolResult } = extractToolData(toolContent);
@@ -476,34 +476,22 @@ export function PresentationViewer({
     return <SlideIframe slide={slide} />;
   }, [SlideIframe]);
 
-
-
-
-  const handlePDFDownload = useCallback(async (setIsDownloadingPDF: (isDownloading: boolean) => void) => {
+  const handleDownload = useCallback(async (setIsDownloading: (isDownloading: boolean) => void, format: DownloadFormat) => {
     
     if (!project?.sandbox?.sandbox_url || !extractedPresentationName) return;
 
-    setIsDownloadingPDF(true);
+    setIsDownloading(true);
     try{
-      await downloadPresentationAsPDF(project.sandbox.sandbox_url, `/workspace/presentations/${extractedPresentationName}`, extractedPresentationName);
+      if (format === DownloadFormat.GOOGLE_SLIDES){
+        // TODO: Implement Google Slides download
+        console.log('Downloading Google Slides');
+      } else{
+        await downloadPresentation(format, project.sandbox.sandbox_url, `/workspace/presentations/${extractedPresentationName}`, extractedPresentationName);
+      }
     } catch (error) {
       console.error('Error downloading PDF:', error);
     } finally {
-      setIsDownloadingPDF(false);
-    }
-  }, [project?.sandbox?.sandbox_url, extractedPresentationName]);
-
-  const handlePPTXDownload = useCallback(async (setIsDownloadingPPTX: (isDownloading: boolean) => void) => {
-    
-    if (!project?.sandbox?.sandbox_url || !extractedPresentationName) return;
-
-    setIsDownloadingPPTX(true);
-    try{
-      await downloadPresentationAsPPTX(project.sandbox.sandbox_url, `/workspace/presentations/${extractedPresentationName}`, extractedPresentationName);
-    } catch (error) {
-      console.error('Error downloading PPTX:', error);
-    } finally {
-      setIsDownloadingPPTX(false);
+      setIsDownloading(false);
     }
   }, [project?.sandbox?.sandbox_url, extractedPresentationName]);
 
@@ -546,9 +534,9 @@ export function PresentationViewer({
                       size="sm" 
                       className="h-8 w-8 p-0"
                       title="Export presentation"
-                      disabled={isDownloadingPDF || isDownloadingPPTX}
+                      disabled={isDownloading}
                     >
-                      {(isDownloadingPDF || isDownloadingPPTX) ? (
+                      {isDownloading ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <Download className="h-3.5 w-3.5" />
@@ -557,28 +545,25 @@ export function PresentationViewer({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-32">
                     <DropdownMenuItem 
-                      onClick={() => handlePDFDownload(setIsDownloadingPDF)}
+                      onClick={() => handleDownload(setIsDownloading, DownloadFormat.PDF)}
                       className="cursor-pointer"
-                      disabled={isDownloadingPDF}
+                      disabled={isDownloading}
                     >
                       <FileText className="h-4 w-4 mr-2" />
                       PDF
                     </DropdownMenuItem>
                     <DropdownMenuItem 
-                      onClick={() => handlePPTXDownload(setIsDownloadingPPTX)}
+                      onClick={() => handleDownload(setIsDownloading, DownloadFormat.PPTX)}
                       className="cursor-pointer"
-                      disabled={isDownloadingPPTX}
+                      disabled={isDownloading}
                     >
                       <Presentation className="h-4 w-4 mr-2" />
                       PPTX
                     </DropdownMenuItem>
                     <DropdownMenuItem 
-                      onClick={() => {
-                        // TODO: Implement Google Slides export
-                        console.log('Export to Google Slides');
-                      }}
+                      onClick={() => handleDownload(setIsDownloading, DownloadFormat.GOOGLE_SLIDES)}
                       className="cursor-pointer"
-                      disabled={isDownloadingPDF || isDownloadingPPTX}
+                      disabled={isDownloading}
                     >
                       <ExternalLink className="h-4 w-4 mr-2" />
                       Google Slides

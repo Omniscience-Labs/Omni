@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { constructHtmlPreviewUrl } from '@/lib/utils/url';
-import { downloadPresentationAsPDF, downloadPresentationAsPPTX } from '../utils/presentation-utils';
+import { downloadPresentation, DownloadFormat } from '../utils/presentation-utils';
 
 interface SlideMetadata {
   title: string;
@@ -427,11 +427,11 @@ export function FullScreenPresentationViewer({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-32">
-                <DropdownMenuItem className="cursor-pointer" onClick={() => downloadPresentationAsPDF(sandboxUrl, `/workspace/presentations/${presentationName}`, presentationName)} disabled={isDownloadingPDF}>
+                <DropdownMenuItem className="cursor-pointer" onClick={() => downloadPresentation(DownloadFormat.PDF, sandboxUrl, `/workspace/presentations/${presentationName}`, presentationName)} disabled={isDownloadingPDF}>
                   <FileText className="h-4 w-4 mr-2" />
                   PDF
                 </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer" onClick={() => downloadPresentationAsPPTX(sandboxUrl, `/workspace/presentations/${presentationName}`, presentationName)} disabled={isDownloadingPPTX}>
+                <DropdownMenuItem className="cursor-pointer" onClick={() => downloadPresentation(DownloadFormat.PPTX, sandboxUrl, `/workspace/presentations/${presentationName}`, presentationName)} disabled={isDownloadingPPTX}>
                   <Presentation className="h-4 w-4 mr-2" />
                   PPTX
                 </DropdownMenuItem>

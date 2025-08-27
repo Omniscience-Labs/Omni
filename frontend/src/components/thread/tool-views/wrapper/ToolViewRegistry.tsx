@@ -48,6 +48,8 @@ import CreateAgentWorkflowToolView from '../create-agent-workflow/create-agent-w
 import ActivateAgentWorkflowToolView from '../activate-agent-workflow/activate-agent-workflow';
 import CreateAgentScheduledTriggerToolView from '../create-agent-scheduled-trigger/create-agent-scheduled-trigger';
 import ListAgentWorkflowsToolView from '../list-agent-workflows/list-agent-workflows';
+import { createPresentationViewerToolContent, parsePresentationSlidePath } from '../utils/presentation-utils';
+import { extractToolData } from '../utils';
 
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
