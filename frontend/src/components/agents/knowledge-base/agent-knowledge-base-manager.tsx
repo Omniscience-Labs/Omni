@@ -30,7 +30,8 @@ import {
   File as FileIcon,
   BookOpen,
   PenTool,
-  X
+  X,
+  ArrowLeft
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -57,6 +58,7 @@ import {
   useCloneGitRepository,
   useAgentProcessingJobs,
 } from '@/hooks/react-query/knowledge-base/use-knowledge-base-queries';
+import { LlamaCloudKnowledgeBaseManager } from '../llamacloud-knowledge-base/llamacloud-kb-manager';
 import { cn, truncateString } from '@/lib/utils';
 import { CreateKnowledgeBaseEntryRequest, KnowledgeBaseEntry, UpdateKnowledgeBaseEntryRequest, ProcessingJob } from '@/hooks/react-query/knowledge-base/types';
 import { toast } from 'sonner';
@@ -285,7 +287,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [addDialogTab, setAddDialogTab] = useState<'manual' | 'files' | 'repo'>('manual');
+  const [addDialogMode, setAddDialogMode] = useState<'selection' | 'manual' | 'files' | 'cloud'>('selection');
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -325,8 +327,8 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
     }
   }, []);
 
-  const handleOpenAddDialog = (tab: 'manual' | 'files' | 'repo' = 'manual') => {
-    setAddDialogTab(tab);
+  const handleOpenAddDialog = (mode: 'selection' | 'manual' | 'files' | 'cloud' = 'selection') => {
+    setAddDialogMode(mode);
     setAddDialogOpen(true);
     setFormData({
       name: '',
@@ -350,6 +352,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
   const handleCloseDialog = () => {
     setEditDialog({ isOpen: false });
     setAddDialogOpen(false);
+    setAddDialogMode('selection');
     setFormData({
       name: '',
       description: '',
@@ -802,30 +805,111 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-blue-600" />
-              Add Knowledge to {agentName}
+              {addDialogMode === 'selection' && (
+                <>
+                  <BookOpen className="h-5 w-5 text-blue-600" />
+                  Add Knowledge to {agentName}
+                </>
+              )}
+              {addDialogMode === 'manual' && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAddDialogMode('selection')}
+                    className="p-0 h-6 w-6 mr-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <PenTool className="h-5 w-5 text-blue-600" />
+                  Write Knowledge
+                </>
+              )}
+              {addDialogMode === 'files' && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAddDialogMode('selection')}
+                    className="p-0 h-6 w-6 mr-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <Upload className="h-5 w-5 text-blue-600" />
+                  Upload Files
+                </>
+              )}
+              {addDialogMode === 'cloud' && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAddDialogMode('selection')}
+                    className="p-0 h-6 w-6 mr-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <Globe className="h-5 w-5 text-blue-600" />
+                  Cloud Knowledge Base
+                </>
+              )}
             </DialogTitle>
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto">
-            <Tabs value={addDialogTab} onValueChange={(value) => setAddDialogTab(value as any)} className="w-full">
-              <TabsList className="grid w-80 grid-cols-2">
-                <TabsTrigger value="manual" className="gap-2">
-                  <PenTool className="h-4 w-4" />
-                  Write Knowledge
-                </TabsTrigger>
-                <TabsTrigger value="files" className="gap-2">
-                  <Upload className="h-4 w-4" />
-                  Upload Files
-                  {uploadedFiles.length > 0 && (
-                    <Badge variant="outline" className="ml-1">
-                      {uploadedFiles.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-              </TabsList>
+            {addDialogMode === 'selection' && (
+              <div className="p-6">
+                <div className="space-y-4">
+                  <button
+                    className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
+                    onClick={() => setAddDialogMode('manual')}
+                  >
+                    <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                      <PenTool className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold mb-1">Write Knowledge</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Manually write knowledge entries for your agent
+                      </p>
+                    </div>
+                  </button>
 
-              <TabsContent value="manual" className="space-y-6 mt-6">
+                  <button
+                    className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
+                    onClick={() => setAddDialogMode('files')}
+                  >
+                    <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                      <Upload className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold mb-1">Upload Files</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Upload documents, code files, and other materials
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
+                    onClick={() => setAddDialogMode('cloud')}
+                  >
+                    <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                      <Globe className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold mb-1">Cloud Knowledge Base</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Connect to existing LlamaCloud indices for dynamic search
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {addDialogMode === 'manual' && (
+              <div className="p-6">
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="name" className="text-sm font-medium">Name *</Label>
@@ -908,9 +992,11 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                     </Button>
                   </div>
                 </form>
-              </TabsContent>
+              </div>
+            )}
 
-              <TabsContent value="files" className="space-y-6 mt-6">
+            {addDialogMode === 'files' && (
+              <div className="p-6">
                 <div className="space-y-4">
                   {uploadedFiles.length === 0 && (
                     <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
@@ -1066,8 +1152,31 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                     </div>
                   )}
                 </div>
-              </TabsContent>
-            </Tabs>
+              </div>
+            )}
+
+            {addDialogMode === 'cloud' && (
+              <div className="p-6">
+                <div className="space-y-4">
+                  <div className="mb-4">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setAddDialogMode('selection')}
+                      className="gap-2 text-muted-foreground hover:text-foreground"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      Back to options
+                    </Button>
+                  </div>
+                  
+                  <LlamaCloudKnowledgeBaseManager
+                    agentId={agentId}
+                    agentName={agentName}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
