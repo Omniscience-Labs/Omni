@@ -745,9 +745,9 @@ def fill_pdf_coordinates(pdf_path, form_data, field_positions, output_path, disa
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         doc.save(output_path)
         doc.close()
-        
-        return {{
-            "success": True,
+            
+            return {{
+                "success": True,
             "filled_count": filled_count,
             "skipped_count": len(skipped_fields),
             "total_fields": len(form_data),
@@ -803,14 +803,14 @@ print(json.dumps(result))
                                 "skipped_fields": result.get("skipped_fields", [])
                             }
                         })
-                    else:
+        else:
                         return self.error_response(f"Coordinate filling failed: {result.get('error')}")
                 except json.JSONDecodeError:
                     return self.error_response(f"Failed to parse script output: {response.result}")
             else:
                 return self.error_response(f"Script execution failed: {response.result}")
-                
-        except Exception as e:
+            
+    except Exception as e:
             return self.error_response(f"Error in coordinate filling: {str(e)}")
 
     @openapi_schema({
@@ -1225,7 +1225,7 @@ print(json.dumps(result))
                     return self.error_response(f"Failed to parse grid output: {response.result}")
             else:
                 return self.error_response(f"Grid script execution failed: {response.result}")
-                
+            
         except Exception as e:
             return self.error_response(f"Error in grid generation: {str(e)}")
 
