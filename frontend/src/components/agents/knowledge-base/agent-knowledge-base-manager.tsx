@@ -514,7 +514,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
     if (newFiles.length > 0) {
       setUploadedFiles(prev => [...prev, ...newFiles]);
       if (!addDialogOpen) {
-        setAddDialogTab('files');
+        setAddDialogMode('files');
         setAddDialogOpen(true);
       }
     }
