@@ -44,7 +44,7 @@ class SandboxPodcastTool(SandboxToolsBase):
                         "type": "string",
                         "description": "TTS model to use: 'openai' (cost-effective, ~307KB files) or 'elevenlabs' (premium quality, ~1.6MB files)",
                         "enum": ["openai", "elevenlabs"],
-                        "default": "elevenlabs"
+                        "default": "openai"
                     }
                 },
                 "required": ["agent_run_id"]
@@ -65,7 +65,7 @@ class SandboxPodcastTool(SandboxToolsBase):
         agent_run_id: str,
         podcast_title: str = "",
         include_thinking: bool = False,
-        tts_model: str = "elevenlabs"
+        tts_model: str = "openai"
     ) -> ToolResult:
         """
         Generate a podcast from an agent run conversation.
@@ -268,7 +268,7 @@ class SandboxPodcastTool(SandboxToolsBase):
         content: str, 
         title: str, 
         agent_run_id: str,
-        tts_model: str = "elevenlabs"
+        tts_model: str = "openai"
     ) -> Dict[str, Any]:
         """Call the Podcastfy service to generate the podcast asynchronously."""
         try:
@@ -480,7 +480,7 @@ class SandboxPodcastTool(SandboxToolsBase):
                         "type": "string",
                         "description": "TTS model to use: 'openai' (cost-effective, ~307KB files) or 'elevenlabs' (premium quality, ~1.6MB files)",
                         "enum": ["openai", "elevenlabs"],
-                        "default": "elevenlabs"
+                        "default": "openai"
                     }
                 },
                 "required": ["url"]
@@ -500,7 +500,7 @@ class SandboxPodcastTool(SandboxToolsBase):
         self,
         url: str,
         podcast_title: str = "",
-        tts_model: str = "elevenlabs"
+        tts_model: str = "openai"
     ) -> ToolResult:
         """
         Generate a podcast from web content at the provided URL.
@@ -575,7 +575,7 @@ class SandboxPodcastTool(SandboxToolsBase):
                         "type": "string",
                         "description": "TTS model to use: 'openai' (cost-effective, ~307KB files) or 'elevenlabs' (premium quality, ~1.6MB files)",
                         "enum": ["openai", "elevenlabs"],
-                        "default": "elevenlabs"
+                        "default": "openai"
                     }
                 },
                 "required": ["agent_run_id"]
@@ -595,7 +595,7 @@ class SandboxPodcastTool(SandboxToolsBase):
         self,
         agent_run_id: str,
         podcast_title: str = "",
-        tts_model: str = "elevenlabs"
+        tts_model: str = "openai"
     ) -> ToolResult:
         """
         Generate a bite-sized podcast from an agent run conversation.
@@ -670,7 +670,7 @@ class SandboxPodcastTool(SandboxToolsBase):
         self, 
         url: str, 
         title: str, 
-        tts_model: str = "elevenlabs"
+        tts_model: str = "openai"
     ) -> Dict[str, Any]:
         """Call the Podcastfy service to generate podcast from URL."""
         try:
@@ -796,7 +796,7 @@ class SandboxPodcastTool(SandboxToolsBase):
                         "type": "string",
                         "description": "TTS model to use: 'openai' (cost-effective, ~307KB files) or 'elevenlabs' (premium quality, ~1.6MB files)",
                         "enum": ["openai", "elevenlabs"],
-                        "default": "elevenlabs"
+                        "default": "openai"
                     },
                     "conversation_style": {
                         "type": "string",
@@ -823,7 +823,7 @@ class SandboxPodcastTool(SandboxToolsBase):
         self,
         text: str,
         podcast_title: str = "Custom Text Podcast",
-        tts_model: str = "elevenlabs",
+        tts_model: str = "openai",
         conversation_style: str = "informative"
     ) -> ToolResult:
         """
