@@ -11,7 +11,8 @@ import {
   Users,
   MessageCircle,
   Globe,
-  ChevronRight
+  ChevronRight,
+  Search
 } from 'lucide-react';
 import { ToolViewProps } from '../types';
 import { formatTimestamp } from '../utils';
@@ -63,6 +64,13 @@ const PROVIDER_CONFIG = {
     color: 'from-indigo-500 to-indigo-600',
     bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
     textColor: 'text-indigo-700 dark:text-indigo-300'
+  },
+  'apollo': {
+    name: 'Apollo Data Provider',
+    icon: Search,
+    color: 'from-teal-500 to-teal-600',
+    bgColor: 'bg-teal-50 dark:bg-teal-900/20',
+    textColor: 'text-teal-700 dark:text-teal-300'
   }
 };
 
