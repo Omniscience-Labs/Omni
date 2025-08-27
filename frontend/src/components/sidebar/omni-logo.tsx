@@ -1,13 +1,13 @@
 'use client';
 
-import { OmniSpinnerLogo } from '@/components/ui/omni-spinner-logo';
+import { ThreeSpinner } from '@/components/ui/three-spinner';
 
 interface OmniLogoProps {
   size?: number;
 }
 
 export function OmniLogo({ size = 24 }: OmniLogoProps) {
-  return <OmniSpinnerLogo size={size} className="flex-shrink-0" />;
+  return <ThreeSpinner size={size} color="currentColor" className="flex-shrink-0" />;
 }
 
 
