@@ -22,7 +22,7 @@ export function OmniLogo({ size = 24 }: OmniLogoProps) {
 
   return (
     <Image
-      src="/omni-symbol.svg"
+      src="/omni-ball.svg"
       alt="Operator"
       width={size}
       height={size}
