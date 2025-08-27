@@ -8,7 +8,7 @@ import { IconCloud } from '@/components/magicui/icon-cloud';
 import { AnimatedBeam } from '@/components/magicui/animated-beam';
 import { GradientText } from '@/components/animate-ui/text/gradient';
 import { OmniProcessModal } from '@/components/sidebar/omni-enterprise-modal';
-import { CompanyShowcase } from '@/components/home/sections/company-showcase';
+
 import { Shield, Lock, Brain, Database, Zap, Users2, Settings } from 'lucide-react';
 import { useRef, forwardRef } from 'react';
 import { cn } from '@/lib/utils';
@@ -437,10 +437,7 @@ export function EnterpriseSecuritySection() {
           </div>
         </div>
 
-        {/* Company Showcase */}
-        <div className="mt-4 lg:mt-6">
-          <CompanyShowcase />
-        </div>
+
 
         {/* CTA Section */}
         <div className="mt-8 lg:mt-10">
