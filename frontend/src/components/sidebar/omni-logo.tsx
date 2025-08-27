@@ -29,11 +29,11 @@ export function OmniLogo({ size = 24 }: OmniLogoProps) {
 
   return (
     <Image
-      src={shouldInvert ? '/omni-ball-light.svg' : '/omni-ball-dark.svg'}
+      src="/omni-ball-exact.png"
       alt="Omni"
       width={size}
       height={size}
-      className="flex-shrink-0"
+      className={`flex-shrink-0 ${shouldInvert ? 'invert' : ''}`}
       style={{ width: size, height: size, minWidth: size, minHeight: size }}
       onError={() => {
         console.warn('Failed to load OmniLogo, using geometric fallback');
