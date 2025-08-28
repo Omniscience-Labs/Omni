@@ -34,6 +34,7 @@ import { toast } from 'sonner';
 import { ReleaseBadge } from '../auth/release-badge';
 import { useDashboardTour } from '@/hooks/use-dashboard-tour';
 import { TourConfirmationDialog } from '@/components/tour/TourConfirmationDialog';
+import { ThreeSpinner } from '@/components/ui/three-spinner';
 import { Calendar, MessageSquare, Plus, Sparkles, Zap } from 'lucide-react';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
