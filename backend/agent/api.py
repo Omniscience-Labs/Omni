@@ -120,6 +120,7 @@ class AgentUpdateRequest(BaseModel):
     icon_name: Optional[str] = None
     icon_color: Optional[str] = None
     icon_background: Optional[str] = None
+    replace_mcps: Optional[bool] = None
 
 class AgentResponse(BaseModel):
     agent_id: str
@@ -145,7 +146,7 @@ class AgentResponse(BaseModel):
     current_version: Optional[AgentVersionResponse] = None
     metadata: Optional[Dict[str, Any]] = None
 
-from utils.pagination import PaginationService, PaginationParams, PaginatedResponse
+from utils.pagination import PaginationParams
 
 class PaginationInfo(BaseModel):
     current_page: int
@@ -2105,16 +2106,32 @@ async def update_agent(
             print(f"[DEBUG] update_agent: Prepared update_data with icon fields - icon_name={update_data.get('icon_name')}, icon_color={update_data.get('icon_color')}, icon_background={update_data.get('icon_background')}")
         
         current_system_prompt = agent_data.system_prompt if agent_data.system_prompt is not None else current_version_data.get('system_prompt', '')
-        current_configured_mcps = agent_data.configured_mcps if agent_data.configured_mcps is not None else current_version_data.get('configured_mcps', [])
+
+        if agent_data.configured_mcps is not None:
+            if agent_data.replace_mcps:
+                current_configured_mcps = agent_data.configured_mcps
+                logger.debug(f"Replacing configured MCPs for agent {agent_id}: {current_configured_mcps}")
+            else:
+                current_configured_mcps = agent_data.configured_mcps
+        else:
+            current_configured_mcps = current_version_data.get('configured_mcps', [])
         
+        # Handle custom MCPs - either replace or merge based on the flag
         if agent_data.custom_mcps is not None:
-            current_custom_mcps = merge_custom_mcps(
-                current_version_data.get('custom_mcps', []),
-                agent_data.custom_mcps
-            )
+            if agent_data.replace_mcps:
+                # Replace mode: use the provided list as-is
+                current_custom_mcps = agent_data.custom_mcps
+                logger.debug(f"Replacing custom MCPs for agent {agent_id}: {current_custom_mcps}")
+            else:
+                # Merge mode: merge with existing MCPs (default behavior)
+                current_custom_mcps = merge_custom_mcps(
+                    current_version_data.get('custom_mcps', []),
+                    agent_data.custom_mcps
+                )
+                logger.debug(f"Merging custom MCPs for agent {agent_id}")
         else:
             current_custom_mcps = current_version_data.get('custom_mcps', [])
-            
+
         current_agentpress_tools = agent_data.agentpress_tools if agent_data.agentpress_tools is not None else current_version_data.get('agentpress_tools', {})
         current_avatar = agent_data.avatar if agent_data.avatar is not None else existing_data.get('avatar')
         current_avatar_color = agent_data.avatar_color if agent_data.avatar_color is not None else existing_data.get('avatar_color')

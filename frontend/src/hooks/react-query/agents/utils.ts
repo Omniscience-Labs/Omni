@@ -163,6 +163,8 @@ export type AgentUpdateRequest = {
   icon_name?: string | null;
   icon_color?: string | null;
   icon_background?: string | null;
+  // MCP replacement flag
+  replace_mcps?: boolean;
 };
 
 export const getAgents = async (params: AgentsParams = {}): Promise<AgentsResponse> => {
