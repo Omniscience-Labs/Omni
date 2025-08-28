@@ -60,6 +60,7 @@ interface ToolCallSidePanelProps {
   agentName?: string;
   onFileClick?: (filePath: string) => void;
   disableInitialAnimation?: boolean;
+  compact?: boolean;
 }
 
 interface ToolCallSnapshot {
@@ -255,6 +256,7 @@ export function ToolCallSidePanel({
   agentName,
   onFileClick,
   disableInitialAnimation,
+  compact = false,
 }: ToolCallSidePanelProps) {
   const [dots, setDots] = React.useState('');
   const [internalIndex, setInternalIndex] = React.useState(0);
@@ -1008,7 +1010,10 @@ export function ToolCallSidePanel({
               damping: 35
             }
           }}
-          className="fixed top-2 right-2 bottom-4 border rounded-3xl flex flex-col z-30 w-[40vw] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[645px]"
+          className={compact 
+            ? "m-4 h-[calc(100%-2rem)] w-[calc(100%-2rem)] border rounded-3xl flex flex-col z-30"
+            : "fixed top-2 right-2 bottom-4 border rounded-3xl flex flex-col z-30 w-[40vw] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[645px]"
+          }
           style={{
             overflow: 'hidden',
           }}

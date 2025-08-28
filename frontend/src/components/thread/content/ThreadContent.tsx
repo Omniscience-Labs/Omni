@@ -866,7 +866,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                             })()}
 
                                                             {groupIndex === finalGroupedMessages.length - 1 && !readOnly && (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && (
-                                                                <div className="mt-2">
+                                                                <div className="mt-4">
                                                                     {(() => {
                                                                         // In debug mode, show raw streaming content
                                                                         if (debugMode && streamingTextContent) {
@@ -899,7 +899,6 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                             }
                                                                         }
 
-
                                                                         const textToRender = streamingTextContent || '';
                                                                         const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
                                                                         const showCursor =
@@ -908,6 +907,17 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                             streamHookStatus ===
                                                                               'connecting') &&
                                                                           !detectedTag;
+
+                                                                        // Show minimal processing indicator when agent is active but no streaming text
+                                                                        if (!streamingTextContent && (streamHookStatus === 'streaming' || streamHookStatus === 'connecting')) {
+                                                                            return (
+                                                                                <div className="flex items-center gap-1 py-1 ">
+                                                                                    <div className="h-1 w-1 rounded-full bg-primary/40 animate-pulse duration-1000" />
+                                                                                    <div className="h-1 w-1 rounded-full bg-primary/40 animate-pulse duration-1000 delay-150" />
+                                                                                    <div className="h-1 w-1 rounded-full bg-primary/40 animate-pulse duration-1000 delay-300" />
+                                                                                </div>
+                                                                            );
+                                                                        }
 
                                                                         return (
                                                                             <>
@@ -933,7 +943,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                                             {/* For playback mode, show streaming text and tool calls */}
                                                             {readOnly && groupIndex === finalGroupedMessages.length - 1 && isStreamingText && (
-                                                                <div className="mt-2">
+                                                                <div className="mt-4">
                                                                     {(() => {
                                                                         let detectedTag: string | null = null;
                                                                         let tagStartIndex = -1;
