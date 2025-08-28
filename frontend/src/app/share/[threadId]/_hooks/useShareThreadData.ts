@@ -10,7 +10,6 @@ import {
 import {
   UnifiedMessage,
   ParsedMetadata,
-  StreamingToolCall,
 } from '@/components/thread/types';
 
 // Error code mappings for share page

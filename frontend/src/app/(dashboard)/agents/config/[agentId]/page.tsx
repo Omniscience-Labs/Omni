@@ -2,16 +2,18 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Loader2, Save, Eye } from 'lucide-react';
+import { Loader2, Play, Plus, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
 import { useUpdateAgentMCPs } from '@/hooks/react-query/agents/use-update-agent-mcps';
-import { useCreateAgentVersion, useActivateAgentVersion } from '@/hooks/react-query/agents/use-agent-versions';
-import { useQueryClient } from '@tanstack/react-query';
+import { useActivateAgentVersion } from '@/hooks/react-query/agents/use-agent-versions';
+
 import { toast } from 'sonner';
-import { AgentPreview } from '../../../../../components/agents/agent-preview';
+import { useInitiateAgentWithInvalidation } from '@/hooks/react-query/dashboard/use-initiate-agent';
+import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
+import { ThreadComponent } from '@/components/thread/ThreadComponent';
 
 import { useAgentVersionData } from '../../../../../hooks/use-agent-version-data';
 import { useAgentVersionStore } from '../../../../../lib/stores/agent-version-store';
@@ -108,18 +110,15 @@ interface FormData {
 function AgentConfigurationContent() {
   const params = useParams();
   const agentId = params.agentId as string;
-  const queryClient = useQueryClient();
+  const router = useRouter();
 
   const { agent, versionData, isViewingOldVersion, isLoading, error } = useAgentVersionData({ agentId });
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get('tab');
   const initialAccordion = searchParams.get('accordion');
-  const versionParam = searchParams.get('version');
   const { setHasUnsavedChanges } = useAgentVersionStore();
   
   const updateAgentMutation = useUpdateAgent();
   const updateAgentMCPsMutation = useUpdateAgentMCPs();
-  const createVersionMutation = useCreateAgentVersion();
   const activateVersionMutation = useActivateAgentVersion();
   const exportMutation = useExportAgent();
 
@@ -159,8 +158,106 @@ function AgentConfigurationContent() {
   });
 
   const [originalData, setOriginalData] = useState<FormData>(formData);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  const [testThreadId, setTestThreadId] = useState<string | null>(null);
+  const [testProjectId, setTestProjectId] = useState<string | null>(null);
   const [lastLoadedVersionId, setLastLoadedVersionId] = useState<string | null>(null);
+
+  const initiateAgentMutation = useInitiateAgentWithInvalidation();
+
+  // Query thread data to get project ID when we have a test thread  
+  const { data: testThreadData } = useThreadQuery(testThreadId || '');
+
+  // Update project ID when thread data loads and navigate if in test mode
+  useEffect(() => {
+    if (testThreadData?.project_id && testThreadId && !testProjectId) {
+      setTestProjectId(testThreadData.project_id);
+      
+      // Save to localStorage
+      localStorage.setItem(`agent-test-thread-${agentId}`, JSON.stringify({
+        threadId: testThreadId,
+        projectId: testThreadData.project_id
+      }));
+
+      // If we're in test mode, we already have the data to render
+      // No need to navigate
+    }
+  }, [testThreadData, testThreadId, testProjectId, agentId]);
+
+  // Load test thread from localStorage on mount
+  useEffect(() => {
+    const savedTestThread = localStorage.getItem(`agent-test-thread-${agentId}`);
+    if (savedTestThread) {
+      try {
+        const { threadId, projectId } = JSON.parse(savedTestThread);
+        setTestThreadId(threadId);
+        setTestProjectId(projectId);
+      } catch (error) {
+        console.error('Failed to parse saved test thread:', error);
+        localStorage.removeItem(`agent-test-thread-${agentId}`);
+      }
+    }
+  }, [agentId]);
+
+  // Create or load test thread
+  const handleStartTestMode = async () => {
+    if (testThreadId && testProjectId) {
+      // Use existing test thread
+      return;
+    }
+
+    // Create new test thread
+    try {
+      const formData = new FormData();
+      formData.append('prompt', `Test conversation with ${agent?.name || 'agent'}`);
+      formData.append('agent_id', agentId);
+
+      const result = await initiateAgentMutation.mutateAsync(formData);
+      
+      if (result.thread_id) {
+        setTestThreadId(result.thread_id);
+      }
+    } catch (error) {
+      console.error('Failed to create test thread:', error);
+      toast.error('Failed to create test thread');
+    }
+  };
+
+  // Start a completely new test session - just reset to show prompt selection
+  const handleStartNewTask = () => {
+    // Clear existing test session from localStorage
+    localStorage.removeItem(`agent-test-thread-${agentId}`);
+    
+    // Reset state to show the initial prompt selection screen
+    setTestThreadId(null);
+    setTestProjectId(null);
+  };
+
+  // Start test with a specific prompt
+  const handleStartTestWithPrompt = async (prompt: string) => {
+    try {
+      // Clear existing test session from localStorage
+      localStorage.removeItem(`agent-test-thread-${agentId}`);
+      
+      // Reset state
+      setTestThreadId(null);
+      setTestProjectId(null);
+      
+      // Create new test thread with the specific prompt
+      const formData = new FormData();
+      formData.append('prompt', prompt);
+      formData.append('agent_id', agentId);
+
+      const result = await initiateAgentMutation.mutateAsync(formData);
+      
+      if (result.thread_id) {
+        setTestThreadId(result.thread_id);
+      }
+    } catch (error) {
+      console.error('Failed to create test thread with prompt:', error);
+      toast.error('Failed to start test conversation');
+    }
+  };
 
   useEffect(() => {
     if (!agent) return;
@@ -344,15 +441,14 @@ function AgentConfigurationContent() {
     mutationsRef.current.export.mutate(agentIdRef.current);
   };
 
-  const { hasUnsavedChanges, isCurrentVersion } = React.useMemo(() => {
+  const { hasUnsavedChanges } = React.useMemo(() => {
     const formDataStr = JSON.stringify(formData);
     const originalDataStr = JSON.stringify(originalData);
     const hasChanges = formDataStr !== originalDataStr;
     const isCurrent = !isViewingOldVersion;
     
     return {
-      hasUnsavedChanges: hasChanges && isCurrent,
-      isCurrentVersion: isCurrent
+      hasUnsavedChanges: hasChanges && isCurrent
     };
   }, [formData, originalData, isViewingOldVersion]);
 
@@ -363,8 +459,6 @@ function AgentConfigurationContent() {
       setHasUnsavedChanges(hasUnsavedChanges);
     }
   }, [hasUnsavedChanges]);
-
-  const router = useRouter();
 
   const handleActivateVersion = async (versionId: string) => {
     try {
@@ -428,14 +522,11 @@ function AgentConfigurationContent() {
     );
   }
 
-  const previewAgent = {
-    ...agent,
-    ...displayData,
-    agent_id: agentId,
-  };
+
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="h-screen flex flex-col bg-background relative">
+
       <div className="flex-1 flex overflow-hidden">
         <div className="hidden lg:grid lg:grid-cols-2 w-full h-full">
           <div className="bg-background h-full flex flex-col border-r border-border/40 overflow-hidden">
@@ -497,9 +588,145 @@ function AgentConfigurationContent() {
             </div>
           </div>
           
-          <div className="bg-muted/20 h-full flex flex-col relative" data-tour="preview-agent">
-            <div className="absolute inset-0">
-              <AgentPreview agent={previewAgent} />
+          <div className="bg-background h-full flex flex-col overflow-hidden" data-tour="preview-agent">
+            {/* Thread Header */}
+            <div className="flex-shrink-0 p-4 border-b border-border/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold">Run "{agent?.name || 'Agent'}"</h3>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {!testThreadId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleStartTestMode}
+                      disabled={initiateAgentMutation.isPending}
+                      className="flex items-center gap-2"
+                    >
+                      {initiateAgentMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                      Start
+                    </Button>
+                  )}
+                  {testThreadId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleStartNewTask}
+                      disabled={initiateAgentMutation.isPending}
+                      className="flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      New Task
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Thread Content */}
+            <div className="flex-1 overflow-hidden relative">
+              {testThreadId && testProjectId ? (
+                <ThreadComponent 
+                  projectId={testProjectId}
+                  threadId={testThreadId}
+                  compact={true}
+                  configuredAgentId={agentId}
+                />
+              ) : testThreadId && !testProjectId ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center space-y-4">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-medium">Initiating thread</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Preparing your conversation...
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center space-y-6 max-w-md mx-auto px-4">
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+                      <Play className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-medium">Ready to run</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Start a conversation with your agent
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <Button
+                        onClick={handleStartTestMode}
+                        disabled={initiateAgentMutation.isPending}
+                        className="w-full"
+                        size="sm"
+                      >
+                        {initiateAgentMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Starting...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4 mr-2" />
+                            Start
+                          </>
+                        )}
+                      </Button>
+
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">
+                          Or try a suggested prompt:
+                        </p>
+                        
+                        <div className="space-y-2">
+                          <button
+                            onClick={() => handleStartTestWithPrompt("Enter agent builder mode. Help me configure you to be my perfect agent. Ask me detailed questions about what I want you to do, how you should behave, what tools you need, and what knowledge would be helpful. Then suggest improvements to your system prompt, tools, and configuration.")}
+                            disabled={initiateAgentMutation.isPending}
+                            className="w-full text-left p-2 rounded border border-border hover:bg-accent text-xs transition-colors"
+                          >
+                            <span className="font-medium">Agent Builder Mode</span>
+                            <br />
+                            <span className="text-muted-foreground">Help configure the perfect agent</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleStartTestWithPrompt("Hi! I want to test your capabilities. Can you tell me who you are, what you can do, and what tools and knowledge you have access to? Then let's do a quick test to see how well you work.")}
+                            disabled={initiateAgentMutation.isPending}
+                            className="w-full text-left p-2 rounded border border-border hover:bg-accent text-xs transition-colors"
+                          >
+                            <span className="font-medium">Capability Test</span>
+                            <br />
+                            <span className="text-muted-foreground">Test what your agent can do</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleStartTestWithPrompt("I need help with a specific task. Let me explain what I'm trying to accomplish and you can guide me through the process step by step.")}
+                            disabled={initiateAgentMutation.isPending}
+                            className="w-full text-left p-2 rounded border border-border hover:bg-accent text-xs transition-colors"
+                          >
+                            <span className="font-medium">Task-Based Run</span>
+                            <br />
+                            <span className="text-muted-foreground">Start with a real task</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -545,17 +772,87 @@ function AgentConfigurationContent() {
                   />
                   <Drawer>
                     <DrawerTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Eye className="h-4 w-4 mr-2" />
-                        Preview
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={initiateAgentMutation.isPending}
+                        className="flex items-center gap-2"
+                      >
+                        {initiateAgentMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : !testThreadId ? (
+                          <Play className="h-4 w-4" />
+                        ) : (
+                          <Plus className="h-4 w-4" />
+                        )}
+                        {!testThreadId ? 'Run' : 'New'}
                       </Button>
                     </DrawerTrigger>
-                    <DrawerContent className="h-[85vh]">
-                      <DrawerHeader>
-                        <DrawerTitle>Agent Preview</DrawerTitle>
+                    <DrawerContent className="px-4 pb-6">
+                      <DrawerHeader className="text-center">
+                        <DrawerTitle>Run Your Agent</DrawerTitle>
+                        <p className="text-sm text-muted-foreground">
+                          Start a conversation with your agent
+                        </p>
                       </DrawerHeader>
-                      <div className="flex-1 overflow-hidden">
-                        <AgentPreview agent={previewAgent} />
+                      
+                      <div className="space-y-4 max-w-sm mx-auto">
+                        <Button
+                          onClick={!testThreadId ? handleStartTestMode : handleStartNewTask}
+                          disabled={initiateAgentMutation.isPending}
+                          className="w-full"
+                          size="sm"
+                        >
+                          {initiateAgentMutation.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              Starting...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="h-4 w-4 mr-2" />
+                              {!testThreadId ? 'Start' : 'New Task'}
+                            </>
+                          )}
+                        </Button>
+
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground text-center">
+                            Or try a suggested prompt:
+                          </p>
+                          
+                          <div className="space-y-2">
+                            <button
+                              onClick={() => handleStartTestWithPrompt("Enter agent builder mode. Help me configure you to be my perfect agent. Ask me detailed questions about what I want you to do, how you should behave, what tools you need, and what knowledge would be helpful. Then suggest improvements to your system prompt, tools, and configuration.")}
+                              disabled={initiateAgentMutation.isPending}
+                              className="w-full text-left p-2 rounded border border-border hover:bg-accent text-xs transition-colors"
+                            >
+                              <span className="font-medium">Agent Builder Mode</span>
+                              <br />
+                              <span className="text-muted-foreground">Help configure the perfect agent</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleStartTestWithPrompt("Hi! I want to test your capabilities. Can you tell me who you are, what you can do, and what tools and knowledge you have access to? Then let's do a quick test to see how well you work.")}
+                              disabled={initiateAgentMutation.isPending}
+                              className="w-full text-left p-2 rounded border border-border hover:bg-accent text-xs transition-colors"
+                            >
+                              <span className="font-medium">Capability Test</span>
+                              <br />
+                              <span className="text-muted-foreground">Test what your agent can do</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleStartTestWithPrompt("I need help with a specific task. Let me explain what I'm trying to accomplish and you can guide me through the process step by step.")}
+                              disabled={initiateAgentMutation.isPending}
+                              className="w-full text-left p-2 rounded border border-border hover:bg-accent text-xs transition-colors"
+                            >
+                              <span className="font-medium">Task-Based Run</span>
+                              <br />
+                              <span className="text-muted-foreground">Start with a real task</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </DrawerContent>
                   </Drawer>

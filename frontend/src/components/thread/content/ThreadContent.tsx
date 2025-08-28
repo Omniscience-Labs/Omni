@@ -535,11 +535,11 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                     )}
                 </div>
             ) : (
-                // Render scrollable content container with column-reverse
+                // Render scrollable content container with column-reverse (or just content when external scrolling)
                 <div
                     ref={scrollContainerRef || messagesContainerRef}
-                    className={`${containerClassName} flex flex-col-reverse ${shouldJustifyToTop ? 'justify-end min-h-full' : ''}`}
-                    onScroll={handleScroll}
+                    className={scrollContainerRef ? `${containerClassName} flex flex-col-reverse ${shouldJustifyToTop ? 'justify-end min-h-full' : ''}` : 'py-4 pb-0'}
+                    onScroll={scrollContainerRef ? handleScroll : undefined}
                 >
                     <div ref={contentRef} className="mx-auto min-w-0 w-full max-w-3xl px-4 md:px-6">
                         <div className="space-y-8 min-w-0">
@@ -866,7 +866,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                             })()}
 
                                                             {groupIndex === finalGroupedMessages.length - 1 && !readOnly && (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && (
-                                                                <div className="mt-2">
+                                                                <div className="mt-4">
                                                                     {(() => {
                                                                         // In debug mode, show raw streaming content
                                                                         if (debugMode && streamingTextContent) {
@@ -899,7 +899,6 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                             }
                                                                         }
 
-
                                                                         const textToRender = streamingTextContent || '';
                                                                         const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
                                                                         const showCursor =
@@ -908,6 +907,17 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                             streamHookStatus ===
                                                                               'connecting') &&
                                                                           !detectedTag;
+
+                                                                        // Show minimal processing indicator when agent is active but no streaming text
+                                                                        if (!streamingTextContent && (streamHookStatus === 'streaming' || streamHookStatus === 'connecting')) {
+                                                                            return (
+                                                                                <div className="flex items-center gap-1 py-1 ">
+                                                                                    <div className="h-1 w-1 rounded-full bg-primary/40 animate-pulse duration-1000" />
+                                                                                    <div className="h-1 w-1 rounded-full bg-primary/40 animate-pulse duration-1000 delay-150" />
+                                                                                    <div className="h-1 w-1 rounded-full bg-primary/40 animate-pulse duration-1000 delay-300" />
+                                                                                </div>
+                                                                            );
+                                                                        }
 
                                                                         return (
                                                                             <>
@@ -933,7 +943,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                                             {/* For playback mode, show streaming text and tool calls */}
                                                             {readOnly && groupIndex === finalGroupedMessages.length - 1 && isStreamingText && (
-                                                                <div className="mt-2">
+                                                                <div className="mt-4">
                                                                     {(() => {
                                                                         let detectedTag: string | null = null;
                                                                         let tagStartIndex = -1;

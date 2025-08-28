@@ -48,6 +48,9 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             formatted_profiles = []
             for profile in profiles:
                 formatted_profiles.append({
+                    "profile_id": profile.profile_id,
+                    "connected_account_id": getattr(profile, 'connected_account_id', None),
+                    "account_id": profile.account_id,
                     "profile_name": profile.profile_name,
                     "display_name": profile.display_name,
                     "toolkit_slug": profile.toolkit_slug,
