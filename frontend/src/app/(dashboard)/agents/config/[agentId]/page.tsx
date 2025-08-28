@@ -223,8 +223,18 @@ function AgentConfigurationContent() {
     }
   };
 
-  // Start a completely new test session
-  const handleStartNewTask = async () => {
+  // Start a completely new test session - just reset to show prompt selection
+  const handleStartNewTask = () => {
+    // Clear existing test session from localStorage
+    localStorage.removeItem(`agent-test-thread-${agentId}`);
+    
+    // Reset state to show the initial prompt selection screen
+    setTestThreadId(null);
+    setTestProjectId(null);
+  };
+
+  // Start test with a specific prompt
+  const handleStartTestWithPrompt = async (prompt: string) => {
     try {
       // Clear existing test session from localStorage
       localStorage.removeItem(`agent-test-thread-${agentId}`);
@@ -233,9 +243,9 @@ function AgentConfigurationContent() {
       setTestThreadId(null);
       setTestProjectId(null);
       
-      // Create new test thread
+      // Create new test thread with the specific prompt
       const formData = new FormData();
-      formData.append('prompt', `New test conversation with ${agent?.name || 'agent'}`);
+      formData.append('prompt', prompt);
       formData.append('agent_id', agentId);
 
       const result = await initiateAgentMutation.mutateAsync(formData);
@@ -244,8 +254,8 @@ function AgentConfigurationContent() {
         setTestThreadId(result.thread_id);
       }
     } catch (error) {
-      console.error('Failed to create new test thread:', error);
-      toast.error('Failed to create new test thread');
+      console.error('Failed to create test thread with prompt:', error);
+      toast.error('Failed to start test conversation');
     }
   };
 
@@ -628,30 +638,91 @@ function AgentConfigurationContent() {
                   projectId={testProjectId}
                   threadId={testThreadId}
                   compact={true}
+                  configuredAgentId={agentId}
                 />
               ) : testThreadId && !testProjectId ? (
-                <div className="flex-1 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center space-y-4">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
                     <div className="space-y-2">
-                      <h3 className="text-lg font-medium">Setting up test environment</h3>
-                      <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                        Preparing your agent conversation thread...
+                      <h3 className="text-lg font-medium">Initiating thread</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Preparing your conversation...
                       </p>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center space-y-4 max-w-sm">
-                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mx-auto">
-                      <Play className="h-8 w-8 text-primary" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center space-y-6 max-w-md mx-auto px-4">
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+                      <Play className="h-8 w-8 text-muted-foreground" />
                     </div>
+                    
                     <div className="space-y-2">
-                      <h3 className="text-lg font-medium">Ready to test</h3>
+                      <h3 className="text-lg font-medium">Ready to run</h3>
                       <p className="text-sm text-muted-foreground">
-                        Click "Start" to begin a conversation with your agent
+                        Start a conversation with your agent
                       </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <Button
+                        onClick={handleStartTestMode}
+                        disabled={initiateAgentMutation.isPending}
+                        className="w-full"
+                        size="sm"
+                      >
+                        {initiateAgentMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Starting...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4 mr-2" />
+                            Start
+                          </>
+                        )}
+                      </Button>
+
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">
+                          Or try a suggested prompt:
+                        </p>
+                        
+                        <div className="space-y-2">
+                          <button
+                            onClick={() => handleStartTestWithPrompt("Enter agent builder mode. Help me configure you to be my perfect agent. Ask me detailed questions about what I want you to do, how you should behave, what tools you need, and what knowledge would be helpful. Then suggest improvements to your system prompt, tools, and configuration.")}
+                            disabled={initiateAgentMutation.isPending}
+                            className="w-full text-left p-2 rounded border border-border hover:bg-accent text-xs transition-colors"
+                          >
+                            <span className="font-medium">Agent Builder Mode</span>
+                            <br />
+                            <span className="text-muted-foreground">Help configure the perfect agent</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleStartTestWithPrompt("Hi! I want to test your capabilities. Can you tell me who you are, what you can do, and what tools and knowledge you have access to? Then let's do a quick test to see how well you work.")}
+                            disabled={initiateAgentMutation.isPending}
+                            className="w-full text-left p-2 rounded border border-border hover:bg-accent text-xs transition-colors"
+                          >
+                            <span className="font-medium">Capability Test</span>
+                            <br />
+                            <span className="text-muted-foreground">Test what your agent can do</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleStartTestWithPrompt("I need help with a specific task. Let me explain what I'm trying to accomplish and you can guide me through the process step by step.")}
+                            disabled={initiateAgentMutation.isPending}
+                            className="w-full text-left p-2 rounded border border-border hover:bg-accent text-xs transition-colors"
+                          >
+                            <span className="font-medium">Task-Based Run</span>
+                            <br />
+                            <span className="text-muted-foreground">Start with a real task</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -699,22 +770,92 @@ function AgentConfigurationContent() {
                     onProfileImageSave={handleProfileImageSave}
                     onIconSave={handleIconSave}
                   />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={!testThreadId ? handleStartTestMode : handleStartNewTask}
-                    disabled={initiateAgentMutation.isPending}
-                    className="flex items-center gap-2"
-                  >
-                    {initiateAgentMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : !testThreadId ? (
-                      <Play className="h-4 w-4" />
-                    ) : (
-                      <Plus className="h-4 w-4" />
-                    )}
-                    {!testThreadId ? 'Test' : 'New'}
-                  </Button>
+                  <Drawer>
+                    <DrawerTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={initiateAgentMutation.isPending}
+                        className="flex items-center gap-2"
+                      >
+                        {initiateAgentMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : !testThreadId ? (
+                          <Play className="h-4 w-4" />
+                        ) : (
+                          <Plus className="h-4 w-4" />
+                        )}
+                        {!testThreadId ? 'Run' : 'New'}
+                      </Button>
+                    </DrawerTrigger>
+                    <DrawerContent className="px-4 pb-6">
+                      <DrawerHeader className="text-center">
+                        <DrawerTitle>Run Your Agent</DrawerTitle>
+                        <p className="text-sm text-muted-foreground">
+                          Start a conversation with your agent
+                        </p>
+                      </DrawerHeader>
+                      
+                      <div className="space-y-4 max-w-sm mx-auto">
+                        <Button
+                          onClick={!testThreadId ? handleStartTestMode : handleStartNewTask}
+                          disabled={initiateAgentMutation.isPending}
+                          className="w-full"
+                          size="sm"
+                        >
+                          {initiateAgentMutation.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              Starting...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="h-4 w-4 mr-2" />
+                              {!testThreadId ? 'Start' : 'New Task'}
+                            </>
+                          )}
+                        </Button>
+
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground text-center">
+                            Or try a suggested prompt:
+                          </p>
+                          
+                          <div className="space-y-2">
+                            <button
+                              onClick={() => handleStartTestWithPrompt("Enter agent builder mode. Help me configure you to be my perfect agent. Ask me detailed questions about what I want you to do, how you should behave, what tools you need, and what knowledge would be helpful. Then suggest improvements to your system prompt, tools, and configuration.")}
+                              disabled={initiateAgentMutation.isPending}
+                              className="w-full text-left p-2 rounded border border-border hover:bg-accent text-xs transition-colors"
+                            >
+                              <span className="font-medium">Agent Builder Mode</span>
+                              <br />
+                              <span className="text-muted-foreground">Help configure the perfect agent</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleStartTestWithPrompt("Hi! I want to test your capabilities. Can you tell me who you are, what you can do, and what tools and knowledge you have access to? Then let's do a quick test to see how well you work.")}
+                              disabled={initiateAgentMutation.isPending}
+                              className="w-full text-left p-2 rounded border border-border hover:bg-accent text-xs transition-colors"
+                            >
+                              <span className="font-medium">Capability Test</span>
+                              <br />
+                              <span className="text-muted-foreground">Test what your agent can do</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleStartTestWithPrompt("I need help with a specific task. Let me explain what I'm trying to accomplish and you can guide me through the process step by step.")}
+                              disabled={initiateAgentMutation.isPending}
+                              className="w-full text-left p-2 rounded border border-border hover:bg-accent text-xs transition-colors"
+                            >
+                              <span className="font-medium">Task-Based Run</span>
+                              <br />
+                              <span className="text-muted-foreground">Start with a real task</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </DrawerContent>
+                  </Drawer>
                 </div>
               </div>
             </div>

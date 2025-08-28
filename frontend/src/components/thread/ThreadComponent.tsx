@@ -53,9 +53,10 @@ interface ThreadComponentProps {
   projectId: string;
   threadId: string;
   compact?: boolean;
+  configuredAgentId?: string; // When set, only allow selection of this specific agent
 }
 
-export function ThreadComponent({ projectId, threadId, compact = false }: ThreadComponentProps) {
+export function ThreadComponent({ projectId, threadId, compact = false, configuredAgentId }: ThreadComponentProps) {
   const isMobile = useIsMobile();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -173,10 +174,22 @@ export function ThreadComponent({ projectId, threadId, compact = false }: Thread
 
   useEffect(() => {
     if (agents.length > 0) {
+      // If configuredAgentId is provided, use it as the forced selection
+      // Otherwise, fall back to threadAgentId (existing behavior)
       const threadAgentId = threadAgentData?.agent?.agent_id;
-      initializeFromAgents(agents, threadAgentId);
+      const agentIdToUse = configuredAgentId || threadAgentId;
+      
+      console.log(`[ThreadComponent] Agent initialization - configuredAgentId: ${configuredAgentId}, threadAgentId: ${threadAgentId}, selectedAgentId: ${selectedAgentId}`);
+      
+      initializeFromAgents(agents, agentIdToUse);
+      
+      // If configuredAgentId is provided, force selection and override any existing selection
+      if (configuredAgentId && selectedAgentId !== configuredAgentId) {
+        console.log(`[ThreadComponent] Forcing selection to configured agent: ${configuredAgentId} (was: ${selectedAgentId})`);
+        setSelectedAgent(configuredAgentId);
+      }
     }
-  }, [threadAgentData, agents, initializeFromAgents]);
+  }, [threadAgentData, agents, initializeFromAgents, configuredAgentId, selectedAgentId, setSelectedAgent]);
 
   const { data: subscriptionData } = useSharedSubscription();
   const subscriptionStatus: SubscriptionStatus =
@@ -186,6 +199,25 @@ export function ThreadComponent({ projectId, threadId, compact = false }: Thread
       : 'no_subscription';
 
   const handleProjectRenamed = useCallback((newName: string) => {}, []);
+
+  // Create restricted agent selection handler when configuredAgentId is provided
+  const handleAgentSelect = useCallback((agentId: string | undefined) => {
+    // If configuredAgentId is set, only allow selection of that specific agent
+    if (configuredAgentId) {
+      console.log(`[ThreadComponent] Configured agent mode: ${configuredAgentId}. Attempted selection: ${agentId}`);
+      if (agentId === configuredAgentId) {
+        setSelectedAgent(agentId);
+        console.log(`[ThreadComponent] Allowed selection of configured agent: ${agentId}`);
+      } else {
+        console.log(`[ThreadComponent] Blocked selection of non-configured agent: ${agentId}`);
+      }
+      // Ignore attempts to select other agents
+      return;
+    }
+    
+    // Normal agent selection behavior
+    setSelectedAgent(agentId);
+  }, [configuredAgentId, setSelectedAgent]);
 
   // scrollToBottom for flex-column-reverse layout
   const scrollToBottom = useCallback(() => {
@@ -766,25 +798,31 @@ export function ThreadComponent({ projectId, threadId, compact = false }: Thread
           compact={true}
         >
           {/* Thread Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            <ThreadContent
-              messages={messages}
-              streamingTextContent={streamingTextContent}
-              streamingToolCall={streamingToolCall}
-              agentStatus={agentStatus}
-              handleToolClick={handleToolClick}
-              handleOpenFileViewer={handleOpenFileViewer}
-              readOnly={false}
-              streamHookStatus={streamHookStatus}
-              sandboxId={sandboxId}
-              project={project}
-              debugMode={debugMode}
-              agentName={agent && agent.name}
-              agentAvatar={undefined}
-              agentMetadata={agent?.metadata}
-              agentData={agent}
-              scrollContainerRef={scrollContainerRef}
-            />
+          <div 
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col-reverse"
+          >
+            <div className="flex-shrink-0">
+              <ThreadContent
+                messages={messages}
+                streamingTextContent={streamingTextContent}
+                streamingToolCall={streamingToolCall}
+                agentStatus={agentStatus}
+                handleToolClick={handleToolClick}
+                handleOpenFileViewer={handleOpenFileViewer}
+                readOnly={false}
+                streamHookStatus={streamHookStatus}
+                sandboxId={sandboxId}
+                project={project}
+                debugMode={debugMode}
+                agentName={agent && agent.name}
+                agentAvatar={undefined}
+                agentMetadata={agent?.metadata}
+                agentData={agent}
+                scrollContainerRef={null}
+                isPreviewMode={true}
+              />
+            </div>
           </div>
 
           {/* Compact Chat Input */}
@@ -810,7 +848,8 @@ export function ThreadComponent({ projectId, threadId, compact = false }: Thread
               messages={messages}
               agentName={agent && agent.name}
               selectedAgentId={selectedAgentId}
-              onAgentSelect={setSelectedAgent}
+              onAgentSelect={handleAgentSelect}
+              hideAgentSelection={!!configuredAgentId}
               toolCalls={toolCalls}
               toolCallIndex={currentToolIndex}
               showToolPreview={!isSidePanelOpen && toolCalls.length > 0}
@@ -940,7 +979,8 @@ export function ThreadComponent({ projectId, threadId, compact = false }: Thread
               messages={messages}
               agentName={agent && agent.name}
               selectedAgentId={selectedAgentId}
-              onAgentSelect={setSelectedAgent}
+              onAgentSelect={handleAgentSelect}
+              hideAgentSelection={!!configuredAgentId}
               toolCalls={toolCalls}
               toolCallIndex={currentToolIndex}
               showToolPreview={!isSidePanelOpen && toolCalls.length > 0}
