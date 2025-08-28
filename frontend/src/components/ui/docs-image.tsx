@@ -111,7 +111,7 @@ export const DocsImage = React.forwardRef<HTMLDivElement, DocsImageProps>(
         className={cn("relative group", containerClassName)}
       >
         <div className={cn(
-          "relative overflow-hidden",
+          "relative overflow-hidden border border-muted/50",
           sizeClasses[size],
           aspectClasses[aspect],
           rounded && "rounded-lg",
@@ -119,7 +119,6 @@ export const DocsImage = React.forwardRef<HTMLDivElement, DocsImageProps>(
           shadow && "shadow-md",
           className
         )}>
-          {/* Badge */}
           {badge && (
             <Badge 
               variant={badgeVariant}
@@ -128,8 +127,6 @@ export const DocsImage = React.forwardRef<HTMLDivElement, DocsImageProps>(
               {badge}
             </Badge>
           )}
-
-          {/* Action buttons */}
           {(zoom || download || external) && (
             <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
               <div className="flex gap-1">

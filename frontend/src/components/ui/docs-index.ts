@@ -1,4 +1,3 @@
-// Core Components
 export { DocsSidebar } from './docs-sidebar';
 export { DocsHeader } from './docs-header';
 export { DocsCard } from './docs-card';
@@ -8,10 +7,8 @@ export { DocsTable, createDocsTableColumn } from './docs-table';
 export { DocsImage } from './docs-image';
 export { DocsThemeToggle } from './docs-theme-toggle';
 
-// Types
 export type { 
   DocsNavigationItem, 
-  DocsNavigationSection, 
   DocsSidebarProps 
 } from './docs-sidebar';
 
@@ -48,17 +45,15 @@ export type {
   DocsThemeToggleProps 
 } from './docs-theme-toggle';
 
-// Utility functions for common use cases
-import type { DocsNavigationSection } from './docs-sidebar';
+import type { DocsNavigationItem } from './docs-sidebar';
 import type { DocsBreadcrumbItem } from './docs-header';
 
-export const createDocsNavigation = (sections: DocsNavigationSection[]) => ({
-  sections
+export const createDocsNavigation = (items: DocsNavigationItem[]) => ({
+  items
 });
 
 export const createDocsBreadcrumbs = (items: DocsBreadcrumbItem[]) => items;
 
-// Default configurations
 export const defaultDocsConfig = {
   sidebar: {
     width: '280px',

@@ -88,17 +88,16 @@ export const DocsCard = React.forwardRef<HTMLDivElement, DocsCardProps>(
       <Card
         ref={ref}
         className={cn(
-          "group relative",
+          "group relative p-0",
           cardVariants[variant],
           hover && "transition-all duration-200 hover:shadow-lg hover:-translate-y-1",
-          clickable && "cursor-pointer hover:bg-accent/5",
+          clickable && "cursor-pointer hover:opacity-80 transition-opacity",
           orientation === 'horizontal' && "flex flex-row",
           className
         )}
         onClick={onClick}
         {...props}
       >
-        {/* Image */}
         {image && (
           <div className={cn(
             "overflow-hidden",
@@ -162,7 +161,7 @@ export const DocsCard = React.forwardRef<HTMLDivElement, DocsCardProps>(
           )}
 
           {actions.length > 0 && (
-            <CardFooter className={cn("pt-4", cardSizes[size])}>
+            <CardFooter className={cn("pt-0", cardSizes[size])}>
               <div className="flex flex-wrap gap-2">
                 {actions.map((action, index) => (
                   <Button

@@ -51,13 +51,13 @@ export const DocsHeader = React.forwardRef<HTMLDivElement, DocsHeaderProps>(
     const subtitleSizes = {
       sm: 'text-sm',
       default: 'text-base',
-      lg: 'text-lg'
+      lg: 'text-base'
     };
 
     const descriptionSizes = {
       sm: 'text-sm',
       default: 'text-base',
-      lg: 'text-lg'
+      lg: 'text-base'
     };
 
     return (
@@ -119,7 +119,7 @@ export const DocsHeader = React.forwardRef<HTMLDivElement, DocsHeaderProps>(
           )}
 
           {(lastUpdated || author || readTime) && (
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-4 text-sm text-muted-foreground/60">
               {lastUpdated && (
                 <span>Last updated: {lastUpdated}</span>
               )}

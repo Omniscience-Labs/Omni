@@ -16,7 +16,8 @@ import {
   Map
 } from 'lucide-react';
 
-import type { DocsNavigationSection, DocsTableColumn } from '@/components/ui/docs-index';
+import type { DocsNavigationSection } from '@/components/ui/docs-sidebar';
+import type { DocsTableColumn } from '@/components/ui/docs-index';
 
 export const sampleNavigation: DocsNavigationSection[] = [
   {
@@ -25,7 +26,7 @@ export const sampleNavigation: DocsNavigationSection[] = [
     items: [
       {
         id: 'introduction',
-        title: 'Introduction',
+        title: 'What is Kortix?',
         href: '#introduction',
         icon: BookOpen,
         isActive: true
@@ -35,129 +36,155 @@ export const sampleNavigation: DocsNavigationSection[] = [
         title: 'Quick Start',
         href: '#quick-start',
         icon: Rocket,
-        badge: 'New'
+        badge: 'Recommended'
+      },
+      {
+        id: 'setup-wizard',
+        title: 'Setup Wizard',
+        href: '#setup-wizard',
+        icon: Zap
+      }
+    ]
+  },
+  {
+    id: 'self-hosting',
+    title: 'Self-Hosting Guide',
+    items: [
+      {
+        id: 'overview',
+        title: 'Overview',
+        href: '#self-hosting-overview',
+        icon: Layers
+      },
+      {
+        id: 'prerequisites',
+        title: 'Prerequisites',
+        href: '#prerequisites',
+        icon: Settings,
+        children: [
+          {
+            id: 'supabase-setup',
+            title: 'Supabase Project',
+            href: '#supabase-setup'
+          },
+          {
+            id: 'api-keys',
+            title: 'API Keys',
+            href: '#api-keys'
+          },
+          {
+            id: 'software',
+            title: 'Required Software',
+            href: '#required-software'
+          }
+        ]
       },
       {
         id: 'installation',
         title: 'Installation',
         href: '#installation',
-        icon: Settings
-      }
-    ]
-  },
-  {
-    id: 'components',
-    title: 'Components',
-    items: [
-      {
-        id: 'overview',
-        title: 'Overview',
-        href: '#overview',
-        icon: Layers,
+        icon: Code,
         children: [
           {
-            id: 'overview-getting-started',
-            title: 'Getting Started',
-            href: '#overview-getting-started'
+            id: 'docker-setup',
+            title: 'Docker Setup',
+            href: '#docker-setup'
           },
           {
-            id: 'overview-customization',
-            title: 'Customization',
-            href: '#overview-customization'
+            id: 'manual-setup',
+            title: 'Manual Setup',
+            href: '#manual-setup'
           }
         ]
       },
       {
-        id: 'accordion',
-        title: 'Accordion',
-        href: '#accordion',
-        icon: FileText
+        id: 'configuration',
+        title: 'Configuration',
+        href: '#configuration',
+        icon: Settings,
+        children: [
+          {
+            id: 'backend-env',
+            title: 'Backend Environment',
+            href: '#backend-env'
+          },
+          {
+            id: 'frontend-env',
+            title: 'Frontend Environment',
+            href: '#frontend-env'
+          }
+        ]
       },
       {
-        id: 'card',
-        title: 'Card',
-        href: '#card',
-        icon: Layers
-      },
-      {
-        id: 'feedback',
-        title: 'Feedback',
-        href: '#feedback',
-        icon: MessageSquare
-      },
-      {
-        id: 'media',
-        title: 'Media',
-        href: '#media',
-        icon: Image
+        id: 'troubleshooting',
+        title: 'Troubleshooting',
+        href: '#troubleshooting',
+        icon: Shield
       }
     ]
   },
   {
-    id: 'resources',
-    title: 'Resources',
+    id: 'platform',
+    title: 'Platform',
     items: [
       {
-        id: 'roadmap',
-        title: 'Roadmap',
-        href: '#roadmap',
-        icon: Map
+        id: 'architecture',
+        title: 'Architecture',
+        href: '#architecture',
+        icon: Database
       },
       {
-        id: 'changelog',
-        title: 'Changelog',
-        href: '#changelog',
-        icon: FileText
+        id: 'agent-examples',
+        title: 'Agent Examples',
+        href: '#agent-examples',
+        icon: Users,
+        badge: 'Popular'
+      },
+      {
+        id: 'contributing',
+        title: 'Contributing',
+        href: '#contributing',
+        icon: MessageSquare
       }
     ]
   }
 ];
 
 export const sampleBreadcrumbs = [
-  { title: 'Docs', onClick: () => console.log('Navigate to docs') },
-  { title: 'Getting Started' }
+  { title: 'Documentation', onClick: () => console.log('Navigate to docs') },
+  { title: 'Kortix Platform Guide' }
 ];
 
-export const sampleFeatures = [
+export const kortixFeatures = [
   {
-    title: 'MDX Integration',
-    description: 'Write content in Markdown and seamlessly embed React components',
+    title: 'Browser Automation',
+    description: 'Navigate websites, extract data, fill forms, automate web workflows',
     icon: Code
   },
   {
-    title: 'Hierarchical Navigation',
-    description: 'Intuitive section-based navigation with custom ordering',
+    title: 'File Management',
+    description: 'Create, edit, and organize documents, spreadsheets, presentations, code',
     icon: FileText
   },
   {
-    title: 'Component Showcase',
-    description: 'Interactive examples of Once UI components',
-    icon: Palette
-  },
-  {
-    title: 'Responsive Design',
-    description: 'Perfect viewing experience across all devices',
-    icon: Layers
-  },
-  {
-    title: 'Dark/Light Mode',
-    description: 'Automatic theme switching based on system preferences',
-    icon: Settings
-  },
-  {
-    title: 'Search Functionality',
-    description: 'Powerful command palette for quick content access',
+    title: 'Web Intelligence',
+    description: 'Crawling, search capabilities, data extraction and synthesis',
     icon: Zap
   },
   {
-    title: 'SEO Optimization',
-    description: 'Built-in metadata generation for better search engine visibility',
-    icon: Shield
+    title: 'System Operations',
+    description: 'Command-line execution, system administration, DevOps tasks',
+    icon: Settings
   },
   {
-    title: 'Custom Ordering',
-    description: 'Control the exact order of pages using meta.json files',
+    title: 'API Integrations',
+    description: 'Connect with external services and automate cross-platform workflows',
     icon: Database
+  },
+  {
+    title: 'Agent Builder',
+    description: 'Visual tools to configure, customize, and deploy agents',
+    icon: Palette
   }
 ];
 
