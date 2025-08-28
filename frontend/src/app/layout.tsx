@@ -100,8 +100,8 @@ export const metadata: Metadata = {
     ],
   },
   icons: {
-    icon: [{ url: '/favicon.png', sizes: 'any' }],
-    shortcut: '/favicon.png',
+    icon: [{ url: '/favicon-omni-ball.svg', sizes: 'any' }],
+    shortcut: '/favicon-omni-ball.svg',
   },
   // manifest: "/manifest.json",
   alternates: {
