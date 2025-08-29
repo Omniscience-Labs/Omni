@@ -268,12 +268,11 @@ async def get_agent_triggers(
 async def get_all_user_triggers(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    
     try:
         client = await db.client
         
         agents_result = await client.table('agents').select(
-            'agent_id, name, description, current_version_id, config, icon_name, icon_color, icon_background, profile_image_url'
+            'agent_id, name, description, current_version_id, icon_name, icon_color, icon_background, profile_image_url'
         ).eq('account_id', user_id).execute()
         
         if not agents_result.data:
@@ -281,18 +280,8 @@ async def get_all_user_triggers(
         
         agent_info = {}
         for agent in agents_result.data:
-            agent_config = agent.get('config', {})
             agent_name = agent.get('name', 'Untitled Agent')
             agent_description = agent.get('description', '')
-            
-            if isinstance(agent_config, dict):
-                if 'metadata' in agent_config and isinstance(agent_config['metadata'], dict):
-                    agent_name = agent_config['metadata'].get('name', agent_name)
-                    agent_description = agent_config['metadata'].get('description', agent_description)
-                elif 'name' in agent_config:
-                    agent_name = agent_config.get('name', agent_name)
-                elif 'description' in agent_config:
-                    agent_description = agent_config.get('description', agent_description)
             
             agent_info[agent['agent_id']] = {
                 'agent_name': agent_name,

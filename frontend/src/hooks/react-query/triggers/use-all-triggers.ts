@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
+import { backendApi } from '@/lib/api-client';
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -24,25 +25,12 @@ export interface TriggerWithAgent {
 }
 
 const fetchAllTriggers = async (): Promise<TriggerWithAgent[]> => {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    throw new Error('You must be logged in to fetch triggers');
+  const response = await backendApi.get<TriggerWithAgent[]>(`/triggers/all`);
+  if (!response.success) {
+    const error = response.error?.message || 'Failed to fetch triggers';
+    throw new Error(error || 'Failed to fetch triggers');
   }
-  
-  const response = await fetch(`${API_URL}/triggers/all`, {
-    headers: { 
-      'Content-Type': 'application/json', 
-      'Authorization': `Bearer ${session.access_token}` 
-    },
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to fetch triggers' }));
-    throw new Error(error.detail || 'Failed to fetch triggers');
-  }
-  
-  return response.json();
+  return response.data;
 };
 
 export const useAllTriggers = () => {

@@ -45,7 +45,6 @@ export default function AgentsPage() {
   const { user } = useAuth();
   const router = useRouter();
 
-
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -100,7 +99,7 @@ export default function AgentsPage() {
       search: agentsSearchQuery || undefined,
       sort_by: agentsSortBy,
       sort_order: agentsSortOrder,
-      content_type: "agents", // Explicitly request only agents, not templates
+      content_type: "agents",
     };
 
     if (agentsFilters.hasDefaultAgent) {
@@ -539,8 +538,6 @@ export default function AgentsPage() {
       color: '#6366f1',
     };
   };
-
-
 
   return (
     <div className="min-h-screen">
