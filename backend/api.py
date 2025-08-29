@@ -179,10 +179,6 @@ api_router.include_router(triggers_api.router)
 from pipedream import api as pipedream_api
 api_router.include_router(pipedream_api.router)
 
-# MFA functionality moved to frontend
-
-
-
 from admin import api as admin_api
 api_router.include_router(admin_api.router)
 
