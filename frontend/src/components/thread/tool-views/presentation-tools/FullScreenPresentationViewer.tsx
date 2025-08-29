@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { constructHtmlPreviewUrl } from '@/lib/utils/url';
-import { downloadPresentation, DownloadFormat } from '../utils/presentation-utils';
+import { downloadPresentation, DownloadFormat, handleGoogleSlidesUpload } from '../utils/presentation-utils';
 
 interface SlideMetadata {
   title: string;
@@ -65,6 +65,7 @@ export function FullScreenPresentationViewer({
   const [showEditor, setShowEditor] = useState(false);
   const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   const [isDownloadingPPTX, setIsDownloadingPPTX] = useState(false);
+  const [isDownloadingGoogleSlides, setIsDownloadingGoogleSlides] = useState(false);
   
   // Create a stable refresh timestamp when metadata changes (like PresentationViewer)
   const refreshTimestamp = useMemo(() => Date.now(), [metadata]);
@@ -262,6 +263,32 @@ export function FullScreenPresentationViewer({
     }
   }, [isOpen]);
 
+  // Download handlers
+  const handleDownload = async (format: DownloadFormat) => {
+    if (!sandboxUrl || !presentationName) return;
+
+    const setDownloadState = format === DownloadFormat.PDF ? setIsDownloadingPDF : 
+                           format === DownloadFormat.PPTX ? setIsDownloadingPPTX : 
+                           setIsDownloadingGoogleSlides;
+
+    setDownloadState(true);
+    try {
+      if (format === DownloadFormat.GOOGLE_SLIDES) {
+        const result = await handleGoogleSlidesUpload(sandboxUrl, `/workspace/presentations/${presentationName}`);
+        // If redirected to auth, don't show error
+        if (result?.redirected_to_auth) {
+          return; // Don't set loading false, user is being redirected
+        }
+      } else {
+        await downloadPresentation(format, sandboxUrl, `/workspace/presentations/${presentationName}`, presentationName);
+      }
+    } catch (error) {
+      console.error(`Error downloading ${format}:`, error);
+    } finally {
+      setDownloadState(false);
+    }
+  };
+
   const currentSlideData = slides.find(slide => slide.number === currentSlide);
 
   // Memoized slide iframe component with proper scaling (matching PresentationViewer)
@@ -417,9 +444,9 @@ export function FullScreenPresentationViewer({
                   size="sm" 
                   className="h-8 w-8 p-0"
                   title="Export presentation"
-                  disabled={isDownloadingPDF || isDownloadingPPTX}
+                  disabled={isDownloadingPDF || isDownloadingPPTX || isDownloadingGoogleSlides}
                 >
-                  {(isDownloadingPDF || isDownloadingPPTX) ? (
+                  {(isDownloadingPDF || isDownloadingPPTX || isDownloadingGoogleSlides) ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <Download className="h-3.5 w-3.5" />
@@ -427,15 +454,27 @@ export function FullScreenPresentationViewer({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-32">
-                <DropdownMenuItem className="cursor-pointer" onClick={() => downloadPresentation(DownloadFormat.PDF, sandboxUrl, `/workspace/presentations/${presentationName}`, presentationName)} disabled={isDownloadingPDF}>
+                <DropdownMenuItem 
+                  className="cursor-pointer" 
+                  onClick={() => handleDownload(DownloadFormat.PDF)} 
+                  disabled={isDownloadingPDF}
+                >
                   <FileText className="h-4 w-4 mr-2" />
                   PDF
                 </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer" onClick={() => downloadPresentation(DownloadFormat.PPTX, sandboxUrl, `/workspace/presentations/${presentationName}`, presentationName)} disabled={isDownloadingPPTX}>
+                <DropdownMenuItem 
+                  className="cursor-pointer" 
+                  onClick={() => handleDownload(DownloadFormat.PPTX)} 
+                  disabled={isDownloadingPPTX}
+                >
                   <Presentation className="h-4 w-4 mr-2" />
                   PPTX
                 </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer">
+                <DropdownMenuItem 
+                  className="cursor-pointer" 
+                  onClick={() => handleDownload(DownloadFormat.GOOGLE_SLIDES)} 
+                  disabled={isDownloadingGoogleSlides}
+                >
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Google Slides
                 </DropdownMenuItem>

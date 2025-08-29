@@ -30,12 +30,11 @@ import {
 } from 'lucide-react';
 import { ToolViewProps } from '../types';
 import { formatTimestamp, extractToolData, getToolTitle } from '../utils';
-import { downloadPresentation } from '../utils/presentation-utils';
+import { downloadPresentation, handleGoogleSlidesUpload } from '../utils/presentation-utils';
 import { constructHtmlPreviewUrl } from '@/lib/utils/url';
 import { CodeBlockCode } from '@/components/ui/code-block';
 import { LoadingState } from '../shared/LoadingState';
 import { FullScreenPresentationViewer } from './FullScreenPresentationViewer';
-import { toast } from 'sonner';
 import { DownloadFormat } from '../utils/presentation-utils';
 
 interface SlideMetadata {
@@ -476,15 +475,18 @@ export function PresentationViewer({
     return <SlideIframe slide={slide} />;
   }, [SlideIframe]);
 
-  const handleDownload = useCallback(async (setIsDownloading: (isDownloading: boolean) => void, format: DownloadFormat) => {
+  const handleDownload = async (setIsDownloading: (isDownloading: boolean) => void, format: DownloadFormat) => {
     
     if (!project?.sandbox?.sandbox_url || !extractedPresentationName) return;
 
     setIsDownloading(true);
     try{
       if (format === DownloadFormat.GOOGLE_SLIDES){
-        // TODO: Implement Google Slides download
-        console.log('Downloading Google Slides');
+        const result = await handleGoogleSlidesUpload(project!.sandbox!.sandbox_url, `/workspace/presentations/${extractedPresentationName}`);
+        // If redirected to auth, don't show error
+        if (result?.redirected_to_auth) {
+          return; // Don't set loading false, user is being redirected
+        }
       } else{
         await downloadPresentation(format, project.sandbox.sandbox_url, `/workspace/presentations/${extractedPresentationName}`, extractedPresentationName);
       }
@@ -493,7 +495,8 @@ export function PresentationViewer({
     } finally {
       setIsDownloading(false);
     }
-  }, [project?.sandbox?.sandbox_url, extractedPresentationName]);
+  };
+  
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card">

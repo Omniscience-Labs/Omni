@@ -10,13 +10,14 @@ import {
   AlertTriangle,
   Loader2,
   PresentationIcon,
+  ExternalLink,
 } from 'lucide-react';
 import { ToolViewProps } from '../types';
 import {
   getToolTitle,
   extractToolData,
 } from '../utils';
-import { downloadPresentation, DownloadFormat } from '../utils/presentation-utils';
+import { downloadPresentation, DownloadFormat, handleGoogleSlidesUpload } from '../utils/presentation-utils';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -83,15 +84,28 @@ export function PresentPresentationToolView({
 
     setIsDownloading(true);
     try {
-      await downloadPresentation(format,
-        project.sandbox.sandbox_url, 
-        `/workspace/${presentationPath}`, 
-        presentationName
-      );
-      toast.success(`${format} downloaded successfully`);
+      if (format === DownloadFormat.GOOGLE_SLIDES) {
+        const result = await handleGoogleSlidesUpload(
+          project.sandbox.sandbox_url, 
+          `/workspace/${presentationPath}`
+        );
+        // If redirected to auth, don't show error
+        if (result?.redirected_to_auth) {
+          return; // Don't set loading false, user is being redirected
+        }
+      } else {
+        await downloadPresentation(format,
+          project.sandbox.sandbox_url, 
+          `/workspace/${presentationPath}`, 
+          presentationName
+        );
+        toast.success(`${format} downloaded successfully`);
+      }
     } catch (error) {
       console.error(`Error downloading ${format}:`, error);
-      toast.error(`Failed to download ${format}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      if (format !== DownloadFormat.GOOGLE_SLIDES) {
+        toast.error(`Failed to download ${format}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
     } finally {
       setIsDownloading(false);
     }
@@ -223,6 +237,14 @@ export function PresentPresentationToolView({
                     >
                       <Presentation className="h-4 w-4 mr-2" />
                       PPTX
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => handleDownload(DownloadFormat.GOOGLE_SLIDES)}
+                      className="cursor-pointer"
+                      disabled={isDownloading}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Google Slides
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

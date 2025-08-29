@@ -48,6 +48,7 @@ import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 import { useQueryClient } from '@tanstack/react-query';
 import { threadKeys } from '@/hooks/react-query/threads/keys';
 import { useProjectRealtime } from '@/hooks/useProjectRealtime';
+import { handleGoogleSlidesUpload } from './tool-views/utils/presentation-utils';
 
 interface ThreadComponentProps {
   projectId: string;
@@ -171,6 +172,60 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
     queryClient.invalidateQueries({ queryKey: threadKeys.agentRuns(threadId) });
     queryClient.invalidateQueries({ queryKey: threadKeys.messages(threadId) });
   }, [threadId, queryClient]);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    if (urlParams.get('google_auth') === 'success') {
+      // Clean up the URL parameters first
+      window.history.replaceState({}, '', window.location.pathname);
+      
+      // Check if there was an intent to upload to Google Slides
+      const uploadIntent = sessionStorage.getItem('google_slides_upload_intent');
+      if (uploadIntent) {
+        sessionStorage.removeItem('google_slides_upload_intent');
+        
+        try {
+          const uploadData = JSON.parse(uploadIntent);
+          const { presentation_path, sandbox_url } = uploadData;
+          
+          if (presentation_path && sandbox_url) {
+            // Handle upload in async function
+            (async () => {
+              const uploadPromise = handleGoogleSlidesUpload(
+                sandbox_url,
+                presentation_path
+              );
+              
+              // Show loading toast and handle upload
+              const loadingToast = toast.loading('Google authentication successful! Uploading presentation...');
+              
+              try {
+                await uploadPromise;
+                // Success toast is now handled universally by handleGoogleSlidesUpload
+              } catch (error) {
+                console.error('Upload failed:', error);
+                // Error toast is also handled universally by handleGoogleSlidesUpload
+              } finally {
+                // Always dismiss loading toast
+                toast.dismiss(loadingToast);
+              }
+            })();
+          }
+        } catch (error) {
+          console.error('Error processing Google Slides upload from session:', error);
+          // Error toast is handled universally by handleGoogleSlidesUpload, no need to duplicate
+        }
+      } else {
+        toast.success('Google authentication successful!');
+      }
+    } else if (urlParams.get('google_auth') === 'error') {
+      const error = urlParams.get('error');
+      sessionStorage.removeItem('google_slides_upload_intent');
+      window.history.replaceState({}, '', window.location.pathname);
+      toast.error(`Google authentication failed: ${error || 'Unknown error'}`);
+    }
+  }, []);
 
   useEffect(() => {
     if (agents.length > 0) {
