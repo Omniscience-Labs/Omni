@@ -20,7 +20,6 @@ import { ShareModal } from "@/components/sidebar/share-modal"
 import { useQueryClient } from "@tanstack/react-query";
 import { projectKeys } from "@/hooks/react-query/sidebar/keys";
 import { threadKeys } from "@/hooks/react-query/threads/keys";
-import { useFeatureFlags } from "@/lib/feature-flags";
 
 interface ThreadSiteHeaderProps {
   threadId?: string;
@@ -53,8 +52,6 @@ export function SiteHeader({
   const [showKnowledgeBase, setShowKnowledgeBase] = useState(false);
   const [copied, setCopied] = useState(false);
   const queryClient = useQueryClient();
-  const { flags, loading: flagsLoading } = useFeatureFlags(['knowledge_base']);
-  const knowledgeBaseEnabled = flags.knowledge_base;
 
   const isMobile = useIsMobile() || isMobileView
   const updateProjectMutation = useUpdateProject()

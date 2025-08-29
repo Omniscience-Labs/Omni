@@ -11,7 +11,6 @@ import hmac
 from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
-from flags.flags import is_enabled
 from utils.config import config
 from services.billing import check_billing_status, can_use_model
 
@@ -215,8 +214,6 @@ async def sync_triggers_to_version_config(agent_id: str):
 
 @router.get("/providers")
 async def get_providers():
-    if not await is_enabled("agent_triggers"):
-        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     try:
         provider_service = get_provider_service(db)
@@ -233,8 +230,6 @@ async def get_agent_triggers(
     agent_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    if not await is_enabled("agent_triggers"):
-        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     await verify_agent_access(agent_id, user_id)
     
@@ -355,8 +350,6 @@ async def get_agent_upcoming_runs(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Get upcoming scheduled runs for agent triggers"""
-    if not await is_enabled("agent_triggers"):
-        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     await verify_agent_access(agent_id, user_id)
     
@@ -429,8 +422,6 @@ async def create_agent_trigger(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Create a new trigger for an agent"""
-    if not await is_enabled("agent_triggers"):
-        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
         
     await verify_agent_access(agent_id, user_id)
     
@@ -478,8 +469,6 @@ async def get_trigger(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Get a trigger by ID"""
-    if not await is_enabled("agent_triggers"):
-        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     try:
         trigger_service = get_trigger_service(db)
@@ -519,8 +508,6 @@ async def update_trigger(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Update a trigger"""
-    if not await is_enabled("agent_triggers"):
-        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     try:
         trigger_service = get_trigger_service(db)
@@ -572,8 +559,6 @@ async def delete_trigger(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Delete a trigger"""
-    if not await is_enabled("agent_triggers"):
-        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     try:
         trigger_service = get_trigger_service(db)
@@ -606,8 +591,6 @@ async def trigger_webhook(
     request: Request
 ):
     """Handle incoming webhook for a trigger"""
-    if not await is_enabled("agent_triggers"):
-        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     try:
         # Simple header-based auth using a shared secret
