@@ -1,45 +1,26 @@
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
+from typing import Optional, Dict, List, Any
+from fastapi import APIRouter, HTTPException, Depends
 from uuid import uuid4
 
-from services.supabase import DBConnection
+from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
+from flags.flags import is_enabled
 from templates.template_service import MCPRequirementValue, ConfigType, ProfileId, QualifiedName
 
-@dataclass
-class JsonImportAnalysis:
-    requires_setup: bool
-    missing_regular_credentials: List[Dict[str, Any]] = field(default_factory=list)
-    missing_custom_configs: List[Dict[str, Any]] = field(default_factory=list)
-    agent_info: Dict[str, Any] = field(default_factory=dict)
+from ..models import JsonAnalysisRequest, JsonAnalysisResponse, JsonImportRequestModel, JsonImportResponse
+from .. import utils
 
-@dataclass
-class JsonImportRequest:
-    json_data: Dict[str, Any]
-    account_id: str
-    instance_name: Optional[str] = None
-    custom_system_prompt: Optional[str] = None
-    profile_mappings: Optional[Dict[QualifiedName, ProfileId]] = None
-    custom_mcp_configs: Optional[Dict[QualifiedName, ConfigType]] = None
-
-@dataclass
-class JsonImportResult:
-    status: str
-    instance_id: Optional[str] = None
-    name: Optional[str] = None
-    missing_regular_credentials: List[Dict[str, Any]] = field(default_factory=list)
-    missing_custom_configs: List[Dict[str, Any]] = field(default_factory=list)
-    agent_info: Dict[str, Any] = field(default_factory=dict)
+router = APIRouter()
 
 class JsonImportError(Exception):
     pass
 
 class JsonImportService:
-    def __init__(self, db_connection: DBConnection):
+    def __init__(self, db_connection):
         self._db = db_connection
     
-    async def analyze_json(self, json_data: Dict[str, Any], account_id: str) -> JsonImportAnalysis:
+    async def analyze_json(self, json_data: Dict[str, Any], account_id: str) -> JsonAnalysisResponse:
         logger.debug(f"Analyzing imported JSON for user {account_id}")
         
         mcp_requirements = self._extract_mcp_requirements_from_json(json_data)
@@ -62,15 +43,15 @@ class JsonImportService:
             'icon_background': json_data.get('icon_background', '#F3F4F6')
         }
         
-        return JsonImportAnalysis(
+        return JsonAnalysisResponse(
             requires_setup=bool(missing_profiles or missing_configs),
             missing_regular_credentials=missing_profiles,
             missing_custom_configs=missing_configs,
             agent_info=agent_info
         )
     
-    async def import_json(self, request: JsonImportRequest) -> JsonImportResult:
-        logger.debug(f"Importing agent from JSON for user {request.account_id}")
+    async def import_json(self, request: JsonImportRequestModel, account_id: str) -> JsonImportResponse:
+        logger.debug(f"Importing agent from JSON for user {account_id}")
         
         json_data = request.json_data
         
@@ -81,13 +62,13 @@ class JsonImportService:
         
         missing_profiles, missing_configs = await self._validate_requirements(
             mcp_requirements,
-            request.account_id,
+            account_id,
             request.profile_mappings,
             request.custom_mcp_configs
         )
         
         if missing_profiles or missing_configs:
-            return JsonImportResult(
+            return JsonImportResponse(
                 status='configs_required',
                 missing_regular_credentials=missing_profiles,
                 missing_custom_configs=missing_configs,
@@ -106,28 +87,30 @@ class JsonImportService:
         agent_config = await self._build_agent_config_from_json(
             json_data,
             request,
+            account_id,
             mcp_requirements
         )
         
         agent_id = await self._create_agent_from_json(
             json_data,
             request,
+            account_id,
             agent_config
         )
         
         await self._create_initial_version(
             agent_id,
-            request.account_id,
+            account_id,
             agent_config,
             request.custom_system_prompt or json_data.get('system_prompt', '')
         )
         
         from utils.cache import Cache
-        await Cache.invalidate(f"agent_count_limit:{request.account_id}")
+        await Cache.invalidate(f"agent_count_limit:{account_id}")
         
         logger.debug(f"Successfully imported agent {agent_id} from JSON")
         
-        return JsonImportResult(
+        return JsonImportResponse(
             status='success',
             instance_id=agent_id,
             name=request.instance_name or json_data.get('name', 'Imported Agent')
@@ -198,8 +181,8 @@ class JsonImportService:
         self,
         requirements: List[MCPRequirementValue],
         account_id: str,
-        profile_mappings: Optional[Dict[QualifiedName, ProfileId]],
-        custom_configs: Optional[Dict[QualifiedName, ConfigType]]
+        profile_mappings: Optional[Dict[str, str]],
+        custom_configs: Optional[Dict[str, Dict[str, Any]]]
     ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         
         missing_profiles = []
@@ -217,7 +200,8 @@ class JsonImportService:
     async def _build_agent_config_from_json(
         self,
         json_data: Dict[str, Any],
-        request: JsonImportRequest,
+        request: JsonImportRequestModel,
+        account_id: str,
         requirements: List[MCPRequirementValue]
     ) -> Dict[str, Any]:
         
@@ -287,7 +271,8 @@ class JsonImportService:
     async def _create_agent_from_json(
         self,
         json_data: Dict[str, Any],
-        request: JsonImportRequest,
+        request: JsonImportRequestModel,
+        account_id: str,
         agent_config: Dict[str, Any]
     ) -> str:
         
@@ -296,7 +281,7 @@ class JsonImportService:
         agent_name = request.instance_name or json_data.get('name', 'Imported Agent')
         
         insert_data = {
-            "account_id": request.account_id,
+            "account_id": account_id,
             "name": agent_name,
             "description": json_data.get('description', ''),
             "avatar": json_data.get('avatar'),
@@ -329,7 +314,7 @@ class JsonImportService:
         system_prompt: str
     ) -> None:
         
-        from agent.versioning.version_service import VersionService
+        from ..handlers.versioning.version_service import VersionService
         version_service = VersionService()
         
         await version_service.create_version(
@@ -340,4 +325,142 @@ class JsonImportService:
             configured_mcps=agent_config['tools']['mcp'],
             custom_mcps=agent_config['tools']['custom_mcp'],
             change_description="Initial version from JSON import"
-        ) 
+        )
+
+@router.get("/agents/{agent_id}/export")
+async def export_agent(agent_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
+    """Export an agent configuration as JSON"""
+    logger.debug(f"Exporting agent {agent_id} for user: {user_id}")
+    
+    try:
+        client = await utils.db.client
+        
+        # Get agent data
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent = agent_result.data[0]
+        
+        # Get current version data if available
+        current_version = None
+        if agent.get('current_version_id'):
+            version_result = await client.table('agent_versions').select('*').eq('version_id', agent['current_version_id']).execute()
+            if version_result.data:
+                current_version = version_result.data[0]
+
+        from agent.config_helper import extract_agent_config
+        config = extract_agent_config(agent, current_version)
+        
+        from templates.template_service import TemplateService
+        template_service = TemplateService(utils.db)
+        
+        full_config = {
+            'system_prompt': config.get('system_prompt', ''),
+            'tools': {
+                'agentpress': config.get('agentpress_tools', {}),
+                'mcp': config.get('configured_mcps', []),
+                'custom_mcp': config.get('custom_mcps', [])
+            },
+            'metadata': {
+                # keep backward compat metadata
+                'avatar': config.get('avatar'),
+                'avatar_color': config.get('avatar_color'),
+                # include profile image url in metadata for completeness
+                'profile_image_url': agent.get('profile_image_url')
+            }
+        }
+        
+        sanitized_config = template_service._fallback_sanitize_config(full_config)
+        
+        export_metadata = {}
+        if agent.get('metadata'):
+            export_metadata = {k: v for k, v in agent['metadata'].items() 
+                             if k not in ['is_suna_default', 'centrally_managed', 'installation_date', 'last_central_update']}
+        
+        export_data = {
+            "tools": sanitized_config['tools'],
+            "metadata": sanitized_config['metadata'],
+            "system_prompt": sanitized_config['system_prompt'],
+            "name": config.get('name', ''),
+            "description": config.get('description', ''),
+            # Deprecated
+            "avatar": config.get('avatar'),
+            "avatar_color": config.get('avatar_color'),
+            # New
+            "profile_image_url": agent.get('profile_image_url'),
+            "tags": agent.get('tags', []),
+            "export_metadata": export_metadata,
+            "exported_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        logger.debug(f"Successfully exported agent {agent_id}")
+        return export_data
+        
+    except Exception as e:
+        logger.error(f"Error exporting agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to export agent: {str(e)}")
+
+@router.post("/agents/json/analyze", response_model=JsonAnalysisResponse)
+async def analyze_json_for_import(
+    request: JsonAnalysisRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Analyze imported JSON to determine required credentials and configurations"""
+    logger.debug(f"Analyzing JSON for import - user: {user_id}")
+    
+    if not await is_enabled("custom_agents"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agents currently disabled. This feature is not available at the moment."
+        )
+    
+    try:
+        import_service = JsonImportService(utils.db)
+        
+        analysis = await import_service.analyze_json(request.json_data, user_id)
+        
+        return analysis
+        
+    except Exception as e:
+        logger.error(f"Error analyzing JSON: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to analyze JSON: {str(e)}")
+
+@router.post("/agents/json/import", response_model=JsonImportResponse)
+async def import_agent_from_json(
+    request: JsonImportRequestModel,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    logger.debug(f"Importing agent from JSON - user: {user_id}")
+    
+    if not await is_enabled("custom_agents"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agents currently disabled. This feature is not available at the moment."
+        )
+    
+    client = await utils.db.client
+    from ..utils import check_agent_count_limit
+    limit_check = await check_agent_count_limit(client, user_id)
+    
+    if not limit_check['can_create']:
+        error_detail = {
+            "message": f"Maximum of {limit_check['limit']} agents allowed for your current plan. You have {limit_check['current_count']} agents.",
+            "current_count": limit_check['current_count'],
+            "limit": limit_check['limit'],
+            "tier_name": limit_check['tier_name'],
+            "error_code": "AGENT_LIMIT_EXCEEDED"
+        }
+        logger.warning(f"Agent limit exceeded for account {user_id}: {limit_check['current_count']}/{limit_check['limit']} agents")
+        raise HTTPException(status_code=402, detail=error_detail)
+    
+    try:
+        import_service = JsonImportService(utils.db)
+        
+        result = await import_service.import_json(request, user_id)
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error importing agent from JSON: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to import agent: {str(e)}")

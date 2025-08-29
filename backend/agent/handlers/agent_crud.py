@@ -1,19 +1,20 @@
-import json
-import base64
-from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, HTTPException, Depends, File, UploadFile
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, Query
 
 from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
 from utils.config import config, EnvMode
+from utils.pagination import PaginationParams
 from flags.flags import is_enabled
 from models import model_manager
 
-from ..models import AgentUpdateRequest, AgentResponse, AgentVersionResponse
-from .. import helpers
-from ..helpers import _get_version_service, merge_custom_mcps
-from ..config_helper import extract_agent_config, build_unified_config
+from ..models import (
+    AgentUpdateRequest, AgentResponse, AgentVersionResponse, AgentsResponse, 
+    PaginationInfo, AgentCreateRequest
+)
+from .. import utils
+from ..utils import _get_version_service, merge_custom_mcps
+from ..config_helper import build_unified_config
 
 router = APIRouter()
 
@@ -35,7 +36,7 @@ async def update_agent(
         print(f"[DEBUG] update_agent: Received icon fields - icon_name={agent_data.icon_name}, icon_color={agent_data.icon_color}, icon_background={agent_data.icon_background}")
         print(f"[DEBUG] update_agent: Also received - profile_image_url={agent_data.profile_image_url}, avatar={agent_data.avatar}, avatar_color={agent_data.avatar_color}")
     
-    client = await helpers.db.client
+    client = await utils.db.client
     
     try:
         existing_agent = await client.table('agents').select('*').eq("agent_id", agent_id).eq("account_id", user_id).maybe_single().execute()
@@ -448,7 +449,7 @@ async def delete_agent(agent_id: str, user_id: str = Depends(get_current_user_id
             detail="Custom agent currently disabled. This feature is not available at the moment."
         )
     logger.debug(f"Deleting agent: {agent_id}")
-    client = await helpers.db.client
+    client = await utils.db.client
     
     try:
         agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).execute()
@@ -468,7 +469,7 @@ async def delete_agent(agent_id: str, user_id: str = Depends(get_current_user_id
         # Clean up triggers before deleting agent to ensure proper remote cleanup
         try:
             from triggers.trigger_service import get_trigger_service
-            trigger_service = get_trigger_service(helpers.db)
+            trigger_service = get_trigger_service(utils.db)
             
             # Get all triggers for this agent
             triggers_result = await client.table('agent_triggers').select('trigger_id').eq('agent_id', agent_id).execute()
@@ -510,17 +511,351 @@ async def delete_agent(agent_id: str, user_id: str = Depends(get_current_user_id
         logger.error(f"Error deleting agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.post("/agents/profile-image/upload")
-async def upload_agent_profile_image(
-    file: UploadFile = File(...),
+@router.get("/agents", response_model=AgentsResponse)
+async def get_agents(
+    user_id: str = Depends(get_current_user_id_from_jwt),
+    page: Optional[int] = Query(1, ge=1, description="Page number (1-based)"),
+    limit: Optional[int] = Query(20, ge=1, le=100, description="Number of items per page"),
+    search: Optional[str] = Query(None, description="Search in name and description"),
+    sort_by: Optional[str] = Query("created_at", description="Sort field: name, created_at, updated_at, tools_count"),
+    sort_order: Optional[str] = Query("desc", description="Sort order: asc, desc"),
+    has_default: Optional[bool] = Query(None, description="Filter by default agents"),
+    has_mcp_tools: Optional[bool] = Query(None, description="Filter by agents with MCP tools"),
+    has_agentpress_tools: Optional[bool] = Query(None, description="Filter by agents with AgentPress tools"),
+    tools: Optional[str] = Query(None, description="Comma-separated list of tools to filter by"),
+    content_type: Optional[str] = Query(None, description="Content type filter: 'agents', 'templates', or None for agents only")
+):
+    if not await is_enabled("custom_agents"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agents currently disabled. This feature is not available at the moment."
+        )
+    try:
+        from .agent_service import AgentService, AgentFilters
+        
+        tools_list = []
+        if tools:
+            if isinstance(tools, str):
+                tools_list = [tool.strip() for tool in tools.split(',') if tool.strip()]
+            else:
+                logger.warning(f"Unexpected tools parameter type: {type(tools)}")
+        
+        pagination_params = PaginationParams(
+            page=page,
+            page_size=limit
+        )
+        
+        filters = AgentFilters(
+            search=search,
+            has_default=has_default,
+            has_mcp_tools=has_mcp_tools,
+            has_agentpress_tools=has_agentpress_tools,
+            tools=tools_list,
+            content_type=content_type,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
+        
+        client = await utils.db.client
+        agent_service = AgentService(client)
+        paginated_result = await agent_service.get_agents_paginated(
+            user_id=user_id,
+            pagination_params=pagination_params,
+            filters=filters
+        )
+        
+        agent_responses = []
+        for agent_data in paginated_result.data:
+            agent_response = AgentResponse(**agent_data)
+            agent_responses.append(agent_response)
+        
+        return AgentsResponse(
+            agents=agent_responses,
+            pagination=PaginationInfo(
+                current_page=paginated_result.pagination.current_page,
+                page_size=paginated_result.pagination.page_size,
+                total_items=paginated_result.pagination.total_items,
+                total_pages=paginated_result.pagination.total_pages,
+                has_next=paginated_result.pagination.has_next,
+                has_previous=paginated_result.pagination.has_previous
+            )
+        )
+        
+    except Exception as e:
+        logger.error(f"Error fetching agents for user {user_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch agents: {str(e)}")
+
+@router.get("/agents/{agent_id}", response_model=AgentResponse)
+async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
+    if not await is_enabled("custom_agents"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agents currently disabled. This feature is not available at the moment."
+        )
+    
+    logger.debug(f"Fetching agent {agent_id} for user: {user_id}")
+    
+    client = await utils.db.client
+    
+    try:
+        agent = await client.table('agents').select('*').eq("agent_id", agent_id).execute()
+        
+        if not agent.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent_data = agent.data[0]
+        
+        if config.ENV_MODE == EnvMode.STAGING:
+            print(f"[DEBUG] get_agent: Fetched agent from DB - icon_name={agent_data.get('icon_name')}, icon_color={agent_data.get('icon_color')}, icon_background={agent_data.get('icon_background')}")
+            print(f"[DEBUG] get_agent: Also has - profile_image_url={agent_data.get('profile_image_url')}, avatar={agent_data.get('avatar')}, avatar_color={agent_data.get('avatar_color')}")
+        
+        if agent_data['account_id'] != user_id and not agent_data.get('is_public', False):
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        current_version = None
+        if agent_data.get('current_version_id'):
+            try:
+                version_service = await _get_version_service()
+                current_version_obj = await version_service.get_version(
+                    agent_id=agent_id,
+                    version_id=agent_data['current_version_id'],
+                    user_id=user_id
+                )
+                current_version_data = current_version_obj.to_dict()
+                version_data = current_version_data
+                
+                # Create AgentVersionResponse from version data
+                current_version = AgentVersionResponse(
+                    version_id=current_version_data['version_id'],
+                    agent_id=current_version_data['agent_id'],
+                    version_number=current_version_data['version_number'],
+                    version_name=current_version_data['version_name'],
+                    system_prompt=current_version_data['system_prompt'],
+                    model=current_version_data.get('model'),
+                    configured_mcps=current_version_data.get('configured_mcps', []),
+                    custom_mcps=current_version_data.get('custom_mcps', []),
+                    agentpress_tools=current_version_data.get('agentpress_tools', {}),
+                    is_active=current_version_data.get('is_active', True),
+                    created_at=current_version_data['created_at'],
+                    updated_at=current_version_data.get('updated_at', current_version_data['created_at']),
+                    created_by=current_version_data.get('created_by')
+                )
+                
+                logger.debug(f"Using agent {agent_data['name']} version {current_version_data.get('version_name', 'v1')}")
+            except Exception as e:
+                logger.warning(f"Failed to get version data for agent {agent_id}: {e}")
+        
+        # Extract configuration using the unified config approach
+        version_data = None
+        if current_version:
+            version_data = {
+                'version_id': current_version.version_id,
+                'agent_id': current_version.agent_id,
+                'version_number': current_version.version_number,
+                'version_name': current_version.version_name,
+                'system_prompt': current_version.system_prompt,
+                'model': current_version.model,
+                'configured_mcps': current_version.configured_mcps,
+                'custom_mcps': current_version.custom_mcps,
+                'agentpress_tools': current_version.agentpress_tools,
+                'is_active': current_version.is_active,
+                'created_at': current_version.created_at,
+                'updated_at': current_version.updated_at,
+                'created_by': current_version.created_by
+            }
+        
+        from agent.config_helper import extract_agent_config
+        
+        # Debug logging before extract_agent_config
+        if config.ENV_MODE == EnvMode.STAGING:
+            print(f"[DEBUG] get_agent: Before extract_agent_config - agent_data has icon_name={agent_data.get('icon_name')}, icon_color={agent_data.get('icon_color')}, icon_background={agent_data.get('icon_background')}")
+        
+        agent_config = extract_agent_config(agent_data, version_data)
+        
+        # Debug logging after extract_agent_config
+        if config.ENV_MODE == EnvMode.STAGING:
+            print(f"[DEBUG] get_agent: After extract_agent_config - agent_config has icon_name={agent_config.get('icon_name')}, icon_color={agent_config.get('icon_color')}, icon_background={agent_config.get('icon_background')}")
+            print(f"[DEBUG] get_agent: Final response will use icon fields from agent_config")
+        
+        system_prompt = agent_config['system_prompt']
+        configured_mcps = agent_config['configured_mcps']
+        custom_mcps = agent_config['custom_mcps']
+        agentpress_tools = agent_config['agentpress_tools']
+        
+        response = AgentResponse(
+            agent_id=agent_data['agent_id'],
+            name=agent_data['name'],
+            description=agent_data.get('description'),
+            system_prompt=system_prompt,
+            configured_mcps=configured_mcps,
+            custom_mcps=custom_mcps,
+            agentpress_tools=agentpress_tools,
+            is_default=agent_data.get('is_default', False),
+            is_public=agent_data.get('is_public', False),
+            tags=agent_data.get('tags', []),
+            avatar=agent_config.get('avatar'),
+            avatar_color=agent_config.get('avatar_color'),
+            profile_image_url=agent_config.get('profile_image_url'),
+            icon_name=agent_config.get('icon_name'),
+            icon_color=agent_config.get('icon_color'),
+            icon_background=agent_config.get('icon_background'),
+            created_at=agent_data['created_at'],
+            updated_at=agent_data.get('updated_at', agent_data['created_at']),
+            current_version_id=agent_data.get('current_version_id'),
+            version_count=agent_data.get('version_count', 1),
+            current_version=current_version,
+            metadata=agent_data.get('metadata')
+        )
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching agent {agent_id} for user {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch agent: {str(e)}")
+
+@router.post("/agents", response_model=AgentResponse)
+async def create_agent(
+    agent_data: AgentCreateRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    logger.debug(f"Creating new agent for user: {user_id}")
+    if not await is_enabled("custom_agents"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agents currently disabled. This feature is not available at the moment."
+        )
+    client = await utils.db.client
+    
+    from ..utils import check_agent_count_limit
+    limit_check = await check_agent_count_limit(client, user_id)
+    
+    if not limit_check['can_create']:
+        error_detail = {
+            "message": f"Maximum of {limit_check['limit']} agents allowed for your current plan. You have {limit_check['current_count']} agents.",
+            "current_count": limit_check['current_count'],
+            "limit": limit_check['limit'],
+            "tier_name": limit_check['tier_name'],
+            "error_code": "AGENT_LIMIT_EXCEEDED"
+        }
+        logger.warning(f"Agent limit exceeded for account {user_id}: {limit_check['current_count']}/{limit_check['limit']} agents")
+        raise HTTPException(status_code=402, detail=error_detail)
+    
     try:
-        content_type = file.content_type or "image/png"
-        image_bytes = await file.read()
-        from utils.s3_upload_utils import upload_image_bytes
-        public_url = await upload_image_bytes(image_bytes=image_bytes, content_type=content_type, bucket_name="agent-profile-images")
-        return {"url": public_url}
+        if agent_data.is_default:
+            await client.table('agents').update({"is_default": False}).eq("account_id", user_id).eq("is_default", True).execute()
+        
+        insert_data = {
+            "account_id": user_id,
+            "name": agent_data.name,
+            "description": agent_data.description,
+            "avatar": agent_data.avatar,
+            "avatar_color": agent_data.avatar_color,
+            "profile_image_url": agent_data.profile_image_url,
+            "icon_name": agent_data.icon_name or "bot",
+            "icon_color": agent_data.icon_color or "#000000",
+            "icon_background": agent_data.icon_background or "#F3F4F6",
+            "is_default": agent_data.is_default or False,
+            "version_count": 1
+        }
+        
+        if config.ENV_MODE == EnvMode.STAGING:
+            print(f"[DEBUG] create_agent: Creating with icon_name={insert_data.get('icon_name')}, icon_color={insert_data.get('icon_color')}, icon_background={insert_data.get('icon_background')}")
+        
+        new_agent = await client.table('agents').insert(insert_data).execute()
+        
+        if not new_agent.data:
+            raise HTTPException(status_code=500, detail="Failed to create agent")
+        
+        agent = new_agent.data[0]
+        
+        try:
+            version_service = await _get_version_service()
+            from agent.suna_config import SUNA_CONFIG
+            from agent.config_helper import _get_default_agentpress_tools
+            from models import model_manager
+            
+            system_prompt = SUNA_CONFIG["system_prompt"]
+            
+            agentpress_tools = agent_data.agentpress_tools if agent_data.agentpress_tools else _get_default_agentpress_tools()
+            
+            default_model = await model_manager.get_default_model_for_user(client, user_id)
+            
+            version = await version_service.create_version(
+                agent_id=agent['agent_id'],
+                user_id=user_id,
+                system_prompt=system_prompt,
+                model=default_model,
+                configured_mcps=agent_data.configured_mcps or [],
+                custom_mcps=agent_data.custom_mcps or [],
+                agentpress_tools=agentpress_tools,
+                version_name="v1",
+                change_description="Initial version"
+            )
+            
+            agent['current_version_id'] = version.version_id
+            agent['version_count'] = 1
+
+            current_version = AgentVersionResponse(
+                version_id=version.version_id,
+                agent_id=version.agent_id,
+                version_number=version.version_number,
+                version_name=version.version_name,
+                system_prompt=version.system_prompt,
+                model=version.model,
+                configured_mcps=version.configured_mcps,
+                custom_mcps=version.custom_mcps,
+                agentpress_tools=version.agentpress_tools,
+                is_active=version.is_active,
+                created_at=version.created_at.isoformat(),
+                updated_at=version.updated_at.isoformat(),
+                created_by=version.created_by
+            )
+        except Exception as e:
+            logger.error(f"Error creating initial version: {str(e)}")
+            await client.table('agents').delete().eq('agent_id', agent['agent_id']).execute()
+            raise HTTPException(status_code=500, detail="Failed to create initial version")
+        
+        from utils.cache import Cache
+        await Cache.invalidate(f"agent_count_limit:{user_id}")
+        
+        logger.debug(f"Created agent {agent['agent_id']} with v1 for user: {user_id}")
+        
+        response = AgentResponse(
+            agent_id=agent['agent_id'],
+            name=agent['name'],
+            description=agent.get('description'),
+            system_prompt=version.system_prompt,
+            model=version.model,
+            configured_mcps=version.configured_mcps,
+            custom_mcps=version.custom_mcps,
+            agentpress_tools=version.agentpress_tools,
+            is_default=agent.get('is_default', False),
+            is_public=agent.get('is_public', False),
+            tags=agent.get('tags', []),
+            avatar=agent.get('avatar'),
+            avatar_color=agent.get('avatar_color'),
+            profile_image_url=agent.get('profile_image_url'),
+            icon_name=agent.get('icon_name'),
+            icon_color=agent.get('icon_color'),
+            icon_background=agent.get('icon_background'),
+            created_at=agent['created_at'],
+            updated_at=agent.get('updated_at', agent['created_at']),
+            current_version_id=agent.get('current_version_id'),
+            version_count=agent.get('version_count', 1),
+            current_version=current_version,
+            metadata=agent.get('metadata')
+        )
+        
+        if config.ENV_MODE == EnvMode.STAGING:
+            print(f"[DEBUG] create_agent RESPONSE: Returning icon_name={response.icon_name}, icon_color={response.icon_color}, icon_background={response.icon_background}")
+            print(f"[DEBUG] create_agent RESPONSE: Also returning profile_image_url={response.profile_image_url}, avatar={response.avatar}, avatar_color={response.avatar_color}")
+        
+        return response
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to upload agent profile image for user {user_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to upload image")
+        logger.error(f"Error creating agent for user {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create agent: {str(e)}")

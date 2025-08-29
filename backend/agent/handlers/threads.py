@@ -10,7 +10,7 @@ from utils.logger import logger
 from sandbox.sandbox import create_sandbox, delete_sandbox
 
 from ..models import CreateThreadResponse, MessageCreateRequest
-from .. import helpers
+from .. import utils
 
 router = APIRouter()
 
@@ -22,7 +22,7 @@ async def get_user_threads(
 ):
     """Get all threads for the current user with associated project data."""
     logger.debug(f"Fetching threads with project data for user: {user_id} (page={page}, limit={limit})")
-    client = await helpers.db.client
+    client = await utils.db.client
     try:
         offset = (page - 1) * limit
         
@@ -125,7 +125,7 @@ async def get_thread(
 ):
     """Get a specific thread by ID with complete related data."""
     logger.debug(f"Fetching thread: {thread_id}")
-    client = await helpers.db.client
+    client = await utils.db.client
     
     try:
         await verify_thread_access(client, thread_id, user_id)
@@ -210,7 +210,7 @@ async def create_thread(
     if not name:
         name = "New Project"
     logger.debug(f"Creating new thread with name: {name}")
-    client = await helpers.db.client
+    client = await utils.db.client
     account_id = user_id  # In Basejump, personal account_id is the same as user_id
     
     try:
@@ -308,7 +308,7 @@ async def get_thread_messages(
 ):
     """Get all messages for a thread, fetching in batches of 1000 from the DB to avoid large queries."""
     logger.debug(f"Fetching all messages for thread: {thread_id}, order={order}")
-    client = await helpers.db.client
+    client = await utils.db.client
     await verify_thread_access(client, thread_id, user_id)
     try:
         batch_size = 1000
@@ -341,7 +341,7 @@ async def get_agent_run(
     This endpoint is deprecated and may be removed in future versions.
     """
     logger.warning(f"[DEPRECATED] Fetching agent run: {agent_run_id}")
-    client = await helpers.db.client
+    client = await utils.db.client
     try:
         agent_run_result = await client.table('agent_runs').select('*').eq('agent_run_id', agent_run_id).eq('account_id', user_id).execute()
         if not agent_run_result.data:
@@ -359,7 +359,7 @@ async def add_message_to_thread(
 ):
     """Add a message to a thread"""
     logger.debug(f"Adding message to thread: {thread_id}")
-    client = await helpers.db.client
+    client = await utils.db.client
     await verify_thread_access(client, thread_id, user_id)
     try:
         message_result = await client.table('messages').insert({
@@ -384,7 +384,7 @@ async def create_message(
 ):
     """Create a new message in a thread."""
     logger.debug(f"Creating message in thread: {thread_id}")
-    client = await helpers.db.client
+    client = await utils.db.client
     
     try:
         await verify_thread_access(client, thread_id, user_id)
@@ -425,7 +425,7 @@ async def delete_message(
 ):
     """Delete a message from a thread."""
     logger.debug(f"Deleting message from thread: {thread_id}")
-    client = await helpers.db.client
+    client = await utils.db.client
     await verify_thread_access(client, thread_id, user_id)
     try:
         # Don't allow users to delete the "status" messages

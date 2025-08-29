@@ -11,9 +11,8 @@ from sandbox.sandbox import get_or_start_sandbox
 from services.supabase import DBConnection
 from agentpress.thread_manager import ThreadManager
 
-from .. import helpers
-from ..helpers import _get_version_service
-from ..tools.sb_presentation_tool import SandboxPresentationTool
+from .. import utils
+from ..utils import _get_version_service
 
 router = APIRouter()
 
@@ -25,7 +24,7 @@ async def get_custom_mcp_tools_for_agent(
 ):
     logger.debug(f"Getting custom MCP tools for agent {agent_id}, user {user_id}")
     try:
-        client = await helpers.db.client
+        client = await utils.db.client
         agent_result = await client.table('agents').select('current_version_id').eq('agent_id', agent_id).eq('account_id', user_id).execute()
         if not agent_result.data:
             raise HTTPException(status_code=404, detail="Agent not found")
@@ -105,7 +104,7 @@ async def update_custom_mcp_tools_for_agent(
     logger.debug(f"Updating custom MCP tools for agent {agent_id}, user {user_id}")
     
     try:
-        client = await helpers.db.client
+        client = await utils.db.client
         
         agent_result = await client.table('agents').select('current_version_id').eq('agent_id', agent_id).eq('account_id', user_id).execute()
         if not agent_result.data:
@@ -178,7 +177,7 @@ async def update_custom_mcp_tools_for_agent(
         tools['custom_mcp'] = custom_mcps
         agent_config['tools'] = tools
         
-        from agent.versioning.version_service import get_version_service
+        from .versioning.version_service import get_version_service
         try:
             version_service = await get_version_service() 
             new_version = await version_service.create_version(
@@ -207,58 +206,6 @@ async def update_custom_mcp_tools_for_agent(
         logger.error(f"Error updating custom MCP tools for agent {agent_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.get("/agents/{agent_id}/tools")
-async def get_agent_tools(
-    agent_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
-):
-    if not await is_enabled("custom_agents"):
-        raise HTTPException(status_code=403, detail="Custom agents currently disabled")
-        
-    logger.debug(f"Fetching enabled tools for agent: {agent_id} by user: {user_id}")
-    client = await helpers.db.client
-
-    agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).execute()
-    if not agent_result.data:
-        raise HTTPException(status_code=404, detail="Agent not found")
-    agent = agent_result.data[0]
-    if agent['account_id'] != user_id and not agent.get('is_public', False):
-        raise HTTPException(status_code=403, detail="Access denied")
-
-    version_data = None
-    if agent.get('current_version_id'):
-        try:
-            version_service = await _get_version_service()
-
-            version_obj = await version_service.get_version(
-                agent_id=agent_id,
-                version_id=agent['current_version_id'],
-                user_id=user_id
-            )
-            version_data = version_obj.to_dict()
-        except Exception as e:
-            logger.warning(f"Failed to fetch version data for tools endpoint: {e}")
-    
-    from agent.config_helper import extract_agent_config
-    agent_config = extract_agent_config(agent, version_data)
-    
-    agentpress_tools_config = agent_config['agentpress_tools']
-    configured_mcps = agent_config['configured_mcps'] 
-    custom_mcps = agent_config['custom_mcps']
-
-    agentpress_tools = []
-    for name, enabled in agentpress_tools_config.items():
-        is_enabled_tool = bool(enabled.get('enabled', False)) if isinstance(enabled, dict) else bool(enabled)
-        agentpress_tools.append({"name": name, "enabled": is_enabled_tool})
-
-    mcp_tools = []
-    for mcp in configured_mcps + custom_mcps:
-        server = mcp.get('name')
-        enabled_tools = mcp.get('enabledTools') or mcp.get('enabled_tools') or []
-        for tool_name in enabled_tools:
-            mcp_tools.append({"name": tool_name, "server": server, "enabled": True})
-    return {"agentpress_tools": agentpress_tools, "mcp_tools": mcp_tools}
-
 @router.put("/agents/{agent_id}/custom-mcp-tools")
 async def update_agent_custom_mcps(
     agent_id: str,
@@ -268,7 +215,7 @@ async def update_agent_custom_mcps(
     logger.debug(f"Updating agent {agent_id} custom MCPs for user {user_id}")
     
     try:
-        client = await helpers.db.client
+        client = await utils.db.client
         agent_result = await client.table('agents').select('current_version_id').eq('agent_id', agent_id).eq('account_id', user_id).execute()
         if not agent_result.data:
             raise HTTPException(status_code=404, detail="Agent not found")
@@ -329,7 +276,7 @@ async def update_agent_custom_mcps(
         tools['custom_mcp'] = existing_custom_mcps
         agent_config['tools'] = tools
         
-        from agent.versioning.version_service import get_version_service
+        from .versioning.version_service import get_version_service
         import datetime
         
         try:
@@ -366,4 +313,56 @@ async def update_agent_custom_mcps(
     except Exception as e:
         logger.error(f"Error updating agent custom MCPs: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.get("/agents/{agent_id}/tools")
+async def get_agent_tools(
+    agent_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    if not await is_enabled("custom_agents"):
+        raise HTTPException(status_code=403, detail="Custom agents currently disabled")
+        
+    logger.debug(f"Fetching enabled tools for agent: {agent_id} by user: {user_id}")
+    client = await utils.db.client
+
+    agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).execute()
+    if not agent_result.data:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    agent = agent_result.data[0]
+    if agent['account_id'] != user_id and not agent.get('is_public', False):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    version_data = None
+    if agent.get('current_version_id'):
+        try:
+            version_service = await _get_version_service()
+
+            version_obj = await version_service.get_version(
+                agent_id=agent_id,
+                version_id=agent['current_version_id'],
+                user_id=user_id
+            )
+            version_data = version_obj.to_dict()
+        except Exception as e:
+            logger.warning(f"Failed to fetch version data for tools endpoint: {e}")
+    
+    from agent.config_helper import extract_agent_config
+    agent_config = extract_agent_config(agent, version_data)
+    
+    agentpress_tools_config = agent_config['agentpress_tools']
+    configured_mcps = agent_config['configured_mcps'] 
+    custom_mcps = agent_config['custom_mcps']
+
+    agentpress_tools = []
+    for name, enabled in agentpress_tools_config.items():
+        is_enabled_tool = bool(enabled.get('enabled', False)) if isinstance(enabled, dict) else bool(enabled)
+        agentpress_tools.append({"name": name, "enabled": is_enabled_tool})
+
+    mcp_tools = []
+    for mcp in configured_mcps + custom_mcps:
+        server = mcp.get('name')
+        enabled_tools = mcp.get('enabledTools') or mcp.get('enabled_tools') or []
+        for tool_name in enabled_tools:
+            mcp_tools.append({"name": tool_name, "server": server, "enabled": True})
+    return {"agentpress_tools": agentpress_tools, "mcp_tools": mcp_tools}
 
