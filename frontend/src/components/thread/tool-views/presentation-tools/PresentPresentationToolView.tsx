@@ -99,7 +99,6 @@ export function PresentPresentationToolView({
           `/workspace/${presentationPath}`, 
           presentationName
         );
-        toast.success(`${format} downloaded successfully`);
       }
     } catch (error) {
       console.error(`Error downloading ${format}:`, error);

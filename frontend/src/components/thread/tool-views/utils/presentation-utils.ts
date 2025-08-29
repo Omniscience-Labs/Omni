@@ -103,6 +103,9 @@ export async function downloadPresentation(
     a.download = `${presentationName}.${format}`;
     a.click();
     window.URL.revokeObjectURL(url);
+    toast.success(`Downloaded ${presentationName} as ${format.toUpperCase()}`, {
+      duration: 8000,
+    });
   } catch (error) {
     console.error(`Error downloading ${format}:`, error);
     throw error; // Re-throw to allow calling code to handle
