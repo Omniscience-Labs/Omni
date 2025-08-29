@@ -52,7 +52,6 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { useTheme } from 'next-themes';
 import { isLocalMode } from '@/lib/config';
-import { useFeatureFlag } from '@/lib/feature-flags';
 import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
 
 export function NavUserWithTeams({
@@ -69,7 +68,6 @@ export function NavUserWithTeams({
   const { data: accounts } = useAccounts();
   const [showNewTeamDialog, setShowNewTeamDialog] = React.useState(false);
   const { theme, setTheme } = useTheme();
-  const { enabled: customAgentsEnabled, loading: flagLoading } = useFeatureFlag("custom_agents");
 
   // Prepare personal account and team accounts
   const personalAccount = React.useMemo(
@@ -295,7 +293,7 @@ export function NavUserWithTeams({
                     Billing
                   </Link>
                 </DropdownMenuItem>
-                {!flagLoading && customAgentsEnabled && (
+                {(
                   <DropdownMenuItem asChild>
                     <Link href="/settings/credentials">
                       <Plug className="h-4 w-4" />
@@ -303,7 +301,7 @@ export function NavUserWithTeams({
                     </Link>
                   </DropdownMenuItem>
                 )}
-                {!flagLoading && customAgentsEnabled && (
+                {(
                   <DropdownMenuItem asChild>
                     <Link href="/settings/api-keys">
                       <Key className="h-4 w-4" />

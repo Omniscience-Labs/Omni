@@ -1,4 +1,4 @@
-from agent.prompt import SYSTEM_PROMPT
+from agent.prompts.prompt import SYSTEM_PROMPT
 
 # Suna default configuration - simplified and centralized
 SUNA_CONFIG = {

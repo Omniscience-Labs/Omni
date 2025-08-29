@@ -96,6 +96,7 @@ export const useCreateComposioEventTrigger = () => {
       if (agentId) {
         queryClient.invalidateQueries({ queryKey: ['agent-triggers', agentId] });
       }
+      queryClient.invalidateQueries({ queryKey: ['all-triggers'] });
     }
   });
 };
