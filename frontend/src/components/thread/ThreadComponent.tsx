@@ -843,7 +843,7 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
               }
               onStopAgent={handleStopAgent}
               autoFocus={!isLoading}
-              enableAdvancedConfig={true}
+              enableAdvancedConfig={false}
               onFileBrowse={handleOpenFileViewer}
               sandboxId={sandboxId || undefined}
               messages={messages}
@@ -975,7 +975,7 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
               }
               onStopAgent={handleStopAgent}
               autoFocus={!isLoading}
-              enableAdvancedConfig={true}
+              enableAdvancedConfig={false}
               onFileBrowse={handleOpenFileViewer}
               sandboxId={sandboxId || undefined}
               messages={messages}

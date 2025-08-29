@@ -348,7 +348,7 @@ export function HeroSection() {
                   selectedAgentId={selectedAgentId}
                   onAgentSelect={setSelectedAgentId}
                   autoFocus={false}
-                  enableAdvancedConfig={true}
+                  enableAdvancedConfig={false}
                 />
               </div>
               {/* Subtle glow effect */}
