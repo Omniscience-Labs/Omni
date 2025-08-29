@@ -269,6 +269,98 @@ async def get_agent_triggers(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.get("/all", response_model=List[Dict[str, Any]])
+async def get_all_user_triggers(
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    if not await is_enabled("agent_triggers"):
+        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
+    
+    try:
+        client = await db.client
+        
+        agents_result = await client.table('agents').select(
+            'agent_id, name, description, current_version_id, config, icon_name, icon_color, icon_background, profile_image_url'
+        ).eq('account_id', user_id).execute()
+        
+        if not agents_result.data:
+            return []
+        
+        agent_info = {}
+        for agent in agents_result.data:
+            agent_config = agent.get('config', {})
+            agent_name = agent.get('name', 'Untitled Agent')
+            agent_description = agent.get('description', '')
+            
+            if isinstance(agent_config, dict):
+                if 'metadata' in agent_config and isinstance(agent_config['metadata'], dict):
+                    agent_name = agent_config['metadata'].get('name', agent_name)
+                    agent_description = agent_config['metadata'].get('description', agent_description)
+                elif 'name' in agent_config:
+                    agent_name = agent_config.get('name', agent_name)
+                elif 'description' in agent_config:
+                    agent_description = agent_config.get('description', agent_description)
+            
+            agent_info[agent['agent_id']] = {
+                'agent_name': agent_name,
+                'agent_description': agent_description,
+                'icon_name': agent.get('icon_name'),
+                'icon_color': agent.get('icon_color'),
+                'icon_background': agent.get('icon_background'),
+                'profile_image_url': agent.get('profile_image_url')
+            }
+        
+        agent_ids = [agent['agent_id'] for agent in agents_result.data]
+        triggers_result = await client.table('agent_triggers').select('*').in_('agent_id', agent_ids).execute()
+        
+        if not triggers_result.data:
+            return []
+        
+        base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
+        
+        responses = []
+        for trigger in triggers_result.data:
+            agent_id = trigger['agent_id']
+            webhook_url = f"{base_url}/api/triggers/{trigger['trigger_id']}/webhook"
+
+            config = trigger.get('config', {})
+            if isinstance(config, str):
+                try:
+                    import json
+                    config = json.loads(config)
+                except json.JSONDecodeError:
+                    config = {}
+            
+            response_data = {
+                'trigger_id': trigger['trigger_id'],
+                'agent_id': agent_id,
+                'trigger_type': trigger['trigger_type'],
+                'provider_id': trigger.get('provider_id', ''),
+                'name': trigger['name'],
+                'description': trigger.get('description'),
+                'is_active': trigger.get('is_active', False),
+                'webhook_url': webhook_url,
+                'created_at': trigger['created_at'],
+                'updated_at': trigger['updated_at'],
+                'config': config,
+                'agent_name': agent_info.get(agent_id, {}).get('agent_name', 'Untitled Agent'),
+                'agent_description': agent_info.get(agent_id, {}).get('agent_description', ''),
+                'icon_name': agent_info.get(agent_id, {}).get('icon_name'),
+                'icon_color': agent_info.get(agent_id, {}).get('icon_color'),
+                'icon_background': agent_info.get(agent_id, {}).get('icon_background'),
+                'profile_image_url': agent_info.get(agent_id, {}).get('profile_image_url')
+            }
+            
+            responses.append(response_data)
+        responses.sort(key=lambda x: x['updated_at'], reverse=True)
+        
+        return responses
+        
+    except Exception as e:
+        logger.error(f"Error getting all user triggers: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @router.get("/agents/{agent_id}/upcoming-runs", response_model=UpcomingRunsResponse)
 async def get_agent_upcoming_runs(
     agent_id: str,
