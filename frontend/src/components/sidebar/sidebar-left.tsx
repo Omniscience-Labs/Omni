@@ -186,6 +186,21 @@ export function SidebarLeft({
               </span>
             </SidebarMenuButton>
           </Link>
+          <Link href="/tasks">
+            <SidebarMenuButton 
+              className={cn('touch-manipulation mt-1', {
+                'bg-accent text-accent-foreground font-medium': pathname === '/tasks',
+              })} 
+              onClick={() => {
+                if (isMobile) setOpenMobile(false);
+              }}
+            >
+              <Zap className="h-4 w-4 mr-1" />
+              <span className="flex items-center justify-between w-full">
+                Tasks
+              </span>
+            </SidebarMenuButton>
+          </Link>
           {!flagsLoading && customAgentsEnabled && (
             <SidebarMenu>
               <Collapsible

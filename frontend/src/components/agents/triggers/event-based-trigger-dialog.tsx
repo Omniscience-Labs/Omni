@@ -25,6 +25,7 @@ interface EventBasedTriggerDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     agentId: string;
+    onTriggerCreated?: (triggerId: string) => void;
 }
 
 type JSONSchema = {
@@ -295,7 +296,7 @@ const DynamicConfigForm: React.FC<{
     );
 };
 
-export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = ({ open, onOpenChange, agentId }) => {
+export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = ({ open, onOpenChange, agentId, onTriggerCreated }) => {
     const [step, setStep] = useState<'apps' | 'triggers' | 'config'>('apps');
     const [search, setSearch] = useState('');
     const [selectedApp, setSelectedApp] = useState<{ slug: string; name: string; logo?: string } | null>(null);
@@ -412,8 +413,13 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
             const payload = executionType === 'agent'
                 ? { ...base, route: 'agent' as const, agent_prompt: (prompt || 'Read this') }
                 : { ...base, route: 'workflow' as const, workflow_id: selectedWorkflowId, workflow_input: workflowInput };
-            await createTrigger.mutateAsync(payload);
-            toast.success('Event trigger created');
+            const result = await createTrigger.mutateAsync(payload);
+            toast.success('Task created');
+
+            if (onTriggerCreated && result?.trigger_id) {
+                onTriggerCreated(result.trigger_id);
+            }
+            
             onOpenChange(false);
         } catch (e: any) {
             toast.error(e?.message || 'Failed to create trigger');
