@@ -5,7 +5,6 @@ from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
 from utils.config import config, EnvMode
 from utils.pagination import PaginationParams
-from flags.flags import is_enabled
 from models import model_manager
 
 from ..models import (
@@ -24,11 +23,6 @@ async def update_agent(
     agent_data: AgentUpdateRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    if not await is_enabled("custom_agents"):
-        raise HTTPException(
-            status_code=403, 
-            detail="Custom agent currently disabled. This feature is not available at the moment."
-        )
     logger.debug(f"Updating agent {agent_id} for user: {user_id}")
     
     # Debug logging for icon fields
@@ -443,11 +437,6 @@ async def update_agent(
 
 @router.delete("/agents/{agent_id}")
 async def delete_agent(agent_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
-    if not await is_enabled("custom_agents"):
-        raise HTTPException(
-            status_code=403, 
-            detail="Custom agent currently disabled. This feature is not available at the moment."
-        )
     logger.debug(f"Deleting agent: {agent_id}")
     client = await utils.db.client
     
@@ -525,11 +514,6 @@ async def get_agents(
     tools: Optional[str] = Query(None, description="Comma-separated list of tools to filter by"),
     content_type: Optional[str] = Query(None, description="Content type filter: 'agents', 'templates', or None for agents only")
 ):
-    if not await is_enabled("custom_agents"):
-        raise HTTPException(
-            status_code=403, 
-            detail="Custom agents currently disabled. This feature is not available at the moment."
-        )
     try:
         from .agent_service import AgentService, AgentFilters
         
@@ -587,11 +571,6 @@ async def get_agents(
 
 @router.get("/agents/{agent_id}", response_model=AgentResponse)
 async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
-    if not await is_enabled("custom_agents"):
-        raise HTTPException(
-            status_code=403, 
-            detail="Custom agents currently disabled. This feature is not available at the moment."
-        )
     
     logger.debug(f"Fetching agent {agent_id} for user: {user_id}")
     
@@ -721,11 +700,6 @@ async def create_agent(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     logger.debug(f"Creating new agent for user: {user_id}")
-    if not await is_enabled("custom_agents"):
-        raise HTTPException(
-            status_code=403, 
-            detail="Custom agents currently disabled. This feature is not available at the moment."
-        )
     client = await utils.db.client
     
     from ..utils import check_agent_count_limit

@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException, Depends, Request, Body
 
 from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
-from flags.flags import is_enabled
 from sandbox.sandbox import get_or_start_sandbox
 from services.supabase import DBConnection
 from agentpress.thread_manager import ThreadManager
@@ -319,8 +318,6 @@ async def get_agent_tools(
     agent_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    if not await is_enabled("custom_agents"):
-        raise HTTPException(status_code=403, detail="Custom agents currently disabled")
         
     logger.debug(f"Fetching enabled tools for agent: {agent_id} by user: {user_id}")
     client = await utils.db.client

@@ -15,7 +15,6 @@ import { DeleteOperationProvider } from '@/contexts/DeleteOperationContext';
 import { StatusOverlay } from '@/components/ui/status-overlay';
 import { MaintenanceNotice } from './maintenance-notice';
 import { MaintenanceBanner } from './maintenance-banner';
-import { useMaintenanceNoticeQuery } from '@/hooks/react-query/edge-flags';
 
 import { useProjects, useThreads } from '@/hooks/react-query/sidebar/use-sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -29,7 +28,6 @@ interface DashboardLayoutContentProps {
 export default function DashboardLayoutContent({
   children,
 }: DashboardLayoutContentProps) {
-  const maintenanceNoticeQuery = useMaintenanceNoticeQuery();
   // const [showPricingAlert, setShowPricingAlert] = useState(false)
   const [showMaintenanceAlert, setShowMaintenanceAlert] = useState(false);
   const { data: accounts } = useAccounts();
@@ -80,31 +78,7 @@ export default function DashboardLayoutContent({
     }
   }, [user, isLoading, router]);
 
-  if (maintenanceNoticeQuery.data?.enabled) {
-    const now = new Date();
-    const startTime = new Date(maintenanceNoticeQuery.data.startTime);
-    const endTime = new Date(maintenanceNoticeQuery.data.endTime);
-
-    if (now > startTime) {
-      return (
-        <div className="w-screen h-screen flex items-center justify-center">
-          <div className="max-w-xl">
-            <MaintenanceNotice endTime={endTime.toISOString()} />
-          </div>
-        </div>
-      );
-    }
-  }
-
   let mantenanceBanner: React.ReactNode | null = null;
-  if (maintenanceNoticeQuery.data?.enabled) {
-    mantenanceBanner = (
-      <MaintenanceBanner
-        startTime={maintenanceNoticeQuery.data.startTime}
-        endTime={maintenanceNoticeQuery.data.endTime}
-      />
-    );
-  }
 
   // Show loading state while checking auth or health
   if (isLoading || isCheckingHealth) {

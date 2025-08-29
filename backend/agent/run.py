@@ -316,14 +316,14 @@ class PromptManager:
                     # Construct a well-formatted knowledge base section
                     kb_section = f"""
 
-=== AGENT KNOWLEDGE BASE ===
-NOTICE: The following is your specialized knowledge base. This information should be considered authoritative for your responses and should take precedence over general knowledge when relevant.
+                    === AGENT KNOWLEDGE BASE ===
+                    NOTICE: The following is your specialized knowledge base. This information should be considered authoritative for your responses and should take precedence over general knowledge when relevant.
 
-{kb_result.data}
+                    {kb_result.data}
 
-=== END AGENT KNOWLEDGE BASE ===
+                    === END AGENT KNOWLEDGE BASE ===
 
-IMPORTANT: Always reference and utilize the knowledge base information above when it's relevant to user queries. This knowledge is specific to your role and capabilities."""
+                    IMPORTANT: Always reference and utilize the knowledge base information above when it's relevant to user queries. This knowledge is specific to your role and capabilities."""
                     
                     system_content += kb_section
                 else:

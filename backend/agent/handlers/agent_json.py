@@ -5,7 +5,6 @@ from uuid import uuid4
 
 from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
-from flags.flags import is_enabled
 from templates.template_service import MCPRequirementValue, ConfigType, ProfileId, QualifiedName
 
 from ..models import JsonAnalysisRequest, JsonAnalysisResponse, JsonImportRequestModel, JsonImportResponse
@@ -409,11 +408,6 @@ async def analyze_json_for_import(
     """Analyze imported JSON to determine required credentials and configurations"""
     logger.debug(f"Analyzing JSON for import - user: {user_id}")
     
-    if not await is_enabled("custom_agents"):
-        raise HTTPException(
-            status_code=403, 
-            detail="Custom agents currently disabled. This feature is not available at the moment."
-        )
     
     try:
         import_service = JsonImportService(utils.db)
@@ -433,11 +427,6 @@ async def import_agent_from_json(
 ):
     logger.debug(f"Importing agent from JSON - user: {user_id}")
     
-    if not await is_enabled("custom_agents"):
-        raise HTTPException(
-            status_code=403, 
-            detail="Custom agents currently disabled. This feature is not available at the moment."
-        )
     
     client = await utils.db.client
     from ..utils import check_agent_count_limit

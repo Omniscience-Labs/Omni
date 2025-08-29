@@ -6,7 +6,6 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { useAgents, useUpdateAgent, useDeleteAgent, useOptimisticAgentUpdate, useAgentDeletionState } from '@/hooks/react-query/agents/use-agents';
 import { useMarketplaceTemplates, useInstallTemplate, useMyTemplates, useUnpublishTemplate, usePublishTemplate, useCreateTemplate, useDeleteTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
-import { useFeatureFlag } from '@/lib/feature-flags';
 import { useAuth } from '@/components/AuthProvider';
 
 import { StreamlinedInstallDialog } from '@/components/agents/installation/streamlined-install-dialog';
@@ -44,16 +43,8 @@ interface PublishDialogData {
 
 export default function AgentsPage() {
   const { user } = useAuth();
-  const { enabled: customAgentsEnabled, loading: agentsFlagLoading } = useFeatureFlag("custom_agents");
-  const { enabled: agentMarketplaceEnabled, loading: marketplaceFlagLoading } = useFeatureFlag("agent_marketplace");
   const router = useRouter();
-  const flagLoading = agentsFlagLoading || marketplaceFlagLoading;
 
-  useEffect(() => {
-    if (!flagLoading && !customAgentsEnabled) {
-      router.replace("/dashboard");
-    }
-  }, [flagLoading, customAgentsEnabled, router]);
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
@@ -549,29 +540,7 @@ export default function AgentsPage() {
     };
   };
 
-  if (flagLoading) {
-    return (
-      <div className="min-h-screen">
-        <div className="container max-w-7xl mx-auto px-4 py-8">
-          <AgentsPageHeader />
-        </div>
-        
-        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border/40 shadow-sm">
-          <div className="container max-w-7xl mx-auto px-4 py-4">
-            <TabsNavigation activeTab={activeTab} onTabChange={handleTabChange} onCreateAgent={handleCreateNewAgent} />
-          </div>
-        </div>
 
-        <div className="container max-w-7xl mx-auto px-4 py-8">
-          <LoadingSkeleton />
-        </div>
-      </div>
-    );
-  }
-
-  if (!customAgentsEnabled) {
-    return null;
-  }
 
   return (
     <div className="min-h-screen">
