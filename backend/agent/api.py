@@ -739,8 +739,7 @@ async def stream_agent_run(
     async def stream_generator(agent_run_data):
         logger.debug(f"Streaming responses for {agent_run_id} using Redis list {response_list_key} and channel {response_channel}")
         last_processed_index = -1
-        pubsub_response = None
-        pubsub_control = None
+        # Single pubsub used for response + control
         listener_task = None
         terminate_stream = False
         initial_yield_complete = False
@@ -769,49 +768,38 @@ async def stream_agent_run(
                 thread_id=agent_run_data.get('thread_id'),
             )
 
-            # 3. Set up Pub/Sub listeners for new responses and control signals concurrently
-            pubsub_response_task = asyncio.create_task(redis.create_pubsub())
-            pubsub_control_task = asyncio.create_task(redis.create_pubsub())
-            
-            pubsub_response, pubsub_control = await asyncio.gather(pubsub_response_task, pubsub_control_task)
-            
-            # Subscribe to channels concurrently
-            response_subscribe_task = asyncio.create_task(pubsub_response.subscribe(response_channel))
-            control_subscribe_task = asyncio.create_task(pubsub_control.subscribe(control_channel))
-            
-            await asyncio.gather(response_subscribe_task, control_subscribe_task)
-            
-            logger.debug(f"Subscribed to response channel: {response_channel}")
-            logger.debug(f"Subscribed to control channel: {control_channel}")
+            # 3. Use a single Pub/Sub connection subscribed to both channels
+            pubsub = await redis.create_pubsub()
+            await pubsub.subscribe(response_channel, control_channel)
+            logger.debug(f"Subscribed to channels: {response_channel}, {control_channel}")
 
             # Queue to communicate between listeners and the main generator loop
             message_queue = asyncio.Queue()
 
             async def listen_messages():
-                response_reader = pubsub_response.listen()
-                control_reader = pubsub_control.listen()
-                tasks = [asyncio.create_task(response_reader.__anext__()), asyncio.create_task(control_reader.__anext__())]
+                listener = pubsub.listen()
+                task = asyncio.create_task(listener.__anext__())
 
                 while not terminate_stream:
-                    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-                    for task in done:
+                    done, _ = await asyncio.wait([task], return_when=asyncio.FIRST_COMPLETED)
+                    for finished in done:
                         try:
-                            message = task.result()
+                            message = finished.result()
                             if message and isinstance(message, dict) and message.get("type") == "message":
                                 channel = message.get("channel")
                                 data = message.get("data")
-                                if isinstance(data, bytes): data = data.decode('utf-8')
+                                if isinstance(data, bytes):
+                                    data = data.decode('utf-8')
 
                                 if channel == response_channel and data == "new":
                                     await message_queue.put({"type": "new_response"})
                                 elif channel == control_channel and data in ["STOP", "END_STREAM", "ERROR"]:
                                     logger.debug(f"Received control signal '{data}' for {agent_run_id}")
                                     await message_queue.put({"type": "control", "data": data})
-                                    return # Stop listening on control signal
+                                    return  # Stop listening on control signal
 
                         except StopAsyncIteration:
-                            logger.warning(f"Listener {task} stopped.")
-                            # Decide how to handle listener stopping, maybe terminate?
+                            logger.warning(f"Listener stopped for {agent_run_id}.")
                             await message_queue.put({"type": "error", "data": "Listener stopped unexpectedly"})
                             return
                         except Exception as e:
@@ -819,17 +807,9 @@ async def stream_agent_run(
                             await message_queue.put({"type": "error", "data": "Listener failed"})
                             return
                         finally:
-                            # Reschedule the completed listener task
-                            if task in tasks:
-                                tasks.remove(task)
-                                if message and isinstance(message, dict) and message.get("channel") == response_channel:
-                                     tasks.append(asyncio.create_task(response_reader.__anext__()))
-                                elif message and isinstance(message, dict) and message.get("channel") == control_channel:
-                                     tasks.append(asyncio.create_task(control_reader.__anext__()))
-
-                # Cancel pending listener tasks on exit
-                for p_task in pending: p_task.cancel()
-                for task in tasks: task.cancel()
+                            # Resubscribe to the next message if continuing
+                            if not terminate_stream:
+                                task = asyncio.create_task(listener.__anext__())
 
 
             listener_task = asyncio.create_task(listen_messages())
@@ -888,10 +868,12 @@ async def stream_agent_run(
         finally:
             terminate_stream = True
             # Graceful shutdown order: unsubscribe → close → cancel
-            if pubsub_response: await pubsub_response.unsubscribe(response_channel)
-            if pubsub_control: await pubsub_control.unsubscribe(control_channel)
-            if pubsub_response: await pubsub_response.close()
-            if pubsub_control: await pubsub_control.close()
+            try:
+                if 'pubsub' in locals() and pubsub:
+                    await pubsub.unsubscribe(response_channel, control_channel)
+                    await pubsub.close()
+            except Exception as e:
+                logger.debug(f"Error during pubsub cleanup for {agent_run_id}: {e}")
 
             if listener_task:
                 listener_task.cancel()
@@ -918,7 +900,7 @@ async def generate_and_update_project_name(project_id: str, prompt: str):
         db_conn = DBConnection()
         client = await db_conn.client
 
-        model_name = "openai/gpt-4o-mini"
+        model_name = "openai/gpt-5-nano"
         system_prompt = "You are a helpful assistant that generates extremely concise titles (2-4 words maximum) for chat threads based on the user's message. Respond with only the title, no other text or punctuation."
         user_message = f"Generate an extremely brief title (2-4 words only) for a chat thread that starts with this message: \"{prompt}\""
         messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_message}]
@@ -2368,219 +2350,6 @@ async def delete_agent(agent_id: str, user_id: str = Depends(get_current_user_id
     except Exception as e:
         logger.error(f"Error deleting agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
-
-@router.get("/agents/{agent_id}/pipedream-tools/{profile_id}")
-async def get_pipedream_tools_for_agent(
-    agent_id: str,
-    profile_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt),
-    version: Optional[str] = Query(None, description="Version ID to get tools from specific version")
-):
-    logger.debug(f"Getting tools for agent {agent_id}, profile {profile_id}, user {user_id}, version {version}")
-
-    try:
-        from pipedream import profile_service, mcp_service
-        from uuid import UUID
-
-        profile = await profile_service.get_profile(UUID(user_id), UUID(profile_id))
-        
-        if not profile:
-            logger.error(f"Profile {profile_id} not found for user {user_id}")
-            try:
-                all_profiles = await profile_service.get_profiles(UUID(user_id))
-                pipedream_profiles = [p for p in all_profiles if 'pipedream' in p.mcp_qualified_name]
-                logger.debug(f"User {user_id} has {len(pipedream_profiles)} pipedream profiles: {[p.profile_id for p in pipedream_profiles]}")
-            except Exception as debug_e:
-                logger.warning(f"Could not check user's profiles: {str(debug_e)}")
-            
-            raise HTTPException(status_code=404, detail=f"Profile {profile_id} not found or access denied")
-        
-        if not profile.is_connected:
-            raise HTTPException(status_code=400, detail="Profile is not connected")
-
-        enabled_tools = []
-        try:
-            client = await db.client
-            agent_row = await client.table('agents')\
-                .select('current_version_id')\
-                .eq('agent_id', agent_id)\
-                .eq('account_id', user_id)\
-                .maybe_single()\
-                .execute()
-            
-            if agent_row.data and agent_row.data.get('current_version_id'):
-                if version:
-                    version_result = await client.table('agent_versions')\
-                        .select('config')\
-                        .eq('version_id', version)\
-                        .maybe_single()\
-                        .execute()
-                else:
-                    version_result = await client.table('agent_versions')\
-                        .select('config')\
-                        .eq('version_id', agent_row.data['current_version_id'])\
-                        .maybe_single()\
-                        .execute()
-                
-                if version_result.data and version_result.data.get('config'):
-                    agent_config = version_result.data['config']
-                    tools = agent_config.get('tools', {})
-                    custom_mcps = tools.get('custom_mcp', []) or []
-                    
-                    for mcp in custom_mcps:
-                        mcp_profile_id = mcp.get('config', {}).get('profile_id')
-                        if mcp_profile_id == profile_id:
-                            enabled_tools = mcp.get('enabledTools', mcp.get('enabled_tools', []))
-                            logger.debug(f"Found enabled tools for profile {profile_id}: {enabled_tools}")
-                            break
-                    
-                    if not enabled_tools:
-                        logger.debug(f"No enabled tools found for profile {profile_id} in agent {agent_id}")
-            
-        except Exception as e:
-            logger.error(f"Error retrieving enabled tools for profile {profile_id}: {str(e)}")
-        
-        logger.debug(f"Using {len(enabled_tools)} enabled tools for profile {profile_id}: {enabled_tools}")
-        
-        try:
-            from pipedream.mcp_service import ExternalUserId, AppSlug
-            external_user_id = ExternalUserId(profile.external_user_id)
-            app_slug_obj = AppSlug(profile.app_slug)
-            
-            logger.debug(f"Discovering servers for user {external_user_id.value} and app {app_slug_obj.value}")
-            servers = await mcp_service.discover_servers_for_user(external_user_id, app_slug_obj)
-            logger.debug(f"Found {len(servers)} servers: {[s.app_slug for s in servers]}")
-            
-            server = servers[0] if servers else None
-            logger.debug(f"Selected server: {server.app_slug if server else 'None'} with {len(server.available_tools) if server else 0} tools")
-            
-            if not server:
-                return {
-                    'profile_id': profile_id,
-                    'app_name': profile.app_name,
-                    'profile_name': profile.profile_name,
-                    'tools': [],
-                    'has_mcp_config': len(enabled_tools) > 0
-                }
-            
-            available_tools = server.available_tools
-            
-            formatted_tools = []
-            def tools_match(api_tool_name, stored_tool_name):
-                api_normalized = api_tool_name.lower().replace('-', '_')
-                stored_normalized = stored_tool_name.lower().replace('-', '_')
-                return api_normalized == stored_normalized
-            
-            for tool in available_tools:
-                is_enabled = any(tools_match(tool.name, stored_tool) for stored_tool in enabled_tools)
-                formatted_tools.append({
-                    'name': tool.name,
-                    'description': tool.description or f"Tool from {profile.app_name}",
-                    'enabled': is_enabled
-                })
-            
-            return {
-                'profile_id': profile_id,
-                'app_name': profile.app_name,
-                'profile_name': profile.profile_name,
-                'tools': formatted_tools,
-                'has_mcp_config': len(enabled_tools) > 0
-            }
-            
-        except Exception as e:
-            logger.error(f"Error discovering tools: {e}", exc_info=True)
-            return {
-                'profile_id': profile_id,
-                'app_name': getattr(profile, 'app_name', 'Unknown'),
-                'profile_name': getattr(profile, 'profile_name', 'Unknown'),
-                'tools': [],
-                'has_mcp_config': len(enabled_tools) > 0,
-                'error': str(e)
-            }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting Pipedream tools for agent {agent_id}: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-
-@router.put("/agents/{agent_id}/pipedream-tools/{profile_id}")
-async def update_pipedream_tools_for_agent(
-    agent_id: str,
-    profile_id: str,
-    request: dict,
-    user_id: str = Depends(get_current_user_id_from_jwt)
-):
-    try:
-        client = await db.client
-        agent_row = await client.table('agents')\
-            .select('current_version_id')\
-            .eq('agent_id', agent_id)\
-            .eq('account_id', user_id)\
-            .maybe_single()\
-            .execute()
-        if not agent_row.data:
-            raise HTTPException(status_code=404, detail="Agent not found")
-
-        agent_config = {}
-        if agent_row.data.get('current_version_id'):
-            version_result = await client.table('agent_versions')\
-                .select('config')\
-                .eq('version_id', agent_row.data['current_version_id'])\
-                .maybe_single()\
-                .execute()
-            if version_result.data and version_result.data.get('config'):
-                agent_config = version_result.data['config']
-
-        tools = agent_config.get('tools', {})
-        custom_mcps = tools.get('custom_mcp', []) or []
-
-        if any(mcp.get('config', {}).get('profile_id') == profile_id for mcp in custom_mcps):
-            raise HTTPException(status_code=400, detail="This profile is already added to this agent")
-
-        enabled_tools = request.get('enabled_tools', [])
-        
-        updated = False
-        for mcp in custom_mcps:
-            mcp_profile_id = mcp.get('config', {}).get('profile_id')
-            if mcp_profile_id == profile_id:
-                mcp['enabledTools'] = enabled_tools
-                mcp['enabled_tools'] = enabled_tools
-                updated = True
-                logger.debug(f"Updated enabled tools for profile {profile_id}: {enabled_tools}")
-                break
-        
-        if not updated:
-            logger.warning(f"Profile {profile_id} not found in agent {agent_id} custom_mcps configuration")
-            
-        if updated:
-            agent_config['tools']['custom_mcp'] = custom_mcps
-            
-            await client.table('agent_versions')\
-                .update({'config': agent_config})\
-                .eq('version_id', agent_row.data['current_version_id'])\
-                .execute()
-            
-            logger.debug(f"Successfully updated agent configuration for {agent_id}")
-        
-        result = {
-            'success': updated,
-            'enabled_tools': enabled_tools,
-            'total_tools': len(enabled_tools),
-            'profile_id': profile_id
-        }
-        logger.debug(f"Successfully updated Pipedream tools for agent {agent_id}, profile {profile_id}")
-        return result
-        
-    except ValueError as e:
-        logger.error(f"Validation error updating Pipedream tools: {e}")
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error updating Pipedream tools for agent {agent_id}: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
 
 @router.get("/agents/{agent_id}/custom-mcp-tools")
 async def get_custom_mcp_tools_for_agent(
