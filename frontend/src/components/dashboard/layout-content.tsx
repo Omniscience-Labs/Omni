@@ -7,6 +7,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { MaintenanceAlert } from '@/components/maintenance-alert';
 import { useAccounts } from '@/hooks/use-accounts';
 import { useAuth } from '@/components/AuthProvider';
+import { useMaintenanceNoticeQuery } from '@/hooks/react-query/edge-flags';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useApiHealth } from '@/hooks/react-query';
@@ -35,6 +36,7 @@ export default function DashboardLayoutContent({
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const isMobile = useIsMobile();
+  const { data: maintenanceNotice } = useMaintenanceNoticeQuery();
   const {
     data: healthData,
     isLoading: isCheckingHealth,
@@ -52,8 +54,12 @@ export default function DashboardLayoutContent({
 
   useEffect(() => {
     // setShowPricingAlert(false)
-    setShowMaintenanceAlert(false);
-  }, []);
+    if (maintenanceNotice?.enabled) {
+      setShowMaintenanceAlert(true);
+    } else {
+      setShowMaintenanceAlert(false);
+    }
+  }, [maintenanceNotice]);
 
   // Log data prefetching for debugging
   useEffect(() => {

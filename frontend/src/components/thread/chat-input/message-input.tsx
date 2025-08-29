@@ -166,8 +166,8 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
         <div className="flex items-center gap-2" data-tour="agent-selector">
           <UnifiedConfigMenu
             isLoggedIn={isLoggedIn}
-            selectedAgentId={showAdvancedFeatures && !hideAgentSelection ? selectedAgentId : undefined}
-            onAgentSelect={showAdvancedFeatures && !hideAgentSelection ? onAgentSelect : undefined}
+            selectedAgentId={!hideAgentSelection ? selectedAgentId : undefined}
+            onAgentSelect={!hideAgentSelection ? onAgentSelect : undefined}
             selectedModel={selectedModel}
             onModelChange={onModelChange}
             modelOptions={modelOptions}
