@@ -20,7 +20,7 @@ SUNA_CONFIG = {
         "sb_image_edit_tool": True,
         "sb_presentation_outline_tool": False,
         "sb_presentation_tool": False,
-        "sb_sheets_tool": True,
+        "sb_sheets_tool": False,
         "browser_tool": True,
         "data_providers_tool": True,
         "sb_web_dev_tool": True,
