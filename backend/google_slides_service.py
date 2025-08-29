@@ -367,12 +367,10 @@ class GoogleSlidesService:
     async def is_user_authenticated(self, user_id: str) -> bool:
         """Check if user has valid authentication."""
         # First check if OAuth credentials are configured
-        if not self.client_id or not self.client_secret:
-            logger.warning("Google OAuth credentials not configured - cannot authenticate users")
-            return False
-            
-        # Check if user has a valid token in database
-        return await self.oauth_service.is_token_valid(user_id)
+        if await self.oauth_service.get_token(user_id):
+            return True
+        
+        return False
 
     async def _refresh_token(self, user_id: str) -> bool:
         """Refresh an expired access token using the refresh token."""
