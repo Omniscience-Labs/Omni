@@ -68,7 +68,7 @@ export function FullScreenPresentationViewer({
   const [isDownloadingGoogleSlides, setIsDownloadingGoogleSlides] = useState(false);
   
   // Create a stable refresh timestamp when metadata changes (like PresentationViewer)
-  const refreshTimestamp = useMemo(() => Date.now(), [metadata]);
+  const refreshTimestamp = useMemo(() => metadata?.updated_at || Date.now(), [metadata?.updated_at]);
 
   const slides = metadata ? Object.entries(metadata.slides)
     .map(([num, slide]) => ({ number: parseInt(num), ...slide }))
@@ -349,7 +349,7 @@ export function FullScreenPresentationViewer({
         <div className="w-full h-full flex items-center justify-center bg-transparent">
           <div 
             ref={setContainerRef}
-            className="relative bg-white dark:bg-zinc-900 rounded-lg overflow-hidden border border-zinc-200/40 dark:border-zinc-800/40"
+            className="relative bg-transparent rounded-lg overflow-hidden"
             style={{
               width: '100%',
               maxWidth: '100%',
@@ -496,7 +496,7 @@ export function FullScreenPresentationViewer({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex items-center justify-center bg-zinc-100 dark:bg-zinc-900 p-8 min-h-0">
+      <div className="flex-1 flex items-center justify-center bg-zinc-100 dark:bg-zinc-900 p-2 min-h-0">
         {isLoading ? (
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-600 mx-auto mb-4"></div>
@@ -534,14 +534,14 @@ export function FullScreenPresentationViewer({
             </Button>
           </div>
         ) : currentSlideData ? (
-          <div className="w-full h-full max-w-7xl mx-auto flex flex-col">
+          <div className="w-full h-full flex flex-col">
             {/* Presentation Container */}
-            <div className="flex-1 bg-white dark:bg-zinc-900 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800" style={{ aspectRatio: '16 / 9' }}>
+            <div className="flex-1 bg-transparent rounded-xl overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
               {renderSlide}
             </div>
             
             {/* Controls below presentation */}
-            <div className="flex items-center justify-between mt-6 px-4">
+            <div className="flex items-center justify-between mt-3 px-4">
               {/* Left Controls */}
               <div className="flex items-center gap-2">
                 <Button
