@@ -88,7 +88,10 @@ export const useCreateComposioEventTrigger = () => {
   return useMutation({
     mutationFn: async (payload: CreateComposioEventTriggerRequest) => {
       const res = await backendApi.post('/composio/triggers/create', payload);
-      if (!res.success) throw new Error(res.error?.message || 'Failed to create trigger');
+      if (!res.success) {
+        // Throw the original error to preserve all error details
+        throw res.error || new Error('Failed to create trigger');
+      }
       return res.data as any;
     },
     onSuccess: (data) => {
