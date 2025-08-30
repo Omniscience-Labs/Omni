@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TriggerCreationDialog } from './trigger-creation-dialog';
-import { TriggerDetailPanel } from './trigger-detail-panel';
+import { SimplifiedTriggerDetailPanel } from './simplified-trigger-detail-panel';
 
 const getTriggerIcon = (triggerType: string) => {
   switch (triggerType.toLowerCase()) {
@@ -114,9 +114,12 @@ const TriggerListItem = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm truncate">{trigger.name}</span>
-            {!trigger.is_active && (
-              <Badge variant="secondary" className="text-xs">Inactive</Badge>
-            )}
+            <Badge 
+              variant={trigger.is_active ? "highlight" : "secondary"} 
+              className="text-xs"
+            >
+              {trigger.is_active ? "Active" : "Inactive"}
+            </Badge>
           </div>
           {trigger.description && (
             <p className="text-xs text-muted-foreground truncate mt-0.5">
@@ -302,7 +305,7 @@ export function TasksPage() {
         selectedTrigger ? "w-2xl" : "w-0"
       )}>
         {selectedTrigger && (
-          <TriggerDetailPanel
+          <SimplifiedTriggerDetailPanel
             trigger={selectedTrigger}
             onClose={handleClosePanel}
           />
