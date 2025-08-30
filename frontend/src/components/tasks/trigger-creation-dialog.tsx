@@ -34,9 +34,9 @@ export function TriggerCreationDialog({
   const [step, setStep] = useState<'agent' | 'config'>('agent');
   const [name, setName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
-  const [config, setConfig] = useState<ScheduleTriggerConfig>({ 
-    cron_expression: '', 
-    execution_type: 'agent' 
+  const [config, setConfig] = useState<ScheduleTriggerConfig>({
+    cron_expression: '',
+    execution_type: 'agent'
   });
   const createTriggerMutation = useCreateTrigger();
 

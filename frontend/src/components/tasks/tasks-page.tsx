@@ -12,8 +12,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { 
-  MessageSquare, 
+import {
+  MessageSquare,
   Github,
   Slack,
   Clock,
@@ -61,12 +61,12 @@ const getTriggerCategory = (triggerType: string): 'scheduled' | 'app' => {
 
 const formatCronExpression = (cron?: string) => {
   if (!cron) return 'Not configured';
-  
+
   const parts = cron.split(' ');
   if (parts.length !== 5) return cron;
-  
+
   const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
-  
+
   if (minute === '0' && hour === '0' && dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
     return 'Daily at midnight';
   }
@@ -85,24 +85,24 @@ const formatCronExpression = (cron?: string) => {
   if (minute === '0' && hour === String(hour) && dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
     return `Daily at ${hour}:${minute.padStart(2, '0')}`;
   }
-  
+
   return cron;
 };
 
-const TriggerListItem = ({ 
-  trigger, 
+const TriggerListItem = ({
+  trigger,
   onClick,
   isSelected
-}: { 
+}: {
   trigger: TriggerWithAgent;
   onClick: () => void;
   isSelected: boolean;
 }) => {
   const Icon = getTriggerIcon(trigger.trigger_type);
   const isScheduled = getTriggerCategory(trigger.trigger_type) === 'scheduled';
-  
+
   return (
-    <div 
+    <div
       onClick={onClick}
       className={cn(
         "rounded-xl border group flex items-center justify-between px-4 py-3 cursor-pointer transition-all",
@@ -114,8 +114,8 @@ const TriggerListItem = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm truncate">{trigger.name}</span>
-            <Badge 
-              variant={trigger.is_active ? "highlight" : "secondary"} 
+            <Badge
+              variant={trigger.is_active ? "highlight" : "secondary"}
               className="text-xs"
             >
               {trigger.is_active ? "Active" : "Inactive"}
@@ -172,7 +172,7 @@ export function TasksPage() {
   const [selectedTrigger, setSelectedTrigger] = useState<TriggerWithAgent | null>(null);
   const [triggerDialogType, setTriggerDialogType] = useState<'schedule' | 'event' | null>(null);
   const [pendingTriggerId, setPendingTriggerId] = useState<string | null>(null);
-  
+
   const sortedTriggers = useMemo(() => {
     return [...triggers].sort((a, b) => {
       if (a.is_active !== b.is_active) {
@@ -181,7 +181,7 @@ export function TasksPage() {
       return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     });
   }, [triggers]);
-  
+
   useEffect(() => {
     if (pendingTriggerId) {
       const newTrigger = triggers.find(t => t.trigger_id === pendingTriggerId);
@@ -191,7 +191,7 @@ export function TasksPage() {
       }
     }
   }, [triggers, pendingTriggerId]);
-  
+
   useEffect(() => {
     if (selectedTrigger) {
       const updatedTrigger = triggers.find(t => t.trigger_id === selectedTrigger.trigger_id);
@@ -202,16 +202,16 @@ export function TasksPage() {
       }
     }
   }, [triggers, selectedTrigger?.trigger_id]);
-  
+
   const handleClosePanel = () => {
     setSelectedTrigger(null);
   };
-  
+
   const handleTriggerCreated = (triggerId: string) => {
     setTriggerDialogType(null);
     setPendingTriggerId(triggerId);
   };
-  
+
   if (error) {
     return (
       <div className="h-screen flex flex-col">
@@ -226,7 +226,7 @@ export function TasksPage() {
       </div>
     );
   }
-  
+
   return (
     <div className="h-screen flex overflow-hidden">
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -302,7 +302,9 @@ export function TasksPage() {
       </div>
       <div className={cn(
         "h-screen transition-all duration-300 ease-in-out overflow-hidden border-l",
-        selectedTrigger ? "w-2xl" : "w-0"
+        selectedTrigger
+          ? "w-full sm:w-[440px] xl:w-2xl"
+          : "w-0"
       )}>
         {selectedTrigger && (
           <SimplifiedTriggerDetailPanel

@@ -59,27 +59,27 @@ const SCHEDULE_PRESETS = [
 
 const getScheduleDisplay = (cron?: string) => {
   if (!cron) return { name: 'Not configured', icon: <Clock className="h-4 w-4" /> };
-  
+
   const preset = SCHEDULE_PRESETS.find(p => p.cron === cron);
   if (preset) return preset;
-  
+
   return { name: cron, icon: <Clock className="h-4 w-4" /> };
 };
 
 export function SimplifiedTriggerDetailPanel({ trigger, onClose }: SimplifiedTriggerDetailPanelProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  
+
   const deleteMutation = useDeleteTrigger();
   const toggleMutation = useToggleTrigger();
   const updateMutation = useUpdateTrigger();
-  
+
   const { data: workflows = [] } = useAgentWorkflows(trigger.agent_id);
   const workflowName = workflows.find(w => w.id === trigger.config?.workflow_id)?.name;
-  
+
   const isScheduled = trigger.trigger_type.toLowerCase() === 'schedule' || trigger.trigger_type.toLowerCase() === 'scheduled';
   const scheduleDisplay = getScheduleDisplay(trigger.config?.cron_expression);
-  
+
   const handleToggle = async () => {
     try {
       await toggleMutation.mutateAsync({
@@ -92,7 +92,7 @@ export function SimplifiedTriggerDetailPanel({ trigger, onClose }: SimplifiedTri
       console.error('Error toggling task:', error);
     }
   };
-  
+
   const handleDelete = async () => {
     try {
       await deleteMutation.mutateAsync({
@@ -106,7 +106,7 @@ export function SimplifiedTriggerDetailPanel({ trigger, onClose }: SimplifiedTri
       console.error('Error deleting task:', error);
     }
   };
-  
+
   const handleEditSave = async (config: any) => {
     try {
       await updateMutation.mutateAsync({
@@ -123,9 +123,9 @@ export function SimplifiedTriggerDetailPanel({ trigger, onClose }: SimplifiedTri
       console.error('Error updating task:', error);
     }
   };
-  
+
   const isLoading = deleteMutation.isPending || toggleMutation.isPending || updateMutation.isPending;
-  
+
   const provider = {
     provider_id: isScheduled ? 'schedule' : trigger.provider_id,
     name: trigger.name,
@@ -134,7 +134,7 @@ export function SimplifiedTriggerDetailPanel({ trigger, onClose }: SimplifiedTri
     webhook_enabled: !!trigger.webhook_url,
     config_schema: {}
   };
-  
+
   const triggerConfig = {
     trigger_id: trigger.trigger_id,
     agent_id: trigger.agent_id,
@@ -150,15 +150,15 @@ export function SimplifiedTriggerDetailPanel({ trigger, onClose }: SimplifiedTri
   };
 
   return (
-    <div className="h-full bg-white flex flex-col">
+    <div className={"h-full bg-white flex flex-col w-full sm:w-[440px] xl:w-2xl"}>
       {/* Header */}
       <div className="px-8 py-6 border-b border-gray-200">
         <div className="flex items-start justify-between mb-6">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-2xl font-medium text-black">{trigger.name}</h1>
-              <Badge 
-                variant={trigger.is_active ? "highlight" : "secondary"} 
+              <Badge
+                variant={trigger.is_active ? "highlight" : "secondary"}
                 className="text-xs"
               >
                 {trigger.is_active ? "Active" : "Inactive"}
@@ -207,8 +207,8 @@ export function SimplifiedTriggerDetailPanel({ trigger, onClose }: SimplifiedTri
             disabled={isLoading}
             className={cn(
               "flex-1 border-gray-200",
-              trigger.is_active 
-                ? "hover:bg-gray-50" 
+              trigger.is_active
+                ? "hover:bg-gray-50"
                 : "bg-black hover:bg-gray-900 text-white"
             )}
           >
@@ -259,7 +259,7 @@ export function SimplifiedTriggerDetailPanel({ trigger, onClose }: SimplifiedTri
                 {trigger.config?.execution_type === 'agent' ? 'Agent Instructions' : 'Workflow Execution'}
               </h3>
               <p className="text-sm text-gray-600">
-                {trigger.config?.execution_type === 'agent' 
+                {trigger.config?.execution_type === 'agent'
                   ? 'Custom prompt for the agent'
                   : `Runs workflow: ${workflowName || 'Unknown'}`
                 }
@@ -299,7 +299,7 @@ export function SimplifiedTriggerDetailPanel({ trigger, onClose }: SimplifiedTri
                 <p className="text-sm text-gray-600">Assigned Agent</p>
               </div>
             </div>
-            <Link 
+            <Link
               href={`/agents/config/${trigger.agent_id}`}
               className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
