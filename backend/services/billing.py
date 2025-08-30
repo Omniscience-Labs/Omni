@@ -738,8 +738,12 @@ def calculate_token_cost(prompt_tokens: int, completion_tokens: int, model: str)
         
         # Try to resolve the model name using new model manager first
         from models import model_manager
-        resolved_model = model_manager.resolve_model_id(model)
-        logger.debug(f"Model '{model}' resolved to '{resolved_model}'")
+        try:
+            resolved_model = model_manager.resolve_model_id(model)
+            logger.debug(f"Model '{model}' resolved to '{resolved_model}'")
+        except Exception as resolve_error:
+            logger.warning(f"Could not resolve model ID '{model}': {str(resolve_error)}, returning 0 cost")
+            return 0.0
 
         # Check if we have hardcoded pricing for this model (try both original and resolved)
         hardcoded_pricing = get_model_pricing(model) or get_model_pricing(resolved_model)

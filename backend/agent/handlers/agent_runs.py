@@ -24,7 +24,7 @@ from ..utils import (
     _get_version_service, generate_and_update_project_name
 )
 from ..config_helper import extract_agent_config
-from ..utils import check_agent_run_limit
+from ..utils import check_agent_run_limit, check_project_count_limit
 
 router = APIRouter()
 
@@ -734,10 +734,11 @@ async def initiate_agent_with_files(
     model_check_task = asyncio.create_task(can_use_model(client, account_id, model_name))
     billing_check_task = asyncio.create_task(check_billing_status(client, account_id))
     limit_check_task = asyncio.create_task(check_agent_run_limit(client, account_id))
+    project_limit_check_task = asyncio.create_task(check_project_count_limit(client, account_id))
 
     # Wait for all checks to complete
-    (can_use, model_message, allowed_models), (can_run, message, subscription), limit_check = await asyncio.gather(
-        model_check_task, billing_check_task, limit_check_task
+    (can_use, model_message, allowed_models), (can_run, message, subscription), limit_check, project_limit_check = await asyncio.gather(
+        model_check_task, billing_check_task, limit_check_task, project_limit_check_task
     )
 
     # Check results and raise appropriate errors
@@ -759,6 +760,18 @@ async def initiate_agent_with_files(
         }
         logger.warning(f"Agent run limit exceeded for account {account_id}: {limit_check['running_count']} running agents")
         raise HTTPException(status_code=429, detail=error_detail)
+
+    # Check project creation limit
+    if not project_limit_check['can_create']:
+        error_detail = {
+            "message": f"Maximum of {project_limit_check['limit']} projects allowed for your current plan. You have {project_limit_check['current_count']} projects.",
+            "current_count": project_limit_check['current_count'],
+            "limit": project_limit_check['limit'],
+            "tier_name": project_limit_check['tier_name'],
+            "error_code": "PROJECT_LIMIT_EXCEEDED"
+        }
+        logger.warning(f"Project limit exceeded for account {account_id}: {project_limit_check['current_count']}/{project_limit_check['limit']} projects")
+        raise HTTPException(status_code=402, detail=error_detail)
 
     try:
         # 1. Create Project
