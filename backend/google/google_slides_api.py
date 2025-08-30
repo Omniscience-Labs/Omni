@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
 from services.supabase import DBConnection
-from google_slides_service import GoogleSlidesService, OAuthTokenService
+from .google_slides_service import GoogleSlidesService, OAuthTokenService
 
 
 # ================== PYDANTIC MODELS ==================
