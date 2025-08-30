@@ -440,7 +440,7 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                 console.error('Details keys:', Object.keys(e.details));
                 console.error('Details content:', JSON.stringify(e.details, null, 2));
             }
-            
+
             // Check for details property from api-client.ts error structure
             if (e?.details?.detail?.error?.message) {
                 errorMessage = e.details.detail.error.message;
