@@ -1,32 +1,28 @@
+#!/usr/bin/env python3
+"""
+Optimized FastAPI HTML Presentation to PPTX Converter Router
+
+Provides PPTX conversion endpoints with improved memory management and batch processing.
+Uses smart batching and resource cleanup to handle large presentations efficiently.
+"""
 
 import json
-import os
-import sys
-import re
 import asyncio
+import os
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Optional
 import tempfile
-import subprocess
+import shutil
 from dataclasses import dataclass
-import base64
-import io
-import datetime
+
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
 
 try:
     from playwright.async_api import async_playwright
 except ImportError:
-    print("Error: Playwright is not installed. Please install it with:")
-    print("pip install playwright")
-    print("playwright install chromium")
-    sys.exit(1)
-
-try:
-    from bs4 import BeautifulSoup, Tag
-except ImportError:
-    print("Error: BeautifulSoup is not installed. Please install it with:")
-    print("pip install beautifulsoup4")
-    sys.exit(1)
+    raise ImportError("Playwright is not installed. Please install it with: pip install playwright")
 
 try:
     from pptx import Presentation
@@ -34,17 +30,28 @@ try:
     from pptx.enum.text import PP_ALIGN
     from pptx.dml.color import RGBColor
 except ImportError as e:
-    print("Error: python-pptx is not installed or has missing components. Please install it with:")
-    print("pip install python-pptx")
-    print(f"Import error: {e}")
-    sys.exit(1)
+    raise ImportError(f"python-pptx is not installed. Please install it with: pip install python-pptx. Error: {e}")
 
-try:
-    from PIL import Image, ImageDraw, ImageFont
-except ImportError:
-    print("Error: Pillow is not installed. Please install it with:")
-    print("pip install Pillow")
-    sys.exit(1)
+
+# Create router
+router = APIRouter(prefix="/presentation", tags=["pptx-conversion"])
+
+# Create output directory for generated PPTXs
+output_dir = Path("generated_pptx")
+output_dir.mkdir(exist_ok=True)
+
+
+class ConvertRequest(BaseModel):
+    presentation_path: str = Field(..., description="Path to the presentation folder containing metadata.json")
+    download: bool = Field(False, description="If true, returns the PPTX file directly. If false, returns JSON with download URL.")
+
+
+class ConvertResponse(BaseModel):
+    success: bool
+    message: str
+    pptx_url: str
+    filename: str
+    total_slides: int
 
 
 @dataclass
@@ -69,7 +76,7 @@ class CSSParser:
     """Parse CSS styles and convert values to appropriate units"""
     
     @staticmethod
-    def parse_color(color_str: str) -> Tuple[int, int, int]:
+    def parse_color(color_str: str) -> tuple[int, int, int]:
         """Parse CSS color string to RGB tuple"""
         if not color_str:
             return (0, 0, 0)
@@ -87,6 +94,7 @@ class CSSParser:
                 return (0, 0, 0)
         
         # Handle rgb() colors
+        import re
         rgb_match = re.match(r'rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)', color_str)
         if rgb_match:
             return tuple(int(x) for x in rgb_match.groups())
@@ -118,18 +126,11 @@ class CSSParser:
         return weight_str in bold_weights or (weight_str.isdigit() and int(weight_str) >= 700)
 
 
-class PerfectHTMLToPPTXConverter:
-    def __init__(self, presentation_dir: str, output_path: str = None):
-        """
-        Initialize the perfect converter.
-        
-        Args:
-            presentation_dir: Directory containing metadata.json and HTML slides
-            output_path: Output PPTX file path (optional)
-        """
+class OptimizedHTMLToPPTXConverter:
+    def __init__(self, presentation_dir: str):
+        """Initialize the optimized converter."""
         self.presentation_dir = Path(presentation_dir).resolve()
         self.metadata_path = self.presentation_dir / "metadata.json"
-        self.output_path = output_path
         self.metadata = None
         self.slides_info = []
         
@@ -157,12 +158,10 @@ class PerfectHTMLToPPTXConverter:
                 
                 if file_path:
                     # Handle both absolute and relative paths
-                    print(f"file_path: {file_path}")
                     if Path(file_path).is_absolute():
                         html_path = Path(file_path)
                     else:
-                        html_path = Path(f"{file_path}")
-                        print(f"html_path: {html_path}")
+                        html_path = Path(f"/workspace/{file_path}")
                     
                     # Verify the path exists
                     if html_path.exists():
@@ -177,114 +176,14 @@ class PerfectHTMLToPPTXConverter:
             self.slides_info.sort(key=lambda x: x['number'])
             
             if not self.slides_info:
-                print(f"---")
                 raise ValueError("No valid slides found in metadata.json")
             
-            # Set default output path if not provided
-            if not self.output_path:
-                presentation_name = self.metadata.get('presentation_name', 'presentation')
-                self.output_path = self.presentation_dir / f"{presentation_name}_perfect.pptx"
-            else:
-                self.output_path = Path(self.output_path).resolve()
-            
-            print(f"Loaded {len(self.slides_info)} slides from metadata")
             return self.metadata
             
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in metadata.json: {e}")
         except Exception as e:
             raise ValueError(f"Error loading metadata: {e}")
-    
-    async def capture_perfect_background(self, browser, html_path: Path, temp_dir: Path) -> Path:
-        """
-        Capture the entire slide as a perfect background image with text made transparent.
-        
-        Args:
-            browser: Playwright browser instance
-            html_path: Path to HTML file
-            temp_dir: Temporary directory for images
-            
-        Returns:
-            Path to the perfect background image
-        """
-        page = await browser.new_page()
-        
-        try:
-            # Set exact viewport dimensions
-            await page.set_viewport_size({"width": 1920, "height": 1080})
-            await page.emulate_media(media='screen')
-            
-            # Force device pixel ratio to 1 for exact measurements
-            await page.evaluate(r"""
-                () => {
-                    Object.defineProperty(window, 'devicePixelRatio', {
-                        get: () => 1
-                    });
-                }
-            """)
-            
-            # Navigate to HTML file
-            file_url = f"file://{html_path.absolute()}"
-            await page.goto(file_url, wait_until="networkidle", timeout=30000)
-            
-            # Wait for fonts and content to load
-            await page.wait_for_timeout(5000)
-            
-            # Make ALL text transparent while preserving layout and everything else
-            await page.evaluate(r"""
-                () => {
-                    // Function to make text transparent while keeping all visual elements
-                    function makeTextTransparent(element) {
-                        if (element.nodeType === Node.TEXT_NODE) {
-                            // Don't remove text nodes, just make them invisible
-                            return;
-                        } else if (element.nodeType === Node.ELEMENT_NODE) {
-                            const computed = window.getComputedStyle(element);
-                            
-                            // If this element contains text, make the text transparent
-                            // but preserve all other styling (backgrounds, borders, etc.)
-                            const hasText = element.textContent && element.textContent.trim();
-                            if (hasText) {
-                                // Store original color for later if needed
-                                const originalColor = computed.color;
-                                element.setAttribute('data-original-color', originalColor);
-                                
-                                // Make text transparent but keep everything else
-                                element.style.color = 'transparent';
-                                element.style.textShadow = 'none';
-                                element.style.webkitTextStroke = 'none';
-                            }
-                            
-                            // Process children
-                            Array.from(element.children).forEach(makeTextTransparent);
-                        }
-                    }
-                    
-                    // Apply to entire document
-                    makeTextTransparent(document.body);
-                    
-                    console.log('Made all text transparent while preserving visual elements');
-                }
-            """)
-            
-            # Wait for changes to apply
-            await page.wait_for_timeout(2000)
-            
-            # Take perfect screenshot
-            background_path = temp_dir / f"perfect_background_{html_path.stem}.png"
-            await page.screenshot(
-                path=str(background_path),
-                full_page=False,
-                clip={"x": 0, "y": 0, "width": 1920, "height": 1080}
-            )
-            
-            print(f"    ✓ Captured perfect background: {background_path.name}")
-            return background_path
-            
-        except Exception as e:
-            raise RuntimeError(f"Error capturing perfect background: {e}")
-        finally:
-            await page.close()
     
     async def extract_visual_elements(self, page, html_path: Path, temp_dir: Path) -> List[Dict]:
         """Extract all visual elements (non-text) as individual images with positioning."""
@@ -439,155 +338,155 @@ class PerfectHTMLToPPTXConverter:
             
             # Step 3: Extract other visual elements by depth and visual properties
             visual_data = await page.evaluate(r"""
-    () => {
-        function hasActualVisualContent(element, computed) {
-            
-            // Always include explicit visual elements
-            if (['IMG', 'SVG', 'CANVAS', 'VIDEO', 'IFRAME'].includes(element.tagName)) {
-                return true;
-            }
-            
-            // 2. Check for actual background images and gradients (not just 'none')
-            if (computed.backgroundImage && computed.backgroundImage !== 'none') {
-                return true;
-            }
-            
-            // 3. Check for meaningful background colors (not just transparent)
-            const bgColor = computed.backgroundColor;
-            if (bgColor && 
-                bgColor !== 'rgba(0, 0, 0, 0)' && 
-                bgColor !== 'transparent' && 
-                bgColor !== 'inherit' &&
-                bgColor !== 'initial' &&
-                bgColor !== 'unset') {
-                return true;
-            }
-            
-            // 4. Check for borders (but ignore default/none)
-            if (computed.borderStyle && 
-                computed.borderStyle !== 'none' && 
-                computed.borderStyle !== 'initial' &&
-                computed.borderWidth && 
-                computed.borderWidth !== '0px') {
-                return true;
-            }
-            
-            // 5. Check for box shadows
-            if (computed.boxShadow && 
-                computed.boxShadow !== 'none' && 
-                computed.boxShadow !== 'initial') {
-                return true;
-            }
-            
-            // 6. Check for gradients in background (comprehensive check)
-            if (computed.background && 
-                (computed.background.includes('gradient') || 
-                 computed.background.includes('url('))) {
-                return true;
-            }
-            
-            // Also check backgroundImage for gradients (browsers often store gradients here)
-            if (computed.backgroundImage && 
-                (computed.backgroundImage.includes('gradient') ||
-                 computed.backgroundImage.includes('url('))) {
-                return true;
-            }
-            
-            return false;
-        }
-                          
-        function shouldSkipElement(element, computed) {
-            // Skip text-only elements
-            const textOnlyTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'A', 'SPAN', 
-                                'STRONG', 'EM', 'U', 'BUTTON', 'LABEL', 'SMALL', 'CODE'];
-            if (textOnlyTags.includes(element.tagName)) {
-                return true;
-            }
-            
-            // Skip hidden elements
-            if (computed.display === 'none' || computed.visibility === 'hidden') {
-                return true;
-            }
-            
-            return false;
-        }
-                                    
-        function extractVisualElements(element, depth = 0) {
-            if (!element || element.nodeType !== Node.ELEMENT_NODE) return [];
-            
-            const computed = window.getComputedStyle(element);
-            const rect = element.getBoundingClientRect();
-            
-            // Skip if no dimensions
-            if (rect.width === 0 || rect.height === 0) {
-                return [];
-            }
-            
-            // Skip if should be filtered out
-            if (shouldSkipElement(element, computed)) {
-                return [];
-            }
-            
-            const results = [];
-            
-            // Check if element has actual visual content
-            if (hasActualVisualContent(element, computed)) {
-                console.log('VISUAL ELEMENT FOUND:', element.tagName, element.textContent?.trim().substring(0, 30));
-                console.log('backgroundImage:', computed.backgroundImage);
-                console.log('backgroundColor:', computed.backgroundColor);
-                console.log('borderStyle:', computed.borderStyle);
-                
-                // Skip very large elements that are likely backgrounds
-                const isLikelyBackground = rect.width > 1200 || rect.height > 900;
-                
-                if (!isLikelyBackground) {
-                    results.push({
-                        type: 'visual',
-                        x: Math.round(rect.left * 100) / 100,
-                        y: Math.round(rect.top * 100) / 100,
-                        width: Math.round(rect.width * 100) / 100,
-                        height: Math.round(rect.height * 100) / 100,
-                        tag: element.tagName.toLowerCase(),
-                        className: element.className,
-                        id: element.id,
-                        depth: depth,
-                        hasBackground: computed.backgroundImage !== 'none' || 
-                                      (computed.backgroundColor !== 'rgba(0, 0, 0, 0)' && 
-                                       computed.backgroundColor !== 'transparent'),
-                        hasBorder: computed.borderStyle !== 'none',
-                        hasShadow: computed.boxShadow !== 'none',
-                        // Add debug info
-                        debugInfo: {
-                            backgroundColor: computed.backgroundColor,
-                            backgroundImage: computed.backgroundImage,
-                            borderStyle: computed.borderStyle,
-                            textContent: element.textContent?.trim().substring(0, 50) || 'No text'
+                () => {
+                    function hasActualVisualContent(element, computed) {
+                        
+                        // Always include explicit visual elements
+                        if (['IMG', 'SVG', 'CANVAS', 'VIDEO', 'IFRAME'].includes(element.tagName)) {
+                            return true;
                         }
+                        
+                        // 2. Check for actual background images and gradients (not just 'none')
+                        if (computed.backgroundImage && computed.backgroundImage !== 'none') {
+                            return true;
+                        }
+                        
+                        // 3. Check for meaningful background colors (not just transparent)
+                        const bgColor = computed.backgroundColor;
+                        if (bgColor && 
+                            bgColor !== 'rgba(0, 0, 0, 0)' && 
+                            bgColor !== 'transparent' && 
+                            bgColor !== 'inherit' &&
+                            bgColor !== 'initial' &&
+                            bgColor !== 'unset') {
+                            return true;
+                        }
+                        
+                        // 4. Check for borders (but ignore default/none)
+                        if (computed.borderStyle && 
+                            computed.borderStyle !== 'none' && 
+                            computed.borderStyle !== 'initial' &&
+                            computed.borderWidth && 
+                            computed.borderWidth !== '0px') {
+                            return true;
+                        }
+                        
+                        // 5. Check for box shadows
+                        if (computed.boxShadow && 
+                            computed.boxShadow !== 'none' && 
+                            computed.boxShadow !== 'initial') {
+                            return true;
+                        }
+                        
+                        // 6. Check for gradients in background (comprehensive check)
+                        if (computed.background && 
+                            (computed.background.includes('gradient') || 
+                            computed.background.includes('url('))) {
+                            return true;
+                        }
+                        
+                        // Also check backgroundImage for gradients (browsers often store gradients here)
+                        if (computed.backgroundImage && 
+                            (computed.backgroundImage.includes('gradient') ||
+                            computed.backgroundImage.includes('url('))) {
+                            return true;
+                        }
+                        
+                        return false;
+                    }
+                                    
+                    function shouldSkipElement(element, computed) {
+                        // Skip text-only elements
+                        const textOnlyTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'A', 'SPAN', 
+                                            'STRONG', 'EM', 'U', 'BUTTON', 'LABEL', 'SMALL', 'CODE'];
+                        if (textOnlyTags.includes(element.tagName)) {
+                            return true;
+                        }
+                        
+                        // Skip hidden elements
+                        if (computed.display === 'none' || computed.visibility === 'hidden') {
+                            return true;
+                        }
+                        
+                        return false;
+                    }
+                                                
+                    function extractVisualElements(element, depth = 0) {
+                        if (!element || element.nodeType !== Node.ELEMENT_NODE) return [];
+                        
+                        const computed = window.getComputedStyle(element);
+                        const rect = element.getBoundingClientRect();
+                        
+                        // Skip if no dimensions
+                        if (rect.width === 0 || rect.height === 0) {
+                            return [];
+                        }
+                        
+                        // Skip if should be filtered out
+                        if (shouldSkipElement(element, computed)) {
+                            return [];
+                        }
+                        
+                        const results = [];
+                        
+                        // Check if element has actual visual content
+                        if (hasActualVisualContent(element, computed)) {
+                            console.log('VISUAL ELEMENT FOUND:', element.tagName, element.textContent?.trim().substring(0, 30));
+                            console.log('backgroundImage:', computed.backgroundImage);
+                            console.log('backgroundColor:', computed.backgroundColor);
+                            console.log('borderStyle:', computed.borderStyle);
+                            
+                            // Skip very large elements that are likely backgrounds
+                            const isLikelyBackground = rect.width > 1200 || rect.height > 900;
+                            
+                            if (!isLikelyBackground) {
+                                results.push({
+                                    type: 'visual',
+                                    x: Math.round(rect.left * 100) / 100,
+                                    y: Math.round(rect.top * 100) / 100,
+                                    width: Math.round(rect.width * 100) / 100,
+                                    height: Math.round(rect.height * 100) / 100,
+                                    tag: element.tagName.toLowerCase(),
+                                    className: element.className,
+                                    id: element.id,
+                                    depth: depth,
+                                    hasBackground: computed.backgroundImage !== 'none' || 
+                                                (computed.backgroundColor !== 'rgba(0, 0, 0, 0)' && 
+                                                computed.backgroundColor !== 'transparent'),
+                                    hasBorder: computed.borderStyle !== 'none',
+                                    hasShadow: computed.boxShadow !== 'none',
+                                    // Add debug info
+                                    debugInfo: {
+                                        backgroundColor: computed.backgroundColor,
+                                        backgroundImage: computed.backgroundImage,
+                                        borderStyle: computed.borderStyle,
+                                        textContent: element.textContent?.trim().substring(0, 50) || 'No text'
+                                    }
+                                });
+                            }
+                        }
+                        
+                        // Process children for nested elements
+                        Array.from(element.children).forEach(child => {
+                            results.push(...extractVisualElements(child, depth + 1));
+                        });
+                        
+                        return results;
+                    }
+                    
+                    // Actually execute the extraction and return results
+                    const allVisualElements = extractVisualElements(document.body);
+                    
+                    // Sort by depth (background elements first) then by position
+                    allVisualElements.sort((a, b) => {
+                        if (a.depth !== b.depth) return a.depth - b.depth;
+                        if (Math.abs(a.y - b.y) < 5) return a.x - b.x;
+                        return a.y - b.y;
                     });
+                    
+                    return allVisualElements;
                 }
-            }
-            
-            // Process children for nested elements
-            Array.from(element.children).forEach(child => {
-                results.push(...extractVisualElements(child, depth + 1));
-            });
-            
-            return results;
-        }
-        
-        // Actually execute the extraction and return results
-        const allVisualElements = extractVisualElements(document.body);
-        
-        // Sort by depth (background elements first) then by position
-        allVisualElements.sort((a, b) => {
-            if (a.depth !== b.depth) return a.depth - b.depth;
-            if (Math.abs(a.y - b.y) < 5) return a.x - b.x;
-            return a.y - b.y;
-        });
-        
-        return allVisualElements;
-    }
-""")
+            """)
             
             # Debug: Log what we found in Python console
             print(f"🔍 Total visual elements found: {len(visual_data) if visual_data else 0}")
@@ -862,7 +761,6 @@ class PerfectHTMLToPPTXConverter:
             await page.wait_for_timeout(2000)
             
             # Extract all text elements with precise positioning and styling
-            # // Enhanced text extraction JavaScript to include in your page.evaluate()
             text_data = await page.evaluate(r"""
                 () => {
                     function extractTextFromElement(element) {
@@ -995,7 +893,7 @@ class PerfectHTMLToPPTXConverter:
                     else:
                         font_family = 'Arial'
                     
-                    # Parse line height (same for both text and icons)
+                    # Parse line height
                     line_height = 1.2
                     line_height_str = style.get('lineHeight', 'normal')
                     if line_height_str and line_height_str != 'normal':
@@ -1202,56 +1100,8 @@ class PerfectHTMLToPPTXConverter:
                 except Exception:
                     pass
     
-    async def convert_slide_perfect(self, browser, slide_info: Dict, presentation, temp_dir: Path) -> None:
-        """
-        Convert a single HTML slide using perfect 1:1 approach.
-        
-        Args:
-            browser: Playwright browser instance
-            slide_info: Slide information dictionary
-            presentation: PowerPoint presentation object
-            temp_dir: Temporary directory for images
-        """
-        html_path = slide_info['path']
-        slide_num = slide_info['number']
-        
-        print(f"Converting slide {slide_num}: {slide_info['title']} (Perfect 1:1 Mode)")
-        
-        # Add blank slide
-        blank_slide_layout = presentation.slide_layouts[6]  # Blank layout
-        slide = presentation.slides.add_slide(blank_slide_layout)
-        
-        # Step 1: Capture perfect background (everything except text)
-        print("  🎨 Capturing PERFECT background with all visual elements...")
-        background_image_path = await self.capture_perfect_background(browser, html_path, temp_dir)
-        
-        # Step 2: Add perfect background to slide
-        if background_image_path and background_image_path.exists():
-            left = Inches(0)
-            top = Inches(0)
-            width = Inches(20)  # 1920px at 96 DPI
-            height = Inches(11.25)  # 1080px at 96 DPI
-            
-            picture = slide.shapes.add_picture(str(background_image_path), left, top, width, height)
-            print(f"    ✅ Perfect background added (1920x1080)")
-        
-        # Step 3: Extract and add editable text elements
-        print("  📝 Extracting editable text elements...")
-        text_elements = await self.extract_text_elements(browser, html_path)
-        
-        # Step 4: Create editable text boxes on top of perfect background
-        print("  ✍️  Adding editable text overlays...")
-        for text_element in text_elements:
-            self.create_text_box(slide, text_element)
-        
-        print(f"  🎉 Slide {slide_num}: PERFECT background + {len(text_elements)} editable text elements")
-    
-    async def convert_to_pptx_perfect(self) -> None:
-        """Main perfect conversion method - optimized and reliable."""
-        print("🎯 Starting PERFECT 1:1 HTML to PPTX conversion...")
-        print("📋 Method: Clean background + Visual elements + Editable text overlay")
-        print("=" * 80)
-        
+    async def convert_to_pptx(self, store_locally: bool = True) -> tuple:
+        """Main conversion method - optimized and reliable."""
         # Load metadata
         self.load_metadata()
         
@@ -1261,7 +1111,6 @@ class PerfectHTMLToPPTXConverter:
             
             # Launch browser for processing
             async with async_playwright() as p:
-                print("🌐 Launching browser for perfect processing...")
                 browser = await p.chromium.launch(
                     headless=True,
                     args=[
@@ -1425,84 +1274,93 @@ class PerfectHTMLToPPTXConverter:
                     p.text = f"Error building slide: {str(e)}"
                     p.font.size = Pt(18)
                     p.font.color.rgb = RGBColor(255, 0, 0)
+            
+            # Save PowerPoint presentation
+            presentation_name = self.metadata.get('presentation_name', 'presentation')
+            temp_output_path = temp_path / f"{presentation_name}.pptx"
+            
+            presentation.save(str(temp_output_path))
+            
+            if store_locally:
+                # Store in the static files directory for URL serving
+                timestamp = int(asyncio.get_event_loop().time())
+                filename = f"{presentation_name}_{timestamp}.pptx"
+                final_output = output_dir / filename
+                final_output.parent.mkdir(exist_ok=True)
+                
+                # Copy from temp to final location
+                shutil.copy2(temp_output_path, final_output)
+                
+                return final_output, len(presentation.slides)
+            else:
+                # For direct download, read content from temp file before cleanup
+                try:
+                    with open(temp_output_path, 'rb') as f:
+                        pptx_content = f.read()
+                except Exception as e:
+                    raise
+                
+                return pptx_content, len(presentation.slides), presentation_name
+
+
+@router.post("/convert-to-pptx")
+async def convert_presentation_to_pptx(request: ConvertRequest):
+    """
+    Convert HTML presentation to PPTX.
+    
+    Takes a presentation folder path and returns either:
+    - PPTX file directly (if download=true) - uses presentation name as filename
+    - JSON response with download URL (if download=false, default)
+    """
+    try:
+        # Validate presentation path exists
+        presentation_path = Path(request.presentation_path)
+        if not presentation_path.exists():
+            raise HTTPException(status_code=404, detail=f"Presentation path not found: {request.presentation_path}")
         
-        # Save PowerPoint presentation
-        presentation.save(str(self.output_path))
-        print(f"\n🎉 PERFECT 1:1 PPTX created successfully: {self.output_path}")
-        print(f"📊 Total slides: {len(presentation.slides)}")
-        print(f"✨ Clean background + Visual elements + Fully editable text!")
-
-
-def check_dependencies():
-    """Check if required dependencies are available"""
-    missing_deps = []
-    
-    try:
-        import playwright
-    except ImportError:
-        missing_deps.append("playwright (pip install playwright)")
-    
-    try:
-        from pptx import Presentation
-    except ImportError:
-        missing_deps.append("python-pptx (pip install python-pptx)")
-    
-    try:
-        from PIL import Image
-    except ImportError:
-        missing_deps.append("Pillow (pip install Pillow)")
-    
-    if missing_deps:
-        print("❌ Missing dependencies:")
-        for dep in missing_deps:
-            print(f"  - {dep}")
-        print("\nPlease install missing dependencies and try again.")
-        return False
-    
-    return True
-
-
-def main():
-    """Main CLI entry point"""
-    print("🎯 HTML Presentation to PPTX Converter - PERFECT 1:1 MODE")
-    print("=" * 80)
-    print("🎨 Clean background + Visual elements + Editable text overlay")
-    print()
-    
-    # Check dependencies
-    if not check_dependencies():
-        sys.exit(1)
-    
-    # Parse command line arguments
-    if len(sys.argv) < 2:
-        presentation_dir = "."
-        output_path = None
-    elif len(sys.argv) == 2:
-        presentation_dir = sys.argv[1]
-        output_path = None
-    elif len(sys.argv) == 3:
-        presentation_dir = sys.argv[1]
-        output_path = sys.argv[2]
-    else:
-        print("Usage: python html_to_pptx_perfect.py [presentation_directory] [output_pptx_path]")
-        print("\nExamples:")
-        print("  python html_to_pptx_perfect.py")
-        print("  python html_to_pptx_perfect.py . perfect_presentation.pptx")
-        print("  python html_to_pptx_perfect.py /path/to/slides output.pptx")
-        sys.exit(1)
-    
-    try:
-        # Create converter and run
-        converter = PerfectHTMLToPPTXConverter(presentation_dir, output_path)
-        asyncio.run(converter.convert_to_pptx_perfect())
+        # Check if metadata.json exists
+        metadata_path = presentation_path / "metadata.json"
+        if not metadata_path.exists():
+            raise HTTPException(status_code=400, detail=f"metadata.json not found in: {request.presentation_path}")
         
-    except KeyboardInterrupt:
-        print("\n❌ Conversion cancelled by user")
-        sys.exit(1)
+        # Create converter
+        converter = OptimizedHTMLToPPTXConverter(request.presentation_path)
+        
+        # If download is requested, don't store locally and return file directly
+        if request.download:
+            pptx_content, total_slides, presentation_name = await converter.convert_to_pptx(store_locally=False)
+            
+            return Response(
+                content=pptx_content,
+                media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                headers={"Content-Disposition": f"attachment; filename=\"{presentation_name}.pptx\""}
+            )
+        
+        # Otherwise, store locally and return JSON with download URL
+        pptx_path, total_slides = await converter.convert_to_pptx(store_locally=True)
+        
+        pptx_url = f"/downloads/{pptx_path.name}"
+        
+        return ConvertResponse(
+            success=True,
+            message=f"PPTX generated successfully with {total_slides} slides",
+            pptx_url=pptx_url,
+            filename=pptx_path.name,
+            total_slides=total_slides
+        )
+        
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        print(f"❌ Error: {e}")
-        sys.exit(1)
+        raise HTTPException(status_code=500, detail=f"PPTX conversion failed: {str(e)}")
 
 
-if __name__ == "__main__":
-    main()
+@router.get("/health")
+async def pptx_health_check():
+    """PPTX service health check endpoint."""
+    return {
+        "status": "healthy", 
+        "service": "HTML to PPTX Converter"
+    }

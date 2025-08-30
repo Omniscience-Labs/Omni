@@ -185,6 +185,9 @@ api_router.include_router(admin_api.router)
 from composio_integration import api as composio_api
 api_router.include_router(composio_api.router)
 
+from google_slides_api import router as google_slides_router
+api_router.include_router(google_slides_router)
+
 @api_router.get("/health")
 async def health_check():
     logger.debug("Health check endpoint called")
