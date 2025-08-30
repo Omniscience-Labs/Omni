@@ -52,10 +52,10 @@ export const AgentSelectionDropdown: React.FC<AgentSelectionDropdownProps> = ({
   // Sort agents with selected first
   const sortedAgents = React.useMemo(() => {
     if (!selectedAgentId) return filteredAgents;
-    
+
     const selectedAgent = filteredAgents.find((agent: any) => agent.agent_id === selectedAgentId);
     const otherAgents = filteredAgents.filter((agent: any) => agent.agent_id !== selectedAgentId);
-    
+
     return selectedAgent ? [selectedAgent, ...otherAgents] : filteredAgents;
   }, [filteredAgents, selectedAgentId]);
 
@@ -83,11 +83,11 @@ export const AgentSelectionDropdown: React.FC<AgentSelectionDropdownProps> = ({
     if (selectedAgent) {
       return (
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <AgentAvatar 
-            agentId={selectedAgent.agent_id} 
-            size={variant === 'compact' ? 16 : 20} 
-            className="flex-shrink-0" 
-            fallbackName={selectedAgent.name} 
+          <AgentAvatar
+            agentId={selectedAgent.agent_id}
+            size={variant === 'compact' ? 16 : 20}
+            className="flex-shrink-0"
+            fallbackName={selectedAgent.name}
           />
           <span className="truncate font-medium">
             {selectedAgent.name}
@@ -122,8 +122,8 @@ export const AgentSelectionDropdown: React.FC<AgentSelectionDropdownProps> = ({
           </Button>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent 
-          className="w-80 p-0" 
+        <DropdownMenuContent
+          className="w-80 p-0"
           align="start"
           sideOffset={4}
         >
@@ -169,11 +169,11 @@ export const AgentSelectionDropdown: React.FC<AgentSelectionDropdownProps> = ({
                     className="flex items-center gap-3 px-3 py-2.5 mx-1 rounded-lg cursor-pointer"
                     onClick={() => handleAgentSelect(agent.agent_id)}
                   >
-                    <AgentAvatar 
-                      agentId={agent.agent_id} 
-                      size={20} 
-                      className="flex-shrink-0" 
-                      fallbackName={agent.name} 
+                    <AgentAvatar
+                      agentId={agent.agent_id}
+                      size={20}
+                      className="flex-shrink-0"
+                      fallbackName={agent.name}
                     />
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm truncate">
@@ -213,10 +213,13 @@ export const AgentSelectionDropdown: React.FC<AgentSelectionDropdownProps> = ({
       </DropdownMenu>
 
       {/* New Agent Dialog */}
-      <NewAgentDialog 
-        open={showNewAgentDialog} 
+      <NewAgentDialog
+        open={showNewAgentDialog}
         onOpenChange={setShowNewAgentDialog}
-        onSuccess={() => {
+        onSuccess={(agentId) => {
+          if (agentId) {
+            onAgentSelect(agentId);
+          }
         }}
       />
     </>

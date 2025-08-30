@@ -9,11 +9,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { ArrowRight, Clock, PlugZap, Sparkles } from 'lucide-react';
-import { TriggerConfigDialog } from '@/components/agents/triggers/trigger-config-dialog';
+import { ArrowRight, Clock, PlugZap } from 'lucide-react';
 import { EventBasedTriggerDialog } from '@/components/agents/triggers/event-based-trigger-dialog';
 import { SimplifiedScheduleConfig } from '@/components/agents/triggers/providers/simplified-schedule-config';
+import { ScheduleTriggerConfig } from '@/components/agents/triggers/types';
 import { useCreateTrigger } from '@/hooks/react-query/triggers';
 import { toast } from 'sonner';
 import { AgentSelectionDropdown } from '@/components/agents/agent-selection-dropdown';
@@ -32,9 +31,13 @@ export function TriggerCreationDialog({
   onTriggerCreated
 }: TriggerCreationDialogProps) {
   const [selectedAgent, setSelectedAgent] = useState<string>('');
-  const [taskName, setTaskName] = useState<string>('');
-  const [taskDescription, setTaskDescription] = useState<string>('');
-  const [taskConfig, setTaskConfig] = useState<any>({});
+  const [step, setStep] = useState<'agent' | 'config'>('agent');
+  const [name, setName] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
+  const [config, setConfig] = useState<ScheduleTriggerConfig>({ 
+    cron_expression: '', 
+    execution_type: 'agent' 
+  });
   const createTriggerMutation = useCreateTrigger();
 
   const scheduleProvider = {
@@ -45,14 +48,12 @@ export function TriggerCreationDialog({
     config_schema: {}
   };
 
-
-
   const handleScheduleSave = async (data: { name: string; description: string; config: any; is_active: boolean }) => {
     if (!selectedAgent) {
       toast.error('Please select an agent');
       return;
     }
-    
+
     try {
       const newTrigger = await createTriggerMutation.mutateAsync({
         agentId: selectedAgent,
@@ -62,12 +63,11 @@ export function TriggerCreationDialog({
         config: data.config,
       });
       toast.success('Schedule trigger created successfully');
-      
-      // Call the callback with the new trigger ID
+
       if (onTriggerCreated && newTrigger?.trigger_id) {
         onTriggerCreated(newTrigger.trigger_id);
       }
-      
+
       handleClose();
     } catch (error: any) {
       toast.error(error.message || 'Failed to create schedule trigger');
@@ -77,28 +77,77 @@ export function TriggerCreationDialog({
 
   const handleClose = () => {
     setSelectedAgent('');
-    setTaskName('');
-    setTaskDescription('');
-    setTaskConfig({});
+    setStep('agent');
     onOpenChange(false);
   };
 
+  const handleAgentSelect = () => {
+    setStep('config');
+  };
+
   if (!open) return null;
-  
+
+  // Step 1: Agent Selection (for both types)
+  if (step === 'agent') {
+    return (
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {type === 'schedule' ? (
+                <>
+                  <Clock className="h-5 w-5" />
+                  Create Scheduled Task
+                </>
+              ) : (
+                <>
+                  <PlugZap className="h-5 w-5" />
+                  Create App-based Task
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              First, select which agent should handle this task
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <AgentSelectionDropdown
+              selectedAgentId={selectedAgent}
+              onAgentSelect={setSelectedAgent}
+              placeholder="Choose an agent"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={handleClose}>
+              Cancel
+            </Button>
+            <Button onClick={handleAgentSelect} disabled={!selectedAgent}>
+              Next
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Step 2: Configuration
   if (type === 'schedule') {
     return (
       <SimplifiedScheduleConfig
         provider={scheduleProvider}
-        config={taskConfig}
-        onChange={setTaskConfig}
+        config={config}
+        onChange={setConfig}
         errors={{}}
         agentId={selectedAgent}
-        name={taskName}
-        description={taskDescription}
-        onNameChange={setTaskName}
-        onDescriptionChange={setTaskDescription}
+        name={name}
+        description={description}
+        onNameChange={setName}
+        onDescriptionChange={setDescription}
         isActive={true}
-        onActiveChange={() => {}}
+        onActiveChange={() => { }}
         selectedAgent={selectedAgent}
         onAgentSelect={setSelectedAgent}
         open={open}
@@ -107,10 +156,10 @@ export function TriggerCreationDialog({
       />
     );
   }
-  
+
   return (
-    <EventBasedTriggerDialog 
-      open={open} 
+    <EventBasedTriggerDialog
+      open={open}
       onOpenChange={handleClose}
       agentId={selectedAgent}
       onTriggerCreated={onTriggerCreated}
