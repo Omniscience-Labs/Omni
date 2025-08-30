@@ -265,6 +265,13 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
       if (message.type === 'tool') {
         setAutoOpenedPanel(false);
       }
+
+      // Auto-scroll to bottom (top: 0 in flex-col-reverse) when new messages arrive
+      setTimeout(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 100);
     },
     [setMessages, setAutoOpenedPanel],
   );
@@ -353,6 +360,13 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
 
       setMessages((prev) => [...prev, optimisticUserMessage]);
       setNewMessage('');
+
+      // Auto-scroll to bottom when user sends a message
+      setTimeout(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 100);
 
       try {
         const messagePromise = addUserMessageMutation.mutateAsync({
@@ -819,7 +833,7 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
                 agentAvatar={undefined}
                 agentMetadata={agent?.metadata}
                 agentData={agent}
-                scrollContainerRef={null}
+                scrollContainerRef={scrollContainerRef}
                 isPreviewMode={true}
               />
             </div>

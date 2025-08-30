@@ -129,7 +129,8 @@ def get_model_pricing(model: str) -> tuple[float, float] | None:
         else:
             logger.debug(f"No pricing for model_to_try='{model_to_try}' (model_obj: {model_obj is not None}, has_pricing: {model_obj.pricing is not None if model_obj else False})")
     
-    logger.warning(f"No pricing found for model '{model}' (resolved: '{resolved_model}')")
+    # Silently return None for unknown models to avoid log spam
+    logger.debug(f"No pricing found for model '{model}' (resolved: '{resolved_model}')")
     return None
 
 
@@ -788,11 +789,11 @@ def calculate_token_cost(prompt_tokens: int, completion_tokens: int, model: str)
                         continue
                 
                 if message_cost is None:
-                    logger.warning(f"Could not get pricing for model {model} (resolved: {resolved_model}), returning 0 cost")
+                    logger.debug(f"Could not get pricing for model {model} (resolved: {resolved_model}), returning 0 cost")
                     return 0.0
                     
             except Exception as e:
-                logger.warning(f"Could not get pricing for model {model} (resolved: {resolved_model}): {str(e)}, returning 0 cost")
+                logger.debug(f"Could not get pricing for model {model} (resolved: {resolved_model}): {str(e)}, returning 0 cost")
                 return 0.0
         
         # Apply the TOKEN_PRICE_MULTIPLIER
