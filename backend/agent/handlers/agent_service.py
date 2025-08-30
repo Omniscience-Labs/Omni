@@ -369,7 +369,7 @@ class AgentService:
             creator_name = None
             if template_data.get('creator_id'):
                 try:
-                    creator_result = await self.db.table('accounts').select('name, slug').eq('id', template_data['creator_id']).single().execute()
+                    creator_result = await self.db.schema('basejump').from_('accounts').select('name, slug').eq('id', template_data['creator_id']).single().execute()
                     if creator_result.data:
                         creator_name = creator_result.data.get('name') or creator_result.data.get('slug')
                 except Exception as e:
