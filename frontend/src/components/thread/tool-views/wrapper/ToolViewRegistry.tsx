@@ -188,16 +188,14 @@ export function useToolView(toolName: string): ToolViewComponent {
   return useMemo(() => toolViewRegistry.get(toolName), [toolName]);
 }
 
-interface ToolOutput {
-  file_path?: string;
-}
+
 
 export function ToolView({ name = 'default', assistantContent, toolContent, ...props }: ToolViewProps) {
   const toolToolData = extractToolData(toolContent);
 
-  // find the file path from the tool output
-  const output  = toolToolData.toolResult.toolOutput as ToolOutput;
-  const filePath = output.file_path;
+  // find the file path from the tool arguments
+  const toolArguments = toolToolData.arguments || {};
+  const filePath = toolArguments.file_path || toolArguments.target_file;
 
   // check if the file path is a presentation slide
   const { isValid: isPresentationSlide, presentationName, slideNumber } = parsePresentationSlidePath(filePath);
@@ -210,7 +208,7 @@ export function ToolView({ name = 'default', assistantContent, toolContent, ...p
     'delete-slide',
     'delete-presentation',
     'presentation-styles',
-    'present_presentation',
+    'present-presentation',
   ]
 
   const isAlreadyPresentationTool = presentationTools.includes(name);
