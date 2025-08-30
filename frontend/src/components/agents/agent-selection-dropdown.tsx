@@ -216,10 +216,7 @@ export const AgentSelectionDropdown: React.FC<AgentSelectionDropdownProps> = ({
       <NewAgentDialog 
         open={showNewAgentDialog} 
         onOpenChange={setShowNewAgentDialog}
-        onAgentCreated={(agentId) => {
-          if (agentId) {
-            onAgentSelect(agentId);
-          }
+        onSuccess={() => {
         }}
       />
     </>
