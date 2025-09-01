@@ -141,7 +141,6 @@ async def _get_user_id_from_account_cached(account_id: str) -> Optional[str]:
         structlog.get_logger().error(f"Database lookup failed for account {account_id}: {e}")
         return None
 
-# This function extracts the user ID from Supabase JWT
 async def verify_and_get_user_id_from_jwt(request: Request) -> str:
     """
     Extract and verify the user ID from the JWT in the Authorization header or API key.
@@ -588,4 +587,154 @@ async def require_agent_access(
     """
     user_id, agent_data = await get_authorized_user_for_agent(agent_id, request)
     return AuthorizedAgentAccess(user_id, agent_data)
+
+# ============================================================================
+# Sandbox Authorization Functions
+# ============================================================================
+
+async def verify_sandbox_access(client, sandbox_id: str, user_id: str):
+    """
+    Verify that a user has access to a specific sandbox by checking project ownership and permissions.
+    
+    This function implements project-based access control:
+    - Public projects: Allow access to anyone
+    - Private projects: Only allow access to account members
+    
+    Args:
+        client: The Supabase client
+        sandbox_id: The sandbox ID to check access for
+        user_id: The user ID to check permissions for (required for all operations)
+        
+    Returns:
+        dict: Project data containing sandbox information
+        
+    Raises:
+        HTTPException: If the user doesn't have access to the project/sandbox or sandbox doesn't exist
+    """
+    # Find the project that owns this sandbox
+    project_result = await client.table('projects').select('*').filter('sandbox->>id', 'eq', sandbox_id).execute()
+    
+    if not project_result.data or len(project_result.data) == 0:
+        raise HTTPException(status_code=404, detail="Sandbox not found - no project owns this sandbox")
+    
+    project_data = project_result.data[0]
+    project_id = project_data.get('project_id')
+    is_public = project_data.get('is_public', False)
+    
+    structlog.get_logger().debug(
+        "Checking sandbox access via project ownership",
+        sandbox_id=sandbox_id,
+        project_id=project_id,
+        is_public=is_public,
+        user_id=user_id
+    )
+
+    # Public projects: Allow access regardless of authentication
+    if is_public:
+        structlog.get_logger().debug("Allowing access to public project sandbox", project_id=project_id)
+        return project_data
+    
+    # Private projects: Verify the user is a member of the project's account
+    account_id = project_data.get('account_id')
+    if not account_id:
+        raise HTTPException(status_code=500, detail="Project has no associated account")
+    
+    # Check if user is a member of the project's account
+    account_user_result = await client.schema('basejump').from_('account_user').select('account_role').eq('user_id', user_id).eq('account_id', account_id).execute()
+    
+    if account_user_result.data and len(account_user_result.data) > 0:
+        user_role = account_user_result.data[0].get('account_role')
+        structlog.get_logger().debug(
+            "User has access to private project sandbox", 
+            project_id=project_id,
+            user_role=user_role
+        )
+        return project_data
+    
+    structlog.get_logger().warning(
+        "User denied access to private project sandbox",
+        sandbox_id=sandbox_id,
+        project_id=project_id,
+        user_id=user_id,
+        account_id=account_id
+    )
+    raise HTTPException(status_code=403, detail="Not authorized to access this project's sandbox")
+
+async def verify_sandbox_access_optional(client, sandbox_id: str, user_id: Optional[str] = None):
+    """
+    Verify that a user has access to a specific sandbox by checking project ownership and permissions.
+    This function supports optional authentication for read-only operations.
+    
+    This function implements project-based access control:
+    - Public projects: Allow access to anyone (no authentication required)
+    - Private projects: Require authentication and account membership
+    
+    Args:
+        client: The Supabase client
+        sandbox_id: The sandbox ID to check access for
+        user_id: The user ID to check permissions for. Can be None for public project access.
+        
+    Returns:
+        dict: Project data containing sandbox information
+        
+    Raises:
+        HTTPException: If the user doesn't have access to the project/sandbox or sandbox doesn't exist
+    """
+    # Find the project that owns this sandbox
+    project_result = await client.table('projects').select('*').filter('sandbox->>id', 'eq', sandbox_id).execute()
+    
+    if not project_result.data or len(project_result.data) == 0:
+        raise HTTPException(status_code=404, detail="Sandbox not found - no project owns this sandbox")
+    
+    project_data = project_result.data[0]
+    project_id = project_data.get('project_id')
+    is_public = project_data.get('is_public', False)
+    
+    structlog.get_logger().debug(
+        "Checking optional sandbox access via project ownership",
+        sandbox_id=sandbox_id,
+        project_id=project_id,
+        is_public=is_public,
+        user_id=user_id
+    )
+
+    # Public projects: Allow access regardless of authentication
+    if is_public:
+        structlog.get_logger().debug("Allowing access to public project sandbox", project_id=project_id)
+        return project_data
+    
+    # Private projects: Require authentication
+    if not user_id:
+        structlog.get_logger().warning(
+            "Authentication required for private project sandbox access",
+            project_id=project_id,
+            sandbox_id=sandbox_id
+        )
+        raise HTTPException(status_code=401, detail="Authentication required for this private project")
+    
+    # Verify the user is a member of the project's account
+    account_id = project_data.get('account_id')
+    if not account_id:
+        raise HTTPException(status_code=500, detail="Project has no associated account")
+    
+    # Check if user is a member of the project's account
+    account_user_result = await client.schema('basejump').from_('account_user').select('account_role').eq('user_id', user_id).eq('account_id', account_id).execute()
+    
+    if account_user_result.data and len(account_user_result.data) > 0:
+        user_role = account_user_result.data[0].get('account_role')
+        structlog.get_logger().debug(
+            "User has access to private project sandbox", 
+            project_id=project_id,
+            user_role=user_role
+        )
+        return project_data
+    
+    structlog.get_logger().warning(
+        "User denied access to private project sandbox",
+        sandbox_id=sandbox_id,
+        project_id=project_id,
+        user_id=user_id,
+        account_id=account_id
+    )
+    raise HTTPException(status_code=403, detail="Not authorized to access this project's sandbox")
 
