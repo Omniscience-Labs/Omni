@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-// @ts-ignore
 import HTMLtoDOCX from 'html-to-docx';
 
 export async function POST(request: NextRequest) {
