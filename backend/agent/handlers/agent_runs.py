@@ -8,7 +8,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Request, Body, File, UploadFile, Form
 from fastapi.responses import StreamingResponse
 
-from utils.auth_utils import get_current_user_id_from_jwt, get_user_id_from_stream_auth, verify_thread_access
+from utils.auth_utils import verify_and_get_user_id_from_jwt, get_user_id_from_stream_auth, verify_and_authorize_thread_access
 from utils.logger import logger, structlog
 from services.billing import check_billing_status, can_use_model
 from utils.config import config
@@ -32,7 +32,7 @@ router = APIRouter()
 async def start_agent(
     thread_id: str,
     body: AgentStartRequest = Body(...),
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Start an agent for a specific thread in the background"""
     structlog.contextvars.bind_contextvars(
@@ -67,7 +67,7 @@ async def start_agent(
     thread_metadata = thread_data.get('metadata', {})
 
     if account_id != user_id:
-        await verify_thread_access(client, thread_id, user_id)
+        await verify_and_authorize_thread_access(client, thread_id, user_id)
 
     structlog.contextvars.bind_contextvars(
         project_id=project_id,
@@ -241,7 +241,7 @@ async def start_agent(
     return {"agent_run_id": agent_run_id, "status": "running"}
 
 @router.post("/agent-run/{agent_run_id}/stop")
-async def stop_agent(agent_run_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
+async def stop_agent(agent_run_id: str, user_id: str = Depends(verify_and_get_user_id_from_jwt)):
     """Stop a running agent."""
     structlog.contextvars.bind_contextvars(
         agent_run_id=agent_run_id,
@@ -253,20 +253,20 @@ async def stop_agent(agent_run_id: str, user_id: str = Depends(get_current_user_
     return {"status": "stopped"}
 
 @router.get("/thread/{thread_id}/agent-runs")
-async def get_agent_runs(thread_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
+async def get_agent_runs(thread_id: str, user_id: str = Depends(verify_and_get_user_id_from_jwt)):
     """Get all agent runs for a thread."""
     structlog.contextvars.bind_contextvars(
         thread_id=thread_id,
     )
     logger.debug(f"Fetching agent runs for thread: {thread_id}")
     client = await utils.db.client
-    await verify_thread_access(client, thread_id, user_id)
+    await verify_and_authorize_thread_access(client, thread_id, user_id)
     agent_runs = await client.table('agent_runs').select('id, thread_id, status, started_at, completed_at, error, created_at, updated_at').eq("thread_id", thread_id).order('created_at', desc=True).execute()
     logger.debug(f"Found {len(agent_runs.data)} agent runs for thread: {thread_id}")
     return {"agent_runs": agent_runs.data}
 
 @router.get("/agent-run/{agent_run_id}")
-async def get_agent_run(agent_run_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
+async def get_agent_run(agent_run_id: str, user_id: str = Depends(verify_and_get_user_id_from_jwt)):
     """Get agent run status and responses."""
     structlog.contextvars.bind_contextvars(
         agent_run_id=agent_run_id,
@@ -285,7 +285,7 @@ async def get_agent_run(agent_run_id: str, user_id: str = Depends(get_current_us
     }
 
 @router.get("/thread/{thread_id}/agent", response_model=ThreadAgentResponse)
-async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
+async def get_thread_agent(thread_id: str, user_id: str = Depends(verify_and_get_user_id_from_jwt)):
     """Get the agent details for a specific thread. Since threads are fully agent-agnostic, 
     this returns the most recently used agent from agent_runs only."""
     structlog.contextvars.bind_contextvars(
@@ -296,7 +296,7 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
     
     try:
         # Verify thread access and get thread data
-        await verify_thread_access(client, thread_id, user_id)
+        await verify_and_authorize_thread_access(client, thread_id, user_id)
         thread_result = await client.table('threads').select('account_id').eq('thread_id', thread_id).execute()
         
         if not thread_result.data:
@@ -621,7 +621,7 @@ async def initiate_agent_with_files(
     enable_context_manager: Optional[bool] = Form(False),
     agent_id: Optional[str] = Form(None),  # Add agent_id parameter
     files: List[UploadFile] = File(default=[]),
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """
     Initiate a new agent session with optional file attachments.

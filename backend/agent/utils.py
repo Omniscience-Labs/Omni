@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from utils.cache import Cache
 from utils.logger import logger
 from utils.config import config
-from utils.auth_utils import verify_thread_access
+from utils.auth_utils import verify_and_authorize_thread_access
 from services import redis
 from services.supabase import DBConnection
 from services.llm import make_llm_api_call
@@ -121,7 +121,7 @@ async def get_agent_run_with_access_check(client, agent_run_id: str, user_id: st
     account_id = agent_run_data['threads']['account_id']
     if account_id == user_id:
         return agent_run_data
-    await verify_thread_access(client, thread_id, user_id)
+    await verify_and_authorize_thread_access(client, thread_id, user_id)
     return agent_run_data
 
 async def generate_and_update_project_name(project_id: str, prompt: str):

@@ -453,4 +453,3 @@ class SandboxWebDevTool(SandboxToolsBase):
             logger.error(f"Error starting preview server: {e}", exc_info=True)
             return self.fail_response(f"Error starting preview server: {e}")
 
-# Removed install_dependencies - use the generic command tool instead

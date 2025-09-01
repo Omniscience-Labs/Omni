@@ -3,7 +3,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
 from utils.logger import logger
-from utils.auth_utils import get_current_user_id_from_jwt
+from utils.auth_utils import verify_and_get_user_id_from_jwt
 from services.supabase import DBConnection
 from utils.pagination import PaginationParams
 
@@ -133,7 +133,7 @@ async def validate_agent_ownership(agent_id: str, user_id: str) -> Dict[str, Any
 @router.post("", response_model=Dict[str, str])
 async def create_template_from_agent(
     request: CreateTemplateRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     try:
         await validate_agent_ownership(request.agent_id, user_id)
@@ -172,7 +172,7 @@ async def create_template_from_agent(
 async def publish_template(
     template_id: str,
     request: PublishTemplateRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     try:
         template = await validate_template_ownership_and_get(template_id, user_id)
@@ -200,7 +200,7 @@ async def publish_template(
 @router.post("/{template_id}/unpublish")
 async def unpublish_template(
     template_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     try:
         template = await validate_template_ownership_and_get(template_id, user_id)
@@ -228,7 +228,7 @@ async def unpublish_template(
 @router.delete("/{template_id}")
 async def delete_template(
     template_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     try:
         template = await validate_template_ownership_and_get(template_id, user_id)
@@ -256,7 +256,7 @@ async def delete_template(
 @router.post("/install", response_model=InstallationResponse)
 async def install_template(
     request: InstallTemplateRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     try:
         await validate_template_access_and_get(request.template_id, user_id)
@@ -345,8 +345,8 @@ async def get_marketplace_templates(
         creator_id_filter = None
         if mine:
             try:
-                from utils.auth_utils import get_current_user_id_from_jwt
-                user_id = await get_current_user_id_from_jwt(request)
+                from utils.auth_utils import verify_and_get_user_id_from_jwt
+                user_id = await verify_and_get_user_id_from_jwt(request)
                 creator_id_filter = user_id
             except Exception as e:
                 raise HTTPException(status_code=401, detail="Authentication required for 'mine' filter")
@@ -406,7 +406,7 @@ async def get_my_templates(
     search: Optional[str] = Query(None, description="Search term for name and description"),
     sort_by: Optional[str] = Query("created_at", description="Sort field: created_at, name, download_count"),
     sort_order: Optional[str] = Query("desc", description="Sort order: asc, desc"),
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     try:
         from templates.services.template_service import TemplateService, MarketplaceFilters
@@ -497,7 +497,7 @@ async def get_public_template(template_id: str):
 @router.get("/{template_id}", response_model=TemplateResponse)
 async def get_template(
     template_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     try:
         template = await validate_template_access_and_get(template_id, user_id)

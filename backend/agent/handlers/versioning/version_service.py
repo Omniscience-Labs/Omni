@@ -80,7 +80,7 @@ class VersionService:
     async def _get_client(self):
         return await self.db.client
     
-    async def _verify_agent_access(self, agent_id: str, user_id: str) -> tuple[bool, bool]:
+    async def _verify_and_authorize_agent_access(self, agent_id: str, user_id: str) -> tuple[bool, bool]:
         if user_id == "system":
             return True, True
             
@@ -205,7 +205,7 @@ class VersionService:
         logger.debug(f"Creating version for agent {agent_id}")
         client = await self.db.client
         
-        is_owner, _ = await self._verify_agent_access(agent_id, user_id)
+        is_owner, _ = await self._verify_and_authorize_agent_access(agent_id, user_id)
         if not is_owner:
             raise UnauthorizedError("Unauthorized to create version for this agent")
         
@@ -298,7 +298,7 @@ class VersionService:
         return version
     
     async def get_version(self, agent_id: str, version_id: str, user_id: str) -> AgentVersion:
-        is_owner, is_public = await self._verify_agent_access(agent_id, user_id)
+        is_owner, is_public = await self._verify_and_authorize_agent_access(agent_id, user_id)
         if not is_owner and not is_public:
             raise UnauthorizedError("You don't have permission to view this version")
         
@@ -314,7 +314,7 @@ class VersionService:
         return self._version_from_db_row(result.data[0])
     
     async def get_active_version(self, agent_id: str, user_id: str = "system") -> Optional[AgentVersion]:
-        is_owner, is_public = await self._verify_agent_access(agent_id, user_id)
+        is_owner, is_public = await self._verify_and_authorize_agent_access(agent_id, user_id)
         if not is_owner and not is_public:
             raise UnauthorizedError("You don't have permission to view this agent")
         
@@ -341,7 +341,7 @@ class VersionService:
         return version
     
     async def get_all_versions(self, agent_id: str, user_id: str) -> List[AgentVersion]:
-        is_owner, is_public = await self._verify_agent_access(agent_id, user_id)
+        is_owner, is_public = await self._verify_and_authorize_agent_access(agent_id, user_id)
         if not is_owner and not is_public:
             raise UnauthorizedError("You don't have permission to view versions")
         
@@ -355,7 +355,7 @@ class VersionService:
         return versions
     
     async def activate_version(self, agent_id: str, version_id: str, user_id: str) -> None:
-        is_owner, _ = await self._verify_agent_access(agent_id, user_id)
+        is_owner, _ = await self._verify_and_authorize_agent_access(agent_id, user_id)
         if not is_owner:
             raise UnauthorizedError("You don't have permission to activate versions")
         
@@ -458,7 +458,7 @@ class VersionService:
     ) -> AgentVersion:
         version_to_restore = await self.get_version(agent_id, version_id, user_id)
         
-        is_owner, _ = await self._verify_agent_access(agent_id, user_id)
+        is_owner, _ = await self._verify_and_authorize_agent_access(agent_id, user_id)
         if not is_owner:
             raise UnauthorizedError("You don't have permission to rollback versions")
         
@@ -483,7 +483,7 @@ class VersionService:
         version_name: Optional[str] = None,
         change_description: Optional[str] = None
     ) -> AgentVersion:
-        is_owner, _ = await self._verify_agent_access(agent_id, user_id)
+        is_owner, _ = await self._verify_and_authorize_agent_access(agent_id, user_id)
         if not is_owner:
             raise UnauthorizedError("You don't have permission to update this version")
         

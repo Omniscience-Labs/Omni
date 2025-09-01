@@ -3,7 +3,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
 from utils.logger import logger
-from utils.auth_utils import get_current_user_id_from_jwt
+from utils.auth_utils import verify_and_get_user_id_from_jwt
 
 from .version_service import (
     get_version_service,
@@ -61,7 +61,7 @@ class VersionComparisonResponse(BaseModel):
 @router.get("/agents/{agent_id}/versions", response_model=List[VersionResponse])
 async def get_versions(
     agent_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
     version_service: VersionService = Depends(get_version_service)
 ):
     try:
@@ -80,7 +80,7 @@ async def get_versions(
 async def create_version(
     agent_id: str,
     request: CreateVersionRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
     version_service: VersionService = Depends(get_version_service)
 ):
     try:
@@ -112,7 +112,7 @@ async def create_version(
 async def get_version(
     agent_id: str,
     version_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
     version_service: VersionService = Depends(get_version_service)
 ):
     try:
@@ -131,7 +131,7 @@ async def get_version(
 async def activate_version(
     agent_id: str,
     version_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
     version_service: VersionService = Depends(get_version_service)
 ):
     try:
@@ -153,7 +153,7 @@ async def compare_versions(
     agent_id: str,
     version1_id: str,
     version2_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
     version_service: VersionService = Depends(get_version_service)
 ):
     try:
@@ -179,7 +179,7 @@ async def compare_versions(
 async def rollback_to_version(
     agent_id: str,
     version_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
     version_service: VersionService = Depends(get_version_service)
 ):
     try:
@@ -202,7 +202,7 @@ async def update_version_details(
     agent_id: str,
     version_id: str,
     request: UpdateVersionDetailsRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
     version_service: VersionService = Depends(get_version_service)
 ):
     try:

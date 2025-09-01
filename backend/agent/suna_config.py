@@ -24,7 +24,7 @@ SUNA_CONFIG = {
         "sb_sheets_tool": False,
         "browser_tool": True,
         "data_providers_tool": True,
-        "sb_web_dev_tool": True,
+        # "sb_web_dev_tool": True,
         "agent_config_tool": True,
         "agent_creation_tool": True,
         "mcp_search_tool": True,

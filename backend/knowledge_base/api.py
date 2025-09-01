@@ -2,7 +2,7 @@ import json
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
 from pydantic import BaseModel, Field, HttpUrl
-from utils.auth_utils import get_current_user_id_from_jwt, verify_agent_access
+from utils.auth_utils import verify_and_get_user_id_from_jwt, verify_and_get_agent_authorization, require_agent_access, AuthorizedAgentAccess
 from services.supabase import DBConnection
 from knowledge_base.file_processor import FileProcessor
 from utils.logger import logger
@@ -69,15 +69,16 @@ db = DBConnection()
 async def get_agent_knowledge_base(
     agent_id: str,
     include_inactive: bool = False,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    auth: AuthorizedAgentAccess = Depends(require_agent_access)
 ):
     
     """Get all knowledge base entries for an agent"""
     try:
         client = await db.client
+        user_id = auth.user_id        # Already authenticated and authorized!
+        agent_data = auth.agent_data  # Agent data already fetched during authorization
 
-        # Verify agent access
-        await verify_agent_access(client, agent_id, user_id)
+        # No need for manual authorization - it's already done in the dependency!
 
         result = await client.rpc('get_agent_knowledge_base', {
             'p_agent_id': agent_id,
@@ -122,7 +123,7 @@ async def get_agent_knowledge_base(
 async def create_agent_knowledge_base_entry(
     agent_id: str,
     entry_data: CreateKnowledgeBaseEntryRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     
     """Create a new knowledge base entry for an agent"""
@@ -130,7 +131,7 @@ async def create_agent_knowledge_base_entry(
         client = await db.client
         
         # Verify agent access and get agent data
-        agent_data = await verify_agent_access(client, agent_id, user_id)
+        agent_data = await verify_and_get_agent_authorization(client, agent_id, user_id)
         account_id = agent_data['account_id']
         
         insert_data = {
@@ -172,7 +173,7 @@ async def upload_file_to_agent_kb(
     agent_id: str,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     
     """Upload and process a file for agent knowledge base"""
@@ -180,7 +181,7 @@ async def upload_file_to_agent_kb(
         client = await db.client
         
         # Verify agent access and get agent data
-        agent_data = await verify_agent_access(client, agent_id, user_id)
+        agent_data = await verify_and_get_agent_authorization(client, agent_id, user_id)
         account_id = agent_data['account_id']
         
         file_content = await file.read()
@@ -226,7 +227,7 @@ async def upload_file_to_agent_kb(
 async def update_knowledge_base_entry(
     entry_id: str,
     entry_data: UpdateKnowledgeBaseEntryRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     
     """Update an agent knowledge base entry"""
@@ -243,7 +244,7 @@ async def update_knowledge_base_entry(
         agent_id = entry['agent_id']
         
         # Verify agent access
-        await verify_agent_access(client, agent_id, user_id)
+        await verify_and_get_agent_authorization(client, agent_id, user_id)
         
         update_data = {}
         if entry_data.name is not None:
@@ -294,7 +295,7 @@ async def update_knowledge_base_entry(
 @router.delete("/{entry_id}")
 async def delete_knowledge_base_entry(
     entry_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
 
     """Delete an agent knowledge base entry"""
@@ -311,7 +312,7 @@ async def delete_knowledge_base_entry(
         agent_id = entry['agent_id']
         
         # Verify agent access
-        await verify_agent_access(client, agent_id, user_id)
+        await verify_and_get_agent_authorization(client, agent_id, user_id)
         
         result = await client.table('agent_knowledge_base_entries').delete().eq('entry_id', entry_id).execute()
         
@@ -329,7 +330,7 @@ async def delete_knowledge_base_entry(
 @router.get("/{entry_id}", response_model=KnowledgeBaseEntryResponse)
 async def get_knowledge_base_entry(
     entry_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Get a specific agent knowledge base entry"""
     try:
@@ -345,7 +346,7 @@ async def get_knowledge_base_entry(
         agent_id = entry['agent_id']
         
         # Verify agent access
-        await verify_agent_access(client, agent_id, user_id)
+        await verify_and_get_agent_authorization(client, agent_id, user_id)
         
         logger.debug(f"Retrieved agent knowledge base entry {entry_id} for agent {agent_id}")
         
@@ -376,7 +377,7 @@ async def get_knowledge_base_entry(
 async def get_agent_processing_jobs(
     agent_id: str,
     limit: int = 10,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     
     """Get processing jobs for an agent"""
@@ -384,7 +385,7 @@ async def get_agent_processing_jobs(
         client = await db.client
 
         # Verify agent access
-        await verify_agent_access(client, agent_id, user_id)
+        await verify_and_get_agent_authorization(client, agent_id, user_id)
         
         result = await client.rpc('get_agent_kb_processing_jobs', {
             'p_agent_id': agent_id,
@@ -468,7 +469,7 @@ async def process_file_background(
 async def get_agent_knowledge_base_context(
     agent_id: str,
     max_tokens: int = 4000,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     
     """Get knowledge base context for agent prompts"""
@@ -476,7 +477,7 @@ async def get_agent_knowledge_base_context(
         client = await db.client
         
         # Verify agent access
-        await verify_agent_access(client, agent_id, user_id)
+        await verify_and_get_agent_authorization(client, agent_id, user_id)
         
         result = await client.rpc('get_agent_knowledge_base_context', {
             'p_agent_id': agent_id,

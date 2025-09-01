@@ -9,7 +9,7 @@ import json
 import hmac
 
 from services.supabase import DBConnection
-from utils.auth_utils import get_current_user_id_from_jwt
+from utils.auth_utils import verify_and_get_user_id_from_jwt
 from utils.logger import logger
 from utils.config import config
 from services.billing import check_billing_status, can_use_model
@@ -131,7 +131,7 @@ def initialize(database: DBConnection):
     db = database
 
 
-async def verify_agent_access(agent_id: str, user_id: str):
+async def verify_and_authorize_trigger_agent_access(agent_id: str, user_id: str):
     client = await db.client
     result = await client.table('agents').select('agent_id').eq('agent_id', agent_id).eq('account_id', user_id).execute()
     
@@ -228,10 +228,10 @@ async def get_providers():
 @router.get("/agents/{agent_id}/triggers", response_model=List[TriggerResponse])
 async def get_agent_triggers(
     agent_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     
-    await verify_agent_access(agent_id, user_id)
+    await verify_and_authorize_trigger_agent_access(agent_id, user_id)
     
     try:
         trigger_service = get_trigger_service(db)
@@ -266,7 +266,7 @@ async def get_agent_triggers(
 
 @router.get("/all", response_model=List[Dict[str, Any]])
 async def get_all_user_triggers(
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     try:
         client = await db.client
@@ -347,11 +347,11 @@ async def get_all_user_triggers(
 async def get_agent_upcoming_runs(
     agent_id: str,
     limit: int = Query(10, ge=1, le=50),
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Get upcoming scheduled runs for agent triggers"""
     
-    await verify_agent_access(agent_id, user_id)
+    await verify_and_authorize_trigger_agent_access(agent_id, user_id)
     
     try:
         trigger_service = get_trigger_service(db)
@@ -419,11 +419,11 @@ async def get_agent_upcoming_runs(
 async def create_agent_trigger(
     agent_id: str,
     request: TriggerCreateRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Create a new trigger for an agent"""
         
-    await verify_agent_access(agent_id, user_id)
+    await verify_and_authorize_trigger_agent_access(agent_id, user_id)
     
     try:
         trigger_service = get_trigger_service(db)
@@ -466,7 +466,7 @@ async def create_agent_trigger(
 @router.get("/{trigger_id}", response_model=TriggerResponse)
 async def get_trigger(
     trigger_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Get a trigger by ID"""
     
@@ -477,7 +477,7 @@ async def get_trigger(
         if not trigger:
             raise HTTPException(status_code=404, detail="Trigger not found")
         
-        await verify_agent_access(trigger.agent_id, user_id)
+        await verify_and_authorize_trigger_agent_access(trigger.agent_id, user_id)
         
         base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
         webhook_url = f"{base_url}/api/triggers/{trigger_id}/webhook"
@@ -505,7 +505,7 @@ async def get_trigger(
 async def update_trigger(
     trigger_id: str,
     request: TriggerUpdateRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Update a trigger"""
     
@@ -516,7 +516,7 @@ async def update_trigger(
         if not trigger:
             raise HTTPException(status_code=404, detail="Trigger not found")
 
-        await verify_agent_access(trigger.agent_id, user_id)
+        await verify_and_authorize_trigger_agent_access(trigger.agent_id, user_id)
         
         updated_trigger = await trigger_service.update_trigger(
             trigger_id=trigger_id,
@@ -556,7 +556,7 @@ async def update_trigger(
 @router.delete("/{trigger_id}")
 async def delete_trigger(
     trigger_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Delete a trigger"""
     
@@ -566,7 +566,7 @@ async def delete_trigger(
         if not trigger:
             raise HTTPException(status_code=404, detail="Trigger not found")
 
-        await verify_agent_access(trigger.agent_id, user_id)
+        await verify_and_authorize_trigger_agent_access(trigger.agent_id, user_id)
         
         # Store agent_id before deletion
         agent_id = trigger.agent_id
@@ -709,10 +709,10 @@ def convert_steps_to_json(steps: List[WorkflowStepRequest]) -> List[Dict[str, An
 @workflows_router.get("/agents/{agent_id}/workflows")
 async def get_agent_workflows(
     agent_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Get workflows for an agent"""
-    await verify_agent_access(agent_id, user_id)
+    await verify_and_authorize_trigger_agent_access(agent_id, user_id)
     
     client = await db.client
     result = await client.table('agent_workflows').select('*').eq('agent_id', agent_id).order('created_at', desc=True).execute()
@@ -724,10 +724,10 @@ async def get_agent_workflows(
 async def create_agent_workflow(
     agent_id: str,
     workflow_data: WorkflowCreateRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Create a new workflow for an agent"""
-    await verify_agent_access(agent_id, user_id)
+    await verify_and_authorize_trigger_agent_access(agent_id, user_id)
     
     try:
         client = await db.client
@@ -758,10 +758,10 @@ async def update_agent_workflow(
     agent_id: str,
     workflow_id: str,
     workflow_data: WorkflowUpdateRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Update a workflow"""
-    await verify_agent_access(agent_id, user_id)
+    await verify_and_authorize_trigger_agent_access(agent_id, user_id)
     
     client = await db.client
     
@@ -800,9 +800,9 @@ async def update_agent_workflow(
 async def delete_agent_workflow(
     agent_id: str,
     workflow_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
-    await verify_agent_access(agent_id, user_id)
+    await verify_and_authorize_trigger_agent_access(agent_id, user_id)
     
     client = await db.client
     
@@ -822,10 +822,10 @@ async def execute_agent_workflow(
     agent_id: str,
     workflow_id: str,
     execution_data: WorkflowExecuteRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     print("DEBUG: Executing workflow", workflow_id, "for agent", agent_id)
-    await verify_agent_access(agent_id, user_id)
+    await verify_and_authorize_trigger_agent_access(agent_id, user_id)
     
     client = await db.client
     
