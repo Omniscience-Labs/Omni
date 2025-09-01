@@ -39,6 +39,7 @@ import { SheetsToolView } from '../sheets-tools/sheets-tool-view';
 import { GetProjectStructureView } from '../web-dev/GetProjectStructureView';
 import { ImageEditGenerateToolView } from '../image-edit-generate-tool/ImageEditGenerateToolView';
 import { UploadFileToolView } from '../UploadFileToolView';
+import { DocsToolView, ListDocumentsToolView, DeleteDocumentToolView } from '../docs-tool';
 import { CreateNewAgentToolView } from '../create-new-agent/create-new-agent';
 import { SearchMcpServersForAgentToolView } from '../search-mcp-servers-for-agent/search-mcp-servers-for-agent';
 import { CreateCredentialProfileForAgentToolView } from '../create-credential-profile-for-agent/create-credential-profile-for-agent';
@@ -130,6 +131,21 @@ const defaultRegistry: ToolViewRegistryType = {
   'list-web-projects': GenericToolView,
 
   'upload-file': UploadFileToolView,
+
+  // Document operations - using specific views for different operations
+  'create-document': DocsToolView,
+  'update-document': DocsToolView,
+  'read-document': DocsToolView,
+  'list-documents': ListDocumentsToolView,
+  'delete-document': DeleteDocumentToolView,
+  'export-document': DocsToolView,
+  'create_document': DocsToolView,
+  'update_document': DocsToolView,
+  'read_document': DocsToolView,
+  'list_documents': ListDocumentsToolView,
+  'delete_document': DeleteDocumentToolView,
+  'export_document': DocsToolView,
+  'get_tiptap_format_guide': DocsToolView,
 
   'default': GenericToolView,
 
