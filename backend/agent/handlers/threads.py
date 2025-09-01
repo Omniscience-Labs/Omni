@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, Form, Query
 
-from utils.auth_utils import get_current_user_id_from_jwt, verify_thread_access
+from utils.auth_utils import verify_and_get_user_id_from_jwt, verify_and_authorize_thread_access, require_thread_access, AuthorizedThreadAccess
 from utils.logger import logger
 from sandbox.sandbox import create_sandbox, delete_sandbox
 
@@ -16,7 +16,7 @@ router = APIRouter()
 
 @router.get("/threads")
 async def get_user_threads(
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
     page: Optional[int] = Query(1, ge=1, description="Page number (1-based)"),
     limit: Optional[int] = Query(1000, ge=1, le=1000, description="Number of items per page (max 1000)")
 ):
@@ -121,14 +121,15 @@ async def get_user_threads(
 @router.get("/threads/{thread_id}")
 async def get_thread(
     thread_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    auth: AuthorizedThreadAccess = Depends(require_thread_access)
 ):
     """Get a specific thread by ID with complete related data."""
     logger.debug(f"Fetching thread: {thread_id}")
     client = await utils.db.client
+    user_id = auth.user_id  # Already authenticated and authorized!
     
     try:
-        await verify_thread_access(client, thread_id, user_id)
+        # No need for manual authorization - it's already done in the dependency!
         
         # Get the thread data
         thread_result = await client.table('threads').select('*').eq('thread_id', thread_id).execute()
@@ -200,7 +201,7 @@ async def get_thread(
 @router.post("/threads", response_model=CreateThreadResponse)
 async def create_thread(
     name: Optional[str] = Form(None),
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """
     Create a new thread without starting an agent run.
@@ -303,13 +304,13 @@ async def create_thread(
 @router.get("/threads/{thread_id}/messages")
 async def get_thread_messages(
     thread_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
     order: str = Query("desc", description="Order by created_at: 'asc' or 'desc'")
 ):
     """Get all messages for a thread, fetching in batches of 1000 from the DB to avoid large queries."""
     logger.debug(f"Fetching all messages for thread: {thread_id}, order={order}")
     client = await utils.db.client
-    await verify_thread_access(client, thread_id, user_id)
+    await verify_and_authorize_thread_access(client, thread_id, user_id)
     try:
         batch_size = 1000
         offset = 0
@@ -333,7 +334,7 @@ async def get_thread_messages(
 @router.get("/agent-runs/{agent_run_id}")
 async def get_agent_run(
     agent_run_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
 ):
     """
     [DEPRECATED] Get an agent run by ID.
@@ -355,12 +356,12 @@ async def get_agent_run(
 async def add_message_to_thread(
     thread_id: str,
     message: str,
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
 ):
     """Add a message to a thread"""
     logger.debug(f"Adding message to thread: {thread_id}")
     client = await utils.db.client
-    await verify_thread_access(client, thread_id, user_id)
+    await verify_and_authorize_thread_access(client, thread_id, user_id)
     try:
         message_result = await client.table('messages').insert({
             'thread_id': thread_id,
@@ -380,14 +381,14 @@ async def add_message_to_thread(
 async def create_message(
     thread_id: str,
     message_data: MessageCreateRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Create a new message in a thread."""
     logger.debug(f"Creating message in thread: {thread_id}")
     client = await utils.db.client
     
     try:
-        await verify_thread_access(client, thread_id, user_id)
+        await verify_and_authorize_thread_access(client, thread_id, user_id)
         
         message_payload = {
             "role": "user" if message_data.type == "user" else "assistant",
@@ -421,12 +422,12 @@ async def create_message(
 async def delete_message(
     thread_id: str,
     message_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Delete a message from a thread."""
     logger.debug(f"Deleting message from thread: {thread_id}")
     client = await utils.db.client
-    await verify_thread_access(client, thread_id, user_id)
+    await verify_and_authorize_thread_access(client, thread_id, user_id)
     try:
         # Don't allow users to delete the "status" messages
         await client.table('messages').delete().eq('message_id', message_id).eq('is_llm_message', True).eq('thread_id', thread_id).execute()

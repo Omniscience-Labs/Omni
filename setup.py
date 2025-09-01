@@ -119,6 +119,7 @@ def load_existing_env_vars():
             "SUPABASE_SERVICE_ROLE_KEY": backend_env.get(
                 "SUPABASE_SERVICE_ROLE_KEY", ""
             ),
+            "SUPABASE_JWT_SECRET": backend_env.get("SUPABASE_JWT_SECRET", ""),
         },
         "daytona": {
             "DAYTONA_API_KEY": backend_env.get("DAYTONA_API_KEY", ""),
@@ -285,8 +286,17 @@ class SetupWizard:
         config_items = []
 
         # Check Supabase
-        if self.env_vars["supabase"]["SUPABASE_URL"]:
-            config_items.append(f"{Colors.GREEN}✓{Colors.ENDC} Supabase")
+        supabase_complete = (
+            self.env_vars["supabase"]["SUPABASE_URL"] and 
+            self.env_vars["supabase"]["SUPABASE_ANON_KEY"] and
+            self.env_vars["supabase"]["SUPABASE_SERVICE_ROLE_KEY"]
+        )
+        supabase_secure = self.env_vars["supabase"]["SUPABASE_JWT_SECRET"]
+        
+        if supabase_complete and supabase_secure:
+            config_items.append(f"{Colors.GREEN}✓{Colors.ENDC} Supabase (secure)")
+        elif supabase_complete:
+            config_items.append(f"{Colors.YELLOW}⚠{Colors.ENDC} Supabase (missing JWT secret)")
         else:
             config_items.append(f"{Colors.YELLOW}○{Colors.ENDC} Supabase")
 
@@ -600,8 +610,12 @@ class SetupWizard:
                 "You'll need a Supabase project. Visit https://supabase.com/dashboard/projects to create one."
             )
             print_info(
-                "In your project settings, go to 'API' to find the required information."
+                "In your project settings, go to 'API' to find the required information:"
             )
+            print_info("  - Project URL (at the top)")
+            print_info("  - anon public key (under 'Project API keys')")
+            print_info("  - service_role secret key (under 'Project API keys')")
+            print_info("  - JWT Secret (under 'JWT Settings' - critical for security!)")
             input("Press Enter to continue once you have your project details...")
 
         self.env_vars["supabase"]["SUPABASE_URL"] = self._get_input(
@@ -621,6 +635,12 @@ class SetupWizard:
             validate_api_key,
             "This does not look like a valid key. It should be at least 10 characters.",
             default_value=self.env_vars["supabase"]["SUPABASE_SERVICE_ROLE_KEY"],
+        )
+        self.env_vars["supabase"]["SUPABASE_JWT_SECRET"] = self._get_input(
+            "Enter your Supabase JWT secret (for signature verification): ",
+            validate_api_key,
+            "This does not look like a valid JWT secret. It should be at least 10 characters.",
+            default_value=self.env_vars["supabase"]["SUPABASE_JWT_SECRET"],
         )
         print_success("Supabase information saved.")
 

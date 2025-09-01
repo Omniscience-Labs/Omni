@@ -3,7 +3,7 @@ from typing import Optional, Dict, List, Any
 from fastapi import APIRouter, HTTPException, Depends
 from uuid import uuid4
 
-from utils.auth_utils import get_current_user_id_from_jwt
+from utils.auth_utils import verify_and_get_user_id_from_jwt
 from utils.logger import logger
 from templates.template_service import MCPRequirementValue, ConfigType, ProfileId, QualifiedName
 
@@ -343,7 +343,7 @@ class JsonImportService:
             raise  # Re-raise the exception to ensure import fails if version creation fails
 
 @router.get("/agents/{agent_id}/export")
-async def export_agent(agent_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
+async def export_agent(agent_id: str, user_id: str = Depends(verify_and_get_user_id_from_jwt)):
     """Export an agent configuration as JSON"""
     logger.debug(f"Exporting agent {agent_id} for user: {user_id}")
     
@@ -419,7 +419,7 @@ async def export_agent(agent_id: str, user_id: str = Depends(get_current_user_id
 @router.post("/agents/json/analyze", response_model=JsonAnalysisResponse)
 async def analyze_json_for_import(
     request: JsonAnalysisRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Analyze imported JSON to determine required credentials and configurations"""
     logger.debug(f"Analyzing JSON for import - user: {user_id}")
@@ -439,7 +439,7 @@ async def analyze_json_for_import(
 @router.post("/agents/json/import", response_model=JsonImportResponse)
 async def import_agent_from_json(
     request: JsonImportRequestModel,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     logger.debug(f"Importing agent from JSON - user: {user_id}")
     

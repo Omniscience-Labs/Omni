@@ -19,7 +19,7 @@ from fastapi import APIRouter, HTTPException, Query, Depends
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
-from utils.auth_utils import get_current_user_id_from_jwt
+from utils.auth_utils import verify_and_get_user_id_from_jwt
 from utils.logger import logger
 from services.supabase import DBConnection
 from .google_slides_service import GoogleSlidesService, OAuthTokenService
@@ -92,7 +92,7 @@ presentation_router = APIRouter(prefix="/presentation-tools", tags=["presentatio
 
 @oauth_router.get("/auth-url", response_model=AuthURLResponse)
 async def get_google_auth_url(
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
     return_url: Optional[str] = Query(None, description="URL to redirect to after OAuth"),
     google_service: GoogleSlidesService = Depends(get_google_slides_service)
 ):
@@ -172,7 +172,7 @@ async def google_oauth_callback(
 # UNUSED: Disconnect endpoint - frontend never calls this
 # @oauth_router.post("/disconnect")
 # async def disconnect_google(
-#     user_id: str = Depends(get_current_user_id_from_jwt),
+#     user_id: str = Depends(verify_and_get_user_id_from_jwt),
 #     google_service: GoogleSlidesService = Depends(get_google_slides_service)
 # ):
 #     """
@@ -196,7 +196,7 @@ async def google_oauth_callback(
 @presentation_router.post("/convert-and-upload-to-slides", response_model=ConvertToSlidesResponse)
 async def convert_and_upload_to_google_slides(
     request: ConvertToSlidesRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
     google_service: GoogleSlidesService = Depends(get_google_slides_service)
 ):
     """

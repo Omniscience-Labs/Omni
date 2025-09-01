@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends, Request, Body
 
-from utils.auth_utils import get_current_user_id_from_jwt
+from utils.auth_utils import verify_and_get_user_id_from_jwt
 from utils.logger import logger
 from sandbox.sandbox import get_or_start_sandbox
 from services.supabase import DBConnection
@@ -19,7 +19,7 @@ router = APIRouter()
 async def get_custom_mcp_tools_for_agent(
     agent_id: str,
     request: Request,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     logger.debug(f"Getting custom MCP tools for agent {agent_id}, user {user_id}")
     try:
@@ -98,7 +98,7 @@ async def get_custom_mcp_tools_for_agent(
 async def update_custom_mcp_tools_for_agent(
     agent_id: str,
     request: dict,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     logger.debug(f"Updating custom MCP tools for agent {agent_id}, user {user_id}")
     
@@ -209,7 +209,7 @@ async def update_custom_mcp_tools_for_agent(
 async def update_agent_custom_mcps(
     agent_id: str,
     request: dict,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     logger.debug(f"Updating agent {agent_id} custom MCPs for user {user_id}")
     
@@ -316,7 +316,7 @@ async def update_agent_custom_mcps(
 @router.get("/agents/{agent_id}/tools")
 async def get_agent_tools(
     agent_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
         
     logger.debug(f"Fetching enabled tools for agent: {agent_id} by user: {user_id}")

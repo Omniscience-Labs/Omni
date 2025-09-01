@@ -16,6 +16,7 @@ Usage:
 
 import os
 from enum import Enum
+from re import S
 from typing import Dict, Any, Optional, get_type_hints, Union
 from dotenv import load_dotenv
 import logging
@@ -277,6 +278,7 @@ class Configuration:
     SUPABASE_URL: str
     SUPABASE_ANON_KEY: str
     SUPABASE_SERVICE_ROLE_KEY: str
+    SUPABASE_JWT_SECRET: str
     
     # Redis configuration
     REDIS_HOST: str

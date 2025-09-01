@@ -1,7 +1,7 @@
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, Query
 
-from utils.auth_utils import get_current_user_id_from_jwt
+from utils.auth_utils import verify_and_get_user_id_from_jwt
 from utils.logger import logger
 from utils.config import config, EnvMode
 from utils.pagination import PaginationParams
@@ -21,7 +21,7 @@ router = APIRouter()
 async def update_agent(
     agent_id: str,
     agent_data: AgentUpdateRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     logger.debug(f"Updating agent {agent_id} for user: {user_id}")
     
@@ -436,7 +436,7 @@ async def update_agent(
         raise HTTPException(status_code=500, detail=f"Failed to update agent: {str(e)}")
 
 @router.delete("/agents/{agent_id}")
-async def delete_agent(agent_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
+async def delete_agent(agent_id: str, user_id: str = Depends(verify_and_get_user_id_from_jwt)):
     logger.debug(f"Deleting agent: {agent_id}")
     client = await utils.db.client
     
@@ -502,7 +502,7 @@ async def delete_agent(agent_id: str, user_id: str = Depends(get_current_user_id
 
 @router.get("/agents", response_model=AgentsResponse)
 async def get_agents(
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
     page: Optional[int] = Query(1, ge=1, description="Page number (1-based)"),
     limit: Optional[int] = Query(20, ge=1, le=100, description="Number of items per page"),
     search: Optional[str] = Query(None, description="Search in name and description"),
@@ -570,7 +570,7 @@ async def get_agents(
         raise HTTPException(status_code=500, detail=f"Failed to fetch agents: {str(e)}")
 
 @router.get("/agents/{agent_id}", response_model=AgentResponse)
-async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
+async def get_agent(agent_id: str, user_id: str = Depends(verify_and_get_user_id_from_jwt)):
     
     logger.debug(f"Fetching agent {agent_id} for user: {user_id}")
     
@@ -697,7 +697,7 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
 @router.post("/agents", response_model=AgentResponse)
 async def create_agent(
     agent_data: AgentCreateRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     logger.debug(f"Creating new agent for user: {user_id}")
     client = await utils.db.client

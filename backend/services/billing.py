@@ -15,7 +15,7 @@ from utils.cache import Cache
 from utils.logger import logger
 from utils.config import config, EnvMode
 from services.supabase import DBConnection
-from utils.auth_utils import get_current_user_id_from_jwt
+from utils.auth_utils import verify_and_get_user_id_from_jwt
 from pydantic import BaseModel
 from models import model_manager
 from litellm.cost_calculator import cost_per_token
@@ -1234,7 +1234,7 @@ async def handle_usage_with_credits(
 @router.post("/create-checkout-session")
 async def create_checkout_session(
     request: CreateCheckoutSessionRequest,
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Create a Stripe Checkout session or modify an existing subscription."""
     try:
@@ -1555,7 +1555,7 @@ async def create_checkout_session(
 @router.post("/create-portal-session")
 async def create_portal_session(
     request: CreatePortalSessionRequest,
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Create a Stripe Customer Portal session for subscription management."""
     try:
@@ -1655,7 +1655,7 @@ async def create_portal_session(
 
 @router.get("/subscription")
 async def get_subscription(
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Get the current subscription status for the current user, including scheduled changes and credit balance."""
     try:
@@ -1891,7 +1891,7 @@ async def get_subscription(
 
 @router.get("/check-status")
 async def check_status(
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Check if the user can run agents based on their subscription, usage, and credit balance."""
     try:
@@ -2076,7 +2076,7 @@ async def stripe_webhook(request: Request):
 
 @router.get("/available-models")
 async def get_available_models(
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Get the list of models available to the user based on their subscription tier."""
     try:
@@ -2200,7 +2200,7 @@ async def get_available_models(
 async def get_usage_logs_endpoint(
     page: int = 0,
     items_per_page: int = 1000,
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Get detailed usage logs for a user with pagination."""
     logger.debug(f"[USAGE_LOGS_ENDPOINT] Starting get_usage_logs_endpoint for user_id={current_user_id}, page={page}, items_per_page={items_per_page}")
@@ -2254,7 +2254,7 @@ async def get_usage_logs_endpoint(
 @router.get("/subscription-commitment/{subscription_id}")
 async def get_subscription_commitment(
     subscription_id: str,
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Get commitment status for a subscription."""
     try:
@@ -2278,7 +2278,7 @@ async def get_subscription_commitment(
 
 @router.get("/subscription-details")
 async def get_subscription_details(
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Get detailed subscription information including commitment status."""
     try:
@@ -2314,7 +2314,7 @@ async def get_subscription_details(
 
 @router.post("/cancel-subscription")
 async def cancel_subscription(
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Cancel subscription with yearly commitment handling."""
     try:
@@ -2412,7 +2412,7 @@ async def cancel_subscription(
 
 @router.post("/reactivate-subscription")
 async def reactivate_subscription(
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Reactivate a subscription that was marked for cancellation."""
     try:
@@ -2492,7 +2492,7 @@ async def reactivate_subscription(
 @router.post("/purchase-credits")
 async def purchase_credits(
     request: PurchaseCreditsRequest,
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """
     Create a Stripe checkout session for purchasing credits.
@@ -2609,7 +2609,7 @@ async def purchase_credits(
 
 @router.get("/credit-balance")
 async def get_credit_balance_endpoint(
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Get the current credit balance for the user."""
     try:
@@ -2628,7 +2628,7 @@ async def get_credit_balance_endpoint(
 async def get_credit_history(
     page: int = 0,
     items_per_page: int = 50,
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Get credit purchase and usage history for the user."""
     try:
@@ -2690,7 +2690,7 @@ async def get_credit_history(
 
 @router.get("/can-purchase-credits")
 async def can_purchase_credits(
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Check if the current user can purchase credits (must be on highest tier)."""
     try:

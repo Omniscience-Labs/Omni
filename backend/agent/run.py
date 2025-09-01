@@ -21,7 +21,7 @@ from agent.tools.expand_msg_tool import ExpandMessageTool
 from agent.prompts.prompt import get_system_prompt
 
 from utils.logger import logger
-from utils.auth_utils import get_account_id_from_thread
+
 from services.billing import check_billing_status
 from agent.tools.sb_vision_tool import SandboxVisionTool
 from agent.tools.sb_image_edit_tool import SandboxImageEditTool
@@ -448,9 +448,16 @@ class AgentRunner:
         )
         
         self.client = await self.thread_manager.db.client
-        self.account_id = await get_account_id_from_thread(self.client, self.config.thread_id)
+        
+        response = await self.client.table('threads').select('account_id').eq('thread_id', self.config.thread_id).execute()
+        
+        if not response.data or len(response.data) == 0:
+            raise ValueError(f"Thread {self.config.thread_id} not found")
+        
+        self.account_id = response.data[0].get('account_id')
+        
         if not self.account_id:
-            raise ValueError("Could not determine account ID for thread")
+            raise ValueError(f"Thread {self.config.thread_id} has no associated account")
 
         project = await self.client.table('projects').select('*').eq('project_id', self.config.project_id).execute()
         if not project.data or len(project.data) == 0:
