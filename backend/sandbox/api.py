@@ -175,6 +175,38 @@ async def create_file(
         logger.error(f"Error creating file in sandbox {sandbox_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.put("/sandboxes/{sandbox_id}/files")
+async def update_file(
+    sandbox_id: str,
+    request: Request = None,
+    user_id: Optional[str] = Depends(get_optional_user_id)
+):
+    try:
+        body = await request.json()
+        path = body.get('path')
+        content = body.get('content', '')
+        
+        if not path:
+            raise HTTPException(status_code=400, detail="Path is required")
+        
+        path = normalize_path(path)
+        
+        logger.debug(f"Received file update request for sandbox {sandbox_id}, path: {path}, user_id: {user_id}")
+        client = await db.client
+        
+        await verify_sandbox_access(client, sandbox_id, user_id)
+        
+        sandbox = await get_sandbox_by_id_safely(client, sandbox_id)
+        
+        content_bytes = content.encode('utf-8') if isinstance(content, str) else content
+        await sandbox.fs.upload_file(content_bytes, path)
+        logger.debug(f"File updated at {path} in sandbox {sandbox_id}")
+        
+        return {"status": "success", "updated": True, "path": path}
+    except Exception as e:
+        logger.error(f"Error updating file in sandbox {sandbox_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/sandboxes/{sandbox_id}/files")
 async def list_files(
     sandbox_id: str, 
@@ -182,8 +214,6 @@ async def list_files(
     request: Request = None,
     user_id: Optional[str] = Depends(get_optional_user_id)
 ):
-    """List files and directories at the specified path"""
-    # Normalize the path to handle UTF-8 encoding correctly
     path = normalize_path(path)
     
     logger.debug(f"Received list files request for sandbox {sandbox_id}, path: {path}, user_id: {user_id}")

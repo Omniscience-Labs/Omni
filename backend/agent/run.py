@@ -37,6 +37,7 @@ from agentpress.tool import SchemaType
 from agent.tools.sb_sheets_tool import SandboxSheetsTool
 from agent.tools.sb_web_dev_tool import SandboxWebDevTool
 from agent.tools.sb_upload_file_tool import SandboxUploadFileTool
+from agent.tools.sb_docs_tool import SandboxDocsTool
 
 load_dotenv()
 
@@ -113,6 +114,7 @@ class ToolManager:
             ('sb_sheets_tool', SandboxSheetsTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_web_dev_tool', SandboxWebDevTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
             ('sb_upload_file_tool', SandboxUploadFileTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_docs_tool', SandboxDocsTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
         ]
         
         for tool_name, tool_class, kwargs in sandbox_tools:
