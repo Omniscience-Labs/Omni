@@ -395,6 +395,7 @@ export function ToolCallSidePanel({
       }
       setIsInitialized(true);
     } else if (hasNewSnapshots && navigationMode === 'live') {
+      // When in live mode and new snapshots arrive, always follow the latest
       const latestSnapshot = newSnapshots[newSnapshots.length - 1];
       const isLatestStreaming = latestSnapshot?.toolCall.toolResult?.content === 'STREAMING';
       if (isLatestStreaming) {
@@ -416,8 +417,16 @@ export function ToolCallSidePanel({
         setInternalIndex(newSnapshots.length - 1);
       }
     } else if (hasNewSnapshots && navigationMode === 'manual') {
+      // When in manual mode and new snapshots arrive, check if we should auto-switch to live
+      // This happens when the user was at the latest snapshot before new ones arrived
+      const wasAtLatest = internalIndex === toolCallSnapshots.length - 1;
+      if (wasAtLatest && agentStatus === 'running') {
+        // Auto-switch to live mode when new snapshots arrive and we were at the latest
+        setNavigationMode('live');
+        setInternalIndex(newSnapshots.length - 1);
+      }
     }
-  }, [toolCalls, navigationMode, toolCallSnapshots.length, isInitialized]);
+  }, [toolCalls, navigationMode, toolCallSnapshots.length, isInitialized, internalIndex, agentStatus]);
 
   React.useEffect(() => {
     // This is used to sync the internal index to the current index
@@ -444,7 +453,7 @@ export function ToolCallSidePanel({
     const lastCompletedSnapshot = completedToolCalls[completedToolCalls.length - 1];
     displayToolCall = lastCompletedSnapshot.toolCall;
     displayIndex = totalCompletedCalls - 1;
-    displayTotalCalls = totalCompletedCalls;
+    displayTotalCalls = totalCalls; // Show all calls including streaming
   } else if (!isCurrentToolStreaming) {
     const completedIndex = completedToolCalls.findIndex(snapshot => snapshot.id === currentSnapshot?.id);
     if (completedIndex >= 0) {
