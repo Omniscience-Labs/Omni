@@ -52,6 +52,13 @@ export function DocsToolView({
   
   const toolName = extractToolName(toolContent) || name || 'docs';
   const data = extractDocsData(toolContent);
+
+  const handleExport = useCallback(async (format: ExportFormat) => {
+    const content = data?.content || data?.document?.content || '';
+    const fileName = data?.document?.title || 'document';
+
+    await exportDocument({ content, fileName, format });
+  }, [data]);
   
   const assistantParams = extractParametersFromAssistant(assistantContent);
   
@@ -98,13 +105,6 @@ export function DocsToolView({
     setEditorFilePath(doc.path);
     setEditorOpen(true);
   };
-
-  const handleExport = useCallback(async (format: ExportFormat) => {
-    const content = data?.content || data?.document?.content || '';
-    const fileName = data?.document?.title || 'document';
-
-    await exportDocument({ content, fileName, format });
-  }, [data]);
   
   return (
     <>
