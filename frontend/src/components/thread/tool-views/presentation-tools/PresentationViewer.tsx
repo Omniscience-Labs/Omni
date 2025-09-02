@@ -674,7 +674,7 @@ export function PresentationViewer({
                 <div 
                   key={slide.number} 
                   id={`slide-${slide.number}`} 
-                  className={`group relative bg-background border border-border/60 rounded-xl overflow-hidden hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20 transition-all duration-200 ${currentSlideNumber === slide.number && 'ring-2 ring-blue-500/20  shadow-md'}`}
+                  className={`group relative bg-background border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20 hover:scale-[1.01] transition-all duration-200 ${currentSlideNumber === slide.number && 'ring-2 ring-blue-500/20 shadow-md'}`}
                 >
                   {/* Slide header */}
                   <div className="px-3 py-2 bg-muted/20 border-b border-border/40 flex items-center justify-between">
