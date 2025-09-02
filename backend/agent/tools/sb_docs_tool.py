@@ -552,7 +552,7 @@ All content must use proper HTML tags without custom styles or classes."""
     @openapi_schema({
         "type": "function",
         "function": {
-            "name": "get_tiptap_format_guide",
+            "name": "get_format_guide",
             "description": "Get a guide and example of TipTap-compatible HTML format for creating or updating documents",
             "parameters": {
                 "type": "object",
@@ -560,7 +560,7 @@ All content must use proper HTML tags without custom styles or classes."""
             }
         }
     })
-    async def get_tiptap_format_guide(self) -> ToolResult:
+    async def get_format_guide(self) -> ToolResult:
         guide = {
             "description": "TipTap is a rich text editor that uses clean, semantic HTML. Follow these guidelines for proper formatting.",
             "supported_elements": {
