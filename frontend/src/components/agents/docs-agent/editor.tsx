@@ -43,8 +43,8 @@ import * as Y from 'yjs';
 import { IndexeddbPersistence } from 'y-indexeddb';
 import debounce from 'lodash/debounce';
 
-// Custom Font Size Extension
 import { Extension } from '@tiptap/core';
+import { Ruler } from "./ruler";
 
 const FontSize = Extension.create({
   name: 'fontSize',
@@ -452,6 +452,7 @@ export const Editor = ({
 
     return (
       <div className={className}>
+        {!readOnly && <Ruler/>}
         <div className="flex items-start justify-center min-h-full">
           <EditorContent editor={editor} />
         </div>

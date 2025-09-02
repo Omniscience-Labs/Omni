@@ -23,6 +23,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
+import { useDocumentModalStore } from '@/lib/stores/use-document-modal-store';
 
 export interface ToolCallInput {
   assistantCall: {
@@ -277,6 +278,7 @@ export function ToolCallSidePanel({
   }, [currentView]);
 
   const isMobile = useIsMobile();
+  const { isOpen: isDocumentModalOpen } = useDocumentModalStore();
 
   const sandbox = project?.sandbox;
   
@@ -666,6 +668,10 @@ export function ToolCallSidePanel({
     if (!isOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't handle side panel shortcuts when document modal is open
+      console.log('Side panel handler - document modal open:', isDocumentModalOpen, 'key:', event.key);
+      if (isDocumentModalOpen) return;
+      
       if ((event.metaKey || event.ctrlKey) && event.key === 'i') {
         event.preventDefault();
         handleClose();
@@ -674,7 +680,7 @@ export function ToolCallSidePanel({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleClose]);
+  }, [isOpen, handleClose, isDocumentModalOpen]);
 
   React.useEffect(() => {
     if (!isOpen) return;

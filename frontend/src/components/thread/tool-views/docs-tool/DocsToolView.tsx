@@ -1,26 +1,31 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   FileText,
   CheckCircle,
   AlertTriangle,
   Pen,
+  Download,
+  ChevronDown,
 } from 'lucide-react';
 import { ToolViewProps } from '../types';
-import { getToolTitle, extractToolData } from '../utils';
-import { useTheme } from 'next-themes';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { LoadingState } from '../shared/LoadingState';
 import { cn } from '@/lib/utils';
 import { FileViewerModal } from '@/components/thread/file-viewer-modal';
 import { TipTapDocumentModal } from '@/components/thread/tiptap-document-modal';
+import { exportDocument, type ExportFormat } from '@/lib/utils/document-export';
 import { 
   DocumentInfo, 
-  DocsToolData, 
   extractDocsData, 
   extractToolName, 
   extractParametersFromAssistant,
@@ -93,6 +98,13 @@ export function DocsToolView({
     setEditorFilePath(doc.path);
     setEditorOpen(true);
   };
+
+  const handleExport = useCallback(async (format: ExportFormat) => {
+    const content = data?.content || data?.document?.content || '';
+    const fileName = data?.document?.title || 'document';
+
+    await exportDocument({ content, fileName, format });
+  }, [data]);
   
   return (
     <>
@@ -112,25 +124,45 @@ export function DocsToolView({
           
           <div className="flex items-center gap-2">
             {data.document?.format === 'doc' && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  let content = data.document.content || '';
-                  if (typeof content === 'string' && content.includes('"type":"tiptap_document"')) {
-                    try {
-                      const parsed = JSON.parse(content);
-                      if (parsed.type === 'tiptap_document' && parsed.content) {
-                        content = parsed.content;
-                      }
-                    } catch {}
-                  }
-                  handleOpenInEditor(data.document, content);
-                }}
-              >
-                <Pen className="h-3 w-3" />
-                Edit
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    let content = data.document.content || '';
+                    if (typeof content === 'string' && content.includes('"type":"tiptap_document"')) {
+                      try {
+                        const parsed = JSON.parse(content);
+                        if (parsed.type === 'tiptap_document' && parsed.content) {
+                          content = parsed.content;
+                        }
+                      } catch {}
+                    }
+                    handleOpenInEditor(data.document, content);
+                  }}
+                >
+                  <Pen className="h-3 w-3" />
+                  Edit
+                </Button>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="outline">
+                      <Download className="h-3 w-3" />
+                      Export
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleExport('docx')}>
+                      Export as DOCX
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExport('txt')}>
+                      Export as Text
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             )}
             <Badge
               variant="secondary"
@@ -147,9 +179,9 @@ export function DocsToolView({
         </div>
       </CardHeader>
       
-      <CardContent className="flex-1 p-4 overflow-hidden">
+      <CardContent className="flex-1 px-0 overflow-hidden flex flex-col">
         {data.error ? (
-          <div className="space-y-4">
+          <div className="space-y-4 p-4">
             <div className="flex items-center gap-2 p-4 bg-rose-50 dark:bg-rose-900/20 rounded-lg">
               <AlertTriangle className="h-5 w-5 text-rose-500" />
               <span className="text-sm text-rose-700 dark:text-rose-300">
@@ -166,11 +198,11 @@ export function DocsToolView({
             )}
           </div>
         ) : (
-          <div>
+          <div className="flex-1 flex flex-col min-h-0">
             {data.document && !data.documents && (
-              <div className="h-full">
+              <div className="flex-1 min-h-0">
                 {(data.document.path || data.content || data.document.content) && (
-                  <div className="border rounded-lg bg-background max-h-[580px] overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+                  <div className="h-full overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800 scrollbar-track-transparent">
                     {data.document.path && data.sandbox_id ? (
                       <LiveDocumentViewer 
                         path={data.document.path}
@@ -195,7 +227,7 @@ export function DocsToolView({
               </div>
             )}
             {data.message && !data.document && !data.documents && (
-              <div className="flex items-center gap-2 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+              <div className="flex items-center gap-2 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg mx-4">
                 <CheckCircle className="h-5 w-5 text-emerald-500" />
                 <span className="text-sm text-emerald-700 dark:text-emerald-300">
                   {data.message}
