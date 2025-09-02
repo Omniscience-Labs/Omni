@@ -223,12 +223,7 @@ async def update_agent(
             update_data["is_default"] = agent_data.is_default
             if agent_data.is_default:
                 await client.table('agents').update({"is_default": False}).eq("account_id", user_id).eq("is_default", True).neq("agent_id", agent_id).execute()
-        if agent_data.avatar is not None:
-            update_data["avatar"] = agent_data.avatar
-        if agent_data.avatar_color is not None:
-            update_data["avatar_color"] = agent_data.avatar_color
-        if agent_data.profile_image_url is not None:
-            update_data["profile_image_url"] = agent_data.profile_image_url
+        # Removed avatar, avatar_color, and profile_image_url updates - using icons instead
         # Handle new icon system fields
         if agent_data.icon_name is not None:
             update_data["icon_name"] = agent_data.icon_name
@@ -724,9 +719,6 @@ async def create_agent(
             "account_id": user_id,
             "name": agent_data.name,
             "description": agent_data.description,
-            "avatar": agent_data.avatar,
-            "avatar_color": agent_data.avatar_color,
-            "profile_image_url": agent_data.profile_image_url,
             "icon_name": agent_data.icon_name or "bot",
             "icon_color": agent_data.icon_color or "#000000",
             "icon_background": agent_data.icon_background or "#F3F4F6",

@@ -55,14 +55,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
                         }
                     },
 
-                    "avatar": {
-                        "type": "string",
-                        "description": "Emoji to use as the agent's avatar."
-                    },
-                    "avatar_color": {
-                        "type": "string",
-                        "description": "Hex color code for the agent's avatar background."
-                    }
+                    # Removed avatar and avatar_color - using icon system instead
                 },
                 "required": []
             }
@@ -75,8 +68,6 @@ class AgentConfigTool(AgentBuilderBaseTool):
         <parameter name="description">An AI assistant specialized in conducting research and providing comprehensive analysis</parameter>
         <parameter name="system_prompt">Act as a research analyst. Always verify sources</parameter>
         <parameter name="agentpress_tools">{"web_search_tool": true, "sb_files_tool": true, "sb_shell_tool": false}</parameter>
-        <parameter name="avatar">🔬</parameter>
-        <parameter name="avatar_color">#4F46E5</parameter>
         </invoke>
         </function_calls>
         ''')
@@ -311,8 +302,6 @@ class AgentConfigTool(AgentBuilderBaseTool):
                 "name": agent_config.get("name", "Untitled Agent"),
                 "description": agent_config.get("description", "No description set"),
                 "system_prompt": agent_config.get("system_prompt", "No system prompt set"),
-                "avatar": agent_config.get("avatar", "🤖"),
-                "avatar_color": agent_config.get("avatar_color", "#6B7280"),
                 "agentpress_tools": agent_config.get("agentpress_tools", {}),
                 "configured_mcps": agent_config.get("configured_mcps", []),
                 "custom_mcps": agent_config.get("custom_mcps", []),

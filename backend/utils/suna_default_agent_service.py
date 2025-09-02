@@ -140,8 +140,9 @@ class SunaDefaultAgentService:
             "name": SUNA_CONFIG["name"],
             "description": SUNA_CONFIG["description"],
             "is_default": True,
-            "avatar": SUNA_CONFIG["avatar"],
-            "avatar_color": SUNA_CONFIG["avatar_color"],
+            "icon_name": "sun",
+            "icon_color": "#F59E0B",
+            "icon_background": "#FFF3CD",
             "metadata": {
                 "is_suna_default": True,
                 "centrally_managed": True,
