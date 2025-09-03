@@ -283,9 +283,6 @@ class JsonImportService:
             "account_id": account_id,
             "name": agent_name,
             "description": json_data.get('description', ''),
-            "avatar": json_data.get('avatar'),
-            "avatar_color": json_data.get('avatar_color'),
-            "profile_image_url": json_data.get('profile_image_url'),
             "icon_name": json_data.get('icon_name', 'brain'),
             "icon_color": json_data.get('icon_color', '#000000'),
             "icon_background": json_data.get('icon_background', '#F3F4F6'),
@@ -399,10 +396,6 @@ async def export_agent(agent_id: str, user_id: str = Depends(verify_and_get_user
             "system_prompt": sanitized_config['system_prompt'],
             "name": config.get('name', ''),
             "description": config.get('description', ''),
-            # Deprecated
-            "avatar": config.get('avatar'),
-            "avatar_color": config.get('avatar_color'),
-            # New
             "profile_image_url": agent.get('profile_image_url'),
             "tags": agent.get('tags', []),
             "export_metadata": export_metadata,
