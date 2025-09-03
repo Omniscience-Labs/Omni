@@ -737,4 +737,3 @@ async def verify_sandbox_access_optional(client, sandbox_id: str, user_id: Optio
         account_id=account_id
     )
     raise HTTPException(status_code=403, detail="Not authorized to access this project's sandbox")
-

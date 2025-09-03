@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
 from uuid import uuid4
-from utils.auth_utils import get_current_user_id_from_jwt, get_optional_current_user_id_from_jwt
+from utils.auth_utils import verify_and_get_user_id_from_jwt, get_optional_current_user_id_from_jwt
 from utils.logger import logger
 from services.supabase import DBConnection
 from datetime import datetime
@@ -32,15 +32,12 @@ router = APIRouter(prefix="/composio", tags=["composio"])
 
 db: Optional[DBConnection] = None
 
-# Cache is now handled by ComposioTriggerService
-
 def initialize(database: DBConnection):
     global db
     db = database
     
 COMPOSIO_API_BASE = os.getenv("COMPOSIO_API_BASE", "https://backend.composio.dev")
 
-# Standard webhook verification used for Composio (hex secret, base64 signature)
 def verify_std_webhook(wid: str, wts: str, wsig: str, raw: bytes, hex_secret: str, max_skew: int = 300) -> bool:
     if not (wid and wts and wsig and hex_secret):
         return False
@@ -50,7 +47,6 @@ def verify_std_webhook(wid: str, wts: str, wsig: str, raw: bytes, hex_secret: st
         if abs(now - ts_int) > max_skew:
             return False
     except Exception:
-        # Allow non-epoch timestamps
         pass
     try:
         key = bytes.fromhex(hex_secret)
@@ -63,13 +59,12 @@ def verify_std_webhook(wid: str, wts: str, wsig: str, raw: bytes, hex_secret: st
     candidates = []
     for entry in wsig.split():
         entry = entry.strip()
-        if "," in entry:  # e.g., "v1,<b64>"
+        if "," in entry:
             candidates.append(entry.split(",", 1)[1].strip())
-        elif "=" in entry:  # e.g., "sha256=<hex>"
+        elif "=" in entry:
             candidates.append(entry.split("=", 1)[1].strip())
         else:
             candidates.append(entry)
-    # Compare against expected base64; also tolerate hex
     if any(hmac.compare_digest(expected_b64, c) for c in candidates):
         return True
     try:
@@ -81,7 +76,6 @@ def verify_std_webhook(wid: str, wts: str, wsig: str, raw: bytes, hex_secret: st
     return False
 
 
-# Drop-in verifier per standard-webhooks style; tries ASCII, HEX, B64 keys and id.ts.body/ts.body
 def _parse_sigs(wsig: str):
     out = []
     for part in wsig.split():
@@ -110,7 +104,6 @@ async def verify_composio(request: Request, secret_env: str = "COMPOSIO_WEBHOOK_
     if not (wid and wts and wsig):
         raise HTTPException(status_code=401, detail="Missing standard-webhooks headers")
 
-    # normalize timestamp tolerance
     try:
         ts = int(wts)
         if ts > 10**12:
@@ -215,7 +208,7 @@ class ProfileResponse(BaseModel):
 
 @router.get("/categories")
 async def list_categories(
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ) -> Dict[str, Any]:
     try:
         logger.debug("Fetching Composio categories")
@@ -240,7 +233,7 @@ async def list_toolkits(
     cursor: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ) -> Dict[str, Any]:
     try:
         logger.debug(f"Fetching Composio toolkits with limit: {limit}, cursor: {cursor}, search: {search}, category: {category}")
@@ -270,7 +263,7 @@ async def list_toolkits(
 @router.get("/toolkits/{toolkit_slug}/details")
 async def get_toolkit_details(
     toolkit_slug: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ) -> Dict[str, Any]:
     try:
         logger.debug(f"Fetching detailed toolkit info for: {toolkit_slug}")
@@ -296,7 +289,7 @@ async def get_toolkit_details(
 @router.post("/integrate", response_model=IntegrationStatusResponse)
 async def integrate_toolkit(
     request: IntegrateToolkitRequest,
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ) -> IntegrationStatusResponse:
     try:
         integration_user_id = str(uuid4())
@@ -333,7 +326,7 @@ async def integrate_toolkit(
 @router.post("/profiles", response_model=ProfileResponse)
 async def create_profile(
     request: CreateProfileRequest,
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ) -> ProfileResponse:
     try:
         integration_user_id = str(uuid4())
@@ -378,7 +371,7 @@ async def create_profile(
 @router.get("/profiles")
 async def get_profiles(
     toolkit_slug: Optional[str] = Query(None),
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ) -> Dict[str, Any]:
     try:
         profile_service = ComposioProfileService(db)
@@ -403,7 +396,7 @@ async def get_profiles(
 @router.get("/profiles/{profile_id}/mcp-config")
 async def get_profile_mcp_config(
     profile_id: str,
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ) -> Dict[str, Any]:
     try:
         profile_service = ComposioProfileService(db)
@@ -423,7 +416,7 @@ async def get_profile_mcp_config(
 @router.get("/profiles/{profile_id}")
 async def get_profile_info(
     profile_id: str,
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ) -> Dict[str, Any]:
     try:
         profile_service = ComposioProfileService(db)
@@ -452,7 +445,7 @@ async def get_profile_info(
 @router.get("/integration/{connected_account_id}/status")
 async def get_integration_status(
     connected_account_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ) -> Dict[str, Any]:
     try:
         service = get_integration_service()
@@ -466,7 +459,7 @@ async def get_integration_status(
 @router.post("/profiles/{profile_id}/discover-tools")
 async def discover_composio_tools(
     profile_id: str,
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ) -> Dict[str, Any]:
     try:
         profile_service = ComposioProfileService(db)
@@ -509,7 +502,7 @@ async def discover_composio_tools(
 @router.post("/discover-tools/{profile_id}")
 async def discover_tools_post(
     profile_id: str,
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ) -> Dict[str, Any]:
     return await discover_composio_tools(profile_id, current_user_id)
 
@@ -544,7 +537,7 @@ async def get_toolkit_icon(
 @router.post("/tools/list")
 async def list_toolkit_tools(
     request: ToolsListRequest,
-    current_user_id: str = Depends(get_current_user_id_from_jwt)
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     try:
         logger.debug(f"User {current_user_id} requesting tools for toolkit: {request.toolkit_slug}")
@@ -572,7 +565,7 @@ async def list_toolkit_tools(
 
 @router.get("/triggers/apps")
 async def list_apps_with_triggers(
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
 ) -> Dict[str, Any]:
     try:
         trigger_service = ComposioTriggerService()
@@ -588,7 +581,7 @@ async def list_apps_with_triggers(
 @router.get("/triggers/apps/{toolkit_slug}")
 async def list_triggers_for_app(
     toolkit_slug: str,
-    user_id: str = Depends(get_current_user_id_from_jwt),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt),
 ) -> Dict[str, Any]:
     try:
         trigger_service = ComposioTriggerService()
@@ -617,7 +610,7 @@ class CreateComposioTriggerRequest(BaseModel):
 
 
 @router.post("/triggers/create")
-async def create_composio_trigger(req: CreateComposioTriggerRequest, current_user_id: str = Depends(get_current_user_id_from_jwt)) -> Dict[str, Any]:
+async def create_composio_trigger(req: CreateComposioTriggerRequest, current_user_id: str = Depends(verify_and_get_user_id_from_jwt)) -> Dict[str, Any]:
     try:
         client_db = await db.client
         agent_check = await client_db.table('agents').select('agent_id').eq('agent_id', req.agent_id).eq('account_id', current_user_id).execute()
