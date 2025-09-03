@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from utils.logger import logger
 from enum import Enum
 from .client import ComposioClient
+import json
 
 
 class ConnectionState(BaseModel):
@@ -62,8 +63,9 @@ class ConnectedAccountService:
         initiation_fields: Optional[Dict[str, str]] = None
     ) -> ConnectedAccount:
         try:
-            logger.debug(f"Creating connected account for auth_config: {auth_config_id}, user: {user_id}")
-            logger.debug(f"Initiation fields for connected account: {initiation_fields}")
+            print("[DEBUG] Auth config id: ", auth_config_id)
+            print("[DEBUG] User id: ", user_id)
+            print("[DEBUG] Initiation fields: ", initiation_fields)
             
             state_val = {"status": "INITIALIZING"}
             
@@ -76,6 +78,7 @@ class ConnectedAccountService:
                             state_val[field_name] = str(field_value)
             
             logger.debug(f"Using state.val: {state_val}")
+            logger.debug(f"Final state.val for Composio API: {json.dumps(state_val, indent=2)}")
             
             response = self.client.connected_accounts.create(
                 auth_config={

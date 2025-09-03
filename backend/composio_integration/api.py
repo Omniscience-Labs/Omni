@@ -170,6 +170,8 @@ class CreateProfileRequest(BaseModel):
     mcp_server_name: Optional[str] = None
     is_default: bool = False
     initiation_fields: Optional[Dict[str, str]] = None
+    custom_auth_config: Optional[Dict[str, str]] = None
+    use_custom_auth: bool = False
 
 class ToolsListRequest(BaseModel):
     toolkit_slug: str
@@ -329,8 +331,16 @@ async def create_profile(
     current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ) -> ProfileResponse:
     try:
-        integration_user_id = str(uuid4())
-        logger.debug(f"Generated integration user_id: {integration_user_id} for account: {current_user_id}")
+        # For Zendesk, we need a unique user_id for each connection
+        # even when using a shared auth config
+        if request.toolkit_slug.lower() == "zendesk":
+            # Create a unique user_id by combining current_user_id with a UUID
+            integration_user_id = f"{current_user_id}-{str(uuid4())[:8]}"
+            logger.debug(f"Generated unique Zendesk user_id: {integration_user_id} for account: {current_user_id}")
+        else:
+            # For other toolkits, use a standard UUID
+            integration_user_id = str(uuid4())
+            logger.debug(f"Generated integration user_id: {integration_user_id} for account: {current_user_id}")
         
         service = get_integration_service(db_connection=db)
         result = await service.integrate_toolkit(
@@ -341,7 +351,9 @@ async def create_profile(
             display_name=request.display_name,
             mcp_server_name=request.mcp_server_name,
             save_as_profile=True,
-            initiation_fields=request.initiation_fields
+            initiation_fields=request.initiation_fields,
+            custom_auth_config=request.custom_auth_config,
+            use_custom_auth=request.use_custom_auth
         )
         
         logger.debug(f"Integration result for {request.toolkit_slug}: redirect_url = {result.connected_account.redirect_url}")
@@ -365,6 +377,43 @@ async def create_profile(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to create profile: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/profiles/check-name-availability")
+async def check_profile_name_availability(
+    toolkit_slug: str = Query(..., description="The toolkit slug to check against"),
+    profile_name: str = Query(..., description="The profile name to check"),
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
+) -> Dict[str, Any]:
+    try:
+        profile_service = ComposioProfileService(db)
+        profiles = await profile_service.get_profiles(current_user_id, toolkit_slug)
+        
+        name_exists = any(
+            profile.profile_name.lower() == profile_name.lower() 
+            for profile in profiles
+        )
+        suggestions = []
+        if name_exists:
+            base_name = profile_name.rstrip('0123456789').rstrip()
+            counter = 1
+            existing_names = {p.profile_name.lower() for p in profiles}
+            
+            while len(suggestions) < 3:
+                suggested_name = f"{base_name} {counter}"
+                if suggested_name.lower() not in existing_names:
+                    suggestions.append(suggested_name)
+                counter += 1
+        
+        return {
+            "available": not name_exists,
+            "message": "Profile name is available" if not name_exists else "Profile name already exists",
+            "suggestions": suggestions
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to check profile name availability: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
