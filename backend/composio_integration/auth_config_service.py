@@ -35,40 +35,68 @@ class AuthConfigService:
     async def create_auth_config(
         self, 
         toolkit_slug: str, 
-        initiation_fields: Optional[Dict[str, str]] = None
+        initiation_fields: Optional[Dict[str, str]] = None,
+        custom_auth_config: Optional[Dict[str, str]] = None,
+        use_custom_auth: bool = False
     ) -> AuthConfig:
         try:
             logger.debug(f"Creating auth config for toolkit: {toolkit_slug}")
             logger.debug(f"Initiation fields: {initiation_fields}")
+            logger.debug(f"Custom auth config provided: {bool(custom_auth_config)}")
+            logger.debug(f"Use custom auth: {use_custom_auth}")
             
-            credentials = {"region": "ind"}
-            
-            if initiation_fields:
-                for field_name, field_value in initiation_fields.items():
+            # If custom auth config is provided, use it for credentials
+            if use_custom_auth and custom_auth_config:
+                logger.debug("Creating custom auth config with user-provided credentials")
+                
+                # Build credentials from custom auth config fields
+                credentials = {}
+                for field_name, field_value in custom_auth_config.items():
                     if field_value:
-                        if field_name == "suffix.one":
-                            credentials["extension"] = str(field_value)
-                        else:
-                            credentials[field_name] = str(field_value)
-            
-            logger.debug(f"Using credentials: {credentials}")
-            
-            response = self.client.auth_configs.create(
-                toolkit={
-                    "slug": toolkit_slug
-                },
-                auth_config={
-                    "type": "use_composio_managed_auth",
-                    "credentials": credentials
-                }
-            )
+                        credentials[field_name] = str(field_value)
+                
+                logger.debug(f"Using custom credentials (keys): {list(credentials.keys())}")
+                
+                response = self.client.auth_configs.create(
+                    toolkit={
+                        "slug": toolkit_slug
+                    },
+                    auth_config={
+                        "type": "use_custom_auth",
+                        "credentials": credentials,
+                        "authScheme": "OAUTH2"
+                    }
+                )
+            else:
+                # Standard Composio-managed auth
+                credentials = {"region": "ind"}
+                
+                if initiation_fields:
+                    for field_name, field_value in initiation_fields.items():
+                        if field_value:
+                            if field_name == "suffix.one":
+                                credentials["extension"] = str(field_value)
+                            else:
+                                credentials[field_name] = str(field_value)
+                
+                logger.debug(f"Using composio-managed credentials: {credentials}")
+                
+                response = self.client.auth_configs.create(
+                    toolkit={
+                        "slug": toolkit_slug
+                    },
+                    auth_config={
+                        "type": "use_composio_managed_auth",
+                        "credentials": credentials
+                    }
+                )
             
             auth_config_obj = response.auth_config
             
             auth_config = AuthConfig(
                 id=auth_config_obj.id,
                 auth_scheme=auth_config_obj.auth_scheme,
-                is_composio_managed=getattr(auth_config_obj, 'is_composio_managed', True),
+                is_composio_managed=getattr(auth_config_obj, 'is_composio_managed', not use_custom_auth),
                 restrict_to_following_tools=getattr(auth_config_obj, 'restrict_to_following_tools', []),
                 toolkit_slug=toolkit_slug
             )

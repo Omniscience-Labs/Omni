@@ -41,11 +41,14 @@ class ComposioIntegrationService:
         display_name: Optional[str] = None,
         mcp_server_name: Optional[str] = None,
         save_as_profile: bool = True,
-        initiation_fields: Optional[Dict[str, str]] = None
+        initiation_fields: Optional[Dict[str, str]] = None,
+        custom_auth_config: Optional[Dict[str, str]] = None,
+        use_custom_auth: bool = False
     ) -> ComposioIntegrationResult:
         try:
             logger.debug(f"Starting Composio integration for toolkit: {toolkit_slug}")
             logger.debug(f"Initiation fields: {initiation_fields}")
+            logger.debug(f"Custom auth: {use_custom_auth}, Custom auth config: {bool(custom_auth_config)}")
             
             toolkit = await self.toolkit_service.get_toolkit_by_slug(toolkit_slug)
             if not toolkit:
@@ -53,11 +56,37 @@ class ComposioIntegrationService:
             
             logger.debug(f"Step 1 complete: Verified toolkit {toolkit_slug}")
             
+            # if toolkit_slug.lower() == "zendesk":
+            #     zendesk_auth_config_id = os.getenv("ZENDESK_AUTH_CONFIG")
+            #     if not zendesk_auth_config_id:
+            #         raise ValueError("ZENDESK_AUTH_CONFIG environment variable is not set")
+                
+            #     logger.debug(f"Using existing Zendesk auth config from environment: {zendesk_auth_config_id}")
+            #     logger.debug(f"Zendesk connection - User ID: {user_id}, Initiation fields: {initiation_fields}")
+                
+            #     auth_config = AuthConfig(
+            #         id=zendesk_auth_config_id,
+            #         auth_scheme="OAUTH2",
+            #         is_composio_managed=True,
+            #         restrict_to_following_tools=[],
+            #         toolkit_slug=toolkit_slug
+            #     )
+                    
+            #     logger.debug(f"Step 2 complete: Using Zendesk auth config {auth_config.id}")
+            # else:
+            #     auth_config = await self.auth_config_service.create_auth_config(
+            #         toolkit_slug, 
+            #         initiation_fields=initiation_fields
+            #     )
+            #     logger.debug(f"Step 2 complete: Created auth config {auth_config.id}")
+
             auth_config = await self.auth_config_service.create_auth_config(
                 toolkit_slug, 
-                initiation_fields=initiation_fields
+                initiation_fields=initiation_fields,
+                custom_auth_config=custom_auth_config,
+                use_custom_auth=use_custom_auth
             )
-            logger.debug(f"Step 2 complete: Created auth config {auth_config.id}")
+            logger.debug(f"Step 2 complete: Created {'custom' if use_custom_auth else 'managed'} auth config {auth_config.id}")
             
             connected_account = await self.connected_account_service.create_connected_account(
                 auth_config_id=auth_config.id,
@@ -92,7 +121,7 @@ class ComposioIntegrationService:
                     profile_name=profile_name,
                     toolkit_slug=toolkit_slug,
                     toolkit_name=toolkit.name,
-                    mcp_url=final_mcp_url,  # Pass the complete MCP URL
+                    mcp_url=final_mcp_url,
                     redirect_url=connected_account.redirect_url,
                     user_id=user_id,
                     is_default=False,
