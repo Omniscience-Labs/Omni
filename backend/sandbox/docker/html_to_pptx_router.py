@@ -194,10 +194,9 @@ class OptimizedHTMLToPPTXConverter:
             await page.set_viewport_size({"width": 1920, "height": 1080})
             await page.emulate_media(media='screen')
             
-            with open(html_path, 'r', encoding='utf-8') as f:
-                html_content = f.read()
-            
-            await page.set_content(html_content, wait_until="domcontentloaded", timeout=10000)
+            # Use file:// URL instead of set_content to preserve relative paths
+            file_url = f"file://{html_path.resolve()}"
+            await page.goto(file_url, wait_until="domcontentloaded", timeout=10000)
             await page.wait_for_timeout(1000)
             
             def handle_console(msg):
@@ -646,11 +645,9 @@ class OptimizedHTMLToPPTXConverter:
                 }
             """)
             
-            # Load HTML content directly
-            with open(html_path, 'r', encoding='utf-8') as f:
-                html_content = f.read()
-            
-            await page.set_content(html_content, wait_until="domcontentloaded", timeout=10000)
+            # Use file:// URL instead of set_content to preserve relative paths
+            file_url = f"file://{html_path.resolve()}"
+            await page.goto(file_url, wait_until="domcontentloaded", timeout=10000)
             
             # Reduced wait time
             await page.wait_for_timeout(2000)
@@ -751,11 +748,9 @@ class OptimizedHTMLToPPTXConverter:
                 }
             """)
             
-            # Load HTML content directly
-            with open(html_path, 'r', encoding='utf-8') as f:
-                html_content = f.read()
-            
-            await page.set_content(html_content, wait_until="domcontentloaded", timeout=10000)
+            # Use file:// URL instead of set_content to preserve relative paths
+            file_url = f"file://{html_path.resolve()}"
+            await page.goto(file_url, wait_until="domcontentloaded", timeout=10000)
             
             # Reduced wait time
             await page.wait_for_timeout(2000)
