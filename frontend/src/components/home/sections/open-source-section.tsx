@@ -285,8 +285,8 @@ export function OpenSourceSection() {
           </motion.div>
         </div>
       ),
-      title: 'Open Source Security',
-      description: 'Benefit from the security of open source code that thousands of eyes can review, audit, and improve.',
+      title: 'Secure Private Deployment',
+      description: 'Deploy 100% on-premises with complete data sovereignty. Your AI workers run entirely on your infrastructure with no external dependencies.',
       showGitHubInfo: true,
     },
     {
@@ -296,8 +296,8 @@ export function OpenSourceSection() {
           <Globe className="top-28" />
         </div>
       ),
-      title: 'Transparency & Trust',
-      description: 'We believe AI should be open and accessible to everyone. Our open source approach ensures accountability, innovation, and community collaboration.',
+      title: 'Enterprise-Grade Security',
+      description: 'Open source transparency meets enterprise security. Deploy behind your firewall with full control over models, data, and integrations.',
       showFeatures: true,
     },
   ];
@@ -312,10 +312,10 @@ export function OpenSourceSection() {
           {/* Section Header */}
           <SectionHeader>
             <h2 className="text-3xl md:text-4xl font-medium tracking-tighter text-center text-balance">
-              100% Open Source
+              100% Open AI
             </h2>
             <p className="text-muted-foreground text-center text-balance font-medium">
-              Suna is fully open source. Join our community and help shape the future of AI.
+              Deploy securely on your own infrastructure with complete control over your data and AI workflows.
             </p>
           </SectionHeader>
 
@@ -379,9 +379,9 @@ export function OpenSourceSection() {
                       </svg>
                     </div>
                     <div>
-                      <h4 className="font-medium">Transparency</h4>
+                      <h4 className="font-medium">On-Premises</h4>
                       <p className="text-muted-foreground text-sm">
-                        Fully auditable codebase
+                        100% private deployment
                       </p>
                     </div>
                   </div>
