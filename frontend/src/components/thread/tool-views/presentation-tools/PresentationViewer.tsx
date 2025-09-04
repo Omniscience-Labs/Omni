@@ -56,6 +56,7 @@ interface PresentationMetadata {
 
 interface PresentationViewerProps extends ToolViewProps {
   // All data will be extracted from toolContent
+  showHeader?: boolean;
 }
 
 export function PresentationViewer({
@@ -67,6 +68,7 @@ export function PresentationViewer({
   isStreaming = false,
   name,
   project,
+  showHeader = true,
 }: PresentationViewerProps) {
   const [metadata, setMetadata] = useState<PresentationMetadata | null>(null);
 
@@ -116,7 +118,7 @@ export function PresentationViewer({
       
       // Only extract data if we have a valid parsed object
       if (output && typeof output === 'object') {
-        extractedPresentationName = output.presentation_name;
+        extractedPresentationName = output.presentation_path.startsWith('presentations/') ? output.presentation_path.substring('presentations/'.length) : output.presentation_name;
         extractedPresentationPath = output.presentation_path;
         currentSlideNumber = output.slide_number;
         presentationTitle = output.presentation_title || output.title;
@@ -496,7 +498,7 @@ export function PresentationViewer({
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card">
-      <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
+      {showHeader && <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
         <div className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="relative p-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/20">
@@ -590,7 +592,7 @@ export function PresentationViewer({
             )}
           </div>
         </div>
-      </CardHeader>
+      </CardHeader>}
 
 
 
