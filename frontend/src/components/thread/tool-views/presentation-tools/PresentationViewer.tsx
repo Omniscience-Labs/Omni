@@ -245,7 +245,7 @@ export function PresentationViewer({
   }, [metadata, currentSlideNumber, hasScrolledToCurrentSlide]);
 
   const slides = metadata ? Object.entries(metadata.slides)
-    .map(([num, slide]) => ({ number: parseInt(num), ...slide }))
+      .map(([num, slide]) => ({ number: parseInt(num), ...slide }))
     .sort((a, b) => a.number - b.number) : [];
 
   // Additional effect to scroll when slides are actually rendered
@@ -423,15 +423,11 @@ export function PresentationViewer({
       const slideUrlWithCacheBust = `${slideUrl}?t=${refreshTimestamp}`;
 
       return (
-        <div className="w-full h-full flex items-center justify-center bg-transparent p-4">
+        <div className="w-full h-full flex items-center justify-center bg-transparent">
           <div 
             ref={setContainerRef}
-            className="relative bg-white dark:bg-zinc-900 rounded-lg overflow-hidden border border-zinc-200/40 dark:border-zinc-800/40"
+            className="relative w-full h-full bg-background rounded-lg overflow-hidden"
             style={{
-              width: '100%',
-              maxWidth: '90vw',
-              aspectRatio: '16 / 9',
-              maxHeight: 'calc(100vh - 12rem)',
               containIntrinsicSize: '1920px 1080px',
               contain: 'layout style'
             }}
@@ -673,54 +669,51 @@ export function PresentationViewer({
           </div>
         ) : (
           <ScrollArea className="h-full">
-            <div className="space-y-6 p-6">
+            <div className="space-y-4 p-4">
               {slides.map((slide) => (
                 <div 
                   key={slide.number} 
                   id={`slide-${slide.number}`} 
-                  className={`group rounded-lg cursor-pointer transition-all duration-200 ${
-                    currentSlideNumber === slide.number 
-                      ? 'ring-2 ring-blue-500/20 shadow-md' 
-                      : 'hover:shadow-lg hover:scale-[1.01]'
-                  } bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm`}
-                  onClick={() => {
-                    setFullScreenInitialSlide(slide.number);
-                    setIsFullScreenOpen(true);
-                  }}
+                  className={`group relative bg-background border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20 hover:scale-[1.01] transition-all duration-200 ${currentSlideNumber === slide.number && 'ring-2 ring-blue-500/20 shadow-md'}`}
                 >
-                  {/* Slide Preview */}
-                  <div className="relative h-80 rounded-t-lg overflow-hidden">
-                    {renderSlidePreview(slide)}
-                    
-                    {/* Clickable overlay to ensure iframe is clickable */}
-                    <div 
-                      className="absolute inset-0 cursor-pointer z-10"
-                      onClick={() => {
-                        setFullScreenInitialSlide(slide.number);
-                        setIsFullScreenOpen(true);
-                      }}
-                    />
-                    
-                    {/* Simple hover indicator */}
-                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20 pointer-events-none">
-                      <div className="bg-black/20 dark:bg-white/20 backdrop-blur-sm rounded-full p-2">
-                        <Maximize2 className="h-3.5 w-3.5 text-white dark:text-black" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Simple footer */}
-                  <div className="px-4 py-3 border-t border-zinc-100 dark:border-zinc-800">
+                  {/* Slide header */}
+                  <div className="px-3 py-2 bg-muted/20 border-b border-border/40 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                      <Badge variant="outline" className="h-6 px-2 text-xs font-mono">
                         #{slide.number}
-                      </span>
+                      </Badge>
                       {slide.title && (
-                        <span className="text-sm text-zinc-600 dark:text-zinc-400 truncate">
+                        <span className="text-sm text-muted-foreground truncate">
                           {slide.title}
                         </span>
                       )}
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setFullScreenInitialSlide(slide.number);
+                        setIsFullScreenOpen(true);
+                      }}
+                      className="h-8 w-8 p-0 opacity-60 group-hover:opacity-100 transition-opacity"
+                      title="Open in full screen"
+                    >
+                      <Maximize2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  {/* Slide Preview */}
+                  <div 
+                    className="relative aspect-video bg-muted/30 cursor-pointer"
+                    onClick={() => {
+                      setFullScreenInitialSlide(slide.number);
+                      setIsFullScreenOpen(true);
+                    }}
+                  >
+                    {renderSlidePreview(slide)}
+                    
+                    {/* Subtle hover overlay */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200" />
                   </div>
                 </div>
               ))}
@@ -729,15 +722,15 @@ export function PresentationViewer({
         )}
       </CardContent>
 
-      <div className="px-4 py-2 h-9 bg-zinc-50/30 dark:bg-zinc-900/30 border-t border-zinc-200/30 dark:border-zinc-800/30 flex justify-between items-center">
-        <div className="text-xs text-zinc-400 dark:text-zinc-500">
+      <div className="px-4 py-2 h-9 bg-muted/20 border-t border-border/40 flex justify-between items-center">
+        <div className="text-xs text-muted-foreground">
           {slides.length > 0 && visibleSlide && (
             <span className="font-mono">
               {visibleSlide}/{slides.length}
             </span>
           )}
         </div>
-        <div className="text-xs text-zinc-400 dark:text-zinc-500">
+        <div className="text-xs text-muted-foreground">
           {formatTimestamp(toolTimestamp)}
         </div>
       </div>
