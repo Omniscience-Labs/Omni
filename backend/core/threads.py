@@ -9,7 +9,7 @@ from core.utils.auth_utils import verify_and_get_user_id_from_jwt, verify_and_au
 from core.utils.logger import logger
 from core.sandbox.sandbox import create_sandbox, delete_sandbox
 
-from zzz_models import CreateThreadResponse, MessageCreateRequest
+from .api_models import CreateThreadResponse, MessageCreateRequest
 from . import core_utils as utils
 
 router = APIRouter()

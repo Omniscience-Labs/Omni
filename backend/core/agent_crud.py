@@ -7,7 +7,7 @@ from core.utils.config import config, EnvMode
 from core.utils.pagination import PaginationParams
 from core.models import model_manager
 
-from zzz_models import (
+from .api_models import (
     AgentUpdateRequest, AgentResponse, AgentVersionResponse, AgentsResponse, 
     PaginationInfo, AgentCreateRequest
 )

@@ -1,28 +1,14 @@
+"""Agent-related API models."""
+
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
-class AgentStartRequest(BaseModel):
-    model_name: Optional[str] = None  # Will be set to default model in the endpoint
-    enable_thinking: Optional[bool] = False
-    reasoning_effort: Optional[str] = 'low'
-    stream: Optional[bool] = True
-    enable_context_manager: Optional[bool] = False
-    agent_id: Optional[str] = None  # Custom agent to use
+# Import PaginationInfo directly to avoid forward reference issues
+from .common import PaginationInfo
 
-class InitiateAgentResponse(BaseModel):
-    thread_id: str
-    agent_run_id: Optional[str] = None
-
-class CreateThreadResponse(BaseModel):
-    thread_id: str
-    project_id: str
-
-class MessageCreateRequest(BaseModel):
-    type: str
-    content: str
-    is_llm_message: bool = True
 
 class AgentCreateRequest(BaseModel):
+    """Request model for creating a new agent."""
     name: str
     description: Optional[str] = None
     system_prompt: Optional[str] = None
@@ -37,30 +23,9 @@ class AgentCreateRequest(BaseModel):
     icon_color: Optional[str] = None
     icon_background: Optional[str] = None
 
-class AgentVersionResponse(BaseModel):
-    version_id: str
-    agent_id: str
-    version_number: int
-    version_name: str
-    system_prompt: str
-    model: Optional[str] = None
-    configured_mcps: List[Dict[str, Any]]
-    custom_mcps: List[Dict[str, Any]]
-    agentpress_tools: Dict[str, Any]
-    is_active: bool
-    created_at: str
-    updated_at: str
-    created_by: Optional[str] = None
-
-class AgentVersionCreateRequest(BaseModel):
-    system_prompt: str
-    configured_mcps: Optional[List[Dict[str, Any]]] = []
-    custom_mcps: Optional[List[Dict[str, Any]]] = []
-    agentpress_tools: Optional[Dict[str, Any]] = {}
-    version_name: Optional[str] = None
-    description: Optional[str] = None
 
 class AgentUpdateRequest(BaseModel):
+    """Request model for updating an existing agent."""
     name: Optional[str] = None
     description: Optional[str] = None
     system_prompt: Optional[str] = None
@@ -76,7 +41,36 @@ class AgentUpdateRequest(BaseModel):
     icon_background: Optional[str] = None
     replace_mcps: Optional[bool] = None
 
+
+class AgentVersionResponse(BaseModel):
+    """Response model for agent version information."""
+    version_id: str
+    agent_id: str
+    version_number: int
+    version_name: str
+    system_prompt: str
+    model: Optional[str] = None
+    configured_mcps: List[Dict[str, Any]]
+    custom_mcps: List[Dict[str, Any]]
+    agentpress_tools: Dict[str, Any]
+    is_active: bool
+    created_at: str
+    updated_at: str
+    created_by: Optional[str] = None
+
+
+class AgentVersionCreateRequest(BaseModel):
+    """Request model for creating a new agent version."""
+    system_prompt: str
+    configured_mcps: Optional[List[Dict[str, Any]]] = []
+    custom_mcps: Optional[List[Dict[str, Any]]] = []
+    agentpress_tools: Optional[Dict[str, Any]] = {}
+    version_name: Optional[str] = None
+    description: Optional[str] = None
+
+
 class AgentResponse(BaseModel):
+    """Response model for agent information."""
     agent_id: str
     name: str
     description: Optional[str] = None
@@ -100,24 +94,22 @@ class AgentResponse(BaseModel):
     current_version: Optional[AgentVersionResponse] = None
     metadata: Optional[Dict[str, Any]] = None
 
-class PaginationInfo(BaseModel):
-    current_page: int
-    page_size: int
-    total_items: int
-    total_pages: int
-    has_next: bool
-    has_previous: bool
 
 class AgentsResponse(BaseModel):
+    """Response model for list of agents with pagination."""
     agents: List[AgentResponse]
     pagination: PaginationInfo
 
+
 class ThreadAgentResponse(BaseModel):
+    """Response model for thread agent information."""
     agent: Optional[AgentResponse]
     source: str
     message: str
 
+
 class AgentExportData(BaseModel):
+    """Model for agent export data."""
     name: str
     description: Optional[str] = None
     system_prompt: str
@@ -135,35 +127,10 @@ class AgentExportData(BaseModel):
     exported_at: str
     exported_by: Optional[str] = None
 
+
 class AgentImportRequest(BaseModel):
-    """Request to import an agent from JSON"""
+    """Request to import an agent from JSON."""
     import_data: AgentExportData
     import_as_new: bool = True  # Always true, only creating new agents is supported
 
-class JsonAnalysisRequest(BaseModel):
-    """Request to analyze JSON for import requirements"""
-    json_data: Dict[str, Any]
 
-class JsonAnalysisResponse(BaseModel):
-    """Response from JSON analysis"""
-    requires_setup: bool
-    missing_regular_credentials: List[Dict[str, Any]] = []
-    missing_custom_configs: List[Dict[str, Any]] = []
-    agent_info: Dict[str, Any] = {}
-
-class JsonImportRequestModel(BaseModel):
-    """Request to import agent from JSON"""
-    json_data: Dict[str, Any]
-    instance_name: Optional[str] = None
-    custom_system_prompt: Optional[str] = None
-    profile_mappings: Optional[Dict[str, str]] = None
-    custom_mcp_configs: Optional[Dict[str, Dict[str, Any]]] = None
-
-class JsonImportResponse(BaseModel):
-    """Response from JSON import"""
-    status: str
-    instance_id: Optional[str] = None
-    name: Optional[str] = None
-    missing_regular_credentials: List[Dict[str, Any]] = []
-    missing_custom_configs: List[Dict[str, Any]] = []
-    agent_info: Dict[str, Any] = {}
