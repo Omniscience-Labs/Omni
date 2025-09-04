@@ -7,7 +7,7 @@ from core.utils.auth_utils import verify_and_get_user_id_from_jwt
 from core.utils.logger import logger
 from core.templates.template_service import MCPRequirementValue, ConfigType, ProfileId, QualifiedName
 
-from zzz_models import JsonAnalysisRequest, JsonAnalysisResponse, JsonImportRequestModel, JsonImportResponse
+from .api_models import JsonAnalysisRequest, JsonAnalysisResponse, JsonImportRequestModel, JsonImportResponse
 from . import core_utils as utils
 
 router = APIRouter()

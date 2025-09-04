@@ -17,7 +17,7 @@ from core.sandbox.sandbox import create_sandbox, delete_sandbox
 from run_agent_background import run_agent_background
 from core.models import model_manager
 
-from zzz_models import AgentStartRequest, AgentVersionResponse, AgentResponse, ThreadAgentResponse, InitiateAgentResponse
+from .api_models import AgentStartRequest, AgentVersionResponse, AgentResponse, ThreadAgentResponse, InitiateAgentResponse
 from . import core_utils as utils
 from .core_utils import (
     stop_agent_run_with_helpers as stop_agent_run, get_agent_run_with_access_check, 
