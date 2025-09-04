@@ -6,7 +6,20 @@ import { siteConfig } from '@/lib/home';
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react';
 import React, { useState, useEffect, useCallback } from 'react';
-import { CheckIcon } from 'lucide-react';
+import { 
+  CheckIcon, 
+  Clock, 
+  Bot, 
+  FileText, 
+  Settings, 
+  Grid3X3, 
+  Image, 
+  Video, 
+  Presentation, 
+  Diamond, 
+  Heart,
+  Zap
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   createCheckoutSession,
@@ -55,6 +68,42 @@ interface PricingTierProps {
   insideDialog?: boolean;
   billingPeriod?: 'monthly' | 'yearly' | 'yearly_commitment';
 }
+
+// Feature icon mapping
+const getFeatureIcon = (feature: string) => {
+  const featureLower = feature.toLowerCase();
+  
+  if (featureLower.includes('token credits') || featureLower.includes('ai token')) {
+    return <Clock className="size-4" />;
+  }
+  if (featureLower.includes('custom agents') || featureLower.includes('agents')) {
+    return <Bot className="size-4" />;
+  }
+  if (featureLower.includes('private projects') || featureLower.includes('public projects')) {
+    return <FileText className="size-4" />;
+  }
+  if (featureLower.includes('custom abilities') || featureLower.includes('basic abilities')) {
+    return <Settings className="size-4" />;
+  }
+  if (featureLower.includes('integrations') || featureLower.includes('100+')) {
+    return <Grid3X3 className="size-4" />;
+  }
+  if (featureLower.includes('premium ai models')) {
+    return <Diamond className="size-4" />;
+  }
+  if (featureLower.includes('community support') || featureLower.includes('priority support')) {
+    return <Heart className="size-4" />;
+  }
+  if (featureLower.includes('image') || featureLower.includes('video') || featureLower.includes('slides') || featureLower.includes('generation')) {
+    return <Image className="size-4" />;
+  }
+  if (featureLower.includes('dedicated account manager')) {
+    return <Zap className="size-4" />;
+  }
+  
+  // Default icon
+  return <CheckIcon className="size-4" />;
+};
 
 // Components
 
@@ -263,7 +312,7 @@ function PricingTier({
     isScheduled && currentSubscription?.scheduled_price_id === priceId;
   const isPlanLoading = isLoading[priceId];
 
-  let buttonText = isAuthenticated ? 'Select Plan' : 'Start Free';
+  let buttonText = isAuthenticated ? 'Select Plan' : tier.buttonText;
   let buttonDisabled = isPlanLoading;
   let buttonVariant: ButtonVariant = null;
   let ringClass = '';
@@ -494,9 +543,9 @@ function PricingTier({
         {tier.features && tier.features.length > 0 && (
           <ul className="space-y-3">
             {tier.features.map((feature) => (
-              <li key={feature} className="flex items-center gap-2">
-                <div className="size-5 min-w-5 rounded-full border border-primary/20 flex items-center justify-center">
-                  <CheckIcon className="size-3 text-primary" />
+              <li key={feature} className="flex items-center gap-3">
+                <div className="size-5 min-w-5 flex items-center justify-center text-muted-foreground">
+                  {getFeatureIcon(feature)}
                 </div>
                 <span className="text-sm">{feature}</span>
               </li>
