@@ -152,7 +152,7 @@ class InstallationService:
                 continue
                 
             if not req.is_custom():
-                from credentials import get_profile_service
+                from core.credentials import get_profile_service
                 profile_service = get_profile_service(self._db)
                 default_profile = await profile_service.get_default_profile(
                     account_id, req.qualified_name
@@ -258,7 +258,7 @@ class InstallationService:
             'model': template.config.get('model')
         }
         
-        from credentials import get_profile_service
+        from core.credentials import get_profile_service
         profile_service = get_profile_service(self._db)
         
         tool_requirements = [req for req in requirements if req.source != 'trigger']
@@ -719,7 +719,7 @@ class InstallationService:
                     break
                 
             if not profile_id:
-                from credentials import get_profile_service
+                from core.credentials import get_profile_service
                 profile_service = get_profile_service(self._db)
                 default_profile = await profile_service.get_default_profile(account_id, qualified_name)
                 if not default_profile:

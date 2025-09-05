@@ -224,7 +224,7 @@ class JsonImportService:
             'system_prompt': request.custom_system_prompt or json_data.get('system_prompt', '')
         }
         
-        from credentials import get_profile_service
+        from core.credentials import get_profile_service
         profile_service = get_profile_service(self._db)
         
         for req in requirements:
