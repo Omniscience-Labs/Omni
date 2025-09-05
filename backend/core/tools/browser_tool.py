@@ -150,9 +150,14 @@ class BrowserTool(SandboxToolsBase):
                         return True
                     else:
                         # If the browser api is not healthy, we need to restart the browser api
-                        model_api_key = config.GEMINI_API_KEY
+                        # Pass API key securely as environment variable instead of command line argument
+                        env_vars = {"GEMINI_API_KEY": config.GEMINI_API_KEY}
 
-                        response = await self.sandbox.process.exec(f"curl -X POST 'http://localhost:8004/api/init' -H 'Content-Type: application/json' -d '{{\"api_key\": \"{model_api_key}\"}}'", timeout=90)
+                        response = await self.sandbox.process.exec(
+                            "curl -X POST 'http://localhost:8004/api/init' -H 'Content-Type: application/json' -d '{\"api_key\": \"'$GEMINI_API_KEY'\"}'",
+                            timeout=90,
+                            env=env_vars
+                        )
                         if response.exit_code == 0:
                             logger.debug("Stagehand API server restarted successfully")
                             return True
