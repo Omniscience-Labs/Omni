@@ -61,15 +61,21 @@ async def get_custom_mcp_tools_for_agent(
             except json.JSONDecodeError:
                 logger.warning("Failed to parse X-MCP-Headers as JSON")
         
-        from mcp_module import mcp_service
+        from core.mcp_module import mcp_service
         discovery_result = await mcp_service.discover_custom_tools(mcp_type, mcp_config)
         
         existing_mcp = None
         for mcp in custom_mcps:
-            if (mcp.get('type') == mcp_type and 
-                mcp.get('config', {}).get('url') == mcp_url):
-                existing_mcp = mcp
-                break
+            if mcp_type == 'composio':
+                if (mcp.get('type') == 'composio' and 
+                    mcp.get('config', {}).get('profile_id') == mcp_url):
+                    existing_mcp = mcp
+                    break
+            else:
+                if (mcp.get('customType') == mcp_type and 
+                    mcp.get('config', {}).get('url') == mcp_url):
+                    existing_mcp = mcp
+                    break
         
         tools = []
         enabled_tools = existing_mcp.get('enabledTools', []) if existing_mcp else []
