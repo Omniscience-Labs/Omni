@@ -249,7 +249,7 @@ Approach each research task methodically, starting with broad searches and then 
 
             try:
                 from core.versioning.version_service import get_version_service
-                from core.models import model_manager
+                from core.ai_models import model_manager
                 
                 version_service = await get_version_service()
                 

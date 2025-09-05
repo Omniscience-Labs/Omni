@@ -1,6 +1,6 @@
 from typing import Optional, List, Dict, Any, Tuple
 from .registry import registry
-from .models import Model, ModelCapability
+from .ai_models import Model, ModelCapability
 from core.utils.logger import logger
 from .registry import DEFAULT_PREMIUM_MODEL, DEFAULT_FREE_MODEL
 

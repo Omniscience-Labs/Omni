@@ -11,7 +11,7 @@ from typing import List, Dict, Any, Optional, Union
 from litellm.utils import token_counter
 from core.services.supabase import DBConnection
 from core.utils.logger import logger
-from core.models import model_manager
+from core.ai_models import model_manager
 
 DEFAULT_TOKEN_THRESHOLD = 120000
 

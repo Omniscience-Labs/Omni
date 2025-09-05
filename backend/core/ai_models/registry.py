@@ -1,5 +1,5 @@
 from typing import Dict, List, Optional, Set
-from .models import Model, ModelProvider, ModelCapability, ModelPricing
+from .ai_models import Model, ModelProvider, ModelCapability, ModelPricing
 
 DEFAULT_FREE_MODEL = "Kimi K2"
 DEFAULT_PREMIUM_MODEL = "Claude Sonnet 4"

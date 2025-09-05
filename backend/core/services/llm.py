@@ -293,7 +293,7 @@ def prepare_params(
     enable_thinking: Optional[bool] = False,
     reasoning_effort: Optional[str] = "low",
 ) -> Dict[str, Any]:
-    from core.models import model_manager
+    from core.ai_models import model_manager
     resolved_model_name = model_manager.resolve_model_id(model_name)
     logger.debug(f"Model resolution: '{model_name}' -> '{resolved_model_name}'")
     

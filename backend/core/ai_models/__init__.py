@@ -1,5 +1,5 @@
 from .registry import ModelRegistry, registry
-from .models import Model, ModelProvider, ModelCapability
+from .ai_models import Model, ModelProvider, ModelCapability
 from .manager import ModelManager, model_manager
 
 __all__ = [

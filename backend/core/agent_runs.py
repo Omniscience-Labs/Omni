@@ -15,7 +15,7 @@ from core.utils.config import config
 from core.services import redis
 from core.sandbox.sandbox import create_sandbox, delete_sandbox
 from run_agent_background import run_agent_background
-from core.models import model_manager
+from core.ai_models import model_manager
 
 from .api_models import AgentStartRequest, AgentVersionResponse, AgentResponse, ThreadAgentResponse, InitiateAgentResponse
 from . import core_utils as utils
@@ -46,7 +46,7 @@ async def start_agent(
     logger.debug(f"Original model_name from request: {model_name}")
 
     # Log the model name after alias resolution using new model manager
-    from core.models import model_manager
+    from core.ai_models import model_manager
     resolved_model = model_manager.resolve_model_id(model_name)
     logger.debug(f"Resolved model name: {resolved_model}")
 
@@ -638,7 +638,7 @@ async def initiate_agent_with_files(
         model_name = "openai/gpt-5-mini"
         logger.debug(f"Using default model: {model_name}")
 
-    from core.models import model_manager
+    from core.ai_models import model_manager
     # Log the model name after alias resolution using new model manager
     resolved_model = model_manager.resolve_model_id(model_name)
     logger.debug(f"Resolved model name: {resolved_model}")

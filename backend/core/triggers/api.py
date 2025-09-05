@@ -850,7 +850,7 @@ async def execute_agent_workflow(
     if active_version and active_version.model:
         model_name = active_version.model
     else:
-        from core.models import model_manager
+        from core.ai_models import model_manager
         model_name = await model_manager.get_default_model_for_user(client, account_id)
         print("DEBUG: Using tier-based default model:", model_name)
     

@@ -370,7 +370,7 @@ class AgentExecutor:
         if not model_name:
             account_id = agent_config.get('account_id')
             if account_id:
-                from core.models import model_manager
+                from core.ai_models import model_manager
                 model_name = await model_manager.get_default_model_for_user(client, account_id)
             else:
                 model_name = "Kimi K2"
@@ -610,7 +610,7 @@ class WorkflowExecutor:
         from core.services.billing import check_billing_status, can_use_model
         
         client = await self._db.client
-        from core.models import model_manager
+        from core.ai_models import model_manager
         model_name = await model_manager.get_default_model_for_user(client, account_id)
         
         can_use, model_message, _ = await can_use_model(client, account_id, model_name)
@@ -673,7 +673,7 @@ class WorkflowExecutor:
                     account_id = thread_result.data[0]['account_id']
             
             if account_id:
-                from core.models import model_manager
+                from core.ai_models import model_manager
                 model_name = await model_manager.get_default_model_for_user(client, account_id)
             else:
                 model_name = "Kimi K2"

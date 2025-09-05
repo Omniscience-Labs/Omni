@@ -17,7 +17,7 @@ from core.utils.config import config, EnvMode
 from core.services.supabase import DBConnection
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt
 from pydantic import BaseModel
-from core.models import model_manager
+from core.ai_models import model_manager
 from litellm.cost_calculator import cost_per_token
 import time
 import json
@@ -738,7 +738,7 @@ def calculate_token_cost(prompt_tokens: int, completion_tokens: int, model: str)
         logger.debug(f"Calculating token cost for model '{model}' with {prompt_tokens} input tokens and {completion_tokens} output tokens")
         
         # Try to resolve the model name using new model manager first
-        from core.models import model_manager
+        from core.ai_models import model_manager
         try:
             resolved_model = model_manager.resolve_model_id(model)
             logger.debug(f"Model '{model}' resolved to '{resolved_model}'")
@@ -850,7 +850,7 @@ async def can_use_model(client, user_id: str, model_name: str):
         }
 
     allowed_models = await get_allowed_models_for_user(client, user_id)
-    from core.models import model_manager
+    from core.ai_models import model_manager
     resolved_model = model_manager.resolve_model_id(model_name)
     if resolved_model in allowed_models:
         return True, "Model access allowed", allowed_models
@@ -2081,7 +2081,7 @@ async def get_available_models(
     """Get the list of models available to the user based on their subscription tier."""
     try:
         # Import the new model manager
-        from core.models import model_manager
+        from core.ai_models import model_manager
         
         # Get Supabase client
         db = DBConnection()

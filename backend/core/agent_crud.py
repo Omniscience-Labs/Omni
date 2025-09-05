@@ -5,7 +5,7 @@ from core.utils.auth_utils import verify_and_get_user_id_from_jwt
 from core.utils.logger import logger
 from core.utils.config import config, EnvMode
 from core.utils.pagination import PaginationParams
-from core.models import model_manager
+from core.ai_models import model_manager
 
 from .api_models import (
     AgentUpdateRequest, AgentResponse, AgentVersionResponse, AgentsResponse, 
@@ -740,7 +740,7 @@ async def create_agent(
             version_service = await _get_version_service()
             from .suna_config import SUNA_CONFIG
             from .config_helper import _get_default_agentpress_tools
-            from core.models import model_manager
+            from core.ai_models import model_manager
             
             system_prompt = SUNA_CONFIG["system_prompt"]
             
