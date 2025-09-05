@@ -72,14 +72,10 @@ class SandboxPresentationTool(SandboxToolsBase):
         }}
         
         body {{
+            margin: 0;
+            padding: 0;
             font-family: {style_config['font_family']};
-            background: #000000;
             color: {style_config['text_color']};
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            overflow: hidden;
         }}
         
         .slide-container {{

@@ -297,7 +297,7 @@ class PerfectHTMLToPPTXConverter:
             
             # Use file:// URL instead of set_content to preserve relative paths
             file_url = f"file://{html_path.resolve()}"
-            await page.goto(file_url, wait_until="domcontentloaded", timeout=10000)
+            await page.goto(file_url, wait_until="networkidle", timeout=25000)
             await page.wait_for_timeout(1000)
             
             def handle_console(msg):
@@ -537,7 +537,7 @@ class PerfectHTMLToPPTXConverter:
                 console.log('borderStyle:', computed.borderStyle);
                 
                 // Skip very large elements that are likely backgrounds
-                const isLikelyBackground = rect.width > 1200 || rect.height > 900;
+                const isLikelyBackground = rect.width > 1700;
                 
                 if (!isLikelyBackground) {
                     results.push({
@@ -748,7 +748,7 @@ class PerfectHTMLToPPTXConverter:
             
             # Use file:// URL instead of set_content to preserve relative paths
             file_url = f"file://{html_path.resolve()}"
-            await page.goto(file_url, wait_until="domcontentloaded", timeout=10000)
+            await page.goto(file_url, wait_until="networkidle", timeout=25000)
             
             # Reduced wait time
             await page.wait_for_timeout(2000)
@@ -783,7 +783,7 @@ class PerfectHTMLToPPTXConverter:
                     function hideVisualElements() {
                         visualElementsData.forEach(visualData => {
                             // Skip very large elements that are likely the main background
-                            if (visualData.width > 1000 || visualData.height > 800) {
+                            if (visualData.width > 1700) {
                                 return;
                             }
                             
@@ -851,7 +851,7 @@ class PerfectHTMLToPPTXConverter:
             
             # Use file:// URL instead of set_content to preserve relative paths
             file_url = f"file://{html_path.resolve()}"
-            await page.goto(file_url, wait_until="domcontentloaded", timeout=10000)
+            await page.goto(file_url, wait_until="networkidle", timeout=25000)
             
             # Reduced wait time
             await page.wait_for_timeout(2000)
