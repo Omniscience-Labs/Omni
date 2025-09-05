@@ -108,8 +108,6 @@ export function CapabilitiesSection() {
                   </p>
                 </div>
 
-                {/* Hover effect border */}
-                <div className="absolute inset-0 border border-transparent group-hover:border-secondary/20 rounded-lg transition-colors duration-300" />
               </motion.div>
             ))}
           </div>
