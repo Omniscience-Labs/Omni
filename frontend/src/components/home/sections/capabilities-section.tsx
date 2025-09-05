@@ -78,7 +78,7 @@ export function CapabilitiesSection() {
             </p>
           </SectionHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-t">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-t border-border">
             {capabilities.map((capability, index) => (
               <motion.div
                 key={capability.title}
@@ -89,7 +89,7 @@ export function CapabilitiesSection() {
                   delay: index * 0.1,
                   ease: 'easeOut',
                 }}
-                className="relative p-6 border-r border-b border-border group hover:bg-accent/5 transition-colors duration-300"
+                className="relative p-6 border-border group hover:bg-accent/5 transition-colors duration-300 [&:not(:nth-child(4n))]:border-r [&:not(:nth-last-child(-n+4))]:border-b"
               >
                 {/* Icon */}
                 <div className="flex items-center justify-center size-12 bg-secondary/10 rounded-xl mb-4 group-hover:bg-secondary/20 transition-colors duration-300">
