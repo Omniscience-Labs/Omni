@@ -298,11 +298,10 @@ async def check_agent_run_limit(client, account_id: str) -> Dict[str, Any]:
     
     Returns:
         Dict with 'can_start' (bool), 'running_count' (int), 'running_thread_ids' (list)
+        
+    Note: This function does not use caching to ensure real-time limit checks.
     """
     try:
-        result = await Cache.get(f"agent_run_limit:{account_id}")
-        if result:
-            return result
 
         # Calculate 24 hours ago
         twenty_four_hours_ago = datetime.now(timezone.utc) - timedelta(hours=24)
@@ -349,7 +348,6 @@ async def check_agent_run_limit(client, account_id: str) -> Dict[str, Any]:
             'running_count': running_count,
             'running_thread_ids': running_thread_ids
         }
-        await Cache.set(f"agent_run_limit:{account_id}", result)
         return result
 
     except Exception as e:
@@ -363,6 +361,18 @@ async def check_agent_run_limit(client, account_id: str) -> Dict[str, Any]:
 
 
 async def check_agent_count_limit(client, account_id: str) -> Dict[str, Any]:
+    """
+    Check if a user can create more agents based on their subscription tier.
+    
+    Returns:
+        Dict containing:
+        - can_create: bool - whether user can create another agent
+        - current_count: int - current number of custom agents (excluding Suna defaults)
+        - limit: int - maximum agents allowed for this tier
+        - tier_name: str - subscription tier name
+    
+    Note: This function does not use caching to ensure real-time agent counts.
+    """
     try:
         # In local mode, allow practically unlimited custom agents
         if config.ENV_MODE.value == "local":
@@ -373,14 +383,7 @@ async def check_agent_count_limit(client, account_id: str) -> Dict[str, Any]:
                 'tier_name': 'local'
             }
         
-        try:
-            result = await Cache.get(f"agent_count_limit:{account_id}")
-            if result:
-                logger.debug(f"Cache hit for agent count limit: {account_id}")
-                return result
-        except Exception as cache_error:
-            logger.warning(f"Cache read failed for agent count limit {account_id}: {str(cache_error)}")
-
+        # Always query fresh data from database to avoid stale cache issues
         agents_result = await client.table('agents').select('agent_id, metadata').eq('account_id', account_id).execute()
         
         non_suna_agents = []
@@ -412,12 +415,7 @@ async def check_agent_count_limit(client, account_id: str) -> Dict[str, Any]:
             'tier_name': tier_name
         }
         
-        try:
-            await Cache.set(f"agent_count_limit:{account_id}", result, ttl=300)
-        except Exception as cache_error:
-            logger.warning(f"Cache write failed for agent count limit {account_id}: {str(cache_error)}")
-        
-        logger.debug(f"Account {account_id} has {current_count}/{agent_limit} agents (tier: {tier_name}) - can_create: {can_create}")
+        logger.debug(f"Account {account_id} has {current_count}/{agent_limit} agents (tier: {tier_name}) - can_create: {can_create} (real-time count)")
         
         return result
         
@@ -441,6 +439,9 @@ async def check_project_count_limit(client, account_id: str) -> Dict[str, Any]:
         - current_count: int - current number of projects
         - limit: int - maximum projects allowed for this tier
         - tier_name: str - subscription tier name
+    
+    Note: This function does not use caching to ensure real-time project counts,
+    preventing issues where deleted projects aren't immediately reflected in limits.
     """
     try:
         # In local mode, allow practically unlimited projects
@@ -452,18 +453,10 @@ async def check_project_count_limit(client, account_id: str) -> Dict[str, Any]:
                 'tier_name': 'local'
             }
         
-        try:
-            result = await Cache.get(f"project_count_limit:{account_id}")
-            if result:
-                logger.debug(f"Cache hit for project count limit: {account_id}")
-                return result
-        except Exception as cache_error:
-            logger.warning(f"Cache read failed for project count limit {account_id}: {str(cache_error)}")
-
-        # Count projects for this account
+        # Always count projects fresh from database to avoid stale cache issues
         projects_result = await client.table('projects').select('project_id').eq('account_id', account_id).execute()
         current_count = len(projects_result.data or [])
-        logger.debug(f"Account {account_id} has {current_count} projects")
+        logger.debug(f"Account {account_id} has {current_count} projects (real-time count)")
         
         try:
             from core.services.billing import get_subscription_tier
@@ -482,11 +475,6 @@ async def check_project_count_limit(client, account_id: str) -> Dict[str, Any]:
             'limit': project_limit,
             'tier_name': tier_name
         }
-        
-        try:
-            await Cache.set(f"project_count_limit:{account_id}", result, ttl=300)
-        except Exception as cache_error:
-            logger.warning(f"Cache write failed for project count limit {account_id}: {str(cache_error)}")
         
         logger.debug(f"Account {account_id} has {current_count}/{project_limit} projects (tier: {tier_name}) - can_create: {can_create}")
         
