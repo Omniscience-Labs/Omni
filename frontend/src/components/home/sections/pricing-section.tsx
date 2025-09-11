@@ -759,6 +759,20 @@ function PricingTierButton({
   );
 }
 
+// Helper function to get yearly commitment pricing
+const getYearlyCommitmentPrice = (tierName: string): string => {
+  switch (tierName) {
+    case 'Plus':
+      return '$17';
+    case 'Pro':
+      return '$42.50';
+    case 'Ultra':
+      return '$170';
+    default:
+      return '$0';
+  }
+};
+
 export function PricingSection({
   returnUrl = typeof window !== 'undefined' ? window.location.href : '/',
   showTitleAndTabs = true,
@@ -942,14 +956,14 @@ export function PricingSection({
                     <div className="flex items-baseline justify-center">
                       <span className="text-3xl font-bold">
                         {billingPeriod === 'yearly_commitment' && tier.monthlyCommitmentStripePriceId 
-                          ? tier.yearlyPrice || tier.price 
+                          ? getYearlyCommitmentPrice(tier.name)
                           : tier.price}
                       </span>
                       <span className="text-muted-foreground ml-1">/month</span>
                     </div>
-                    {billingPeriod === 'yearly_commitment' && tier.yearlyPrice && tier.originalYearlyPrice && (
+                    {billingPeriod === 'yearly_commitment' && (
                       <div className="text-sm text-muted-foreground mt-1">
-                        <span className="line-through">{tier.originalYearlyPrice}</span>
+                        <span className="line-through">{tier.price}</span>
                       </div>
                     )}
                   </div>
