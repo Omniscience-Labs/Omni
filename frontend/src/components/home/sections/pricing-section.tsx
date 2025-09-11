@@ -789,7 +789,7 @@ export function PricingSection({
           !insideDialog && "grid-rows-1 items-stretch"
         )}>
           {siteConfig.cloudPricingItems
-            .filter((tier) => !tier.hidden && (!hideFree || tier.price !== '$0'))
+            .filter((tier) => (!hideFree || tier.price !== '$0'))
             .map((tier) => (
               <PricingTier
                 key={tier.name}
@@ -813,10 +813,10 @@ export function PricingSection({
           {
             "px-6": !insideDialog
           },
-          (!hideFree || siteConfig.cloudPricingItems.filter((tier) => !hideFree || tier.price !== '$0').length > 2)
+          (!hideFree || siteConfig.cloudPricingItems.filter((tier) => (!hideFree || tier.price !== '$0')).length > 2)
             ? "min-[650px]:grid-cols-2 min-[900px]:grid-cols-3" : "min-[650px]:grid-cols-2"
         )}>
-          {siteConfig.cloudPricingItems.filter((tier) => !hideFree || tier.price !== '$0').map((tier) => (
+          {siteConfig.cloudPricingItems.filter((tier) => (!hideFree || tier.price !== '$0')).map((tier) => (
             <PricingTier
               key={tier.name}
               tier={tier}
