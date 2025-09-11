@@ -807,32 +807,6 @@ export function PricingSection({
             ))}
         </div>
 
-      {deploymentType === 'cloud' && (
-        <div className={cn(
-          "grid gap-4 w-full max-w-6xl mx-auto",
-          {
-            "px-6": !insideDialog
-          },
-          (!hideFree || siteConfig.cloudPricingItems.filter((tier) => (!hideFree || tier.price !== '$0')).length > 2)
-            ? "min-[650px]:grid-cols-2 min-[900px]:grid-cols-3" : "min-[650px]:grid-cols-2"
-        )}>
-          {siteConfig.cloudPricingItems.filter((tier) => (!hideFree || tier.price !== '$0')).map((tier) => (
-            <PricingTier
-              key={tier.name}
-              tier={tier}
-              currentSubscription={currentSubscription}
-              isLoading={isLoading}
-              isFetchingPlan={isFetchingPlan}
-              onPlanSelect={handlePlanSelect}
-              onSubscriptionUpdate={handleSubscriptionUpdate}
-              isAuthenticated={isAuthenticated}
-              returnUrl={returnUrl}
-              insideDialog={insideDialog}
-              billingPeriod={billingPeriod}
-            />
-          ))}
-        </div>
-      )}
     </section>
   );
 }
