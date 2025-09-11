@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Set
 from .ai_models import Model, ModelProvider, ModelCapability, ModelPricing
 
 DEFAULT_FREE_MODEL = "GPT-5"
-DEFAULT_PREMIUM_MODEL = "Claude Omni 4"
+DEFAULT_PREMIUM_MODEL = "Omni 4"
 
 class ModelRegistry:
     def __init__(self):
@@ -13,7 +13,7 @@ class ModelRegistry:
     def _initialize_models(self):
         self.register(Model(
             id="anthropic/claude-sonnet-4-20250514",
-            name="Claude Omni 4",
+            name="Omni 4",
             provider=ModelProvider.ANTHROPIC,
             aliases=["claude-sonnet-4", "anthropic/claude-sonnet-4", "Claude Sonnet 4", "claude-sonnet-4-20250514"],
             context_window=200_000,
