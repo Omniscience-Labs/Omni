@@ -41,11 +41,155 @@ import { isLocalMode, config } from '@/lib/config';
 import { toast } from 'sonner';
 import { useModal } from '@/hooks/use-modal-store';
 import { createClient } from '@/lib/supabase/client';
+import { CheckIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 // Custom dialog overlay with blur effect
 const BlurredDialogOverlay = () => (
   <DialogOverlay className="bg-background/40 backdrop-blur-md" />
 );
+
+// Hero Pricing Section Component
+const HeroPricingSection = () => {
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+
+  const pricingPlans = [
+    {
+      name: 'Plus',
+      price: billingPeriod === 'monthly' ? '$20' : '$17',
+      originalPrice: billingPeriod === 'yearly' ? '$20' : null,
+      period: billingPeriod === 'monthly' ? '/month' : '/month',
+      popular: true,
+      features: [
+        '$20 AI token credits/m',
+        '5 custom agents',
+        'Private projects',
+        'Custom abilities',
+        '100+ integrations',
+        'Premium AI Models',
+        'Advanced AI Capabilities'
+      ]
+    },
+    {
+      name: 'Pro',
+      price: billingPeriod === 'monthly' ? '$50' : '$42.50',
+      originalPrice: billingPeriod === 'yearly' ? '$50' : null,
+      period: billingPeriod === 'monthly' ? '/month' : '/month',
+      popular: false,
+      features: [
+        '$50 AI token credits/m',
+        '20 custom agents',
+        'Private projects',
+        'Custom abilities',
+        '100+ integrations',
+        'Premium AI Models',
+        'Advanced AI Capabilities'
+      ]
+    },
+    {
+      name: 'Ultra',
+      price: billingPeriod === 'monthly' ? '$200' : '$170',
+      originalPrice: billingPeriod === 'yearly' ? '$200' : null,
+      period: billingPeriod === 'monthly' ? '/month' : '/month',
+      popular: false,
+      features: [
+        '$200 AI token credits/m',
+        '100 custom agents',
+        'Private projects',
+        'Custom abilities',
+        '100+ integrations',
+        'Premium AI Models',
+        'Priority Support',
+        'Advanced AI Capabilities'
+      ]
+    }
+  ];
+
+  return (
+    <div className="w-full px-4 sm:px-6 lg:px-8">
+      {/* Billing Period Toggle */}
+      <div className="flex justify-center mb-8">
+        <div className="relative flex w-fit items-center rounded-full border border-border/50 p-1 backdrop-blur-sm bg-background/50">
+          {['monthly', 'yearly'].map((period) => (
+            <button
+              key={period}
+              onClick={() => setBillingPeriod(period as any)}
+              className={`relative z-[1] px-6 py-2 text-sm font-medium transition-all duration-200 rounded-full ${
+                billingPeriod === period
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {period === 'monthly' ? 'Monthly' : 'Yearly (Save 17%)'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Pricing Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        {pricingPlans.map((plan) => (
+          <motion.div
+            key={plan.name}
+            className={`relative rounded-2xl p-6 backdrop-blur-sm border transition-all duration-300 hover:scale-[1.02] ${
+              plan.popular
+                ? 'border-primary/50 bg-primary/5 shadow-lg shadow-primary/10'
+                : 'border-border/50 bg-background/30 hover:border-border/70'
+            }`}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 * pricingPlans.indexOf(plan) }}
+          >
+            {/* Popular Badge */}
+            {plan.popular && (
+              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                <span className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-medium shadow-lg">
+                  Popular
+                </span>
+              </div>
+            )}
+
+            {/* Plan Header */}
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-semibold mb-2">{plan.name}</h3>
+              <div className="flex items-baseline justify-center">
+                <span className="text-3xl font-bold">{plan.price}</span>
+                <span className="text-muted-foreground ml-1">{plan.period}</span>
+              </div>
+              {plan.originalPrice && billingPeriod === 'yearly' && (
+                <div className="text-sm text-muted-foreground mt-1">
+                  <span className="line-through">{plan.originalPrice}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Features List */}
+            <ul className="space-y-3 mb-6">
+              {plan.features.map((feature, index) => (
+                <li key={index} className="flex items-start">
+                  <CheckIcon className="h-4 w-4 text-primary mt-0.5 mr-3 flex-shrink-0" />
+                  <span className="text-sm text-muted-foreground">{feature}</span>
+                </li>
+              ))}
+            </ul>
+
+            {/* CTA Button */}
+            <Button
+              className={`w-full transition-all duration-200 ${
+                plan.popular
+                  ? 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-primary/25'
+                  : 'bg-secondary hover:bg-secondary/90 text-secondary-foreground'
+              }`}
+              size="lg"
+            >
+              Upgrade
+            </Button>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 // Rotating text component for job types
 const RotatingText = ({ 
@@ -1176,6 +1320,16 @@ export function HeroSection() {
               />
             </div>
           </motion.div>
+        </motion.div>
+
+        {/* Hero Pricing Section */}
+        <motion.div 
+          className="w-full max-w-5xl mx-auto mt-12 md:mt-16 lg:mt-20 mb-8 md:mb-16 relative z-30"
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1, duration: 1 }}
+        >
+          <HeroPricingSection />
         </motion.div>
 
         {/* Video section positioned below the main content with better mobile spacing */}
