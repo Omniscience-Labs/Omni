@@ -2,7 +2,7 @@ import json
 import base64
 from datetime import datetime
 from typing import Optional, Dict, Any
-from fastapi import APIRouter, HTTPException, Depends, Request, Body
+from fastapi import APIRouter, HTTPException, Depends, Request, Body, Form
 
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt
 from core.utils.logger import logger
@@ -368,6 +368,115 @@ async def get_agent_tools(
         for tool_name in enabled_tools:
             mcp_tools.append({"name": tool_name, "server": server, "enabled": True})
     return {"agentpress_tools": agentpress_tools, "mcp_tools": mcp_tools}
+
+
+@router.post("/agents/{agent_id}/upload-automation-zip")
+async def upload_automation_zip(
+    agent_id: str,
+    automation_zip: UploadFile = File(...),
+    description: str = Form("Custom browser automation"),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
+):
+    """Upload a single ZIP file containing both automation script and Chrome profile."""
+    logger.debug(f"Uploading automation ZIP for agent {agent_id}, user {user_id}")
+    
+    try:
+        # Verify agent belongs to user
+        client = await utils.db.client
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        # Validate file
+        if not automation_zip.filename.endswith('.zip'):
+            raise HTTPException(status_code=400, detail="File must be a ZIP file (.zip)")
+        
+        # Check file size
+        zip_content = await automation_zip.read()
+        if len(zip_content) > 200 * 1024 * 1024:  # 200MB limit
+            raise HTTPException(status_code=413, detail="ZIP file too large (max 200MB)")
+        
+        # Get the agent's current thread to use the custom automation tool
+        threads_result = await client.table('threads').select('thread_id').eq('agent_id', agent_id).limit(1).execute()
+        if not threads_result.data:
+            raise HTTPException(status_code=400, detail="No thread found for agent")
+        
+        thread_id = threads_result.data[0]['thread_id']
+        
+        # Create thread manager and custom automation tool
+        thread_manager = ThreadManager()
+        from core.tools.custom_automation_tool import CustomAutomationTool
+        automation_tool = CustomAutomationTool(
+            project_id=agent_id,  # Use agent_id as project_id
+            thread_id=thread_id,
+            thread_manager=thread_manager
+        )
+        
+        # Ensure sandbox and upload ZIP
+        await automation_tool._ensure_automation_directory()
+        
+        # Upload the entire ZIP to sandbox
+        zip_path = f"/workspace/custom_automation/{automation_zip.filename}"
+        await automation_tool.sandbox.fs.upload_file(zip_content, zip_path)
+        
+        # Extract and process the ZIP file
+        extract_cmd = f"cd /workspace/custom_automation && unzip -o {automation_zip.filename}"
+        extract_result = await automation_tool.sandbox.process.exec(extract_cmd)
+        
+        if extract_result.exit_code != 0:
+            return {
+                'success': False,
+                'error': f"Failed to extract ZIP file: {extract_result.result}"
+            }
+        
+        # Look for JavaScript files in the extracted content
+        find_js_cmd = "find /workspace/custom_automation -name '*.js' -type f | head -1"
+        js_result = await automation_tool.sandbox.process.exec(find_js_cmd)
+        
+        if js_result.exit_code != 0 or not js_result.result.strip():
+            return {
+                'success': False,
+                'error': "No JavaScript automation script found in ZIP file. Please include a .js file."
+            }
+        
+        script_path = js_result.result.strip()
+        
+        # Read the script content
+        read_script_cmd = f"cat {script_path}"
+        script_result = await automation_tool.sandbox.process.exec(read_script_cmd)
+        
+        if script_result.exit_code != 0:
+            return {
+                'success': False,
+                'error': f"Failed to read script file: {script_result.result}"
+            }
+        
+        script_content = script_result.result
+        
+        # Look for Chrome profile directory or another ZIP file
+        profile_zip_path = zip_path  # Use the uploaded ZIP as profile
+        
+        # Call the configure_automation method
+        result = await automation_tool.configure_automation(
+            script_content=script_content,
+            profile_zip_path=profile_zip_path,
+            description=description
+        )
+        
+        if result.success:
+            return {
+                'success': True,
+                'message': 'Custom automation configured successfully from ZIP',
+                'data': result.result
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.error_message)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading automation ZIP for agent {agent_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/agents/{agent_id}/upload-automation-files")

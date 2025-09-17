@@ -36,6 +36,8 @@ export const CustomAutomationConfigDialog: React.FC<CustomAutomationConfigDialog
   const [description, setDescription] = useState(existingConfig?.description || '');
   const [profileFile, setProfileFile] = useState<File | null>(null);
   const [scriptFile, setScriptFile] = useState<File | null>(null);
+  const [automationZip, setAutomationZip] = useState<File | null>(null);
+  const [uploadMode, setUploadMode] = useState<'separate' | 'zip'>('zip');
   const [isSaving, setIsSaving] = useState(false);
   const [step, setStep] = useState<'upload' | 'configure' | 'preview'>('upload');
 
@@ -70,46 +72,75 @@ export const CustomAutomationConfigDialog: React.FC<CustomAutomationConfigDialog
     }
   };
 
+  const handleAutomationZipChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.name.endsWith('.zip')) {
+        setAutomationZip(file);
+        toast.success(`Automation ZIP selected: ${file.name}`);
+      } else {
+        toast.error('Please select a ZIP file containing your automation');
+      }
+    }
+  };
+
   const handleSave = async () => {
-    if (!scriptContent.trim()) {
-      toast.error('Please provide automation script content');
-      return;
-    }
-
-    if (!scriptFile || !profileFile) {
-      toast.error('Please upload both script and Chrome profile files');
-      return;
-    }
-
     if (!agentId) {
       toast.error('Agent ID is required');
       return;
     }
 
+    // Validate based on upload mode
+    if (uploadMode === 'zip') {
+      if (!automationZip) {
+        toast.error('Please upload an automation ZIP file');
+        return;
+      }
+    } else {
+      if (!scriptFile || !profileFile) {
+        toast.error('Please upload both script and Chrome profile files');
+        return;
+      }
+      if (!scriptContent.trim()) {
+        toast.error('Please provide automation script content');
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
-      // Use the new upload-automation-files endpoint that handles both files
       const formData = new FormData();
-      formData.append('script_file', scriptFile);
-      formData.append('profile_file', profileFile);
-      formData.append('description', description || 'Custom browser automation');
+      let endpoint = '';
       
-      const uploadResponse = await fetch(`/api/agents/${agentId}/upload-automation-files`, {
+      if (uploadMode === 'zip') {
+        // Use single ZIP upload endpoint
+        formData.append('automation_zip', automationZip!);
+        formData.append('description', description || 'Custom browser automation');
+        endpoint = `/api/agents/${agentId}/upload-automation-zip`;
+      } else {
+        // Use separate files upload endpoint
+        formData.append('script_file', scriptFile!);
+        formData.append('profile_file', profileFile!);
+        formData.append('description', description || 'Custom browser automation');
+        endpoint = `/api/agents/${agentId}/upload-automation-files`;
+      }
+      
+      const uploadResponse = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
 
       if (!uploadResponse.ok) {
         const errorData = await uploadResponse.json();
-        throw new Error(errorData.detail || 'Failed to upload automation files');
+        throw new Error(errorData.detail || errorData.error || 'Failed to upload automation files');
       }
 
       const uploadResult = await uploadResponse.json();
       
       // Create config for frontend callback
       const config: CustomAutomationConfig = {
-        scriptContent,
-        profileZipPath: `/workspace/custom_automation/${profileFile.name}`,
+        scriptContent: uploadMode === 'zip' ? 'Extracted from ZIP' : scriptContent,
+        profileZipPath: uploadMode === 'zip' ? `/workspace/custom_automation/${automationZip!.name}` : `/workspace/custom_automation/${profileFile!.name}`,
         description: description || 'Custom browser automation'
       };
 
@@ -139,64 +170,124 @@ export const CustomAutomationConfigDialog: React.FC<CustomAutomationConfigDialog
         </p>
       </div>
 
-      <div className="space-y-4">
-        {/* Script Upload */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <FileCode className="h-4 w-4" />
-              Automation Script
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <Input
-                type="file"
-                accept=".js"
-                onChange={handleScriptFileChange}
-                className="cursor-pointer"
-              />
-              <p className="text-xs text-muted-foreground">
-                Upload a JavaScript file containing your Playwright automation script
-              </p>
-              {scriptFile && (
-                <Badge variant="secondary" className="text-xs">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  {scriptFile.name}
-                </Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Upload Mode Toggle */}
+      <div className="flex items-center justify-center space-x-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg mb-4">
+        <button
+          type="button"
+          onClick={() => setUploadMode('zip')}
+          className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+            uploadMode === 'zip'
+              ? 'bg-violet-600 text-white'
+              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+          }`}
+        >
+          <Archive className="h-4 w-4 inline mr-1" />
+          Single ZIP
+        </button>
+        <button
+          type="button"
+          onClick={() => setUploadMode('separate')}
+          className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+            uploadMode === 'separate'
+              ? 'bg-violet-600 text-white'
+              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+          }`}
+        >
+          <FileCode className="h-4 w-4 inline mr-1" />
+          Separate Files
+        </button>
+      </div>
 
-        {/* Profile Upload */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Archive className="h-4 w-4" />
-              Chrome Profile
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <Input
-                type="file"
-                accept=".zip"
-                onChange={handleProfileFileChange}
-                className="cursor-pointer"
-              />
-              <p className="text-xs text-muted-foreground">
-                Upload a ZIP file containing your Chrome user data directory
-              </p>
-              {profileFile && (
-                <Badge variant="secondary" className="text-xs">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  {profileFile.name}
-                </Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="space-y-4">
+        {uploadMode === 'zip' ? (
+          /* Single ZIP Upload */
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Archive className="h-4 w-4" />
+                Automation Package
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <Input
+                  type="file"
+                  accept=".zip"
+                  onChange={handleAutomationZipChange}
+                  className="cursor-pointer"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Upload a ZIP file containing your automation script (.js) and Chrome profile
+                </p>
+                {automationZip && (
+                  <Badge variant="secondary" className="text-xs">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    {automationZip.name} ({(automationZip.size / 1024 / 1024).toFixed(1)} MB)
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          /* Separate Files Upload */
+          <>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <FileCode className="h-4 w-4" />
+                  Automation Script
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <Input
+                    type="file"
+                    accept=".js"
+                    onChange={handleScriptFileChange}
+                    className="cursor-pointer"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Upload a JavaScript file containing your Playwright automation script
+                  </p>
+                  {scriptFile && (
+                    <Badge variant="secondary" className="text-xs">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      {scriptFile.name}
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Archive className="h-4 w-4" />
+                  Chrome Profile
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <Input
+                    type="file"
+                    accept=".zip"
+                    onChange={handleProfileFileChange}
+                    className="cursor-pointer"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Upload a ZIP file containing your Chrome user data directory
+                  </p>
+                  {profileFile && (
+                    <Badge variant="secondary" className="text-xs">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      {profileFile.name}
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
     </div>
   );
@@ -299,9 +390,9 @@ export const CustomAutomationConfigDialog: React.FC<CustomAutomationConfigDialog
   const canProceedToNext = () => {
     switch (step) {
       case 'upload':
-        return scriptFile && profileFile;
+        return uploadMode === 'zip' ? automationZip : (scriptFile && profileFile);
       case 'configure':
-        return scriptContent.trim().length > 0;
+        return uploadMode === 'zip' ? true : scriptContent.trim().length > 0;
       case 'preview':
         return true;
       default:
