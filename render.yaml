@@ -1,10 +1,10 @@
 version: "1"
 services:
   - type: worker
-    name: Suna-worker-dev3
+    name: Suna-worker-automation-script
     runtime: docker
     repo: https://github.com/Omniscience-Labs/Omni
-    branch: dev3
+    branch: automation-script
     plan: pro
     region: oregon
     dockerCommand: uv run dramatiq --skip-logging --processes 2 --threads 2 run_agent_background
@@ -21,15 +21,15 @@ services:
       - key: REDIS_URL
         fromService:
           type: keyvalue
-          name: suna-redis-dev3
+          name: suna-redis-automation-script
           property: connectionString
       - fromGroup: Suna Backend Dev3
 
   - type: web
-    name: Suna-backend-dev3
+    name: Suna-backend-automation-script
     runtime: docker
     repo: https://github.com/Omniscience-Labs/Omni
-    branch: dev3
+    branch: automation-script
     plan: pro
     region: oregon
     dockerCommand: uv run gunicorn api:app --host 0.0.0.0 --port $PORT --worker-class uvicorn.workers.UvicornWorker --workers 1
@@ -46,12 +46,12 @@ services:
       - key: REDIS_URL
         fromService:
           type: keyvalue
-          name: suna-redis-dev3
+          name: suna-redis-automation-script
           property: connectionString
       - fromGroup: Suna Backend Dev3
 
   - type: keyvalue
-    name: suna-redis-dev3
+    name: suna-redis-automation-script
     plan: starter
     region: oregon
     maxmemoryPolicy: allkeys-lru
