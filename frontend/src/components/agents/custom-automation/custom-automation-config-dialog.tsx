@@ -83,11 +83,54 @@ export const CustomAutomationConfigDialog: React.FC<CustomAutomationConfigDialog
 
     setIsSaving(true);
     try {
-      // Here you would typically upload the files first
-      // For now, we'll simulate the configuration
+      // First upload the profile file if it exists
+      let profileZipPath = existingConfig?.profileZipPath;
+      
+      if (profileFile) {
+        const formData = new FormData();
+        formData.append('file', profileFile);
+        
+        const uploadResponse = await fetch('/api/upload-file', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload Chrome profile');
+        }
+        
+        const uploadResult = await uploadResponse.json();
+        profileZipPath = uploadResult.filePath || `/workspace/${profileFile.name}`;
+      }
+
+      // Now call the backend configure-custom-automation endpoint  
+      if (!agentId) {
+        throw new Error('Agent ID is required');
+      }
+      
+      const configureResponse = await fetch(`/api/agents/${agentId}/configure-custom-automation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          script_content: scriptContent,
+          profile_zip_path: profileZipPath,
+          description: description || 'Custom browser automation',
+        }),
+      });
+
+      if (!configureResponse.ok) {
+        const errorData = await configureResponse.json();
+        throw new Error(errorData.detail || 'Failed to configure automation in backend');
+      }
+
+      const configureResult = await configureResponse.json();
+      
+      // Create config for frontend callback
       const config: CustomAutomationConfig = {
         scriptContent,
-        profileZipPath: profileFile ? `/workspace/${profileFile.name}` : existingConfig?.profileZipPath,
+        profileZipPath,
         description: description || 'Custom browser automation'
       };
 
@@ -97,9 +140,10 @@ export const CustomAutomationConfigDialog: React.FC<CustomAutomationConfigDialog
 
       toast.success('Custom automation configured successfully');
       onOpenChange(false);
+      resetForm();
     } catch (error) {
-      toast.error('Failed to configure automation');
-      console.error('Error configuring automation:', error);
+      console.error('Failed to save automation config:', error);
+      toast.error(`Failed to configure automation: ${error.message}`);
     } finally {
       setIsSaving(false);
     }

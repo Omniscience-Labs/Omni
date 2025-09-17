@@ -369,3 +369,71 @@ async def get_agent_tools(
             mcp_tools.append({"name": tool_name, "server": server, "enabled": True})
     return {"agentpress_tools": agentpress_tools, "mcp_tools": mcp_tools}
 
+
+@router.post("/agents/{agent_id}/configure-custom-automation")
+async def configure_custom_automation(
+    agent_id: str,
+    request: Dict[str, Any] = Body(...),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
+):
+    """Configure custom automation for an agent."""
+    logger.debug(f"Configuring custom automation for agent {agent_id}, user {user_id}")
+    
+    try:
+        # Validate request
+        script_content = request.get('script_content')
+        profile_zip_path = request.get('profile_zip_path')
+        description = request.get('description', 'Custom browser automation')
+        
+        if not script_content:
+            raise HTTPException(status_code=400, detail="Script content is required")
+        
+        if not profile_zip_path:
+            raise HTTPException(status_code=400, detail="Chrome profile zip path is required")
+        
+        # Verify agent belongs to user
+        client = await utils.db.client
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent = agent_result.data[0]
+        
+        # Get the agent's current thread to use the custom automation tool
+        threads_result = await client.table('threads').select('thread_id').eq('agent_id', agent_id).limit(1).execute()
+        if not threads_result.data:
+            raise HTTPException(status_code=400, detail="No thread found for agent")
+        
+        thread_id = threads_result.data[0]['thread_id']
+        
+        # Create thread manager and custom automation tool
+        thread_manager = ThreadManager()
+        from core.tools.custom_automation_tool import CustomAutomationTool
+        automation_tool = CustomAutomationTool(
+            project_id=agent_id,  # Use agent_id as project_id
+            thread_id=thread_id,
+            thread_manager=thread_manager
+        )
+        
+        # Call the configure_automation method
+        result = await automation_tool.configure_automation(
+            script_content=script_content,
+            profile_zip_path=profile_zip_path,
+            description=description
+        )
+        
+        if result.success:
+            return {
+                'success': True,
+                'message': 'Custom automation configured successfully',
+                'data': result.result
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.error_message)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error configuring custom automation for agent {agent_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+

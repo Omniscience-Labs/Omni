@@ -13,9 +13,10 @@ interface AgentToolsConfigurationProps {
   disabled?: boolean;
   isSunaAgent?: boolean;
   isLoading?: boolean;
+  agentId?: string;
 }
 
-export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false, isSunaAgent = false, isLoading = false }: AgentToolsConfigurationProps) => {
+export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false, isSunaAgent = false, isLoading = false, agentId }: AgentToolsConfigurationProps) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showCustomAutomationConfig, setShowCustomAutomationConfig] = useState(false);
 
@@ -163,6 +164,7 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
         open={showCustomAutomationConfig}
         onOpenChange={setShowCustomAutomationConfig}
         onSave={handleCustomAutomationSave}
+        agentId={agentId}
       />
     </div>
   );
