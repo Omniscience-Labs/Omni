@@ -140,7 +140,6 @@ export const CustomAutomationConfigDialog: React.FC<CustomAutomationConfigDialog
 
       toast.success('Custom automation configured successfully');
       onOpenChange(false);
-      resetForm();
     } catch (error) {
       console.error('Failed to save automation config:', error);
       toast.error(`Failed to configure automation: ${error.message}`);
