@@ -370,6 +370,87 @@ async def get_agent_tools(
     return {"agentpress_tools": agentpress_tools, "mcp_tools": mcp_tools}
 
 
+@router.post("/agents/{agent_id}/upload-automation-files")
+async def upload_automation_files(
+    agent_id: str,
+    script_file: UploadFile = File(...),
+    profile_file: UploadFile = File(...),
+    description: str = Form("Custom browser automation"),
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
+):
+    """Upload automation script and Chrome profile for custom automation."""
+    logger.debug(f"Uploading automation files for agent {agent_id}, user {user_id}")
+    
+    try:
+        # Verify agent belongs to user
+        client = await utils.db.client
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        # Validate files
+        if not script_file.filename.endswith('.js'):
+            raise HTTPException(status_code=400, detail="Script file must be a JavaScript file (.js)")
+        
+        if not profile_file.filename.endswith('.zip'):
+            raise HTTPException(status_code=400, detail="Profile file must be a ZIP file (.zip)")
+        
+        # Check file sizes (increase limits for Chrome profiles)
+        script_content = await script_file.read()
+        profile_content = await profile_file.read()
+        
+        if len(script_content) > 1 * 1024 * 1024:  # 1MB for script
+            raise HTTPException(status_code=413, detail="Script file too large (max 1MB)")
+        
+        if len(profile_content) > 200 * 1024 * 1024:  # 200MB for Chrome profile
+            raise HTTPException(status_code=413, detail="Profile file too large (max 200MB)")
+        
+        # Get the agent's current thread to use the custom automation tool
+        threads_result = await client.table('threads').select('thread_id').eq('agent_id', agent_id).limit(1).execute()
+        if not threads_result.data:
+            raise HTTPException(status_code=400, detail="No thread found for agent")
+        
+        thread_id = threads_result.data[0]['thread_id']
+        
+        # Create thread manager and custom automation tool
+        thread_manager = ThreadManager()
+        from core.tools.custom_automation_tool import CustomAutomationTool
+        automation_tool = CustomAutomationTool(
+            project_id=agent_id,  # Use agent_id as project_id
+            thread_id=thread_id,
+            thread_manager=thread_manager
+        )
+        
+        # Ensure sandbox and upload files
+        await automation_tool._ensure_automation_directory()
+        
+        # Upload profile zip to sandbox
+        profile_zip_path = f"/workspace/custom_automation/{profile_file.filename}"
+        await automation_tool.sandbox.fs.upload_file(profile_content, profile_zip_path)
+        
+        # Call the configure_automation method with script content and uploaded profile path
+        result = await automation_tool.configure_automation(
+            script_content=script_content.decode('utf-8'),
+            profile_zip_path=profile_zip_path,
+            description=description
+        )
+        
+        if result.success:
+            return {
+                'success': True,
+                'message': 'Custom automation configured successfully',
+                'data': result.result
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.error_message)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading automation files for agent {agent_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @router.post("/agents/{agent_id}/configure-custom-automation")
 async def configure_custom_automation(
     agent_id: str,

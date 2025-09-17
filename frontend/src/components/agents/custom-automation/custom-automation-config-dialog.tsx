@@ -76,61 +76,40 @@ export const CustomAutomationConfigDialog: React.FC<CustomAutomationConfigDialog
       return;
     }
 
-    if (!profileFile && !existingConfig?.profileZipPath) {
-      toast.error('Please upload a Chrome profile ZIP file');
+    if (!scriptFile || !profileFile) {
+      toast.error('Please upload both script and Chrome profile files');
+      return;
+    }
+
+    if (!agentId) {
+      toast.error('Agent ID is required');
       return;
     }
 
     setIsSaving(true);
     try {
-      // First upload the profile file if it exists
-      let profileZipPath = existingConfig?.profileZipPath;
+      // Use the new upload-automation-files endpoint that handles both files
+      const formData = new FormData();
+      formData.append('script_file', scriptFile);
+      formData.append('profile_file', profileFile);
+      formData.append('description', description || 'Custom browser automation');
       
-      if (profileFile) {
-        const formData = new FormData();
-        formData.append('file', profileFile);
-        
-        const uploadResponse = await fetch('/api/upload-file', {
-          method: 'POST',
-          body: formData,
-        });
-        
-        if (!uploadResponse.ok) {
-          throw new Error('Failed to upload Chrome profile');
-        }
-        
-        const uploadResult = await uploadResponse.json();
-        profileZipPath = uploadResult.filePath || `/workspace/${profileFile.name}`;
-      }
-
-      // Now call the backend configure-custom-automation endpoint  
-      if (!agentId) {
-        throw new Error('Agent ID is required');
-      }
-      
-      const configureResponse = await fetch(`/api/agents/${agentId}/configure-custom-automation`, {
+      const uploadResponse = await fetch(`/api/agents/${agentId}/upload-automation-files`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          script_content: scriptContent,
-          profile_zip_path: profileZipPath,
-          description: description || 'Custom browser automation',
-        }),
+        body: formData,
       });
 
-      if (!configureResponse.ok) {
-        const errorData = await configureResponse.json();
-        throw new Error(errorData.detail || 'Failed to configure automation in backend');
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json();
+        throw new Error(errorData.detail || 'Failed to upload automation files');
       }
 
-      const configureResult = await configureResponse.json();
+      const uploadResult = await uploadResponse.json();
       
       // Create config for frontend callback
       const config: CustomAutomationConfig = {
         scriptContent,
-        profileZipPath,
+        profileZipPath: `/workspace/custom_automation/${profileFile.name}`,
         description: description || 'Custom browser automation'
       };
 
