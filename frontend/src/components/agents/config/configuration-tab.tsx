@@ -244,6 +244,7 @@ export function ConfigurationTab({
                        disabled={!areToolsEditable}
                        isSunaAgent={isSunaAgent}
                        isLoading={isLoading}
+                       agentId={agentId}
                      />
                   </div>
                 </div>
