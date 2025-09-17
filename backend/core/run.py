@@ -49,6 +49,7 @@ from core.tools.sb_sheets_tool import SandboxSheetsTool
 from core.tools.sb_upload_file_tool import SandboxUploadFileTool
 from core.tools.podcast_tool import SandboxPodcastTool
 from core.tools.sb_docs_tool import SandboxDocsTool
+from core.tools.custom_automation_tool import CustomAutomationTool
 
 load_dotenv()
 
@@ -129,6 +130,7 @@ class ToolManager:
             ('sb_upload_file_tool', SandboxUploadFileTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('podcast_tool', SandboxPodcastTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_docs_tool', SandboxDocsTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('custom_automation_tool', CustomAutomationTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
 
         ]
         

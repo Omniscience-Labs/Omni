@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Search, Settings } from 'lucide-react';
 import { AGENTPRESS_TOOL_DEFINITIONS, getToolDisplayName } from './tools';
 import { toast } from 'sonner';
+import { CustomAutomationConfigDialog } from './custom-automation/custom-automation-config-dialog';
 
 interface AgentToolsConfigurationProps {
   tools: Record<string, boolean | { enabled: boolean; description: string }>;
@@ -15,6 +17,7 @@ interface AgentToolsConfigurationProps {
 
 export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false, isSunaAgent = false, isLoading = false }: AgentToolsConfigurationProps) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showCustomAutomationConfig, setShowCustomAutomationConfig] = useState(false);
 
   const isToolEnabled = (tool: boolean | { enabled: boolean; description: string } | undefined): boolean => {
     if (tool === undefined) return false;
@@ -40,12 +43,32 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
     if (isLoading) {
       return;
     }
+
+    // For custom automation tool, show configuration dialog when enabling
+    if (toolName === 'custom_automation_tool' && enabled && !isToolEnabled(tools[toolName])) {
+      setShowCustomAutomationConfig(true);
+      return;
+    }
     
     const updatedTools = {
       ...tools,
       [toolName]: createToolValue(enabled, tools[toolName])
     };
     onToolsChange(updatedTools);
+  };
+
+  const handleCustomAutomationSave = async (config: any) => {
+    // Enable the tool after successful configuration
+    const updatedTools = {
+      ...tools,
+      'custom_automation_tool': createToolValue(true, tools['custom_automation_tool'])
+    };
+    onToolsChange(updatedTools);
+    toast.success('Custom automation configured successfully');
+  };
+
+  const handleConfigureCustomAutomation = () => {
+    setShowCustomAutomationConfig(true);
   };
 
   const getSelectedToolsCount = (): number => {
@@ -99,7 +122,19 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
                 </div>
               </div>
               
-              <div className="flex justify-end items-center">
+              <div className="flex justify-end items-center gap-2">
+                {toolName === 'custom_automation_tool' && isToolEnabled(tools[toolName]) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleConfigureCustomAutomation}
+                    className="h-8 px-3 text-xs"
+                    disabled={disabled || isLoading}
+                  >
+                    <Settings className="h-3 w-3 mr-1" />
+                    Configure
+                  </Button>
+                )}
                 <Switch
                   checked={isToolEnabled(tools[toolName])}
                   onCheckedChange={(checked) => handleToolToggle(toolName, checked)}
@@ -123,6 +158,12 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
             </div>
           )}
       </div>
+
+      <CustomAutomationConfigDialog
+        open={showCustomAutomationConfig}
+        onOpenChange={setShowCustomAutomationConfig}
+        onSave={handleCustomAutomationSave}
+      />
     </div>
   );
 }; 
