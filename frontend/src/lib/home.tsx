@@ -249,6 +249,7 @@ export const siteConfig = {
             src="/company-logos/Maroon CM Logo.svg"
             alt="Copper Moon"
             className="h-16 w-auto object-contain"
+            // Added Copper Moon logo to showcase trusted enterprise partners
           />
         ),
       },
