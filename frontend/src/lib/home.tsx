@@ -241,6 +241,17 @@ export const siteConfig = {
           />
         ),
       },
+      {
+        id: 5,
+        name: 'Copper Moon',
+        logo: (
+          <img
+            src="/company-logos/Maroon CM Logo.svg"
+            alt="Copper Moon"
+            className="h-16 w-auto object-contain"
+          />
+        ),
+      },
     ],
   },
   featureSection: {
