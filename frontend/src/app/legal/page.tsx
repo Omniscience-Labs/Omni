@@ -144,7 +144,7 @@ function LegalContent() {
                       Terms of Service
                     </h2>
                     <p className="text-sm text-muted-foreground mb-6">
-                      Last updated: {new Date().toLocaleDateString()}
+                      Last updated: 9/23/2025
                     </p>
 
                     <h3 className="text-lg font-medium tracking-tight">
@@ -157,7 +157,7 @@ function LegalContent() {
                     <p className="text-muted-foreground text-balance mb-6">
                       PLEASE READ THESE TERMS OF USE ("AGREEMENT" OR "TERMS OF
                       USE" or "TERMS OF SERVICE" or "TERMS AND CONDITIONS")
-                      CAREFULLY BEFORE USING THE SERVICES OFFERED BY Omniscience Labs
+                      CAREFULLY BEFORE USING THE SERVICES OFFERED BY Omni AI
                       Corp (701 Tillery Street Unit 12-2521 Austin, Texas 78702,
                       United States). THIS AGREEMENT SETS FORTH THE LEGALLY
                       BINDING TERMS AND CONDITIONS FOR YOUR USE OF THE OMNI
@@ -169,7 +169,7 @@ function LegalContent() {
                     </h3>
                     <ul className="text-muted-foreground space-y-1 mb-6">
                       <li>
-                        "Company" refers to Omniscience Labs (701 Tillery Street
+                        "Company" refers to Omni AI Corp (701 Tillery Street
                         Unit 12-2521 Austin, Texas 78702, United States).
                       </li>
                       <li>
@@ -216,7 +216,7 @@ function LegalContent() {
                       </li>
                       <li>
                         "Notice Address" refers to the contact address for the
-                        Company, specifically legal@kortix.ai
+                        Company, specifically social@latent-labs.ai
                       </li>
                       <li>
                         "Privacy Policy" refers to the document outlining how
@@ -394,7 +394,7 @@ function LegalContent() {
                       held by others. We respect rights holders internationally,
                       and we ask our users to do the same. If you believe your
                       copyright or trademark is being infringed by the Service,
-                      please write to legal@kortixai.com and we will process and
+                      please write to social@latent-labs.ai and we will process and
                       investigate your request and take appropriate actions
                       under the Digital Millennium Copyright Act and other
                       applicable intellectual property laws with respect to any
@@ -410,7 +410,7 @@ function LegalContent() {
                       subscription, payable in U.S. dollars, that will
                       automatically renew. You can stop using the Service and
                       cancel your subscription at any time through the website
-                      or by emailing us at legal@kortixai.com. If you cancel
+                      or by emailing us at social@latent-labs.ai. If you cancel
                       your subscription, you may not receive a refund or credit
                       for any amounts that have already been billed or paid. The
                       Company reserves the right to change its prices at any
@@ -688,10 +688,10 @@ function LegalContent() {
                       For questions regarding the Service, you can get in touch
                       by emailing us at{' '}
                       <a
-                        href="mailto:legal@kortixai.com"
+                        href="mailto:social@latent-labs.ai"
                         className="text-secondary hover:underline"
                       >
-                        legal@kortixai.com
+                        social@latent-labs.ai
                       </a>
                       .
                     </p>
@@ -702,166 +702,102 @@ function LegalContent() {
                       Privacy Policy
                     </h2>
                     <p className="text-sm text-muted-foreground mb-6">
-                      Last updated: {new Date().toLocaleDateString()}
+                      Last updated: 9/23/2025
                     </p>
 
                     <h3 className="text-lg font-medium tracking-tight">
-                      Introduction
+                      Privacy
                     </h3>
                     <p className="text-muted-foreground text-balance mb-6">
-                      Omniscience Labs Corp ("we," "our," or "us") operates the Omni platform and related services (collectively, the "Service"). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Service. Please read this Privacy Policy carefully. If you do not agree with the terms of this Privacy Policy, please do not access the Service.
+                      Our commitment to privacy and data protection is reflected in this Privacy Statement which describes how we collect and process "personal information" that identifies you, like your name or email address. Any other information besides this is "non-personal information." If we store personal information with non-personal information, we'll consider that combination to be personal information.
                     </p>
-
-                    <h3 className="text-lg font-medium tracking-tight">
-                      Information We Collect
-                    </h3>
-                    
-                    <h4 className="text-base font-medium tracking-tight mb-2">
-                      Personal Information
-                    </h4>
-                    <p className="text-muted-foreground text-balance mb-4">
-                      We may collect personal information that you voluntarily provide to us when you:
-                    </p>
-                    <ul className="text-muted-foreground space-y-1 mb-4">
-                      <li>Register for an account (name, email address, password)</li>
-                      <li>Make a purchase (billing information, payment details)</li>
-                      <li>Contact us for support (contact information, messages)</li>
-                      <li>Use our AI services (content, files, prompts, and generated outputs)</li>
-                      <li>Participate in surveys or feedback (responses and opinions)</li>
-                    </ul>
-
-                    <h4 className="text-base font-medium tracking-tight mb-2">
-                      Automatically Collected Information
-                    </h4>
-                    <p className="text-muted-foreground text-balance mb-4">
-                      When you use our Service, we automatically collect certain information:
-                    </p>
-                    <ul className="text-muted-foreground space-y-1 mb-4">
-                      <li><strong>Device Information:</strong> IP address, device type, operating system, browser type and version</li>
-                      <li><strong>Usage Data:</strong> Pages visited, time spent on pages, features used, click patterns</li>
-                      <li><strong>Log Data:</strong> Access times, error logs, performance metrics</li>
-                      <li><strong>Cookies and Tracking:</strong> Session cookies, preference settings, analytics data</li>
-                    </ul>
-
-                    <h4 className="text-base font-medium tracking-tight mb-2">
-                      AI-Generated Content
-                    </h4>
                     <p className="text-muted-foreground text-balance mb-6">
-                      When you use our AI services, we collect and process your input prompts, generated outputs, and related metadata. This content is essential for providing our AI services and improving our models. We do not use your content to train our AI models without your explicit consent.
+                      References to our "Services" at Omni in this statement include our website, apps, and other products and services. This statement applies to our Services that display or reference this Privacy Statement. Third-party services that we integrate with are governed under their own privacy policies. Omni does not collect biometric or identifying information. All data is processed securely and any data is deleted upon account removal.
                     </p>
 
                     <h3 className="text-lg font-medium tracking-tight">
-                      How We Use Your Information
+                      Information Gathering
                     </h3>
                     <p className="text-muted-foreground text-balance mb-4">
-                      We use the collected information for the following purposes:
+                      We learn information about you when:
+                    </p>
+                    <p className="text-muted-foreground text-balance mb-4">
+                      <strong>You directly provide it to us.</strong> For example, we collect:
+                    </p>
+                    <ul className="text-muted-foreground space-y-1 mb-4">
+                      <li><strong>Name and contact information.</strong> We collect details such as name and email address.</li>
+                      <li><strong>Payment information.</strong> If you make a purchase, we collect credit card numbers, financial account information, and other payment details.</li>
+                      <li><strong>Content and files.</strong> We collect and retain the videos, documents, or other files you send to us in connection with delivering our Services, including via email or chat.</li>
+                    </ul>
+                    <p className="text-muted-foreground text-balance mb-4">
+                      <strong>We collect it automatically through our products and services.</strong> For instance, we collect:
+                    </p>
+                    <ul className="text-muted-foreground space-y-1 mb-4">
+                      <li><strong>Identifiers and device information.</strong> When you visit our websites, our web servers log your Internet Protocol (IP) address and information about your device, including device identifiers, device type, operating system, browser, and other software including type, version, language, settings, and configuration.</li>
+                      <li><strong>Geolocation data.</strong> Depending on your device and app settings, we collect geolocation data when you use our Services.</li>
+                      <li><strong>Usage data.</strong> We log your activity on our website, including the URL of the website from which you came to our site, pages you viewed on our website, how long you spent on a page, access times, and other details about your use of and actions on our website. We also collect information about which web-elements or objects you interact with on our Service, metadata about your activity on the Service, changes in your user state, and the duration of your use of our Service.</li>
+                    </ul>
+                    <p className="text-muted-foreground text-balance mb-4">
+                      <strong>Someone else tells us information about you.</strong> Third-party sources include, for example:
+                    </p>
+                    <ul className="text-muted-foreground space-y-1 mb-4">
+                      <li><strong>Third-party partners.</strong> Third-party applications and services, including social networks you choose to connect with or interact with through our services.</li>
+                      <li><strong>Service providers.</strong> Third parties that collect or provide data in connection with work they do on our behalf, for example, companies that determine your device's location based on its IP address.</li>
+                    </ul>
+                    <p className="text-muted-foreground text-balance mb-6">
+                      <strong>When we try and understand more about you based on information you've given to us.</strong> We infer new information from other data we collect, including using automated means to generate information about your likely preferences or other characteristics ("inferences"). For example, we infer your general geographic location based on your IP address.
+                    </p>
+
+                    <h3 className="text-lg font-medium tracking-tight">
+                      Information Use
+                    </h3>
+                    <p className="text-muted-foreground text-balance mb-6">
+                      We use each category of personal information about you:
                     </p>
                     <ul className="text-muted-foreground space-y-1 mb-6">
-                      <li><strong>Service Provision:</strong> To provide, maintain, and improve our AI services</li>
-                      <li><strong>Account Management:</strong> To create and manage your account, process payments</li>
-                      <li><strong>Communication:</strong> To send you updates, support responses, and important notices</li>
-                      <li><strong>Security:</strong> To protect against fraud, abuse, and security threats</li>
-                      <li><strong>Analytics:</strong> To understand usage patterns and improve user experience</li>
-                      <li><strong>Legal Compliance:</strong> To comply with applicable laws and regulations</li>
+                      <li>To provide you with our Services</li>
+                      <li>To improve and develop our Services</li>
+                      <li>To communicate with you</li>
+                      <li>To provide customer support</li>
                     </ul>
 
                     <h3 className="text-lg font-medium tracking-tight">
-                      Information Sharing and Disclosure
+                      Information Sharing
                     </h3>
-                    <p className="text-muted-foreground text-balance mb-4">
-                      We do not sell, trade, or rent your personal information to third parties. We may share your information in the following limited circumstances:
-                    </p>
-                    <ul className="text-muted-foreground space-y-1 mb-4">
-                      <li><strong>Service Providers:</strong> With trusted third-party vendors who assist in operating our Service (hosting, payment processing, analytics)</li>
-                      <li><strong>Legal Requirements:</strong> When required by law, court order, or to protect our rights and safety</li>
-                      <li><strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets</li>
-                      <li><strong>Consent:</strong> When you explicitly consent to sharing your information</li>
-                    </ul>
-
-                    <h3 className="text-lg font-medium tracking-tight">
-                      Data Security
-                    </h3>
-                    <p className="text-muted-foreground text-balance mb-4">
-                      We implement appropriate technical and organizational security measures to protect your personal information:
+                    <p className="text-muted-foreground text-balance mb-6">
+                      We share information about you:
                     </p>
                     <ul className="text-muted-foreground space-y-1 mb-6">
-                      <li>Encryption of data in transit and at rest</li>
-                      <li>Regular security audits and vulnerability assessments</li>
-                      <li>Access controls and authentication mechanisms</li>
-                      <li>Secure data centers with physical security measures</li>
-                      <li>Employee training on data protection practices</li>
-                    </ul>
-
-                    <h3 className="text-lg font-medium tracking-tight">
-                      Data Retention
-                    </h3>
-                    <p className="text-muted-foreground text-balance mb-6">
-                      We retain your personal information only as long as necessary to fulfill the purposes outlined in this Privacy Policy, unless a longer retention period is required by law. When you delete your account, we will delete your personal information within 30 days, except where we are required to retain it for legal or regulatory purposes.
-                    </p>
-
-                    <h3 className="text-lg font-medium tracking-tight">
-                      Your Rights and Choices
-                    </h3>
-                    <p className="text-muted-foreground text-balance mb-4">
-                      Depending on your location, you may have the following rights regarding your personal information:
-                    </p>
-                    <ul className="text-muted-foreground space-y-1 mb-4">
-                      <li><strong>Access:</strong> Request a copy of your personal information</li>
-                      <li><strong>Correction:</strong> Update or correct inaccurate information</li>
-                      <li><strong>Deletion:</strong> Request deletion of your personal information</li>
-                      <li><strong>Portability:</strong> Receive your data in a structured, machine-readable format</li>
-                      <li><strong>Opt-out:</strong> Unsubscribe from marketing communications</li>
-                      <li><strong>Restriction:</strong> Limit how we process your information</li>
+                      <li>When we've asked & received your consent to share it.</li>
+                      <li>As needed, including to third-party service providers, to process or provide Services or products to you, but only if those entities agree to provide at least the same level of privacy protection we're committed to under this Privacy Statement.</li>
+                      <li>To comply with laws or to respond to lawful requests and legal processes, provided that we'll notify you unless we're legally prohibited from doing so. We'll only release personal information if we believe in good faith that it's legally required.</li>
+                      <li>Only if we reasonably believe it's necessary to prevent harm to the rights, property, or safety of you or others.</li>
+                      <li>In the event of a corporate restructuring or change in our organizational structure or status to a successor or affiliate.</li>
                     </ul>
                     <p className="text-muted-foreground text-balance mb-6">
-                      To exercise these rights, please contact us at the email address provided below.
+                      Please note that some of our Services include integrations, references, or links to services provided by third parties whose privacy practices differ from ours. If you provide personal information to any of those third parties, or allow us to share personal information with them, that data is governed by their privacy statements. Finally, we may share non-personal information in accordance with applicable law.
                     </p>
 
                     <h3 className="text-lg font-medium tracking-tight">
-                      Cookies and Tracking Technologies
-                    </h3>
-                    <p className="text-muted-foreground text-balance mb-4">
-                      We use cookies and similar tracking technologies to enhance your experience on our Service:
-                    </p>
-                    <ul className="text-muted-foreground space-y-1 mb-6">
-                      <li><strong>Essential Cookies:</strong> Required for basic Service functionality</li>
-                      <li><strong>Analytics Cookies:</strong> Help us understand how you use our Service</li>
-                      <li><strong>Preference Cookies:</strong> Remember your settings and preferences</li>
-                      <li><strong>Marketing Cookies:</strong> Used to deliver relevant advertisements</li>
-                    </ul>
-
-                    <h3 className="text-lg font-medium tracking-tight">
-                      International Data Transfers
+                      Information Protection
                     </h3>
                     <p className="text-muted-foreground text-balance mb-6">
-                      Your information may be transferred to and processed in countries other than your own. We ensure that such transfers comply with applicable data protection laws and implement appropriate safeguards to protect your information.
-                    </p>
-
-                    <h3 className="text-lg font-medium tracking-tight">
-                      Children's Privacy
-                    </h3>
-                    <p className="text-muted-foreground text-balance mb-6">
-                      Our Service is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13. If you are a parent or guardian and believe your child has provided us with personal information, please contact us immediately.
-                    </p>
-
-                    <h3 className="text-lg font-medium tracking-tight">
-                      Changes to This Privacy Policy
-                    </h3>
-                    <p className="text-muted-foreground text-balance mb-6">
-                      We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last updated" date. You are advised to review this Privacy Policy periodically for any changes.
+                      We implement physical, business, and technical security measures to safeguard your personal information. In the event of a security breach, we'll notify you so that you can take appropriate protective steps. We only keep your personal information for as long as is needed to do what we collected it for. After that, we destroy it unless required by law.
                     </p>
 
                     <h3 className="text-lg font-medium tracking-tight">
                       Contact Us
                     </h3>
-                    <p className="text-muted-foreground text-balance mb-4">
-                      If you have any questions about this Privacy Policy or our privacy practices, please contact us:
+                    <p className="text-muted-foreground text-balance mb-6">
+                      You can get in touch by emailing us at{' '}
+                      <a
+                        href="mailto:social@latent-labs.ai"
+                        className="text-secondary hover:underline"
+                      >
+                        social@latent-labs.ai
+                      </a>
+                      .
                     </p>
-                    <ul className="text-muted-foreground space-y-1 mb-6">
-                      <li><strong>Email:</strong> <a href="mailto:privacy@omnisciencelabs.com" className="text-secondary hover:underline">privacy@omnisciencelabs.com</a></li>
-                      <li><strong>Address:</strong> Omniscience Labs Corp, 701 Tillery Street Unit 12-2521, Austin, Texas 78702, United States</li>
-                      <li><strong>Data Protection Officer:</strong> <a href="mailto:dpo@omnisciencelabs.com" className="text-secondary hover:underline">dpo@omnisciencelabs.com</a></li>
-                    </ul>
                   </div>
                 )}
               </div>

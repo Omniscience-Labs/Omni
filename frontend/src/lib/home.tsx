@@ -1018,11 +1018,6 @@ export const siteConfig = {
           title: 'Terms of Service',
           url: '/legal?tab=terms',
         },
-        {
-          id: 11,
-          title: 'License Apache 2.0',
-          url: 'https://github.com/omniscience-labs/omni/blob/main/LICENSE',
-        },
       ],
     },
   ],
