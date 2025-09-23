@@ -193,9 +193,9 @@ export function KortixEnterpriseModal({
                 config={{
                   layout: 'month_view',
                   hideEventTypeDetails: 'false',
-                  hideBranding: true,
-                  hideLogo: true,
-                  hideProfileImage: true,
+                  hideBranding: 'true',
+                  hideLogo: 'true',
+                  hideProfileImage: 'true',
                 }}
               />
             </div>
