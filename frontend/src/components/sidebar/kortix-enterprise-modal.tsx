@@ -10,6 +10,7 @@ import Image from 'next/image';
 import Cal, { getCalApi } from '@calcom/embed-react';
 import { useTheme } from 'next-themes';
 import { Check, Calendar } from 'lucide-react';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 interface EnterpriseModalProps {
   children: React.ReactNode;
@@ -116,7 +117,53 @@ export function KortixEnterpriseModal({
 
           {/* Calendar Panel */}
           <div className="bg-white dark:bg-[#171717] h-full overflow-hidden">
-            <div className="h-full overflow-auto">
+            {/* Custom Header with 3JS Spinner */}
+            <div className="flex items-center justify-center p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-[#171717]">
+              <OmniLogo size={32} />
+            </div>
+            
+            <div className="h-full overflow-auto" style={{ height: 'calc(100% - 80px)' }}>
+              <style jsx global>{`
+                /* Hide Cal.com branding and logos */
+                [data-cal-namespace="enterprise-demo"] .cal-branding,
+                [data-cal-namespace="enterprise-demo"] .cal-powered-by,
+                [data-cal-namespace="enterprise-demo"] [class*="branding"],
+                [data-cal-namespace="enterprise-demo"] [class*="powered-by"],
+                [data-cal-namespace="enterprise-demo"] .cal-logo,
+                [data-cal-namespace="enterprise-demo"] [class*="logo"],
+                [data-cal-namespace="enterprise-demo"] .cal-brand,
+                [data-cal-namespace="enterprise-demo"] [class*="cal-brand"],
+                [data-cal-namespace="enterprise-demo"] .cal-powered,
+                [data-cal-namespace="enterprise-demo"] [class*="cal-powered"],
+                [data-cal-namespace="enterprise-demo"] .cal-footer,
+                [data-cal-namespace="enterprise-demo"] [class*="footer"] {
+                  display: none !important;
+                }
+                
+                /* Hide Cal.com header if it exists */
+                [data-cal-namespace="enterprise-demo"] .cal-header,
+                [data-cal-namespace="enterprise-demo"] [class*="header"],
+                [data-cal-namespace="enterprise-demo"] .cal-nav,
+                [data-cal-namespace="enterprise-demo"] [class*="nav"] {
+                  display: none !important;
+                }
+                
+                /* Ensure the calendar takes full height and remove any padding */
+                [data-cal-namespace="enterprise-demo"] iframe {
+                  height: 100% !important;
+                  border: none !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                }
+                
+                /* Hide any Cal.com watermark or overlay */
+                [data-cal-namespace="enterprise-demo"] .cal-watermark,
+                [data-cal-namespace="enterprise-demo"] [class*="watermark"],
+                [data-cal-namespace="enterprise-demo"] .cal-overlay,
+                [data-cal-namespace="enterprise-demo"] [class*="overlay"] {
+                  display: none !important;
+                }
+              `}</style>
               <Cal
                 namespace="enterprise-demo"
                 calLink="arjun-subramaniam-u32lcu/30min"
