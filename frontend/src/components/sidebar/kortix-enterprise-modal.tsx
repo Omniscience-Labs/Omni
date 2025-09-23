@@ -117,12 +117,7 @@ export function KortixEnterpriseModal({
 
           {/* Calendar Panel */}
           <div className="bg-white dark:bg-[#171717] h-full overflow-hidden">
-            {/* Custom Header with 3JS Spinner */}
-            <div className="flex items-center justify-center p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-[#171717]">
-              <OmniLogo size={32} />
-            </div>
-            
-            <div className="h-full overflow-auto" style={{ height: 'calc(100% - 80px)' }}>
+            <div className="h-full overflow-auto">
               <style jsx global>{`
                 /* Hide Cal.com branding and logos */
                 [data-cal-namespace="enterprise-demo"] .cal-branding,
