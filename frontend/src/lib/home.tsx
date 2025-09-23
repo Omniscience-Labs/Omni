@@ -1001,20 +1001,8 @@ export const siteConfig = {
     {
       title: 'Omniscience Labs',
       links: [
-        { id: 1, title: 'About', url: 'https://omnisciencelabs.com' },
+        { id: 1, title: 'About', url: 'https://www.linkedin.com/company/become-omni' },
         { id: 3, title: 'Contact', url: 'mailto:arjun@latent-labs.ai' },
-      ],
-    },
-    {
-      title: 'Resources',
-      links: [
-        {
-          id: 5,
-          title: 'Documentation',
-          url: 'https://github.com/omniscience-labs/omni',
-        },
-        { id: 7, title: 'Discord', url: 'https://discord.gg/Py6pCBUUPw' },
-        { id: 8, title: 'GitHub', url: 'https://github.com/omniscience-labs/omni' },
       ],
     },
     {
@@ -1023,12 +1011,12 @@ export const siteConfig = {
         {
           id: 9,
           title: 'Privacy Policy',
-          url: 'https://omnisciencelabs.com/legal?tab=privacy',
+          url: '/legal?tab=privacy',
         },
         {
           id: 10,
           title: 'Terms of Service',
-          url: 'https://omnisciencelabs.com/legal?tab=terms',
+          url: '/legal?tab=terms',
         },
         {
           id: 11,
