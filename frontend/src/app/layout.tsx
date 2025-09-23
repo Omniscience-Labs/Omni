@@ -33,15 +33,16 @@ export const metadata: Metadata = {
     template: `%s - ${siteConfig.name}`,
   },
   description:
-    'Omni is a fully open source generalist AI worker from Omniscience Labs that helps you accomplish real-world tasks with ease. Through natural conversation, Omni becomes your digital companion for research, data analysis, and everyday challenges.',
+    'Omni is an industrial AI operator from Omniscience Labs that helps you accomplish real-world tasks with ease. Through natural conversation, Omni becomes your digital companion for research, data analysis, and everyday challenges.',
   keywords: [
+    'Industrial AI Operator',
     'AI',
     'artificial intelligence',
     'browser automation',
     'web scraping',
     'file management',
     'AI assistant',
-    'open source',
+    'enterprise AI',
     'research',
     'data analysis',
   ],
@@ -66,9 +67,9 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: 'Omni - Open Source Generalist AI Worker',
+    title: 'Omni - Industrial AI Operator',
     description:
-      'Omni is a fully open source AI worker that helps you accomplish real-world tasks with ease through natural conversation.',
+      'Omni is an industrial AI operator that helps you accomplish real-world tasks with ease through natural conversation.',
     url: siteConfig.url,
     siteName: 'Omni',
     images: [
@@ -76,7 +77,7 @@ export const metadata: Metadata = {
         url: '/banner.png',
         width: 1200,
         height: 630,
-        alt: 'Omni - Open Source Generalist AI Worker',
+        alt: 'Omni - Industrial AI Operator',
         type: 'image/png',
       },
     ],
@@ -85,9 +86,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Omni - Open Source Generalist AI Worker',
+    title: 'Omni - Industrial AI Operator',
     description:
-      'Omni is a fully open source AI worker that helps you accomplish real-world tasks with ease through natural conversation.',
+      'Omni is an industrial AI operator that helps you accomplish real-world tasks with ease through natural conversation.',
     creator: '@omnisciencelabs',
     site: '@omnisciencelabs',
     images: [
@@ -95,7 +96,7 @@ export const metadata: Metadata = {
         url: '/banner.png',
         width: 1200,
         height: 630,
-        alt: 'Omni - Open Source Generalist AI Worker',
+        alt: 'Omni - Industrial AI Operator',
       },
     ],
   },
