@@ -51,7 +51,7 @@ function LoginContent() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.push(returnUrl || '/dashboard');
+      router.push(returnUrl || '/');
     }
   }, [user, isLoading, router, returnUrl]);
 

@@ -59,7 +59,7 @@ export default function SubscriptionRequiredPage() {
     const supabase = createClient();
     await supabase.auth.signOut();
     clearUserLocalStorage();
-    router.push('/auth');
+    router.push('/');
   };
 
   const isMaintenanceLoading = maintenanceLoading;
@@ -140,8 +140,8 @@ export default function SubscriptionRequiredPage() {
         <div className="text-center text-sm text-muted-foreground -mt-10">
           <p>
             Questions? Contact us at{' '}
-            <a href="mailto:support@kortix.ai" className="underline hover:text-primary">
-              support@kortix.ai
+            <a href="mailto:arjun@latent-labs.ai" className="underline hover:text-primary">
+              arjun@latent-labs.ai
             </a>
           </p>
         </div>

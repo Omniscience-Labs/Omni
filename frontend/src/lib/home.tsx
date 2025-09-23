@@ -1002,7 +1002,7 @@ export const siteConfig = {
       title: 'Omniscience Labs',
       links: [
         { id: 1, title: 'About', url: 'https://omnisciencelabs.com' },
-        { id: 3, title: 'Contact', url: 'mailto:hey@omnisciencelabs.com' },
+        { id: 3, title: 'Contact', url: 'mailto:arjun@latent-labs.ai' },
         { id: 4, title: 'Careers', url: 'https://omnisciencelabs.com/careers' },
       ],
     },
