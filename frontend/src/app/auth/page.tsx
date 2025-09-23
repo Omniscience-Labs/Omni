@@ -33,6 +33,7 @@ import {
 import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { Ripple } from '@/components/ui/ripple';
 import { ReleaseBadge } from '@/components/auth/release-badge';
+import { ThreeSpinner } from '@/components/ui/three-spinner';
 
 function LoginContent() {
   const router = useRouter();
@@ -372,7 +373,9 @@ function LoginContent() {
         </div>
         <div className="hidden lg:flex flex-1 items-center justify-center bg-sidebar relative overflow-hidden">
           <div className="absolute inset-0">
-            <Ripple />
+            <Ripple>
+              <ThreeSpinner size={120} className="opacity-90" />
+            </Ripple>
           </div>
         </div>
       </div>

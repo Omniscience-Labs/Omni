@@ -59,10 +59,10 @@ export interface PricingTier {
 
 export const siteConfig = {
       name: 'Operator',
-  description: 'The Generalist AI Worker that can act on your behalf.',
+  description: 'The Industrial AI Operator that can act on your behalf.',
   cta: 'Start Free',
   url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-  keywords: ['AI Worker', 'Generalist AI', 'Open Source AI', 'Autonomous Agent'],
+  keywords: ['Industrial AI Operator', 'AI Worker', 'Enterprise AI', 'Autonomous Agent'],
   links: {
     email: 'support@omnisciencelabs.com',
     linkedin: 'https://www.linkedin.com/company/become-omni',
@@ -112,7 +112,7 @@ export const siteConfig = {
     githubUrl: 'https://github.com/omniscience-labs/omni',
     title: 'Omni – Build, manage and train your AI Workforce.',
     description:
-      'Omni – open-source platform to build, manage and train your AI Workforce.',
+      'Omni – industrial platform to build, manage and train your AI Workforce.',
     inputPlaceholder: 'Ask Omni to...',
   },
   cloudPricingItems: [
@@ -250,6 +250,17 @@ export const siteConfig = {
             alt="Copper Moon"
             className="h-16 w-auto object-contain"
             // Added Copper Moon logo to showcase trusted enterprise partners
+          />
+        ),
+      },
+      {
+        id: 6,
+        name: 'Cold Chain',
+        logo: (
+          <img
+            src="/company-logos/cold-chain.png"
+            alt="Cold Chain"
+            className="h-16 w-auto object-contain"
           />
         ),
       },
