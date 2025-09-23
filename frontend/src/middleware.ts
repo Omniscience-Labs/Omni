@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const PUBLIC_ROUTES = [
+  '/',
   '/auth',
   '/auth/callback',
   '/auth/signup',
@@ -59,11 +60,19 @@ export async function middleware(request: NextRequest) {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
+    // Only redirect unauthenticated users if they're trying to access protected routes
+    // Allow access to public routes (including /) without authentication
     if (authError || !user) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/';
-      url.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(url);
+      // Define protected routes that require authentication
+      const protectedRoutes = ['/dashboard', '/agents', '/projects', '/settings', '/invitation', '/admin'];
+      const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+      
+      if (isProtectedRoute) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/';
+        url.searchParams.set('redirect', pathname);
+        return NextResponse.redirect(url);
+      }
     }
 
     const isLocalMode = process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'

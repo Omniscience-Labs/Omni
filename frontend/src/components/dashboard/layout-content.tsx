@@ -73,7 +73,7 @@ export default function DashboardLayoutContent({
   // Check authentication status
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push('/auth');
+      router.push('/');
     }
   }, [user, isLoading, router]);
 
