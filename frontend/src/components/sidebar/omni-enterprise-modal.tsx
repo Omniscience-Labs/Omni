@@ -155,34 +155,36 @@ export function OmniProcessModal() {
             </div>
           </div>
           <div className="bg-white dark:bg-[#171717] h-full overflow-hidden">
-            {/* Custom Header with 3JS Spinner */}
-            <div className="flex items-center justify-center p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-[#171717]">
-              <OmniLogo size={32} />
-            </div>
-            
-            <div className="h-full overflow-auto" style={{ height: 'calc(100% - 80px)' }}>
+            <div className="h-full overflow-auto">
               <style jsx global>{`
-                /* Hide Cal.com branding and logos */
+                /* Replace existing OMNI logo/image with 3JS spinner */
+                [data-cal-namespace="enterprise-demo"] img[src*="omni"],
+                [data-cal-namespace="enterprise-demo"] img[alt*="omni"],
+                [data-cal-namespace="enterprise-demo"] img[alt*="OMNI"],
+                [data-cal-namespace="enterprise-demo"] .cal-logo img,
+                [data-cal-namespace="enterprise-demo"] [class*="logo"] img,
+                [data-cal-namespace="enterprise-demo"] .cal-brand img,
+                [data-cal-namespace="enterprise-demo"] [class*="brand"] img {
+                  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='gradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%2300D4FF;stop-opacity:1' /%3E%3Cstop offset='50%25' style='stop-color:%2300A8CC;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23007ACC;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='14' fill='none' stroke='url(%23gradient)' stroke-width='2' opacity='0.3'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='url(%23gradient)' stroke-width='2' opacity='0.6'/%3E%3Ccircle cx='16' cy='16' r='6' fill='none' stroke='url(%23gradient)' stroke-width='2' opacity='0.9'/%3E%3Ccircle cx='16' cy='16' r='2' fill='url(%23gradient)'/%3E%3C/svg%3E") !important;
+                  width: 32px !important;
+                  height: 32px !important;
+                  animation: spin 2s linear infinite !important;
+                }
+                
+                @keyframes spin {
+                  from { transform: rotate(0deg); }
+                  to { transform: rotate(360deg); }
+                }
+                
+                /* Hide Cal.com branding but keep OMNI logo area */
                 [data-cal-namespace="enterprise-demo"] .cal-branding,
                 [data-cal-namespace="enterprise-demo"] .cal-powered-by,
                 [data-cal-namespace="enterprise-demo"] [class*="branding"],
                 [data-cal-namespace="enterprise-demo"] [class*="powered-by"],
-                [data-cal-namespace="enterprise-demo"] .cal-logo,
-                [data-cal-namespace="enterprise-demo"] [class*="logo"],
-                [data-cal-namespace="enterprise-demo"] .cal-brand,
-                [data-cal-namespace="enterprise-demo"] [class*="cal-brand"],
                 [data-cal-namespace="enterprise-demo"] .cal-powered,
                 [data-cal-namespace="enterprise-demo"] [class*="cal-powered"],
                 [data-cal-namespace="enterprise-demo"] .cal-footer,
                 [data-cal-namespace="enterprise-demo"] [class*="footer"] {
-                  display: none !important;
-                }
-                
-                /* Hide Cal.com header if it exists */
-                [data-cal-namespace="enterprise-demo"] .cal-header,
-                [data-cal-namespace="enterprise-demo"] [class*="header"],
-                [data-cal-namespace="enterprise-demo"] .cal-nav,
-                [data-cal-namespace="enterprise-demo"] [class*="nav"] {
                   display: none !important;
                 }
                 
