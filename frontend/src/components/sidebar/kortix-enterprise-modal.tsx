@@ -113,15 +113,30 @@ export function KortixEnterpriseModal({
           <div className="bg-white dark:bg-[#171717] h-full overflow-hidden">
             <div className="h-full overflow-auto">
               <style jsx global>{`
-                /* Hide all OMNI logos and images completely */
+                /* Hide all OMNI logos and images completely - more comprehensive selectors */
                 [data-cal-namespace="enterprise-demo"] img[alt="OMNI Logo"],
                 [data-cal-namespace="enterprise-demo"] img[src*="OMNI-Logo-light.png"],
                 [data-cal-namespace="enterprise-demo"] img[src*="OMNI-Logo"],
                 [data-cal-namespace="enterprise-demo"] img[alt*="OMNI"],
                 [data-cal-namespace="enterprise-demo"] img[alt*="omni"],
                 [data-cal-namespace="enterprise-demo"] img[src*="omni"],
-                [data-cal-namespace="enterprise-demo"] img[src*="OMNI"] {
+                [data-cal-namespace="enterprise-demo"] img[src*="OMNI"],
+                [data-cal-namespace="enterprise-demo"] img[class*="h-6"],
+                [data-cal-namespace="enterprise-demo"] img[class*="w-auto"],
+                [data-cal-namespace="enterprise-demo"] img[class*="object-contain"],
+                [data-cal-namespace="enterprise-demo"] img[data-nimg="1"],
+                [data-cal-namespace="enterprise-demo"] img[width="60"],
+                [data-cal-namespace="enterprise-demo"] img[height="21"],
+                [data-cal-namespace="enterprise-demo"] img[loading="lazy"],
+                [data-cal-namespace="enterprise-demo"] img[decoding="async"],
+                [data-cal-namespace="enterprise-demo"] img[srcset*="OMNI-Logo-light.png"],
+                [data-cal-namespace="enterprise-demo"] img[src*="_next/image"],
+                [data-cal-namespace="enterprise-demo"] img[src*="url=%2FOMNI-Logo-light.png"] {
                   display: none !important;
+                  visibility: hidden !important;
+                  opacity: 0 !important;
+                  width: 0 !important;
+                  height: 0 !important;
                 }
                 
                 /* Hide all OMNI text and logos in Cal.com */
