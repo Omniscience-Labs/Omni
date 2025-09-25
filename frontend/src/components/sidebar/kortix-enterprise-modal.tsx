@@ -166,7 +166,7 @@ export function KortixEnterpriseModal({
                   layout: 'month_view',
                   hideEventTypeDetails: 'false',
                   hideBranding: 'true',
-                  hideLogo: 'true',
+                  hideLogo: 'false',
                   hideProfileImage: 'false',
                 }}
               />
