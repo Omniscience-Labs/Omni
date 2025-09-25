@@ -1,5 +1,6 @@
 'use client';
 
+// Enterprise modal component for scheduling demos and consultations
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
