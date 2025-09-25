@@ -113,29 +113,8 @@ export function KortixEnterpriseModal({
           <div className="bg-white dark:bg-[#171717] h-full overflow-hidden">
             <div className="h-full overflow-auto">
               <style jsx global>{`
-                /* Hide only OMNI branding logos but allow profile images */
-                [data-cal-namespace="enterprise-demo"] img[alt="OMNI Logo"],
-                [data-cal-namespace="enterprise-demo"] img[src*="OMNI-Logo-light.png"],
-                [data-cal-namespace="enterprise-demo"] img[src*="OMNI-Logo"],
-                [data-cal-namespace="enterprise-demo"] img[alt*="OMNI"],
-                [data-cal-namespace="enterprise-demo"] img[alt*="omni"],
-                [data-cal-namespace="enterprise-demo"] img[src*="omni"],
-                [data-cal-namespace="enterprise-demo"] img[src*="OMNI"],
-                [data-cal-namespace="enterprise-demo"] img[src*="_next/image"],
-                [data-cal-namespace="enterprise-demo"] img[src*="url=%2FOMNI-Logo-light.png"] {
-                  display: none !important;
-                  visibility: hidden !important;
-                  opacity: 0 !important;
-                  width: 0 !important;
-                  height: 0 !important;
-                }
-                
-                /* Hide OMNI text and company logos but allow profile images */
-                [data-cal-namespace="enterprise-demo"] *[class*="omni"]:not(img):not([class*="avatar"]):not([class*="profile"]),
-                [data-cal-namespace="enterprise-demo"] *[class*="OMNI"]:not(img):not([class*="avatar"]):not([class*="profile"]),
-                [data-cal-namespace="enterprise-demo"] .cal-logo,
-                [data-cal-namespace="enterprise-demo"] .cal-brand,
-                /* Hide any broken images or missing logos */
+                /* Allow all images including OMNI logo and profile images */
+                /* Only hide broken/undefined images */
                 [data-cal-namespace="enterprise-demo"] img[src=""],
                 [data-cal-namespace="enterprise-demo"] img[src*="undefined"],
                 [data-cal-namespace="enterprise-demo"] img[src*="null"],
