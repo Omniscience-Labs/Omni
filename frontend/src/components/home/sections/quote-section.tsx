@@ -55,7 +55,7 @@ export function QuoteSection() {
               <cite className="text-lg font-medium text-primary not-italic">
                 Tim Burnside
               </cite>
-              <p className="text-sm text-primary">Huston Electric</p>
+              <p className="text-sm text-primary">Service Manager, Huston Electric</p>
             </div>
           </div>
           </blockquote>
