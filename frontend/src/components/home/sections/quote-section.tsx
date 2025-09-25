@@ -10,10 +10,11 @@ export function QuoteSection() {
     >
       <div className="max-w-6xl w-full grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Michael Strope's Testimonial */}
-        <blockquote className="text-left px-4">
-          <p className="text-xl md:text-2xl text-primary leading-relaxed tracking-tighter font-medium mb-6">
-            "Operator has transformed our daily operations. Tasks that once consumed hours now complete in moments, freeing our team to focus on creativity and strategic growth."
-          </p>
+        <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
+          <blockquote className="text-left">
+            <p className="text-xl md:text-2xl text-primary leading-relaxed tracking-tighter font-medium mb-6">
+              "Operator has transformed our daily operations. Tasks that once consumed hours now complete in moments, freeing our team to focus on creativity and strategic growth."
+            </p>
 
           <div className="flex gap-4">
             <div className="size-10 rounded-full bg-primary border border-border">
@@ -30,13 +31,15 @@ export function QuoteSection() {
               <p className="text-sm text-primary">President, MSSC</p>
             </div>
           </div>
-        </blockquote>
+          </blockquote>
+        </div>
 
         {/* Tim Burnside's Testimonial */}
-        <blockquote className="text-left px-4">
-          <p className="text-xl md:text-2xl text-primary leading-relaxed tracking-tighter font-medium mb-6">
-            "Omni saves us a tonne of time putting quotes together"
-          </p>
+        <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
+          <blockquote className="text-left">
+            <p className="text-xl md:text-2xl text-primary leading-relaxed tracking-tighter font-medium mb-6">
+              "Omni saves us a tonne of time putting quotes together. The automation features have streamlined our entire workflow and improved our response times significantly."
+            </p>
 
           <div className="flex gap-4">
             <div className="size-10 rounded-full bg-accent flex items-center justify-center overflow-hidden">
@@ -55,7 +58,8 @@ export function QuoteSection() {
               <p className="text-sm text-primary">Huston Electric</p>
             </div>
           </div>
-        </blockquote>
+          </blockquote>
+        </div>
       </div>
     </section>
   );

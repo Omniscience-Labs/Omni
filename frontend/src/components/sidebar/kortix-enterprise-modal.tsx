@@ -113,7 +113,7 @@ export function KortixEnterpriseModal({
           <div className="bg-white dark:bg-[#171717] h-full overflow-hidden">
             <div className="h-full overflow-auto">
               <style jsx global>{`
-                /* Hide all OMNI logos and images completely - more comprehensive selectors */
+                /* Hide only OMNI branding logos but allow profile images */
                 [data-cal-namespace="enterprise-demo"] img[alt="OMNI Logo"],
                 [data-cal-namespace="enterprise-demo"] img[src*="OMNI-Logo-light.png"],
                 [data-cal-namespace="enterprise-demo"] img[src*="OMNI-Logo"],
@@ -121,15 +121,6 @@ export function KortixEnterpriseModal({
                 [data-cal-namespace="enterprise-demo"] img[alt*="omni"],
                 [data-cal-namespace="enterprise-demo"] img[src*="omni"],
                 [data-cal-namespace="enterprise-demo"] img[src*="OMNI"],
-                [data-cal-namespace="enterprise-demo"] img[class*="h-6"],
-                [data-cal-namespace="enterprise-demo"] img[class*="w-auto"],
-                [data-cal-namespace="enterprise-demo"] img[class*="object-contain"],
-                [data-cal-namespace="enterprise-demo"] img[data-nimg="1"],
-                [data-cal-namespace="enterprise-demo"] img[width="60"],
-                [data-cal-namespace="enterprise-demo"] img[height="21"],
-                [data-cal-namespace="enterprise-demo"] img[loading="lazy"],
-                [data-cal-namespace="enterprise-demo"] img[decoding="async"],
-                [data-cal-namespace="enterprise-demo"] img[srcset*="OMNI-Logo-light.png"],
                 [data-cal-namespace="enterprise-demo"] img[src*="_next/image"],
                 [data-cal-namespace="enterprise-demo"] img[src*="url=%2FOMNI-Logo-light.png"] {
                   display: none !important;
@@ -139,23 +130,16 @@ export function KortixEnterpriseModal({
                   height: 0 !important;
                 }
                 
-                /* Hide all OMNI text and logos in Cal.com */
-                [data-cal-namespace="enterprise-demo"] *[class*="omni"],
-                [data-cal-namespace="enterprise-demo"] *[class*="OMNI"],
+                /* Hide OMNI text and company logos but allow profile images */
+                [data-cal-namespace="enterprise-demo"] *[class*="omni"]:not(img):not([class*="avatar"]):not([class*="profile"]),
+                [data-cal-namespace="enterprise-demo"] *[class*="OMNI"]:not(img):not([class*="avatar"]):not([class*="profile"]),
                 [data-cal-namespace="enterprise-demo"] .cal-logo,
-                [data-cal-namespace="enterprise-demo"] [class*="logo"],
                 [data-cal-namespace="enterprise-demo"] .cal-brand,
-                [data-cal-namespace="enterprise-demo"] [class*="brand"],
                 /* Hide any broken images or missing logos */
                 [data-cal-namespace="enterprise-demo"] img[src=""],
                 [data-cal-namespace="enterprise-demo"] img[src*="undefined"],
                 [data-cal-namespace="enterprise-demo"] img[src*="null"],
-                [data-cal-namespace="enterprise-demo"] img[onerror],
-                /* Hide any Cal.com default logos */
-                [data-cal-namespace="enterprise-demo"] .cal-avatar,
-                [data-cal-namespace="enterprise-demo"] [class*="avatar"],
-                [data-cal-namespace="enterprise-demo"] .cal-profile-image,
-                [data-cal-namespace="enterprise-demo"] [class*="profile"] {
+                [data-cal-namespace="enterprise-demo"] img[onerror] {
                   display: none !important;
                 }
                 
@@ -204,7 +188,7 @@ export function KortixEnterpriseModal({
                   hideEventTypeDetails: 'false',
                   hideBranding: 'true',
                   hideLogo: 'true',
-                  hideProfileImage: 'true',
+                  hideProfileImage: 'false',
                 }}
               />
             </div>
