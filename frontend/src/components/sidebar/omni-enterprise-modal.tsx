@@ -158,21 +158,13 @@ export function OmniProcessModal() {
           <div className="bg-white dark:bg-[#171717] h-full overflow-hidden">
             <div className="h-full overflow-auto">
               <style jsx global>{`
-                /* Hide only OMNI branding logos but allow profile images */
-                [data-cal-namespace="enterprise-demo"] img[alt="OMNI Logo"],
-                [data-cal-namespace="enterprise-demo"] img[src*="OMNI-Logo-light.png"],
-                [data-cal-namespace="enterprise-demo"] img[src*="OMNI-Logo"],
-                [data-cal-namespace="enterprise-demo"] img[alt*="OMNI"],
-                [data-cal-namespace="enterprise-demo"] img[alt*="omni"],
-                [data-cal-namespace="enterprise-demo"] img[src*="omni"],
-                [data-cal-namespace="enterprise-demo"] img[src*="OMNI"],
-                [data-cal-namespace="enterprise-demo"] img[src*="_next/image"],
-                [data-cal-namespace="enterprise-demo"] img[src*="url=%2FOMNI-Logo-light.png"] {
+                /* Allow all images including OMNI logo and profile images */
+                /* Only hide broken/undefined images */
+                [data-cal-namespace="enterprise-demo"] img[src=""],
+                [data-cal-namespace="enterprise-demo"] img[src*="undefined"],
+                [data-cal-namespace="enterprise-demo"] img[src*="null"],
+                [data-cal-namespace="enterprise-demo"] img[onerror] {
                   display: none !important;
-                  visibility: hidden !important;
-                  opacity: 0 !important;
-                  width: 0 !important;
-                  height: 0 !important;
                 }
                 
                 /* Hide Cal.com branding but keep OMNI logo area */
