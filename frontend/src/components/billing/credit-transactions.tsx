@@ -43,7 +43,7 @@ import {
 } from 'lucide-react';
 import { useTransactions, useTransactionsSummary, useUsageLogs, useBillingStatus, useSubscriptionInfo } from '@/hooks/react-query/billing/use-transactions';
 import { cn } from '@/lib/utils';
-import UsageLogs from '@/components/billing/usage-logs';
+// UsageLogs component was removed by upstream - functionality moved to transactions
 
 interface Props {
   accountId?: string;
@@ -56,18 +56,7 @@ export default function CreditTransactions({ accountId }: Props) {
   
   const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
   
-  // State for current user ID (needed for UsageLogs component)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-
-  // Get current user ID
-  useEffect(() => {
-    const getCurrentUser = async () => {
-      const supabase = createClient();
-      const { data: userData } = await supabase.auth.getUser();
-      setCurrentUserId(userData?.user?.id || null);
-    };
-    getCurrentUser();
-  }, []);
+  // Enterprise mode functionality integrated into transactions view
   
   // Use appropriate hooks based on mode
   const transactionsQuery = useTransactions(limit, offset, typeFilter);
@@ -260,8 +249,13 @@ export default function CreditTransactions({ accountId }: Props) {
         </Card>
       )}
       {isEnterpriseMode ? (
-        // Enterprise mode: Use the existing UsageLogs component
-        currentUserId && <UsageLogs accountId={currentUserId} />
+        // Enterprise mode: Show usage information (UsageLogs component removed by upstream)
+        <Card className='p-0 px-0 bg-transparent shadow-none border-none'>
+          <CardHeader className='px-0'>
+            <CardTitle>Enterprise Usage Logs</CardTitle>
+            <CardDescription>Usage tracking functionality has been integrated into the main billing system.</CardDescription>
+          </CardHeader>
+        </Card>
       ) : (
         // Non-enterprise mode: Show traditional transaction table
         <Card className='p-0 px-0 bg-transparent shadow-none border-none'>

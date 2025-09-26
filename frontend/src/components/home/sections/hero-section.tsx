@@ -43,7 +43,6 @@ import { useModal } from '@/hooks/use-modal-store';
 import { createClient } from '@/lib/supabase/client';
 import { CheckIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { BillingModal } from '@/components/billing/billing-modal';
 import GitHubSignIn from '@/components/GithubSignIn';
 import { ChatInput, ChatInputHandles } from '@/components/thread/chat-input/chat-input';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
