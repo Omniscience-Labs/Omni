@@ -307,7 +307,8 @@ class MCPService:
             raise CustomMCPError("URL is required for HTTP MCP connections")
         
         try:
-            async with streamablehttp_client(url) as (read_stream, write_stream, _):
+            headers = self._get_custom_headers("discovery", config)
+            async with streamablehttp_client(url, headers=headers) as (read_stream, write_stream, _):
                 async with ClientSession(read_stream, write_stream) as session:
                     await session.initialize()
                     tool_result = await session.list_tools()
@@ -348,28 +349,61 @@ class MCPService:
             raise CustomMCPError("URL is required for SSE MCP connections")
         
         try:
-            async with sse_client(url) as (read_stream, write_stream):
-                async with ClientSession(read_stream, write_stream) as session:
-                    await session.initialize()
-                    tool_result = await session.list_tools()
-                    
-                    tools_info = []
-                    for tool in tool_result.tools:
-                        tools_info.append({
-                            "name": tool.name,
-                            "description": tool.description,
-                            "inputSchema": tool.inputSchema
-                        })
-                    
-                    return CustomMCPConnectionResult(
-                        success=True,
-                        qualified_name=f"custom_sse_{url.split('/')[-1]}",
-                        display_name=f"Custom SSE MCP ({url})",
-                        tools=tools_info,
-                        config=config,
-                        url=url,
-                        message=f"Connected via SSE ({len(tools_info)} tools)"
-                    )
+            headers = self._get_custom_headers("discovery", config)
+            self._logger.debug(f"Attempting SSE discovery for {url} with headers: {list(headers.keys())}")
+            try:
+                # Try with headers first
+                async with sse_client(url, headers=headers) as (read_stream, write_stream):
+                    async with ClientSession(read_stream, write_stream) as session:
+                        await session.initialize()
+                        tool_result = await session.list_tools()
+                        
+                        tools_info = []
+                        for tool in tool_result.tools:
+                            tools_info.append({
+                                "name": tool.name,
+                                "description": tool.description,
+                                "inputSchema": tool.inputSchema
+                            })
+                        
+                        return CustomMCPConnectionResult(
+                            success=True,
+                            qualified_name=f"custom_sse_{url.split('/')[-1]}",
+                            display_name=f"Custom SSE MCP ({url})",
+                            tools=tools_info,
+                            config=config,
+                            url=url,
+                            message=f"Connected via SSE ({len(tools_info)} tools)"
+                        )
+                        
+            except TypeError as e:
+                if "unexpected keyword argument" in str(e):
+                    # Fallback for MCP versions that don't support headers in sse_client
+                    self._logger.warning(f"SSE client doesn't support headers, falling back without headers for {url}")
+                    async with sse_client(url) as (read_stream, write_stream):
+                        async with ClientSession(read_stream, write_stream) as session:
+                            await session.initialize()
+                            tool_result = await session.list_tools()
+                            
+                            tools_info = []
+                            for tool in tool_result.tools:
+                                tools_info.append({
+                                    "name": tool.name,
+                                    "description": tool.description,
+                                    "inputSchema": tool.inputSchema
+                                })
+                            
+                            return CustomMCPConnectionResult(
+                                success=True,
+                                qualified_name=f"custom_sse_{url.split('/')[-1]}",
+                                display_name=f"Custom SSE MCP ({url})",
+                                tools=tools_info,
+                                config=config,
+                                url=url,
+                                message=f"Connected via SSE ({len(tools_info)} tools) - Note: Headers not supported"
+                            )
+                else:
+                    raise
         
         except Exception as e:
             self._logger.error(f"Error connecting to SSE MCP server: {str(e)}")

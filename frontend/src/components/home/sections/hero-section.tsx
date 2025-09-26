@@ -41,11 +41,23 @@ import { isLocalMode, config } from '@/lib/config';
 import { toast } from 'sonner';
 import { useModal } from '@/hooks/use-modal-store';
 import { createClient } from '@/lib/supabase/client';
+import { CheckIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import GitHubSignIn from '@/components/GithubSignIn';
+import { ChatInput, ChatInputHandles } from '@/components/thread/chat-input/chat-input';
+import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
+import { createQueryHook } from '@/hooks/use-query';
+import { agentKeys } from '@/hooks/react-query/agents/keys';
+import { getAgents } from '@/hooks/react-query/agents/utils';
+import { useAgents } from '@/hooks/react-query/agents/use-agents';
+import { Examples } from '@/components/dashboard/examples';
+import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 
 // Custom dialog overlay with blur effect
 const BlurredDialogOverlay = () => (
   <DialogOverlay className="bg-background/40 backdrop-blur-md" />
 );
+
 
 // Rotating text component for job types
 const RotatingText = ({ 
@@ -97,15 +109,31 @@ export function HeroSection() {
   const { scrollY } = useScroll();
   const [inputValue, setInputValue] = useState('');
   const router = useRouter();
+  
+  // Use the agent selection store for localStorage persistence
+  const { 
+    selectedAgentId, 
+    setSelectedAgent, 
+    initializeFromAgents 
+  } = useAgentSelection();
   const { user, isLoading } = useAuth();
   const { billingError, handleBillingError, clearBillingError } =
     useBillingError();
-  const { data: accounts } = useAccounts();
+  const { data: accounts } = useAccounts({ enabled: !!user });
+  const { data: agentsResponse } = useAgents({}, { enabled: !!user });
+  const agents = agentsResponse?.agents || [];
   const personalAccount = accounts?.find((account) => account.personal_account);
   const { onOpen } = useModal();
   const initiateAgentMutation = useInitiateAgentMutation();
   const [initiatedThreadId, setInitiatedThreadId] = useState<string | null>(null);
   const threadQuery = useThreadQuery(initiatedThreadId || '');
+
+  // Initialize agent selection from localStorage when agents are loaded
+  useEffect(() => {
+    if (agents.length > 0) {
+      initializeFromAgents(agents);
+    }
+  }, [agents, initializeFromAgents]);
 
   // Auth dialog state
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
@@ -1177,6 +1205,7 @@ export function HeroSection() {
             </div>
           </motion.div>
         </motion.div>
+
 
         {/* Video section positioned below the main content with better mobile spacing */}
         <motion.div 

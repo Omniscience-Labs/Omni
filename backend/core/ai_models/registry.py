@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional, Set
 from .ai_models import Model, ModelProvider, ModelCapability, ModelPricing
 
-DEFAULT_FREE_MODEL = "GPT-5"
+DEFAULT_FREE_MODEL = "Claude Sonnet 4"
 DEFAULT_PREMIUM_MODEL = "Claude Sonnet 4"
 
 class ModelRegistry:
@@ -16,7 +16,7 @@ class ModelRegistry:
             name="Claude Sonnet 4",
             provider=ModelProvider.ANTHROPIC,
             aliases=["claude-sonnet-4", "anthropic/claude-sonnet-4", "Claude Sonnet 4", "claude-sonnet-4-20250514"],
-            context_window=200_000,
+            context_window=1_000_000,
             capabilities=[
                 ModelCapability.CHAT,
                 ModelCapability.FUNCTION_CALLING,
@@ -24,8 +24,8 @@ class ModelRegistry:
                 ModelCapability.THINKING,
             ],
             pricing=ModelPricing(
-                input_cost_per_million_tokens=3.00,
-                output_cost_per_million_tokens=15.00
+                input_cost_per_million_tokens=4.50,
+                output_cost_per_million_tokens=22.50
             ),
             tier_availability=["free", "paid"],
             priority=100,
@@ -111,7 +111,7 @@ class ModelRegistry:
                 output_cost_per_million_tokens=2.00
             ),
             tier_availability=["free", "paid"],
-            priority=85,
+            priority=96,
             enabled=True
         ))
         

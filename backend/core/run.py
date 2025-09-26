@@ -11,29 +11,33 @@ from core.tools.message_tool import MessageTool
 from core.tools.sb_deploy_tool import SandboxDeployTool
 from core.tools.sb_expose_tool import SandboxExposeTool
 from core.tools.web_search_tool import SandboxWebSearchTool
+from core.tools.image_search_tool import SandboxImageSearchTool
 from dotenv import load_dotenv
 from core.utils.config import config
 from core.prompts.agent_builder_prompt import get_agent_builder_prompt
 from core.agentpress.thread_manager import ThreadManager
 from core.agentpress.response_processor import ProcessorConfig
+from core.agentpress.error_processor import ErrorProcessor
 from core.tools.sb_shell_tool import SandboxShellTool
 from core.tools.sb_files_tool import SandboxFilesTool
+from core.tools.sb_kb_tool import SandboxKbTool
 from core.tools.data_providers_tool import DataProvidersTool
 from core.tools.expand_msg_tool import ExpandMessageTool
 from core.prompts.prompt import get_system_prompt
 
 from core.utils.logger import logger
 
-from billing.billing_integration import billing_integration
+from core.billing.billing_integration import billing_integration
 from core.tools.sb_vision_tool import SandboxVisionTool
 from core.tools.sb_image_edit_tool import SandboxImageEditTool
 from core.tools.sb_video_avatar_tool import SandboxVideoAvatarTool
 from core.tools.sb_presentation_outline_tool import SandboxPresentationOutlineTool
 from core.tools.sb_presentation_tool import SandboxPresentationTool
-from core.services.billing_wrapper import check_billing_status
+from core.services.billing_wrapper import check_billing_status_unified
 from core.tools.sb_vision_tool import SandboxVisionTool
 from core.tools.sb_image_edit_tool import SandboxImageEditTool
 from core.tools.sb_video_avatar_tool import SandboxVideoAvatarTool
+from core.tools.sb_designer_tool import SandboxDesignerTool
 from core.tools.sb_presentation_outline_tool import SandboxPresentationOutlineTool
 from core.tools.sb_presentation_tool import SandboxPresentationTool
 
@@ -48,6 +52,7 @@ from core.tools.sb_sheets_tool import SandboxSheetsTool
 from core.tools.sb_upload_file_tool import SandboxUploadFileTool
 from core.tools.podcast_tool import SandboxPodcastTool
 from core.tools.sb_docs_tool import SandboxDocsTool
+from core.ai_models.manager import model_manager
 
 load_dotenv()
 
@@ -59,12 +64,13 @@ class AgentConfig:
     stream: bool
     native_max_auto_continues: int = 25
     max_iterations: int = 100
-    model_name: str = "openai/gpt-5-mini"
+    model_name: str = "Claude Sonnet 4"
     enable_thinking: Optional[bool] = False
     reasoning_effort: Optional[str] = 'low'
     enable_context_manager: bool = True
     agent_config: Optional[dict] = None
     trace: Optional[StatefulTraceClient] = None
+    enable_prompt_caching: bool = True
     is_agent_builder: Optional[bool] = False
     target_agent_id: Optional[str] = None
 
@@ -84,7 +90,7 @@ class ToolManager:
         """
         disabled_tools = disabled_tools or []
         
-        logger.debug(f"Registering tools with disabled list: {disabled_tools}")
+        # logger.debug(f"Registering tools with disabled list: {disabled_tools}")
         
         # Core tools - always enabled
         self._register_core_tools()
@@ -102,7 +108,7 @@ class ToolManager:
         # Browser tool
         self._register_browser_tool(disabled_tools)
         
-        logger.debug(f"Tool registration complete. Registered tools: {list(self.thread_manager.tool_registry.tools.keys())}")
+        # logger.debug(f"Tool registration complete. Registered {len(self.thread_manager.tool_registry.tools)} tools")
     
     def _register_core_tools(self):
         """Register core tools that are always available."""
@@ -118,8 +124,11 @@ class ToolManager:
             ('sb_deploy_tool', SandboxDeployTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_expose_tool', SandboxExposeTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('web_search_tool', SandboxWebSearchTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('image_search_tool', SandboxImageSearchTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_vision_tool', SandboxVisionTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
             ('sb_image_edit_tool', SandboxImageEditTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
+            ('sb_kb_tool', SandboxKbTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_design_tool', SandboxDesignerTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
             ('sb_presentation_outline_tool', SandboxPresentationOutlineTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_presentation_tool', SandboxPresentationTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_video_avatar_tool', SandboxVideoAvatarTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
@@ -134,13 +143,13 @@ class ToolManager:
         for tool_name, tool_class, kwargs in sandbox_tools:
             if tool_name not in disabled_tools:
                 self.thread_manager.add_tool(tool_class, **kwargs)
-                logger.debug(f"Registered {tool_name}")
+                # logger.debug(f"Registered {tool_name}")
     
     def _register_utility_tools(self, disabled_tools: List[str]):
         """Register utility and data provider tools."""
         if config.RAPID_API_KEY and 'data_providers_tool' not in disabled_tools:
             self.thread_manager.add_tool(DataProvidersTool)
-            logger.debug("Registered data_providers_tool")
+            # logger.debug("Registered data_providers_tool")
     
     def _register_agent_builder_tools(self, agent_id: str, disabled_tools: List[str]):
         """Register agent builder tools."""
@@ -161,18 +170,20 @@ class ToolManager:
             ('trigger_tool', TriggerTool),
         ]
         
-        logger.debug(f"Registering agent builder tools for agent_id: {agent_id}")
-        logger.debug(f"Disabled tools list: {disabled_tools}")
+        # logger.debug(f"Registering agent builder tools for agent_id: {agent_id}")
+        # logger.debug(f"Disabled tools list: {disabled_tools}")
         
         for tool_name, tool_class in agent_builder_tools:
             if tool_name not in disabled_tools:
                 try:
                     self.thread_manager.add_tool(tool_class, thread_manager=self.thread_manager, db_connection=db, agent_id=agent_id)
-                    logger.debug(f"✅ Registered {tool_name}")
+                    # logger.debug(f"✅ Registered {tool_name}")
+                    pass
                 except Exception as e:
                     logger.warning(f"❌ Failed to register {tool_name}: {e}")
             else:
-                logger.debug(f"⏭️ Skipping {tool_name} - disabled")
+                # logger.debug(f"⏭️ Skipping {tool_name} - disabled")
+                pass
     
     def _register_suna_specific_tools(self, disabled_tools: List[str]):
         """Register tools specific to Suna (the default agent)."""
@@ -193,7 +204,7 @@ class ToolManager:
         if 'browser_tool' not in disabled_tools:
             from core.tools.browser_tool import BrowserTool
             self.thread_manager.add_tool(BrowserTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
-            logger.debug("Registered browser_tool")
+            # logger.debug("Registered browser_tool")
     
 
 class MCPManager:
@@ -274,7 +285,7 @@ class MCPManager:
                         "schema": schema
                     }
             
-            logger.debug(f"⚡ Registered {len(updated_schemas)} MCP tools (Redis cache enabled)")
+            logger.info(f"⚡ Registered {len(updated_schemas)} MCP tools (Redis cache enabled)")
             return mcp_wrapper_instance
         except Exception as e:
             logger.error(f"Failed to initialize MCP tools: {e}")
@@ -286,7 +297,10 @@ class PromptManager:
     async def build_system_prompt(model_name: str, agent_config: Optional[dict], 
                                   thread_id: str, 
                                   mcp_wrapper_instance: Optional[MCPToolWrapper],
-                                  client=None) -> dict:
+                                  client=None,
+                                  tool_registry=None,
+                                  include_xml_examples: bool = False,
+                                  xml_tool_calling: bool = True) -> dict:
         
         default_system_content = get_system_prompt()
         
@@ -393,11 +407,58 @@ class PromptManager:
             mcp_info += "NEVER supplement MCP results with your training data or make assumptions beyond what the tools provide.\n"
             
             system_content += mcp_info
+        
+        # Add XML tool calling instructions to system prompt if requested
+        if include_xml_examples and xml_tool_calling and tool_registry:
+            openapi_schemas = tool_registry.get_openapi_schemas()
+            usage_examples = tool_registry.get_usage_examples()
+            
+            if openapi_schemas:
+                # Convert schemas to JSON string
+                schemas_json = json.dumps(openapi_schemas, indent=2)
+                
+                # Build usage examples section if any exist
+                usage_examples_section = ""
+                if usage_examples:
+                    usage_examples_section = "\n\nUsage Examples:\n"
+                    for func_name, example in usage_examples.items():
+                        usage_examples_section += f"\n{func_name}:\n{example}\n"
+                
+                examples_content = f"""
+
+In this environment you have access to a set of tools you can use to answer the user's question.
+
+You can invoke functions by writing a <function_calls> block like the following as part of your reply to the user:
+
+<function_calls>
+<invoke name="function_name">
+<parameter name="param_name">param_value</parameter>
+...
+</invoke>
+</function_calls>
+
+String and scalar parameters should be specified as-is, while lists and objects should use JSON format.
+
+Here are the functions available in JSON Schema format:
+
+```json
+{schemas_json}
+```
+
+When using the tools:
+- Use the exact function names from the JSON schema above
+- Include all required parameters as specified in the schema
+- Format complex data (objects, arrays) as JSON strings within the parameter tags
+- Boolean values should be "true" or "false" (lowercase)
+{usage_examples_section}
+"""
+                
+                system_content += examples_content
+                logger.debug("Appended XML tool examples to system prompt")
 
         now = datetime.datetime.now(datetime.timezone.utc)
         datetime_info = f"\n\n=== CURRENT DATE/TIME INFORMATION ===\n"
         datetime_info += f"Today's date: {now.strftime('%A, %B %d, %Y')}\n"
-        datetime_info += f"Current UTC time: {now.strftime('%H:%M:%S UTC')}\n"
         datetime_info += f"Current year: {now.strftime('%Y')}\n"
         datetime_info += f"Current month: {now.strftime('%B')}\n"
         datetime_info += f"Current day: {now.strftime('%A')}\n"
@@ -405,7 +466,8 @@ class PromptManager:
         
         system_content += datetime_info
 
-        return {"role": "system", "content": system_content}
+        system_message = {"role": "system", "content": system_content}
+        return system_message
 
 
 class MessageManager:
@@ -495,17 +557,14 @@ class AgentRunner:
         
         tool_manager = ToolManager(self.thread_manager, self.config.project_id, self.config.thread_id)
         
-        # Use agent ID from agent config if available (for any agent with builder tools enabled)
         agent_id = None
         if self.config.agent_config and (self.config.agent_config.get('is_suna_default', False) or self.config.agent_config.get('is_omni_default', False)):
             agent_id = self.config.agent_config.get('agent_id')
         elif self.config.is_agent_builder and self.config.target_agent_id:
             agent_id = self.config.target_agent_id
         
-        # Convert agent config to disabled tools list
         disabled_tools = self._get_disabled_tools_from_config()
         
-        # Register all tools with exclusions
         tool_manager.register_all_tools(agent_id=agent_id, disabled_tools=disabled_tools)
         
         # Register LlamaCloud knowledge search tool (default Suna agent)
@@ -522,7 +581,6 @@ class AgentRunner:
             logger.debug("Not a Suna agent, skipping Suna-specific tool registration")
     
     def _register_suna_specific_tools(self, disabled_tools: List[str]):
-        """Register tools specific to Suna (the default agent)."""
         if 'agent_creation_tool' not in disabled_tools:
             from core.tools.agent_creation_tool import AgentCreationTool
             from core.services.supabase import DBConnection
@@ -564,7 +622,7 @@ class AgentRunner:
         
         all_tools = [
             'sb_shell_tool', 'sb_files_tool', 'sb_deploy_tool', 'sb_expose_tool',
-            'web_search_tool', 'sb_vision_tool', 'sb_presentation_tool', 'sb_image_edit_tool',
+            'web_search_tool', 'image_search_tool', 'sb_vision_tool', 'sb_presentation_tool', 'sb_image_edit_tool',
             'sb_sheets_tool', 'sb_web_dev_tool', 'data_providers_tool', 'browser_tool',
             'agent_config_tool', 'mcp_search_tool', 'credential_profile_tool', 
             'workflow_tool', 'trigger_tool'
@@ -603,18 +661,6 @@ class AgentRunner:
         mcp_manager = MCPManager(self.thread_manager, self.account_id)
         return await mcp_manager.register_mcp_tools(self.config.agent_config)
     
-    def get_max_tokens(self) -> Optional[int]:
-        logger.debug(f"get_max_tokens called with: '{self.config.model_name}' (type: {type(self.config.model_name)})")
-        if "sonnet" in self.config.model_name.lower():
-            return 8192
-        elif "gpt-4" in self.config.model_name.lower():
-            return 4096
-        elif "gemini-2.5-pro" in self.config.model_name.lower():
-            return 64000
-        elif "kimi-k2" in self.config.model_name.lower():
-            return 8192
-        return None
-    
     async def run(self) -> AsyncGenerator[Dict[str, Any], None]:
         await self.setup()
         await self.setup_tools()
@@ -623,8 +669,12 @@ class AgentRunner:
         system_message = await PromptManager.build_system_prompt(
             self.config.model_name, self.config.agent_config, 
             self.config.thread_id, 
-            mcp_wrapper_instance, self.client
+            mcp_wrapper_instance, self.client,
+            tool_registry=self.thread_manager.tool_registry,
+            include_xml_examples=True,
+            xml_tool_calling=True
         )
+        logger.info(f"📝 System message built once: {len(str(system_message.get('content', '')))} chars")
         logger.debug(f"model_name received: {self.config.model_name}")
         iteration_count = 0
         continue_execution = True
@@ -636,9 +686,6 @@ class AgentRunner:
                 data = json.loads(data)
             if self.config.trace:
                 self.config.trace.update(input=data['content'])
-
-        message_manager = MessageManager(self.client, self.config.thread_id, self.config.model_name, self.config.trace, 
-                                         agent_config=self.config.agent_config, enable_context_manager=self.config.enable_context_manager)
 
         while continue_execution and iteration_count < self.config.max_iterations:
             iteration_count += 1
@@ -660,11 +707,13 @@ class AgentRunner:
                     continue_execution = False
                     break
 
-            temporary_message = await message_manager.build_temporary_message()
-            max_tokens = self.get_max_tokens()
-            logger.debug(f"max_tokens: {max_tokens}")
+            temporary_message = None
+            # Don't set max_tokens by default - let LiteLLM and providers handle their own defaults
+            max_tokens = None
+            logger.debug(f"max_tokens: {max_tokens} (using provider defaults)")
             generation = self.config.trace.generation(name="thread_manager.run_thread") if self.config.trace else None
             try:
+                logger.debug(f"Starting thread execution for {self.config.thread_id}")
                 response = await self.thread_manager.run_thread(
                     thread_id=self.config.thread_id,
                     system_prompt=system_message,
@@ -684,42 +733,47 @@ class AgentRunner:
                         xml_adding_strategy="user_message"
                     ),
                     native_max_auto_continues=self.config.native_max_auto_continues,
-                    include_xml_examples=True,
                     enable_thinking=self.config.enable_thinking,
                     reasoning_effort=self.config.reasoning_effort,
-                    enable_context_manager=self.config.enable_context_manager,
-                    generation=generation
+                    generation=generation,
+                    enable_prompt_caching=self.config.enable_prompt_caching,
+                    enable_context_manager=self.config.enable_context_manager
                 )
-
-                if isinstance(response, dict) and "status" in response and response["status"] == "error":
-                    yield response
-                    break
 
                 last_tool_call = None
                 agent_should_terminate = False
                 error_detected = False
-                full_response = ""
 
                 try:
                     if hasattr(response, '__aiter__') and not isinstance(response, dict):
                         async for chunk in response:
+                            # Check for error status from thread_manager
                             if isinstance(chunk, dict) and chunk.get('type') == 'status' and chunk.get('status') == 'error':
+                                logger.error(f"Error in thread execution: {chunk.get('message', 'Unknown error')}")
                                 error_detected = True
                                 yield chunk
                                 continue
-                            
-                            if chunk.get('type') == 'status':
+
+                            # Check for error status in the stream (message format)
+                            if isinstance(chunk, dict) and chunk.get('type') == 'status':
                                 try:
+                                    content = chunk.get('content', {})
+                                    if isinstance(content, str):
+                                        content = json.loads(content)
+                                    
+                                    # Check for error status
+                                    if content.get('status_type') == 'error':
+                                        error_detected = True
+                                        yield chunk
+                                        continue
+                                    
+                                    # Check for agent termination
                                     metadata = chunk.get('metadata', {})
                                     if isinstance(metadata, str):
                                         metadata = json.loads(metadata)
                                     
                                     if metadata.get('agent_should_terminate'):
                                         agent_should_terminate = True
-                                        
-                                        content = chunk.get('content', {})
-                                        if isinstance(content, str):
-                                            content = json.loads(content)
                                         
                                         if content.get('function_name'):
                                             last_tool_call = content['function_name']
@@ -729,6 +783,7 @@ class AgentRunner:
                                 except Exception:
                                     pass
                             
+                            # Check for terminating XML tools in assistant content
                             if chunk.get('type') == 'assistant' and 'content' in chunk:
                                 try:
                                     content = chunk.get('content', '{}')
@@ -738,63 +793,64 @@ class AgentRunner:
                                         assistant_content_json = content
 
                                     assistant_text = assistant_content_json.get('content', '')
-                                    full_response += assistant_text
                                     if isinstance(assistant_text, str):
-                                        if '</ask>' in assistant_text or '</complete>' in assistant_text or '</web-browser-takeover>' in assistant_text:
-                                           if '</ask>' in assistant_text:
-                                               xml_tool = 'ask'
-                                           elif '</complete>' in assistant_text:
-                                               xml_tool = 'complete'
-                                           elif '</web-browser-takeover>' in assistant_text:
-                                               xml_tool = 'web-browser-takeover'
-
-                                           last_tool_call = xml_tool
+                                        if '</ask>' in assistant_text:
+                                            last_tool_call = 'ask'
+                                        elif '</complete>' in assistant_text:
+                                            last_tool_call = 'complete'
+                                        elif '</web-browser-takeover>' in assistant_text:
+                                            last_tool_call = 'web-browser-takeover'
                                 
-                                except json.JSONDecodeError:
-                                    pass
-                                except Exception:
+                                except (json.JSONDecodeError, Exception):
                                     pass
 
                             yield chunk
                     else:
-                        error_detected = True
+                        # Non-streaming response or error dict
+                        # logger.debug(f"Response is not async iterable: {type(response)}")
+                        
+                        # Check if it's an error dict
+                        if isinstance(response, dict) and response.get('type') == 'status' and response.get('status') == 'error':
+                            logger.error(f"Thread returned error: {response.get('message', 'Unknown error')}")
+                            error_detected = True
+                            yield response
+                        else:
+                            logger.warning(f"Unexpected response type: {type(response)}")
+                            error_detected = True
 
                     if error_detected:
                         if generation:
-                            generation.end(output=full_response, status_message="error_detected", level="ERROR")
+                            generation.end(status_message="error_detected", level="ERROR")
                         break
                         
                     if agent_should_terminate or last_tool_call in ['ask', 'complete', 'web-browser-takeover', 'present_presentation']:
                         if generation:
-                            generation.end(output=full_response, status_message="agent_stopped")
+                            generation.end(status_message="agent_stopped")
                         continue_execution = False
 
                 except Exception as e:
-                    error_msg = f"Error during response streaming: {str(e)}"
-                    logger.error(f"Response streaming error: {error_msg}", exc_info=True)
+                    # Use ErrorProcessor for safe error handling
+                    processed_error = ErrorProcessor.process_system_error(e, context={"thread_id": self.config.thread_id})
+                    ErrorProcessor.log_error(processed_error)
                     if generation:
-                        generation.end(output=full_response, status_message=error_msg, level="ERROR")
-                    yield {
-                        "type": "status",
-                        "status": "error",
-                        "message": error_msg
-                    }
+                        generation.end(status_message=processed_error.message, level="ERROR")
+                    yield processed_error.to_stream_dict()
                     break
                     
             except Exception as e:
-                error_msg = f"Error running thread: {str(e)}"
-                logger.error(f"Thread execution error: {error_msg}", exc_info=True)
-                yield {
-                    "type": "status",
-                    "status": "error",
-                    "message": error_msg
-                }
+                # Use ErrorProcessor for safe error conversion
+                processed_error = ErrorProcessor.process_system_error(e, context={"thread_id": self.config.thread_id})
+                ErrorProcessor.log_error(processed_error)
+                yield processed_error.to_stream_dict()
                 break
             
             if generation:
-                generation.end(output=full_response)
+                generation.end()
 
-        asyncio.create_task(asyncio.to_thread(lambda: langfuse.flush()))
+        try:
+            asyncio.create_task(asyncio.to_thread(lambda: langfuse.flush()))
+        except Exception as e:
+            logger.warning(f"Failed to flush Langfuse: {e}")
 
 
 async def run_agent(
@@ -804,25 +860,27 @@ async def run_agent(
     thread_manager: Optional[ThreadManager] = None,
     native_max_auto_continues: int = 25,
     max_iterations: int = 100,
-    model_name: str = "openai/gpt-5-mini",
+    model_name: str = "Claude Sonnet 4",
     enable_thinking: Optional[bool] = False,
     reasoning_effort: Optional[str] = 'low',
-    enable_context_manager: bool = True,
+    enable_context_manager: bool = False,
+    enable_prompt_caching: bool = False,
     agent_config: Optional[dict] = None,    
     trace: Optional[StatefulTraceClient] = None,
     is_agent_builder: Optional[bool] = False,
     target_agent_id: Optional[str] = None
 ):
     effective_model = model_name
-    is_tier_default = model_name in ["Kimi K2", "Claude Sonnet 4", "openai/gpt-5-mini"]
+
+    # is_tier_default = model_name in ["Kimi K2", "Claude Sonnet 4", "openai/gpt-5-mini"]
     
-    if is_tier_default and agent_config and agent_config.get('model'):
-        effective_model = agent_config['model']
-        logger.debug(f"Using model from agent config: {effective_model} (tier default was {model_name})")
-    elif not is_tier_default:
-        logger.debug(f"Using user-selected model: {effective_model}")
-    else:
-        logger.debug(f"Using tier default model: {effective_model}")
+    # if is_tier_default and agent_config and agent_config.get('model'):
+    #     effective_model = agent_config['model']
+    #     logger.debug(f"Using model from agent config: {effective_model} (tier default was {model_name})")
+    # elif not is_tier_default:
+    #     logger.debug(f"Using user-selected model: {effective_model}")
+    # else:
+    #     logger.debug(f"Using tier default model: {effective_model}")
     
     config = AgentConfig(
         thread_id=thread_id,
@@ -834,6 +892,7 @@ async def run_agent(
         enable_thinking=enable_thinking,
         reasoning_effort=reasoning_effort,
         enable_context_manager=enable_context_manager,
+        enable_prompt_caching=enable_prompt_caching,
         agent_config=agent_config,
         trace=trace,
         is_agent_builder=is_agent_builder,

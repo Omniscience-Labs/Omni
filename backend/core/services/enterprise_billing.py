@@ -66,7 +66,10 @@ class SimplifiedEnterpriseBillingService:
             
             # Get enterprise balance
             enterprise = await self.get_enterprise_balance()
+            logger.debug(f"Enterprise balance check for {account_id}: {enterprise}")
+            
             if not enterprise:
+                logger.error(f"Enterprise billing account not found for {account_id}")
                 return False, "Enterprise billing not configured", None
             
             # Get user's limit and usage
@@ -81,19 +84,44 @@ class SimplifiedEnterpriseBillingService:
                 user_limit = user_limit_result.data
                 remaining = user_limit['monthly_limit'] - user_limit['current_month_usage']
             else:
-                # Get default limit from global settings
+                # No user limit exists - create one with default values
                 default_limit = await self.get_default_monthly_limit()
-                remaining = default_limit
+                
+                try:
+                    # Create user limit record with default values
+                    await client.table('enterprise_user_limits')\
+                        .insert({
+                            'account_id': account_id,
+                            'monthly_limit': default_limit,
+                            'current_month_usage': 0,
+                            'is_active': True
+                        })\
+                        .execute()
+                    
+                    logger.info(f"Created enterprise user limit for {account_id} with default limit ${default_limit}")
+                    remaining = default_limit
+                    
+                except Exception as create_error:
+                    logger.error(f"Failed to create user limit for {account_id}: {create_error}")
+                    # Fall back to using default limit without creating record
+                    remaining = default_limit
             
             # Check if enterprise has credits
-            if enterprise['credit_balance'] < 0.01:  # Minimum to start
+            credit_balance = enterprise['credit_balance']
+            logger.debug(f"Enterprise credit balance: {credit_balance}, required minimum: 0.01")
+            
+            if credit_balance < 0.01:  # Minimum to start
+                logger.warning(f"Enterprise billing failed for {account_id}: insufficient credits (${credit_balance})")
                 return False, "Insufficient enterprise credits. Contact admin to load credits.", {
-                    'enterprise_balance': enterprise['credit_balance'],
+                    'enterprise_balance': credit_balance,
                     'user_remaining': remaining
                 }
             
             # Check if user has remaining monthly allowance
+            logger.debug(f"User {account_id} monthly allowance check: remaining=${remaining}")
+            
             if remaining <= 0:
+                logger.warning(f"Enterprise billing failed for {account_id}: monthly limit reached (remaining: ${remaining})")
                 return False, f"Monthly limit reached. Contact admin to increase limit.", {
                     'enterprise_balance': enterprise['credit_balance'],
                     'user_remaining': 0
@@ -685,11 +713,13 @@ class SimplifiedEnterpriseBillingService:
                     
                     # Debug: Log token breakdown and cost calculation verification
                     if prompt_tokens > 0 or completion_tokens > 0:
-                        # Verify cost calculation for known models
+                        # Verify cost calculation using actual model pricing
                         expected_cost = 0
-                        if row['model_name'] == 'claude-sonnet-4-20250514':
-                            # Sonnet 4 pricing: $4.50 per 1M input, $22.50 per 1M output
-                            expected_cost = (prompt_tokens * 4.50 / 1000000) + (completion_tokens * 22.50 / 1000000)
+                        try:
+                            from core.billing.api import calculate_token_cost
+                            expected_cost = float(calculate_token_cost(prompt_tokens, completion_tokens, row['model_name']))
+                        except Exception as calc_error:
+                            logger.debug(f"Could not calculate expected cost for verification: {calc_error}")
                         
                         cost_diff = abs(cost - expected_cost) if expected_cost > 0 else 0
                         cost_match = cost_diff < 0.001  # Within 0.1 cent tolerance
@@ -698,7 +728,7 @@ class SimplifiedEnterpriseBillingService:
                         logger.debug(f"Cost verification: actual=${cost:.6f}, expected=${expected_cost:.6f}, match={cost_match}")
                         
                         if not cost_match and expected_cost > 0:
-                            logger.warning(f"Cost mismatch detected! Actual: ${cost:.6f}, Expected: ${expected_cost:.6f}, Diff: ${cost_diff:.6f}")
+                            logger.debug(f"Cost difference detected: Actual: ${cost:.6f}, Expected: ${expected_cost:.6f}, Diff: ${cost_diff:.6f}")
                     
                     usage_detail = {
                         'id': row['id'],
