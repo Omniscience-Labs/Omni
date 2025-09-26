@@ -380,9 +380,9 @@ class AgentExecutor:
         if not account_id:
             raise ValueError("Account ID not found in agent configuration")
         
-        from core.services.billing import can_use_model
-        from billing.billing_integration import billing_integration
-        from core.services.billing_wrapper import can_use_model, check_billing_status_unified
+        from core.services.billing_wrapper import can_use_model_unified
+        from core.billing.billing_integration import billing_integration
+        from core.services.billing_wrapper import can_use_model_unified, check_billing_status_unified
 
         # Unified billing and model access check
         can_proceed, error_message, context = await billing_integration.check_model_and_billing_access(
@@ -613,7 +613,7 @@ class WorkflowExecutor:
     
     async def _validate_workflow_execution(self, account_id: str) -> None:
         from core.billing import is_model_allowed, get_user_subscription_tier
-        from billing.billing_integration import billing_integration
+        from core.billing.billing_integration import billing_integration
         from core.services.billing_wrapper import check_billing_status_unified, can_use_model
 
         client = await self._db.client
@@ -693,9 +693,9 @@ class WorkflowExecutor:
             else:
                 raise ValueError("Cannot determine account ID for workflow execution")
         
-        from core.services.billing import can_use_model
-        from billing.billing_integration import billing_integration
-        from core.services.billing_wrapper import can_use_model, check_billing_status_unified
+        from core.services.billing_wrapper import can_use_model_unified
+        from core.billing.billing_integration import billing_integration
+        from core.services.billing_wrapper import can_use_model_unified, check_billing_status_unified
         # Unified billing and model access check
         can_proceed, error_message, context = await billing_integration.check_model_and_billing_access(
             account_id, model_name
