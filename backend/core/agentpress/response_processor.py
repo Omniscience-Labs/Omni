@@ -509,8 +509,14 @@ class ResponseProcessor:
             # Note: cache_metrics is now None since we removed the probe
             # All cache data should be captured directly from streaming chunks above
             
-            if streaming_metadata["usage"]["total_tokens"] == 0:
-                # logger.debug("No usage data from provider, using fallback token counting (normal for some providers like Anthropic)")
+            # DEBUG: Log what token data we actually have before deciding to estimate
+            logger.info(f"🔍 TOKEN DATA CHECK: total={streaming_metadata['usage']['total_tokens']}, prompt={streaming_metadata['usage']['prompt_tokens']}, completion={streaming_metadata['usage']['completion_tokens']}")
+            
+            # Only use LiteLLM estimation if we have NO token data from the provider at all
+            if (streaming_metadata["usage"]["total_tokens"] == 0 and 
+                streaming_metadata["usage"]["prompt_tokens"] == 0 and 
+                streaming_metadata["usage"]["completion_tokens"] == 0):
+                logger.info("🔥 NO PROVIDER TOKEN DATA: Using LiteLLM token counting fallback")
                 
                 try:
                     from litellm import token_counter
@@ -537,7 +543,8 @@ class ResponseProcessor:
                 except Exception as e:
                     logger.warning(f"Failed to calculate usage: {str(e)}")
                     self.trace.event(name="failed_to_calculate_usage", level="WARNING", status_message=(f"Failed to calculate usage: {str(e)}"))
-
+            else:
+                logger.info(f"✅ PROVIDER TOKEN DATA: Using Anthropic-provided tokens: prompt={streaming_metadata['usage']['prompt_tokens']}, completion={streaming_metadata['usage']['completion_tokens']}")
 
             tool_results_buffer = []
             if pending_tool_executions:
