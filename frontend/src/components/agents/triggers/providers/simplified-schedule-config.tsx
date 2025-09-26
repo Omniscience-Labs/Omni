@@ -348,7 +348,19 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
   }, [config.cron_expression]);
 
   // Update cron when recurring settings change
-  // Removed auto-generation to prevent interference with preset selections
+  useEffect(() => {
+    if (!selectedPreset) { // Only auto-generate if no preset is selected
+      const cronExpression = generateCronFromRecurring();
+      // Only update if the cron expression actually changed
+      if (cronExpression && cronExpression !== config.cron_expression) {
+        onChange({
+          ...config,
+          cron_expression: cronExpression,
+          timezone: timezone
+        });
+      }
+    }
+  }, [scheduleType, selectedHour, selectedMinute, selectedWeekdays, selectedMonthDays, selectedPreset]);
 
   // Update cron when one-time settings change
   useEffect(() => {
@@ -391,9 +403,13 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
       case 'daily':
         return `${minute} ${hour} * * *`;
       case 'weekly':
+        // Only generate cron if at least one weekday is selected
+        if (selectedWeekdays.length === 0) return '';
         const weekdays = selectedWeekdays.join(',');
         return `${minute} ${hour} * * ${weekdays}`;
       case 'monthly':
+        // Only generate cron if at least one month day is selected
+        if (selectedMonthDays.length === 0) return '';
         const monthDays = selectedMonthDays.join(',');
         return `${minute} ${hour} ${monthDays} * *`;
       default:
@@ -403,13 +419,13 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
 
   const handleRecurringScheduleChange = () => {
     const cronExpression = generateCronFromRecurring();
-    onChange({
-      ...config,
-      cron_expression: cronExpression,
-      timezone: timezone
-    });
-    // Only clear preset if we're generating a different cron than what's currently set
+    // Only update if the cron expression actually changed
     if (cronExpression !== config.cron_expression) {
+      onChange({
+        ...config,
+        cron_expression: cronExpression,
+        timezone: timezone
+      });
       setSelectedPreset(''); // Clear preset selection when using custom recurring
     }
   };
@@ -957,7 +973,7 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
                   </Button>
                   <Button
                     onClick={() => setCurrentStep('execute')}
-                    disabled={!config.cron_expression && !selectedPreset}
+                    disabled={!config.cron_expression}
                     size="sm"
                   >
                     Next: Choose Execution Method
