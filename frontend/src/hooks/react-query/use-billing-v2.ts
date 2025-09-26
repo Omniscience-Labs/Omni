@@ -19,11 +19,12 @@ export const billingKeys = {
     [...billingKeys.all, 'usage-history', { days }] as const,
 };
 
-export const useSubscription = () => {
+export const useSubscription = (enabled = true) => {
   return useQuery({
     queryKey: billingKeys.subscription(),
     queryFn: () => billingApiV2.getSubscription(),
     staleTime: 1000 * 60,
+    enabled,
   });
 };
 

@@ -23,7 +23,10 @@ import {
   CreateCheckoutSessionResponse,
 } from '@/lib/api';
 import { toast } from 'sonner';
-import { isLocalMode } from '@/lib/config';
+import { isLocalMode, isYearlyCommitmentDowngrade, isPlanChangeAllowed, getPlanInfo } from '@/lib/config';
+import { useSubscription, useSubscriptionCommitment } from '@/hooks/react-query';
+import { useAuth } from '@/components/AuthProvider';
+import posthog from 'posthog-js';
 
 // Constants
 const DEFAULT_SELECTED_PLAN = '6 hours';
@@ -808,6 +811,16 @@ export function PricingSection({
   };
 
   const getDefaultBillingPeriod = useCallback(() => {
+  const { user } = useAuth();
+  const isUserAuthenticated = !!user;
+
+  const { data: subscriptionData, isLoading: isFetchingPlan, error: subscriptionQueryError, refetch: refetchSubscription } = useSubscription({ enabled: isUserAuthenticated });
+  const subCommitmentQuery = useSubscriptionCommitment(subscriptionData?.subscription_id, isUserAuthenticated);
+
+  const isAuthenticated = isUserAuthenticated && !!subscriptionData && subscriptionQueryError === null;
+  const currentSubscription = subscriptionData || null;
+
+  const getDefaultBillingPeriod = useCallback((): 'monthly' | 'yearly' | 'yearly_commitment' => {
     if (!isAuthenticated || !currentSubscription) {
       return 'yearly_commitment';
     }

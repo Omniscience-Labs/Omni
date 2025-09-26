@@ -185,6 +185,8 @@ export type Project = {
     pass?: string;
   };
   is_public?: boolean; // Flag to indicate if the project is public
+  // Icon system field for thread categorization
+  icon_name?: string | null;
   [key: string]: any; // Allow additional properties to handle database fields
 };
 
@@ -204,8 +206,6 @@ export type Message = {
   agent_id?: string;
   agents?: {
     name: string;
-    avatar?: string;
-    avatar_color?: string;
     profile_image_url?: string;
   };
 };
@@ -325,7 +325,8 @@ export const getProjects = async (): Promise<Project[]> => {
     const { data, error } = await supabase
       .from('projects')
       .select('*')
-      .eq('account_id', userData.user.id);
+      .eq('account_id', userData.user.id)
+      .order('created_at', { ascending: false });
 
     if (error) {
       // Handle permission errors specifically
@@ -354,6 +355,8 @@ export const getProjects = async (): Promise<Project[]> => {
         vnc_preview: '',
         sandbox_url: '',
       },
+      // Include icon field for thread categorization
+      icon_name: project.icon_name,
     }));
 
     return mappedProjects;
@@ -696,9 +699,7 @@ export const getMessages = async (threadId: string): Promise<Message[]> => {
       .select(`
         *,
         agents:agent_id (
-          name,
-          avatar,
-          avatar_color
+          name
         )
       `)
       .eq('thread_id', threadId)
@@ -971,6 +972,60 @@ export const getAgentStatus = async (agentRunId: string): Promise<AgentRun> => {
   } catch (error) {
     console.error('[API] Failed to get agent status:', error);
     handleApiError(error, { operation: 'get agent status', resource: 'AI assistant status', silent: true });
+    throw error;
+  }
+};
+
+export interface AgentIconGenerationRequest {
+  name: string;
+  description?: string;
+}
+
+export interface AgentIconGenerationResponse {
+  icon_name: string;
+  icon_color: string;
+  icon_background: string;
+}
+
+export const generateAgentIcon = async (request: AgentIconGenerationRequest): Promise<AgentIconGenerationResponse> => {
+  try {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new NoAccessTokenAvailableError();
+    }
+
+    const response = await fetch(`${API_URL}/agents/generate-icon`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      const errorText = await response
+        .text()
+        .catch(() => 'No error details available');
+      console.error(
+        `[API] Error generating agent icon: ${response.status} ${response.statusText}`,
+        errorText,
+      );
+
+      throw new Error(
+        `Error generating agent icon: ${response.statusText} (${response.status})`,
+      );
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('[API] Failed to generate agent icon:', error);
+    handleApiError(error, { operation: 'generate agent icon', resource: 'agent icon generation' });
     throw error;
   }
 };
@@ -1806,19 +1861,7 @@ export interface DailyToolUsage {
 export interface UsageLogsResponse {
   logs: UsageLogEntry[];
   has_more: boolean;
-  message?: string;
-  subscription_limit?: number;
-  cumulative_cost?: number;
-  tool_usage_daily?: Record<string, DailyToolUsage>;
-  // Hierarchical enterprise usage fields
-  hierarchical_usage?: Record<string, any>;
-  enterprise_info?: {
-    monthly_limit: number;
-    current_usage: number;
-    remaining: number;
-  };
-  total_cost_period?: number;
-  is_hierarchical?: boolean;
+  total_count?: number;
 }
 
 export interface BillingStatusResponse {
@@ -2167,7 +2210,6 @@ export const getAvailableModels = async (): Promise<AvailableModelsResponse> => 
     throw error;
   }
 };
-
 
 export const checkBillingStatus = async (): Promise<BillingStatusResponse> => {
   try {

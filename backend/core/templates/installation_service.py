@@ -24,8 +24,6 @@ class AgentInstance:
     is_default: bool = False
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    avatar: Optional[str] = None
-    avatar_color: Optional[str] = None
 
 @dataclass
 class TemplateInstallationRequest:
@@ -366,6 +364,16 @@ class InstallationService:
         
         client = await self._db.client
         
+        metadata = {
+            **template.metadata,
+            'created_from_template': template.template_id,
+            'template_name': template.name
+        }
+        
+        if template.is_kortix_team:
+            metadata['is_kortix_team'] = True
+            metadata['kortix_template_id'] = template.template_id
+        
         agent_data = {
             'agent_id': agent_id,
             'account_id': request.account_id,
@@ -375,8 +383,8 @@ class InstallationService:
             'icon_color': template.icon_color or '#000000',
             'icon_background': template.icon_background or '#F3F4F6',
             'metadata': {
-                **template.metadata,
-                'marketplace_install': {
+                **metadata,  # Use Suna's improved metadata (includes kortix_team, etc.)
+                'marketplace_install': {  # Add your marketplace install tracking
                     'template_id': template.template_id,
                     'template_name': template.name,
                     'installed_at': datetime.now(timezone.utc).isoformat()
@@ -388,7 +396,7 @@ class InstallationService:
         
         await client.table('agents').insert(agent_data).execute()
         
-        logger.debug(f"Created agent {agent_id} from template {template.template_id}")
+        logger.debug(f"Created agent {agent_id} from template {template.template_id}, is_kortix_team: {template.is_kortix_team}")
         return agent_id
 
     

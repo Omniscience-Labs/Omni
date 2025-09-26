@@ -111,7 +111,7 @@ class ModelRegistry:
                 output_cost_per_million_tokens=2.00
             ),
             tier_availability=["free", "paid"],
-            priority=85,
+            priority=96,
             enabled=True
         ))
         
