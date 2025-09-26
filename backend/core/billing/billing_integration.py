@@ -51,6 +51,8 @@ class BillingIntegration:
         cache_read_tokens: int = 0,
         cache_creation_tokens: int = 0
     ) -> Dict:
+        # DEBUG: Log exactly what values we receive
+        logger.info(f"🔍 DEDUCT_USAGE CALLED: prompt={prompt_tokens}, completion={completion_tokens}, cache_read={cache_read_tokens}, cache_creation={cache_creation_tokens}, model={model}, message_id={message_id}")
         if config.ENV_MODE == EnvMode.LOCAL:
             return {'success': True, 'cost': 0, 'new_balance': 999999}
 
