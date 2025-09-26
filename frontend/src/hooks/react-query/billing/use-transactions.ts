@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { backendApi } from '@/lib/api-client';
-import { billingApi } from '@/lib/api-enhanced';
+import { checkBillingStatus, getSubscription } from '@/lib/api';
 
 export interface CreditTransaction {
   id: string;
@@ -103,7 +103,13 @@ export function useTransactionsSummary(days: number = 30) {
 export function useUsageLogs(page = 0, itemsPerPage = 100) {
   return useQuery({
     queryKey: ['billing', 'usage-logs', page, itemsPerPage],
-    queryFn: () => billingApi.getUsageLogs(page, itemsPerPage),
+    queryFn: async () => {
+      const response = await backendApi.get(`/billing/usage-logs?page=${page}&items_per_page=${itemsPerPage}`);
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+      return response.data;
+    },
     staleTime: 30000, // 30 seconds
   });
 }
@@ -112,7 +118,7 @@ export function useUsageLogs(page = 0, itemsPerPage = 100) {
 export function useBillingStatus() {
   return useQuery({
     queryKey: ['billing', 'status'],
-    queryFn: () => billingApi.checkStatus(),
+    queryFn: () => checkBillingStatus(),
     staleTime: 30000, // 30 seconds
   });
 }
@@ -121,7 +127,7 @@ export function useBillingStatus() {
 export function useSubscriptionInfo() {
   return useQuery({
     queryKey: ['billing', 'subscription'],
-    queryFn: () => billingApi.getSubscription(),
+    queryFn: () => getSubscription(),
     staleTime: 60000, // 1 minute
   });
 } 
