@@ -488,7 +488,15 @@ class ResponseProcessor:
                 if finish_reason == "xml_tool_limit_reached":
                     logger.info("XML tool call limit reached, but continuing to collect usage data")
                     self.trace.event(name="xml_tool_call_limit_reached_continuing_for_usage", level="DEFAULT", status_message=(f"XML tool call limit reached, continuing to collect usage data"))
-                    # Don't break here - continue processing to collect usage data from final chunks
+                    
+                    # If we already have usage data, we can safely break now
+                    if (streaming_metadata["usage"]["total_tokens"] > 0 or 
+                        streaming_metadata["usage"]["prompt_tokens"] > 0 or 
+                        streaming_metadata["usage"]["completion_tokens"] > 0):
+                        logger.info("✅ Got usage data after tool limit, safe to exit stream processing")
+                        break
+                    
+                    # Otherwise continue processing to collect usage data from final chunks
 
             logger.info(f"Stream complete. Total chunks: {chunk_count}")
             
