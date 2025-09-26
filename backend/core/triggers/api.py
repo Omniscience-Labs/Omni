@@ -12,11 +12,7 @@ from core.services.supabase import DBConnection
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt
 from core.utils.logger import logger
 from core.utils.config import config
-from core.services.billing import can_use_model
-from billing.billing_integration import billing_integration
-from core.services.billing_wrapper import check_billing_status_unified, can_use_model
-
-# Billing checks now handled by billing_integration.check_model_and_billing_access
+from core.services.billing_wrapper import check_billing_status_unified, can_use_model_unified
 from core.billing.billing_integration import billing_integration
 
 from .trigger_service import get_trigger_service, TriggerType
