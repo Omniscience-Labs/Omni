@@ -2,7 +2,7 @@
 
 import React, { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
-import { MarkdownRenderer } from './markdown-renderer';
+import { MarkdownRenderer } from './authenticated-markdown-renderer';
 import { CodeRenderer } from './code-renderer';
 import { PdfRenderer } from './pdf-renderer';
 import { ImageRenderer } from './image-renderer';
@@ -257,7 +257,7 @@ export function FileRenderer({
       ) : fileType === 'pdf' && binaryUrl ? (
         <PdfRenderer url={binaryUrl} />
       ) : fileType === 'markdown' ? (
-        <MarkdownRenderer content={content || ''} ref={markdownRef} project={project} />
+        <MarkdownRenderer content={content || ''} ref={markdownRef} project={project} basePath={filePath} />
       ) : fileType === 'csv' ? (
         <CsvRenderer content={content || ''} />
       ) : fileType === 'xlsx' ? (

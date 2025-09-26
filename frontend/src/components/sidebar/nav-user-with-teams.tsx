@@ -8,6 +8,7 @@ import {
   Bell,
   ChevronDown,
   ChevronsUpDown,
+  ChevronRight,
   Command,
   CreditCard,
   Key,
@@ -22,6 +23,10 @@ import {
   Plug,
   Zap,
   Shield,
+  DollarSign,
+  Users,
+  BarChart3,
+  FileText,
 } from 'lucide-react';
 import { useAccounts } from '@/hooks/use-accounts';
 import NewTeamForm from '@/components/basejump/new-team-form';
@@ -36,6 +41,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import {
   SidebarMenu,
@@ -65,6 +74,7 @@ export function NavUserWithTeams({
     name: string;
     email: string;
     avatar: string;
+    isAdmin?: boolean;
   };
 }) {
   const router = useRouter();
@@ -74,6 +84,7 @@ export function NavUserWithTeams({
   const [showBillingModal, setShowBillingModal] = React.useState(false);
   const { theme, setTheme } = useTheme();
   const { data: adminCheck } = useAdminCheck();
+  const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
 
   // Prepare personal account and team accounts
   const personalAccount = React.useMemo(
@@ -293,16 +304,47 @@ export function NavUserWithTeams({
 
               {/* User Settings Section */}
               <DropdownMenuGroup>
-                <DropdownMenuItem onClick={() => setShowBillingModal(true)}>
-                  <Zap className="h-4 w-4" />
-                  Upgrade
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings/billing">
-                    <CreditCard className="h-4 w-4" />
-                    Billing
-                  </Link>
-                </DropdownMenuItem>
+                {user.isAdmin && (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Shield className="h-4 w-4 mr-2" />
+                      <span>Admin</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuItem asChild>
+                          <Link href="/admin/billing">
+                            <DollarSign className="h-4 w-4" />
+                            Billing Management
+                          </Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
+                )}
+                
+                {!isEnterpriseMode && (
+                  <>
+                    <DropdownMenuItem onClick={() => setShowBillingModal(true)}>
+                      <Zap className="h-4 w-4" />
+                      Upgrade
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings/billing">
+                        <CreditCard className="h-4 w-4" />
+                        Billing
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {isEnterpriseMode && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings/transactions">
+                      <FileText className="h-4 w-4" />
+                      Transactions
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 {(
                   <DropdownMenuItem asChild>
                     <Link href="/settings/credentials">

@@ -90,8 +90,10 @@ export default function AgentsPage() {
   const [agentLimitError, setAgentLimitError] = useState<AgentCountLimitError | null>(null);
 
   const activeTab = useMemo(() => {
-    return searchParams.get('tab') || 'my-agents';
+    const tab = searchParams.get('tab');
+    return tab || 'my-agents';
   }, [searchParams]);
+
 
   const agentsQueryParams: AgentsParams = useMemo(() => {
     const params: AgentsParams = {
@@ -192,8 +194,6 @@ export default function AgentsPage() {
           created_at: template.created_at,
           marketplace_published_at: template.marketplace_published_at,
           profile_image_url: template.profile_image_url,
-          avatar: template.avatar,
-          avatar_color: template.avatar_color,
           icon_name: template.icon_name,
           icon_color: template.icon_color,
           icon_background: template.icon_background,
@@ -313,7 +313,7 @@ export default function AgentsPage() {
     // Update URL with agent parameter for sharing
     const currentUrl = new URL(window.location.href);
     currentUrl.searchParams.set('agent', agent.id);
-    currentUrl.searchParams.set('tab', 'marketplace');
+    currentUrl.searchParams.set('tab', 'my-agents');
     router.replace(currentUrl.toString(), { scroll: false });
   };
 

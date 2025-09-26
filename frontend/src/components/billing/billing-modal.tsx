@@ -25,7 +25,7 @@ import {
     SubscriptionStatus,
 } from '@/lib/api';
 import { useAuth } from '@/components/AuthProvider';
-import { useSubscriptionCommitment } from '@/hooks/react-query';
+import { useSubscriptionCommitment } from '@/hooks/react-query/subscriptions/use-subscriptions';
 import { useQueryClient } from '@tanstack/react-query';
 import { subscriptionKeys } from '@/hooks/react-query/subscriptions/keys';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -70,7 +70,6 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
             : null
     );
 
-    // Simple function to fetch subscription data
     const fetchSubscriptionData = async () => {
         if (!session) return;
 
@@ -242,7 +241,7 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
                 </DialogHeader>
 
                 <>
-                    {/* Usage Limit Alert
+                    {/* Usage Limit Alert */}
                     {showUsageLimitAlert && (
                         <div className="mb-6">
                             <div className="flex items-start p-3 sm:p-4 bg-destructive/5 border border-destructive/50 rounded-lg">
@@ -259,7 +258,7 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
                                 </div>
                             </div>
                         </div>
-                    )} */}
+                    )}
 
                     {/* Usage section - show loading state or actual data */}
                     {isLoading || authLoading ? (
@@ -289,7 +288,15 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
 
                     {/* Show pricing section only if not in enterprise mode and data is loaded */}
                     {!isLoading && subscriptionData && !subscriptionData?.enterprise_info?.is_enterprise && (
-                        <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} />
+                        <PricingSection 
+                            returnUrl={returnUrl} 
+                            showTitleAndTabs={false}
+                            onSubscriptionUpdate={() => {
+                                setTimeout(() => {
+                                    fetchSubscriptionData();
+                                }, 500);
+                            }}
+                        />
                     )}
                     
                     {/* Enterprise mode message */}
@@ -314,7 +321,6 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
                         </div>
                     ) : subscriptionData?.subscription && !subscriptionData?.enterprise_info?.is_enterprise && (
                         <div className="mt-6 pt-4 border-t border-border">
-                            {/* Subscription Status Info Box */}
                             <div className="bg-muted/30 border border-border rounded-lg p-3 mb-3">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
@@ -354,9 +360,7 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
                                 )}
                             </div>
 
-                            {/* Action Buttons underneath */}
                             <div className="flex gap-2 justify-center">
-                                {/* Cancel/Reactivate Button */}
                                 {!(subscriptionData.subscription.cancel_at_period_end || subscriptionData.subscription.cancel_at) ? (
                                     <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
                                         <DialogTrigger asChild>

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bot, Menu, Store, Plus, Zap, ChevronRight, Loader2 } from 'lucide-react';
+import { Bot, Menu, Plus, Zap, ChevronRight, BookOpen } from 'lucide-react';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
@@ -43,7 +43,7 @@ import { cn } from '@/lib/utils';
 import { usePathname, useSearchParams } from 'next/navigation';
 import posthog from 'posthog-js';
 import { useDocumentModalStore } from '@/lib/stores/use-document-modal-store';
-// Floating mobile menu button component
+
 function FloatingMobileMenuButton() {
   const { setOpenMobile, openMobile } = useSidebar();
   const isMobile = useIsMobile();
@@ -51,7 +51,7 @@ function FloatingMobileMenuButton() {
   if (!isMobile || openMobile) return null;
 
   return (
-    <div className="fixed top-6 left-4 z-50 md:hidden">
+    <div className="fixed top-6 left-4 z-50">
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -80,10 +80,12 @@ export function SidebarLeft({
     name: string;
     email: string;
     avatar: string;
+    isAdmin?: boolean;
   }>({
     name: 'Loading...',
     email: 'loading@example.com',
     avatar: '',
+    isAdmin: false,
   });
 
   const pathname = usePathname();
@@ -91,20 +93,25 @@ export function SidebarLeft({
   const [showNewAgentDialog, setShowNewAgentDialog] = useState(false);
   const { isOpen: isDocumentModalOpen } = useDocumentModalStore();
 
-  // Close mobile menu on page navigation
   useEffect(() => {
     if (isMobile) {
       setOpenMobile(false);
     }
   }, [pathname, searchParams, isMobile, setOpenMobile]);
 
-  
+
   useEffect(() => {
     const fetchUserData = async () => {
       const supabase = createClient();
       const { data } = await supabase.auth.getUser();
-
       if (data.user) {
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .in('role', ['admin', 'super_admin']);
+        const isAdmin = roleData && roleData.length > 0;
+
         setUser({
           name:
             data.user.user_metadata?.name ||
@@ -112,6 +119,7 @@ export function SidebarLeft({
             'User',
           email: data.user.email || '',
           avatar: data.user.user_metadata?.avatar_url || '',
+          isAdmin: isAdmin,
         });
       }
     };
@@ -121,10 +129,8 @@ export function SidebarLeft({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Don't handle sidebar shortcuts when document modal is open
-      console.log('Sidebar-left handler - document modal open:', isDocumentModalOpen, 'key:', event.key);
       if (isDocumentModalOpen) return;
-      
+
       if ((event.metaKey || event.ctrlKey) && event.key === 'b') {
         event.preventDefault();
         setOpen(!state.startsWith('expanded'));
@@ -173,10 +179,10 @@ export function SidebarLeft({
       <SidebarContent className="[&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
         <SidebarGroup>
           <Link href="/dashboard">
-            <SidebarMenuButton 
+            <SidebarMenuButton
               className={cn('touch-manipulation', {
                 'bg-accent text-accent-foreground font-medium': pathname === '/dashboard',
-              })} 
+              })}
               onClick={() => {
                 posthog.capture('new_task_clicked');
                 if (isMobile) setOpenMobile(false);
@@ -188,18 +194,33 @@ export function SidebarLeft({
               </span>
             </SidebarMenuButton>
           </Link>
-          <Link href="/tasks">
-            <SidebarMenuButton 
+          <Link href="/triggers">
+            <SidebarMenuButton
               className={cn('touch-manipulation mt-1', {
-                'bg-accent text-accent-foreground font-medium': pathname === '/tasks',
-              })} 
+                'bg-accent text-accent-foreground font-medium': pathname === '/triggers',
+              })}
               onClick={() => {
                 if (isMobile) setOpenMobile(false);
               }}
             >
               <Zap className="h-4 w-4 mr-1" />
               <span className="flex items-center justify-between w-full">
-                Tasks
+                Triggers
+              </span>
+            </SidebarMenuButton>
+          </Link>
+          <Link href="/knowledge">
+            <SidebarMenuButton
+              className={cn('touch-manipulation mt-1', {
+                'bg-accent text-accent-foreground font-medium': pathname === '/knowledge',
+              })}
+              onClick={() => {
+                if (isMobile) setOpenMobile(false);
+              }}
+            >
+              <BookOpen className="h-4 w-4 mr-1" />
+              <span className="flex items-center justify-between w-full">
+                Knowledge Base
               </span>
             </SidebarMenuButton>
           </Link>
@@ -245,7 +266,7 @@ export function SidebarLeft({
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                       <SidebarMenuSubItem data-tour="new-agent">
-                        <SidebarMenuSubButton 
+                        <SidebarMenuSubButton
                           onClick={() => {
                             setShowNewAgentDialog(true);
                             if (isMobile) setOpenMobile(false);
@@ -261,7 +282,6 @@ export function SidebarLeft({
               </Collapsible>
             </SidebarMenu>
           )}
-
         </SidebarGroup>
         <NavAgents />
       </SidebarContent>
@@ -284,8 +304,8 @@ export function SidebarLeft({
         <NavUserWithTeams user={user} />
       </SidebarFooter>
       <SidebarRail />
-      <NewAgentDialog 
-        open={showNewAgentDialog} 
+      <NewAgentDialog
+        open={showNewAgentDialog}
         onOpenChange={setShowNewAgentDialog}
       />
     </Sidebar>

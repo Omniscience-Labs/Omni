@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -11,12 +12,14 @@ export default function PersonalAccountSettingsPage({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+  
   const items = [
-    // { name: "Profile", href: "/settings" },
-    // { name: "Teams", href: "/settings/teams" },
-    { name: 'Billing', href: '/settings/billing' },
-    { name: 'Usage Logs', href: '/settings/usage-logs' },
-    ...(isLocalMode() ? [{ name: 'Local .Env Manager', href: '/settings/env-manager' }] : []),
+    // Show billing for SaaS mode (includes usage logs), transactions for enterprise mode  
+    ...(isEnterpriseMode 
+      ? [{ name: 'Transactions', href: '/settings/transactions' }]
+      : [{ name: 'Billing', href: '/settings/billing' }]
+    ),
   ];
   return (
     <>
@@ -38,7 +41,7 @@ export default function PersonalAccountSettingsPage({
               ))}
             </nav>
           </aside>
-          <div className="flex-1 bg-card-bg dark:bg-background-secondary p-6 rounded-2xl border border-subtle dark:border-white/10 shadow-custom">
+          <div className="flex-1 bg-card-bg dark:bg-background-secondary rounded-2xl">
             {children}
           </div>
         </div>

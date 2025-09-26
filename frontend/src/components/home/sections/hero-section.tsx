@@ -14,8 +14,12 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import {
   BillingError,
+  AgentRunLimitError,
+  ProjectLimitError,
 } from '@/lib/api';
 import { useInitiateAgentMutation } from '@/hooks/react-query/dashboard/use-initiate-agent';
+import { BillingModal } from '@/components/billing/billing-modal';
+import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog';
 import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
 import { generateThreadName } from '@/lib/actions/threads';
 import GoogleSignIn from '@/components/GoogleSignIn';
@@ -37,11 +41,60 @@ import { isLocalMode, config } from '@/lib/config';
 import { toast } from 'sonner';
 import { useModal } from '@/hooks/use-modal-store';
 import { createClient } from '@/lib/supabase/client';
+import { CheckIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import GitHubSignIn from '@/components/GithubSignIn';
+import { ChatInput, ChatInputHandles } from '@/components/thread/chat-input/chat-input';
+import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
+import { createQueryHook } from '@/hooks/use-query';
+import { agentKeys } from '@/hooks/react-query/agents/keys';
+import { getAgents } from '@/hooks/react-query/agents/utils';
+import { useAgents } from '@/hooks/react-query/agents/use-agents';
+import { Examples } from '@/components/dashboard/examples';
+import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 
 // Custom dialog overlay with blur effect
 const BlurredDialogOverlay = () => (
   <DialogOverlay className="bg-background/40 backdrop-blur-md" />
 );
+
+
+// Rotating text component for job types
+const RotatingText = ({ 
+  texts, 
+  className = "" 
+}: { 
+  texts: string[]; 
+  className?: string; 
+}) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsVisible(false);
+      
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % texts.length);
+        setIsVisible(true);
+      }, 150); // Half of the transition duration
+    }, 2000); // Change every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [texts.length]);
+
+  return (
+    <span className={`inline-block transition-all duration-300 ${className}`}>
+      <span 
+        className={`inline-block transition-opacity duration-300 ${
+          isVisible ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        {texts[currentIndex]}
+      </span>
+    </span>
+  );
+};
 
 // Constant for localStorage key to ensure consistency
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
@@ -56,19 +109,40 @@ export function HeroSection() {
   const { scrollY } = useScroll();
   const [inputValue, setInputValue] = useState('');
   const router = useRouter();
+  
+  // Use the agent selection store for localStorage persistence
+  const { 
+    selectedAgentId, 
+    setSelectedAgent, 
+    initializeFromAgents 
+  } = useAgentSelection();
   const { user, isLoading } = useAuth();
   const { billingError, handleBillingError, clearBillingError } =
     useBillingError();
-  const { data: accounts } = useAccounts();
+  const { data: accounts } = useAccounts({ enabled: !!user });
+  const { data: agentsResponse } = useAgents({}, { enabled: !!user });
+  const agents = agentsResponse?.agents || [];
   const personalAccount = accounts?.find((account) => account.personal_account);
   const { onOpen } = useModal();
   const initiateAgentMutation = useInitiateAgentMutation();
   const [initiatedThreadId, setInitiatedThreadId] = useState<string | null>(null);
   const threadQuery = useThreadQuery(initiatedThreadId || '');
 
+  // Initialize agent selection from localStorage when agents are loaded
+  useEffect(() => {
+    if (agents.length > 0) {
+      initializeFromAgents(agents);
+    }
+  }, [agents, initializeFromAgents]);
+
   // Auth dialog state
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  
+  // Payment and limit dialog state
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showAgentLimitDialog, setShowAgentLimitDialog] = useState(false);
+  const [agentLimitData, setAgentLimitData] = useState<{runningCount: number; runningThreadIds: string[]} | null>(null);
 
   // FlipWords arrays for value proposition
   const moreWords = ["research", "analysis", "automation", "productivity", "insights", "results", "growth", "efficiency"];
@@ -334,10 +408,18 @@ export function HeroSection() {
         throw new Error('Failed to create agent');
       }
     } catch (error: any) {
-      console.error('Error in handleSubmit:', error);
-      
-      if (error?.name === 'BillingError') {
-        handleBillingError(error as BillingError);
+      if (error instanceof BillingError) {
+        setShowPaymentModal(true);
+      } else if (error instanceof AgentRunLimitError) {
+        const { running_thread_ids, running_count } = error.detail;
+        
+        setAgentLimitData({
+          runningCount: running_count,
+          runningThreadIds: running_thread_ids,
+        });
+        setShowAgentLimitDialog(true);
+      } else if (error instanceof ProjectLimitError) {
+        setShowPaymentModal(true);
       } else {
         const errorMessage = error?.message || 'An unexpected error occurred';
         toast.error(errorMessage);
@@ -1124,6 +1206,7 @@ export function HeroSection() {
           </motion.div>
         </motion.div>
 
+
         {/* Video section positioned below the main content with better mobile spacing */}
         <motion.div 
           className="w-full max-w-6xl mx-auto mt-8 md:mt-12 lg:mt-16 mb-8 md:mb-16 relative z-30"
@@ -1252,6 +1335,24 @@ export function HeroSection() {
         onDismiss={clearBillingError}
         isOpen={!!billingError}
       />
+
+      {/* Billing Modal */}
+      <BillingModal 
+        open={showPaymentModal} 
+        onOpenChange={setShowPaymentModal}
+        showUsageLimitAlert={true}
+      />
+
+      {/* Agent Limit Dialog */}
+      {agentLimitData && (
+        <AgentRunLimitDialog
+          open={showAgentLimitDialog}
+          onOpenChange={setShowAgentLimitDialog}
+          runningCount={agentLimitData.runningCount}
+          runningThreadIds={agentLimitData.runningThreadIds}
+          projectId={undefined}
+        />
+      )}
     </section>
   );
 }

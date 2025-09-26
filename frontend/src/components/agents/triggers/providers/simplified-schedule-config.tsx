@@ -30,7 +30,6 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { TriggerProvider, ScheduleTriggerConfig } from '../types';
@@ -54,6 +53,7 @@ interface SimplifiedScheduleConfigProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: (data: { name: string; description: string; config: ScheduleTriggerConfig; is_active: boolean }) => void;
+  isEditMode?: boolean;
 }
 
 interface SchedulePreset {
@@ -316,10 +316,12 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
   onAgentSelect,
   open,
   onOpenChange,
-  onSave
+  onSave,
+  isEditMode = false
 }) => {
   const [currentStep, setCurrentStep] = useState<'setup' | 'schedule' | 'execute'>('setup');
   const [selectedPreset, setSelectedPreset] = useState<string>('');
+  const [scheduleTabValue, setScheduleTabValue] = useState<'quick' | 'recurring' | 'one-time' | 'advanced'>('quick');
   const [executionType, setExecutionType] = useState<'agent' | 'workflow'>(
     config.execution_type || 'agent'
   );
@@ -328,14 +330,14 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
   // Recurring schedule state
   const [scheduleType, setScheduleType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [selectedHour, setSelectedHour] = useState<string>('9');
-  const [selectedMinute, setSelectedMinute] = useState<string>('0');
+  const [selectedMinute, setSelectedMinute] = useState<string>('00');
   const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>(['1', '2', '3', '4', '5']);
   const [selectedMonthDays, setSelectedMonthDays] = useState<string[]>(['1']);
 
   // One-time schedule state
-  const [oneTimeDate, setOneTimeDate] = useState<Date | undefined>(new Date());
+  const [oneTimeDate, setOneTimeDate] = useState<Date | undefined>(undefined);
   const [oneTimeHour, setOneTimeHour] = useState<string>('9');
-  const [oneTimeMinute, setOneTimeMinute] = useState<string>('0');
+  const [oneTimeMinute, setOneTimeMinute] = useState<string>('00');
 
   const { data: workflows = [] } = useAgentWorkflows(agentId);
 
@@ -348,8 +350,16 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
 
   // Update cron when recurring settings change
   useEffect(() => {
-    if (!selectedPreset) { // Only auto-generate if no preset is selected
-      handleRecurringScheduleChange();
+    // Only auto-generate if we're in the recurring tab and no preset is selected
+    if (!selectedPreset && (scheduleType || selectedHour || selectedMinute || selectedWeekdays.length || selectedMonthDays.length)) {
+      const cronExpression = generateCronFromRecurring();
+      if (cronExpression && cronExpression !== config.cron_expression) {
+        onChange({
+          ...config,
+          cron_expression: cronExpression,
+          timezone: timezone
+        });
+      }
     }
   }, [scheduleType, selectedHour, selectedMinute, selectedWeekdays, selectedMonthDays]);
 
@@ -402,16 +412,6 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
       default:
         return `${minute} ${hour} * * *`;
     }
-  };
-
-  const handleRecurringScheduleChange = () => {
-    const cronExpression = generateCronFromRecurring();
-    onChange({
-      ...config,
-      cron_expression: cronExpression,
-      timezone: timezone
-    });
-    setSelectedPreset(''); // Clear preset selection when using custom recurring
   };
 
   const handleWeekdayToggle = (weekday: string) => {
@@ -480,7 +480,7 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
     <div className="flex flex-col h-full max-h-[90vh]">
       <div className="shrink-0 px-6 py-4 border-b">
         <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">Create Scheduled Task</h2>
+          <h2 className="text-lg font-semibold">{isEditMode ? 'Edit Scheduled Task' : 'Create Scheduled Task'}</h2>
         </div>
       </div>
       <ProgressStepper currentStep={currentStep} />
@@ -611,7 +611,7 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
                       <h3 className="font-medium mb-1">Schedule Frequency</h3>
                       <p className="text-sm text-muted-foreground">Choose how often this task should run</p>
                     </div>
-                    <Tabs defaultValue="quick" className="w-full">
+                    <Tabs value={scheduleTabValue} onValueChange={(value) => setScheduleTabValue(value as 'quick' | 'recurring' | 'one-time' | 'advanced')} className="w-full">
                       <TabsList className="grid w-full grid-cols-4">
                         <TabsTrigger value="quick">Quick</TabsTrigger>
                         <TabsTrigger value="recurring">Recurring</TabsTrigger>
@@ -957,7 +957,7 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
                   </Button>
                   <Button
                     onClick={() => setCurrentStep('execute')}
-                    disabled={!config.cron_expression && !selectedPreset}
+                    disabled={!config.cron_expression}
                     size="sm"
                   >
                     Next: Choose Execution Method
@@ -1137,7 +1137,7 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
                     }
                     size="sm"
                   >
-                    Create Scheduled Task
+                    {isEditMode ? 'Update Scheduled Task' : 'Create Scheduled Task'}
                     <Sparkles className="h-3 w-3 ml-2" />
                   </Button>
                 </div>
@@ -1149,20 +1149,15 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
     </div>
   );
 
-  // If open is true, render as standalone dialog
-  if (open) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-          <VisuallyHidden>
-            <DialogTitle>Create Scheduled Task</DialogTitle>
-          </VisuallyHidden>
-          {renderContent()}
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  // Otherwise, just return the content (for use inside TriggerConfigDialog)
-  return renderContent();
+  // Always render as dialog
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
+        <VisuallyHidden>
+          <DialogTitle>{isEditMode ? 'Edit Scheduled Task' : 'Create Scheduled Task'}</DialogTitle>
+        </VisuallyHidden>
+        {renderContent()}
+      </DialogContent>
+    </Dialog>
+  );
 };
