@@ -486,9 +486,9 @@ class ResponseProcessor:
                                 tool_index += 1
 
                 if finish_reason == "xml_tool_limit_reached":
-                    logger.info("Stopping stream processing after loop due to XML tool call limit")
-                    self.trace.event(name="stopping_stream_processing_after_loop_due_to_xml_tool_call_limit", level="DEFAULT", status_message=(f"Stopping stream processing after loop due to XML tool call limit"))
-                    break
+                    logger.info("XML tool call limit reached, but continuing to collect usage data")
+                    self.trace.event(name="xml_tool_call_limit_reached_continuing_for_usage", level="DEFAULT", status_message=(f"XML tool call limit reached, continuing to collect usage data"))
+                    # Don't break here - continue processing to collect usage data from final chunks
 
             logger.info(f"Stream complete. Total chunks: {chunk_count}")
             
