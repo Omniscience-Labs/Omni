@@ -28,7 +28,7 @@ export const useSubscription = (enabled = true) => {
   });
 };
 
-export const useCreditBalance = () => {
+export const useCreditBalance = (enabled = true) => {
   // In enterprise mode, credit balance is managed differently
   const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
   
@@ -36,7 +36,7 @@ export const useCreditBalance = () => {
     queryKey: billingKeys.balance(),
     queryFn: () => billingApiV2.getCreditBalance(),
     staleTime: 1000 * 30,
-    enabled: !isEnterpriseMode, // Disable the query in enterprise mode
+    enabled: enabled && !isEnterpriseMode, // Disable the query in enterprise mode or when not enabled
   });
 };
 
