@@ -65,7 +65,7 @@ class BillingIntegration:
         
         if cache_read_tokens > 0:
             # Calculate discounted cache read cost 
-            non_cached_prompt_tokens = prompt_tokens - cache_read_tokens
+            non_cached_prompt_tokens = prompt_tokens
             
             model_lower = model.lower()
             if any(provider in model_lower for provider in ['anthropic', 'claude', 'sonnet']):
