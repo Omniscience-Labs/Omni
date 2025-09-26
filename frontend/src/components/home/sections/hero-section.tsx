@@ -120,7 +120,7 @@ export function HeroSection() {
   const { billingError, handleBillingError, clearBillingError } =
     useBillingError();
   const { data: accounts } = useAccounts({ enabled: !!user });
-  const { data: agents = [] } = useAgents({ enabled: !!user });
+  const { data: agents = [] } = useAgents({}, { enabled: !!user });
   const personalAccount = accounts?.find((account) => account.personal_account);
   const { onOpen } = useModal();
   const initiateAgentMutation = useInitiateAgentMutation();
