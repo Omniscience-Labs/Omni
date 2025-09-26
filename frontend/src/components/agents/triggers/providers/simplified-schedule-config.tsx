@@ -321,6 +321,7 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
 }) => {
   const [currentStep, setCurrentStep] = useState<'setup' | 'schedule' | 'execute'>('setup');
   const [selectedPreset, setSelectedPreset] = useState<string>('');
+  const [scheduleTabValue, setScheduleTabValue] = useState<'quick' | 'recurring' | 'one-time' | 'advanced'>('quick');
   const [executionType, setExecutionType] = useState<'agent' | 'workflow'>(
     config.execution_type || 'agent'
   );
@@ -329,14 +330,14 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
   // Recurring schedule state
   const [scheduleType, setScheduleType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [selectedHour, setSelectedHour] = useState<string>('9');
-  const [selectedMinute, setSelectedMinute] = useState<string>('0');
+  const [selectedMinute, setSelectedMinute] = useState<string>('00');
   const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>(['1', '2', '3', '4', '5']);
   const [selectedMonthDays, setSelectedMonthDays] = useState<string[]>(['1']);
 
   // One-time schedule state
   const [oneTimeDate, setOneTimeDate] = useState<Date | undefined>(undefined);
   const [oneTimeHour, setOneTimeHour] = useState<string>('9');
-  const [oneTimeMinute, setOneTimeMinute] = useState<string>('0');
+  const [oneTimeMinute, setOneTimeMinute] = useState<string>('00');
 
   const { data: workflows = [] } = useAgentWorkflows(agentId);
 
@@ -348,7 +349,19 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
   }, [config.cron_expression]);
 
   // Update cron when recurring settings change
-  // Removed auto-generation to prevent interference with preset selections
+  useEffect(() => {
+    // Only auto-generate if we're in the recurring tab and no preset is selected
+    if (!selectedPreset && (scheduleType || selectedHour || selectedMinute || selectedWeekdays.length || selectedMonthDays.length)) {
+      const cronExpression = generateCronFromRecurring();
+      if (cronExpression && cronExpression !== config.cron_expression) {
+        onChange({
+          ...config,
+          cron_expression: cronExpression,
+          timezone: timezone
+        });
+      }
+    }
+  }, [scheduleType, selectedHour, selectedMinute, selectedWeekdays, selectedMonthDays]);
 
   // Update cron when one-time settings change
   useEffect(() => {
@@ -398,19 +411,6 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
         return `${minute} ${hour} ${monthDays} * *`;
       default:
         return `${minute} ${hour} * * *`;
-    }
-  };
-
-  const handleRecurringScheduleChange = () => {
-    const cronExpression = generateCronFromRecurring();
-    onChange({
-      ...config,
-      cron_expression: cronExpression,
-      timezone: timezone
-    });
-    // Only clear preset if we're generating a different cron than what's currently set
-    if (cronExpression !== config.cron_expression) {
-      setSelectedPreset(''); // Clear preset selection when using custom recurring
     }
   };
 
@@ -611,7 +611,7 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
                       <h3 className="font-medium mb-1">Schedule Frequency</h3>
                       <p className="text-sm text-muted-foreground">Choose how often this task should run</p>
                     </div>
-                    <Tabs defaultValue="quick" className="w-full">
+                    <Tabs value={scheduleTabValue} onValueChange={(value) => setScheduleTabValue(value as 'quick' | 'recurring' | 'one-time' | 'advanced')} className="w-full">
                       <TabsList className="grid w-full grid-cols-4">
                         <TabsTrigger value="quick">Quick</TabsTrigger>
                         <TabsTrigger value="recurring">Recurring</TabsTrigger>
@@ -957,7 +957,7 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
                   </Button>
                   <Button
                     onClick={() => setCurrentStep('execute')}
-                    disabled={!config.cron_expression && !selectedPreset}
+                    disabled={!config.cron_expression}
                     size="sm"
                   >
                     Next: Choose Execution Method
