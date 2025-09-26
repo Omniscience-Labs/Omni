@@ -183,7 +183,12 @@ class ThreadManager:
                         cache_creation_tokens = int(usage.get("cache_creation_input_tokens", 0) or 0)
                         model = content.get("model") if isinstance(content, dict) else None
                         
-                        logger.debug(f"[THREAD_MANAGER] Processing assistant_response_end: model='{model}', prompt_tokens={prompt_tokens}, completion_tokens={completion_tokens}, cache_read={cache_read_tokens}, cache_creation={cache_creation_tokens}")
+                        # Check if this is a streaming request
+                        is_streaming = content.get("streaming", False) if isinstance(content, dict) else False
+                        request_type = "STREAMING" if is_streaming else "HTTP"
+                        
+                        logger.debug(f"[THREAD_MANAGER] Processing assistant_response_end [{request_type}]: model='{model}', prompt_tokens={prompt_tokens}, completion_tokens={completion_tokens}, cache_read={cache_read_tokens}, cache_creation={cache_creation_tokens}")
+                        logger.info(f"[THREAD_MANAGER] 🔍 BILLING DEBUG - Request type: {request_type}, Message ID: {saved_message.get('message_id')}, Model: {model}")
                         
                         thread_row = await client.table('threads').select('account_id').eq('thread_id', thread_id).limit(1).execute()
                         user_id = thread_row.data[0]['account_id'] if thread_row.data and len(thread_row.data) > 0 else None
@@ -215,7 +220,41 @@ class ThreadManager:
                         elif prompt_tokens == 0 and completion_tokens == 0:
                             logger.debug(f"[THREAD_MANAGER] No tokens used, skipping credit deduction")
                     except Exception as billing_e:
-                        logger.error(f"[THREAD_MANAGER] Error handling credit usage for message {saved_message.get('message_id')}: {str(billing_e)}", exc_info=True)
+                        logger.error(f"[THREAD_MANAGER] CRITICAL BILLING ERROR for message {saved_message.get('message_id')}: {str(billing_e)}", exc_info=True)
+                        logger.error(f"[THREAD_MANAGER] BILLING FAILURE DETAILS - model: '{model}', prompt_tokens: {prompt_tokens}, completion_tokens: {completion_tokens}, cache_read: {cache_read_tokens}, user_id: {user_id}")
+                        
+                        # Try direct billing as fallback for streaming requests
+                        try:
+                            logger.warning(f"[THREAD_MANAGER] Attempting direct billing fallback for streaming request")
+                            from core.billing.api import calculate_token_cost
+                            from core.services.billing_wrapper import handle_usage_unified
+                            
+                            # Calculate cost directly
+                            token_cost = calculate_token_cost(prompt_tokens, completion_tokens, model or "claude-sonnet-4-20250514")
+                            
+                            # Try direct enterprise billing
+                            client = await self.db.client
+                            success, message = await handle_usage_unified(
+                                client=client,
+                                account_id=user_id,
+                                token_cost=float(token_cost),
+                                thread_id=thread_id,
+                                message_id=saved_message['message_id'],
+                                model=model,
+                                prompt_tokens=prompt_tokens,
+                                completion_tokens=completion_tokens,
+                                description=f"STREAMING FALLBACK: {model}: {prompt_tokens}+{completion_tokens} tokens",
+                                cache_read_tokens=cache_read_tokens,
+                                cache_creation_tokens=cache_creation_tokens
+                            )
+                            
+                            if success:
+                                logger.info(f"[THREAD_MANAGER] ✅ STREAMING FALLBACK SUCCESS: Billed ${token_cost:.6f} for message {saved_message['message_id']}")
+                            else:
+                                logger.error(f"[THREAD_MANAGER] ❌ STREAMING FALLBACK FAILED: {message}")
+                                
+                        except Exception as fallback_e:
+                            logger.error(f"[THREAD_MANAGER] ❌ STREAMING FALLBACK EXCEPTION: {str(fallback_e)}", exc_info=True)
                 return saved_message
             else:
                 logger.error(f"Insert operation failed or did not return expected data structure for thread {thread_id}. Result data: {result.data}")
