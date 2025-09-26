@@ -713,11 +713,13 @@ class SimplifiedEnterpriseBillingService:
                     
                     # Debug: Log token breakdown and cost calculation verification
                     if prompt_tokens > 0 or completion_tokens > 0:
-                        # Verify cost calculation for known models
+                        # Verify cost calculation using actual model pricing
                         expected_cost = 0
-                        if row['model_name'] == 'claude-sonnet-4-20250514':
-                            # Sonnet 4 pricing: $4.50 per 1M input, $22.50 per 1M output
-                            expected_cost = (prompt_tokens * 4.50 / 1000000) + (completion_tokens * 22.50 / 1000000)
+                        try:
+                            from core.billing.api import calculate_token_cost
+                            expected_cost = float(calculate_token_cost(prompt_tokens, completion_tokens, row['model_name']))
+                        except Exception as calc_error:
+                            logger.debug(f"Could not calculate expected cost for verification: {calc_error}")
                         
                         cost_diff = abs(cost - expected_cost) if expected_cost > 0 else 0
                         cost_match = cost_diff < 0.001  # Within 0.1 cent tolerance
@@ -726,7 +728,7 @@ class SimplifiedEnterpriseBillingService:
                         logger.debug(f"Cost verification: actual=${cost:.6f}, expected=${expected_cost:.6f}, match={cost_match}")
                         
                         if not cost_match and expected_cost > 0:
-                            logger.warning(f"Cost mismatch detected! Actual: ${cost:.6f}, Expected: ${expected_cost:.6f}, Diff: ${cost_diff:.6f}")
+                            logger.debug(f"Cost difference detected: Actual: ${cost:.6f}, Expected: ${expected_cost:.6f}, Diff: ${cost_diff:.6f}")
                     
                     usage_detail = {
                         'id': row['id'],
