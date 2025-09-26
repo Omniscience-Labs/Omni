@@ -788,28 +788,7 @@ export function PricingSection({
   const [deploymentType, setDeploymentType] = useState<'cloud' | 'self-hosted'>(
     'cloud',
   );
-  const [currentSubscription, setCurrentSubscription] =
-    useState<SubscriptionStatus | null>(null);
   const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
-  const [isFetchingPlan, setIsFetchingPlan] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  
-
-  const fetchCurrentPlan = async () => {
-    setIsFetchingPlan(true);
-    try {
-      const subscriptionData = await getSubscription();
-      console.log('Fetched Subscription Status:', subscriptionData);
-      setCurrentSubscription(subscriptionData);
-      setIsAuthenticated(true);
-    } catch (error) {
-      console.error('Error fetching subscription:', error);
-      setCurrentSubscription(null);
-      setIsAuthenticated(false);
-    } finally {
-      setIsFetchingPlan(false);
-    }
-  };
 
   const { user } = useAuth();
   const isUserAuthenticated = !!user;
@@ -856,7 +835,7 @@ export function PricingSection({
   };
 
   const handleSubscriptionUpdate = () => {
-    fetchCurrentPlan();
+    refetchSubscription();
     setTimeout(() => {
       setIsLoading({});
     }, 1000);
@@ -865,10 +844,6 @@ export function PricingSection({
       onSubscriptionUpdate();
     }
   };
-
-  useEffect(() => {
-    fetchCurrentPlan();
-  }, []);
 
   const handleTabChange = (tab: 'cloud' | 'self-hosted') => {
     if (tab === 'self-hosted') {
