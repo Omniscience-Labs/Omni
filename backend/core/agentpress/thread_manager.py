@@ -226,7 +226,7 @@ class ThreadManager:
                         # Try direct billing as fallback for streaming requests
                         try:
                             logger.warning(f"[THREAD_MANAGER] Attempting direct billing fallback for streaming request")
-                            from core.billing.api import calculate_token_cost
+                            from billing.api import calculate_token_cost
                             from core.services.billing_wrapper import handle_usage_unified
                             
                             # Calculate cost directly
