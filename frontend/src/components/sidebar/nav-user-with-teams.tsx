@@ -27,6 +27,7 @@ import {
   Users,
   BarChart3,
   FileText,
+  Lock,
 } from 'lucide-react';
 import { useAccounts } from '@/hooks/use-accounts';
 import NewTeamForm from '@/components/basejump/new-team-form';
@@ -66,6 +67,7 @@ import { isLocalMode } from '@/lib/config';
 import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
 import { BillingModal } from '@/components/billing/billing-modal';
 import { useAdminCheck } from '@/hooks/use-admin-check';
+import { ChangePasswordDialog } from '@/components/auth/change-password-dialog';
 
 export function NavUserWithTeams({
   user,
@@ -82,6 +84,7 @@ export function NavUserWithTeams({
   const { data: accounts } = useAccounts();
   const [showNewTeamDialog, setShowNewTeamDialog] = React.useState(false);
   const [showBillingModal, setShowBillingModal] = React.useState(false);
+  const [showChangePasswordDialog, setShowChangePasswordDialog] = React.useState(false);
   const { theme, setTheme } = useTheme();
   const { data: adminCheck } = useAdminCheck();
   const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
@@ -382,6 +385,12 @@ export function NavUserWithTeams({
                   </Link>
                 </DropdownMenuItem> */}
                 <DropdownMenuItem
+                  onClick={() => setShowChangePasswordDialog(true)}
+                >
+                  <Lock className="h-4 w-4" />
+                  Change Password
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
                 >
                   <div className="flex items-center gap-2">
@@ -418,6 +427,12 @@ export function NavUserWithTeams({
         open={showBillingModal}
         onOpenChange={setShowBillingModal}
         returnUrl={typeof window !== 'undefined' ? window?.location?.href || '/' : '/'}
+      />
+
+      {/* Change Password Dialog */}
+      <ChangePasswordDialog
+        open={showChangePasswordDialog}
+        onOpenChange={setShowChangePasswordDialog}
       />
     </Dialog>
   );
