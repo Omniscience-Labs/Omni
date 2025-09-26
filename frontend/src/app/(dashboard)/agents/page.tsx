@@ -91,19 +91,9 @@ export default function AgentsPage() {
 
   const activeTab = useMemo(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'marketplace') {
-      return 'my-agents';
-    }
     return tab || 'my-agents';
   }, [searchParams]);
 
-  useEffect(() => {
-    if (searchParams.get('tab') === 'marketplace') {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set('tab', 'my-agents');
-      router.replace(`${pathname}?${params.toString()}`);
-    }
-  }, [searchParams, pathname, router]);
 
   const agentsQueryParams: AgentsParams = useMemo(() => {
     const params: AgentsParams = {
@@ -622,7 +612,6 @@ export default function AgentsPage() {
             />
           )}
 
-          {/* Marketplace tab is disabled
           {activeTab === "marketplace" && (
             <MarketplaceTab
               marketplaceSearchQuery={marketplaceSearchQuery}
@@ -644,7 +633,7 @@ export default function AgentsPage() {
               onMarketplacePageSizeChange={handleMarketplacePageSizeChange}
               marketplacePagination={marketplaceTemplates?.pagination}
             />
-          )} */}
+          )}
         </div>
 
         <EnhancedPublishDialog
