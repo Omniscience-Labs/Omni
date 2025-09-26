@@ -49,6 +49,7 @@ import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 import { createQueryHook } from '@/hooks/use-query';
 import { agentKeys } from '@/hooks/react-query/agents/keys';
 import { getAgents } from '@/hooks/react-query/agents/utils';
+import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { Examples } from '@/components/dashboard/examples';
 import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 
@@ -119,6 +120,7 @@ export function HeroSection() {
   const { billingError, handleBillingError, clearBillingError } =
     useBillingError();
   const { data: accounts } = useAccounts({ enabled: !!user });
+  const { data: agents = [] } = useAgents({ enabled: !!user });
   const personalAccount = accounts?.find((account) => account.personal_account);
   const { onOpen } = useModal();
   const initiateAgentMutation = useInitiateAgentMutation();
