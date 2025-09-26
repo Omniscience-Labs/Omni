@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { Input } from '@/components/ui/input';
 import GoogleSignIn from '@/components/GoogleSignIn';
+import GitHubSignIn from '@/components/GithubSignIn';
+import MicrosoftSignIn from '@/components/MicrosoftSignIn';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useState, useEffect, Suspense } from 'react';
 import { signIn, signUp, forgotPassword } from './actions';
@@ -28,7 +30,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import GitHubSignIn from '@/components/GithubSignIn';
 import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { Ripple } from '@/components/ui/ripple';
 import { ReleaseBadge } from '@/components/auth/release-badge';
@@ -38,7 +39,7 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const { user, isLoading } = useAuth();
   const mode = searchParams.get('mode');
-  const returnUrl = searchParams.get('returnUrl');
+  const returnUrl = searchParams.get('returnUrl') || searchParams.get('redirect');
   const message = searchParams.get('message');
 
   const isSignUp = mode === 'signup';
@@ -84,11 +85,8 @@ function LoginContent() {
   const handleSignIn = async (prevState: any, formData: FormData) => {
     markEmailAsUsed();
 
-    if (returnUrl) {
-      formData.append('returnUrl', returnUrl);
-    } else {
-      formData.append('returnUrl', '/dashboard');
-    }
+    const finalReturnUrl = returnUrl || '/dashboard';
+    formData.append('returnUrl', finalReturnUrl);
     const result = await signIn(prevState, formData);
 
     if (
@@ -119,9 +117,8 @@ function LoginContent() {
     const email = formData.get('email') as string;
     setRegistrationEmail(email);
 
-    if (returnUrl) {
-      formData.append('returnUrl', returnUrl);
-    }
+    const finalReturnUrl = returnUrl || '/dashboard';
+    formData.append('returnUrl', finalReturnUrl);
 
     // Add origin for email redirects
     formData.append('origin', window.location.origin);
@@ -274,24 +271,16 @@ function LoginContent() {
         </div>
         <div className="flex min-h-screen">
           <div className="relative flex-1 flex items-center justify-center p-4 lg:p-8">
-            <div className="absolute top-6 right-10 z-10">
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to home
-              </Link>
-            </div>
             <div className="w-full max-w-sm">
               <div className="mb-4 flex items-center flex-col gap-3 sm:gap-4 justify-center">
-                <ReleaseBadge className='mb-2 sm:mb-4' text="Custom Agents, Playbooks, and more!" link="/changelog" />
+                {/* <ReleaseBadge className='mb-2 sm:mb-4' text="Custom Agents, Playbooks, and more!" /> */}
                 <h1 className="text-xl sm:text-2xl font-semibold text-foreground text-center leading-tight">
                   {isSignUp ? 'Create your account' : 'Log into your account'}
                 </h1>
               </div>
             <div className="space-y-3 mb-4">
               <GoogleSignIn returnUrl={returnUrl || undefined} />
+              <MicrosoftSignIn returnUrl={returnUrl || undefined} />
               <GitHubSignIn returnUrl={returnUrl || undefined} />
             </div>
             <div className="relative my-4">

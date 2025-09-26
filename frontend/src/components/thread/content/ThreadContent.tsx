@@ -562,7 +562,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                 // Render scrollable content container with column-reverse (or just content when external scrolling)
                 <div
                     ref={scrollContainerRef || messagesContainerRef}
-                    className={scrollContainerRef ? `${containerClassName} flex flex-col-reverse ${shouldJustifyToTop ? 'justify-end min-h-full' : ''}` : 'py-4 pb-0'}
+                    className={scrollContainerRef ? `${containerClassName} flex flex-col-reverse ${shouldJustifyToTop ? 'justify-end min-h-full' : ''}` : 'py-4 pb-0 overflow-auto'}
                     onScroll={scrollContainerRef ? handleScroll : undefined}
                 >
                     <div ref={contentRef} className="mx-auto min-w-0 w-full max-w-3xl px-4 md:px-6">
@@ -736,9 +736,12 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         const messageContent = (() => {
                                             try {
                                                 const parsed = safeJsonParse<ParsedContent>(message.content, { content: message.content });
-                                                return parsed.content || message.content;
+                                                const content = parsed.content || message.content;
+                                                // Ensure we always return a string
+                                                return typeof content === 'string' ? content : String(content || '');
                                             } catch {
-                                                return message.content;
+                                                // Ensure message.content is a string
+                                                return typeof message.content === 'string' ? message.content : String(message.content || '');
                                             }
                                         })();
 
@@ -861,6 +864,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                     if (message.type === 'assistant') {
                                                                         const parsedContent = safeJsonParse<ParsedContent>(message.content, {});
                                                                         const msgKey = message.message_id || `submsg-assistant-${msgIndex}`;
+
 
                                                                         if (!parsedContent.content) return;
 

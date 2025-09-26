@@ -10,18 +10,20 @@ import { useState, useEffect } from 'react';
 import { useTrialStatus, useStartTrial } from '@/hooks/react-query/billing/use-trial-status';
 import { useSubscription } from '@/hooks/react-query/use-billing-v2';
 import { Skeleton } from '@/components/ui/skeleton';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import Link from 'next/link';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { createClient } from '@/lib/supabase/client';
 import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
 import { useMaintenanceNoticeQuery } from '@/hooks/react-query/edge-flags';
 import { MaintenanceAlert } from '@/components/maintenance-alert';
+import { useAuth } from '@/components/AuthProvider';
 
 export default function ActivateTrialPage() {
   const router = useRouter();
-  const { data: subscription, isLoading: isLoadingSubscription } = useSubscription();
-  const { data: trialStatus, isLoading: isLoadingTrial } = useTrialStatus();
+  const { user } = useAuth();
+  const { data: subscription, isLoading: isLoadingSubscription } = useSubscription(!!user);
+  const { data: trialStatus, isLoading: isLoadingTrial } = useTrialStatus(!!user);
   const startTrialMutation = useStartTrial();
   const { data: maintenanceNotice, isLoading: maintenanceLoading } = useMaintenanceNoticeQuery();
 
@@ -140,7 +142,7 @@ export default function ActivateTrialPage() {
         <CardHeader className="text-center space-y-4">
           <div>
             <CardTitle className="text-2xl font-bold flex items-center justify-center gap-2">
-              <KortixLogo/>
+              <OmniLogo size={32}/>
               <span>Welcome to Omni</span>
             </CardTitle>
             <CardDescription className="mt-2">
