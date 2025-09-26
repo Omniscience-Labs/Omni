@@ -33,6 +33,7 @@ from core.services import email_api
 from core.services import memory_api
 from core.triggers import api as triggers_api
 from core.services import api_keys_api
+from core.services import enterprise_billing_api
 
 
 if sys.platform == "win32":
