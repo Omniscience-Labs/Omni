@@ -26,6 +26,7 @@ export function KortixEnterpriseModal({
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const { resolvedTheme } = useTheme();
   const isDarkMode = resolvedTheme === 'dark';
+  const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
 
   // Use controlled or internal state
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
@@ -38,7 +39,7 @@ export function KortixEnterpriseModal({
     })();
   }, []);
 
-  const benefits = [
+  const salesBenefits = [
     "Dedicated solution architect assigned",
     "Enterprise-grade security & compliance",
     "Custom integration with existing systems",
@@ -49,6 +50,19 @@ export function KortixEnterpriseModal({
     "100% satisfaction guarantee"
   ];
 
+  const helpBenefits = [
+    "One-on-one technical support session",
+    "Platform walkthrough and best practices",
+    "Troubleshooting assistance",
+    "Feature guidance and recommendations",
+    "Account configuration help",
+    "Integration support and advice",
+    "Performance optimization tips",
+    "Direct access to our support team"
+  ];
+
+  const benefits = isEnterpriseMode ? helpBenefits : salesBenefits;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -56,7 +70,10 @@ export function KortixEnterpriseModal({
       </DialogTrigger>
       <DialogContent className="p-0 gap-0 border-none max-w-[90vw] lg:max-w-[80vw] xl:max-w-[70vw] rounded-xl overflow-hidden">
         <DialogTitle className="sr-only">
-          Enterprise AI Implementation - Schedule Consultation
+          {isEnterpriseMode 
+            ? 'Help & Support - Schedule Support Session'
+            : 'Enterprise AI Implementation - Schedule Consultation'
+          }
         </DialogTitle>
         <div className="grid grid-cols-1 lg:grid-cols-2 h-[700px] lg:h-[800px]">
           {/* Enhanced Info Panel */}
@@ -75,14 +92,22 @@ export function KortixEnterpriseModal({
               <div className="mb-6 flex-shrink-0">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 mb-4">
                   <div className="w-2 h-2 rounded-full bg-primary"></div>
-                  <span className="text-xs font-medium text-primary">Enterprise Implementation</span>
+                  <span className="text-xs font-medium text-primary">
+                    {isEnterpriseMode ? 'Help & Support' : 'Enterprise Implementation'}
+                  </span>
                 </div>
                 
                 <h2 className="text-2xl lg:text-3xl font-semibold tracking-tight mb-3 text-foreground">
-                  Let's Design Your Custom AI Solution
+                  {isEnterpriseMode 
+                    ? 'Get Personalized Help & Support' 
+                    : "Let's Design Your Custom AI Solution"
+                  }
                 </h2>
                 <p className="text-base lg:text-lg text-muted-foreground mb-6 leading-relaxed">
-                  Schedule a strategy session with our solution architects to explore how custom AI workers can transform your specific business processes and workflows.
+                  {isEnterpriseMode 
+                    ? 'Book a one-on-one session with our support team to get help with any questions, troubleshooting, or guidance you need with the platform.'
+                    : 'Schedule a strategy session with our solution architects to explore how custom AI workers can transform your specific business processes and workflows.'
+                  }
                 </p>
               </div>
 
@@ -104,10 +129,15 @@ export function KortixEnterpriseModal({
                 <div className="text-center space-y-2">
                   <div className="flex items-center justify-center gap-2 text-sm font-medium text-foreground">
                     <Calendar className="w-4 h-4 text-primary" />
-                    <span>Free Strategy Session</span>
+                    <span>
+                      {isEnterpriseMode ? 'Free Support Session' : 'Free Strategy Session'}
+                    </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    30-minute consultation • No commitment required
+                    {isEnterpriseMode 
+                      ? '30-minute help session • Get immediate assistance'
+                      : '30-minute consultation • No commitment required'
+                    }
                   </p>
                 </div>
               </div>
