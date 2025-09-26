@@ -793,6 +793,7 @@ export function PricingSection({
   const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
   const [isFetchingPlan, setIsFetchingPlan] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
 
   const fetchCurrentPlan = async () => {
     setIsFetchingPlan(true);
@@ -810,7 +811,6 @@ export function PricingSection({
     }
   };
 
-  const getDefaultBillingPeriod = useCallback(() => {
   const { user } = useAuth();
   const isUserAuthenticated = !!user;
 
