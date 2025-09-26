@@ -332,6 +332,17 @@ class ThreadManager:
             # Update generation tracking
             if generation:
                 try:
+                    # Convert tools to simple format for Langfuse (expects strings, not complex objects)
+                    tools_for_langfuse = None
+                    if openapi_tool_schemas:
+                        # Extract tool names from schema objects for Langfuse tracking
+                        tool_names = [
+                            tool.get("function", {}).get("name", "unknown_tool") 
+                            if isinstance(tool, dict) else str(tool)
+                            for tool in openapi_tool_schemas
+                        ]
+                        tools_for_langfuse = f"{len(tool_names)} tools: {', '.join(tool_names[:10])}" + ("..." if len(tool_names) > 10 else "")
+                    
                     generation.update(
                         input=prepared_messages,
                         start_time=datetime.now(timezone.utc),
@@ -342,7 +353,7 @@ class ThreadManager:
                             "enable_thinking": enable_thinking,
                             "reasoning_effort": reasoning_effort,
                             "tool_choice": tool_choice,
-                            "tools": openapi_tool_schemas,
+                            "tools": tools_for_langfuse,
                         }
                     )
                 except Exception as e:
