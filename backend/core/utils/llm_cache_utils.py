@@ -48,18 +48,19 @@ def format_message_with_cache(message: Dict[str, Any], model_name: str, min_char
     logger.debug(f"Checking message for caching: role={role}, content_length={content_length}, model={model_name}, resolved={resolved_model}")
     
     if any(provider in model_lower for provider in ['anthropic', 'claude', 'sonnet', 'haiku', 'opus']):
-        logger.info(f"🔥 ADDING cache_control for Anthropic model to {role} message ({len(content)} chars) - model: {resolved_model}")
-        return {
-            "role": role,
-            "content": [
-                {
-                    "type": "text",
-                    "text": content,
-                    "cache_control": {"type": "ephemeral",
-                                      "ttl": "1h"}
-                }
-            ]
-        }
+        logger.info(f"🔥 SKIPPING cache_control for Anthropic model for {role} message ({len(content)} chars) - model: {resolved_model} (caching disabled)")
+        return message
+        # Keeping the old cache logic for reference (disabled):
+        # return {
+        #     "role": role,
+        #     "content": [
+        #         {
+        #             "type": "text",
+        #             "text": content,
+        #             "cache_control": {"type": "ephemeral"}
+        #         }
+        #     ]
+        # }
     
     elif any(provider in model_lower for provider in ['gpt', 'openai', 'deepseek', 'o1', 'o3']):
         logger.debug(f"Message ready for automatic caching in {resolved_model} ({len(content)} chars)")
@@ -77,11 +78,14 @@ def apply_cache_to_messages(messages: List[Dict[str, Any]], model_name: str,
     resolved_model = get_resolved_model_id(model_name)
     model_lower = resolved_model.lower()
     
-    if not any(provider in model_lower for provider in ['anthropic', 'claude', 'sonnet', 'haiku', 'opus']):
-        logger.debug(f"Model {resolved_model} doesn't need cache_control blocks")
-        return messages
+    # Caching disabled - return messages as-is while keeping logic intact
+    logger.info(f"📊 apply_cache_to_messages called with {len(messages)} messages for model: {model_name} (resolved: {resolved_model}) - CACHING DISABLED")
+    return messages
     
-    logger.info(f"📊 apply_cache_to_messages called with {len(messages)} messages for model: {model_name} (resolved: {resolved_model})")
+    # Original caching logic preserved but disabled:
+    # if not any(provider in model_lower for provider in ['anthropic', 'claude', 'sonnet', 'haiku', 'opus']):
+    #     logger.debug(f"Model {resolved_model} doesn't need cache_control blocks")
+    #     return messages
     
     formatted_messages = []
     cache_count = 0
