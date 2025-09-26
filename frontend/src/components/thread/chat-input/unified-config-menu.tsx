@@ -18,7 +18,6 @@ import { Cpu, Search, Check, ChevronDown, Plus, ExternalLink, Loader2 } from 'lu
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { OmniLogo } from '@/components/sidebar/omni-logo';
 import type { ModelOption } from '@/hooks/use-model-selection';
-import type { SubscriptionStatus } from '@/lib/api';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { IntegrationsRegistry } from '@/components/agents/integrations-registry';
@@ -42,7 +41,7 @@ type UnifiedConfigMenuProps = {
     selectedModel: string;
     onModelChange: (modelId: string) => void;
     modelOptions: ModelOption[];
-    subscriptionStatus: SubscriptionStatus;
+    subscriptionStatus: 'active' | 'no_subscription';
     canAccessModel: (modelId: string) => boolean;
     refreshCustomModels?: () => void;
     onUpgradeRequest?: () => void;
