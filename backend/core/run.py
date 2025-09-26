@@ -71,6 +71,8 @@ class AgentConfig:
     agent_config: Optional[dict] = None
     trace: Optional[StatefulTraceClient] = None
     enable_prompt_caching: bool = True
+    is_agent_builder: Optional[bool] = False
+    target_agent_id: Optional[str] = None
 
 
 class ToolManager:
