@@ -509,6 +509,33 @@ class ResponseProcessor:
             # Note: cache_metrics is now None since we removed the probe
             # All cache data should be captured directly from streaming chunks above
             
+            # For Anthropic models, wait a bit for usage data since it often arrives in final chunks
+            is_anthropic = any(provider in llm_model.lower() for provider in ['anthropic', 'claude', 'sonnet', 'haiku', 'opus'])
+            
+            if (is_anthropic and 
+                streaming_metadata["usage"]["total_tokens"] == 0 and 
+                streaming_metadata["usage"]["prompt_tokens"] == 0 and 
+                streaming_metadata["usage"]["completion_tokens"] == 0):
+                
+                logger.info("⏳ ANTHROPIC TOKEN WAIT: Waiting for usage data from Anthropic...")
+                
+                # Wait up to 2 seconds for Anthropic usage data
+                max_wait_time = 2.0
+                wait_interval = 0.1
+                waited_time = 0.0
+                
+                while (waited_time < max_wait_time and 
+                       streaming_metadata["usage"]["total_tokens"] == 0 and 
+                       streaming_metadata["usage"]["prompt_tokens"] == 0 and 
+                       streaming_metadata["usage"]["completion_tokens"] == 0):
+                    await asyncio.sleep(wait_interval)
+                    waited_time += wait_interval
+                
+                if streaming_metadata["usage"]["total_tokens"] > 0:
+                    logger.info(f"✅ ANTHROPIC DELAYED DATA: Got usage after {waited_time:.1f}s wait - prompt={streaming_metadata['usage']['prompt_tokens']}, completion={streaming_metadata['usage']['completion_tokens']}")
+                else:
+                    logger.warning(f"⚠️ ANTHROPIC TIMEOUT: No usage data after {waited_time:.1f}s wait, falling back to estimation")
+            
             # DEBUG: Log what token data we actually have before deciding to estimate
             logger.info(f"🔍 TOKEN DATA CHECK: total={streaming_metadata['usage']['total_tokens']}, prompt={streaming_metadata['usage']['prompt_tokens']}, completion={streaming_metadata['usage']['completion_tokens']}")
             
