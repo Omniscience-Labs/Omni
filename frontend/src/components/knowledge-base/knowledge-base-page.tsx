@@ -268,6 +268,10 @@ export function KnowledgeBasePage() {
 
     const { folders, recentFiles, loading: foldersLoading, refetch: refetchFolders } = useKnowledgeFolders();
 
+    const handleTabChange = (value: string) => {
+        setActiveTab(value as 'documents' | 'llamacloud');
+    };
+
     const handleFileSelect = (item: TreeItem) => {
         if (item.type === 'file' && item.data && 'entry_id' in item.data) {
             setFilePreviewModal({
@@ -913,7 +917,7 @@ export function KnowledgeBasePage() {
                 <div className="container mx-auto max-w-7xl px-4 py-2">
                     <div className="w-full min-h-[calc(100vh-300px)]">
                         
-                        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'documents' | 'llamacloud')}>
+                        <Tabs value={activeTab} onValueChange={handleTabChange}>
                             <div className="flex justify-between items-start mb-8">
                                 <div className="space-y-4">
                                     <div className="space-y-1">
