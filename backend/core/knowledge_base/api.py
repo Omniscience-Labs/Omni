@@ -69,12 +69,7 @@ class UnifiedKnowledgeBaseEntry(BaseModel):
     # Fields for LlamaCloud KB entries
     index_name: Optional[str] = None
 
-class UnifiedKnowledgeBaseListResponse(BaseModel):
-    regular_entries: List[KnowledgeBaseEntryResponse]
-    llamacloud_entries: List[LlamaCloudKnowledgeBaseResponse]
-    total_regular_count: int
-    total_llamacloud_count: int
-    total_tokens: Optional[int] = None
+# Note: UnifiedKnowledgeBaseListResponse moved after KnowledgeBaseEntryResponse definition
 
 def format_knowledge_base_name(name: str) -> str:
     """Format knowledge base name for tool function generation."""
@@ -307,6 +302,13 @@ class KnowledgeBaseEntryResponse(BaseModel):
     source_metadata: Optional[dict] = None
     file_size: Optional[int] = None
     file_mime_type: Optional[str] = None
+
+class UnifiedKnowledgeBaseListResponse(BaseModel):
+    regular_entries: List[KnowledgeBaseEntryResponse]
+    llamacloud_entries: List[LlamaCloudKnowledgeBaseResponse]
+    total_regular_count: int
+    total_llamacloud_count: int
+    total_tokens: Optional[int] = None
 
 class KnowledgeBaseListResponse(BaseModel):
     entries: List[KnowledgeBaseEntryResponse]
