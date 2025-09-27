@@ -25,6 +25,7 @@ from core.sandbox import api as sandbox_api
 from core.billing.api import router as billing_router
 from core.billing.admin import router as billing_admin_router
 from core.admin.users_admin import router as users_admin_router
+from core.services import enterprise_billing_api
 from core.services import transcription as transcription_api
 import sys
 from core.services import email_api
