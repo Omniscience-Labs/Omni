@@ -403,31 +403,31 @@ export function KnowledgeBasePage() {
             </div>
 
                 {/* Modals */}
-                <KBDeleteConfirmDialog
-                    isOpen={deleteConfirm.isOpen}
-                    onClose={() => setDeleteConfirm({ isOpen: false, item: null, isDeleting: false })}
-                onConfirm={() => console.log('Delete confirmed')}
-                    itemName={deleteConfirm.item?.name || ''}
-                    itemType={deleteConfirm.item?.type || 'file'}
-                    isDeleting={deleteConfirm.isDeleting}
-                />
+            <KBDeleteConfirmDialog
+                isOpen={deleteConfirm.isOpen}
+                onClose={() => setDeleteConfirm({ isOpen: false, item: null, isDeleting: false })}
+                onConfirm={async () => console.log('Delete confirmed')}
+                itemName={deleteConfirm.item?.name || ''}
+                itemType={deleteConfirm.item?.type || 'file'}
+                isDeleting={deleteConfirm.isDeleting}
+            />
 
-                <EditSummaryModal
-                    isOpen={editSummaryModal.isOpen}
-                    onClose={() => setEditSummaryModal({ isOpen: false, fileId: '', fileName: '', currentSummary: '' })}
-                onSave={() => console.log('Summary saved')}
-                    fileName={editSummaryModal.fileName}
-                    currentSummary={editSummaryModal.currentSummary}
-                isSaving={false}
-                />
+            <EditSummaryModal
+                isOpen={editSummaryModal.isOpen}
+                onClose={() => setEditSummaryModal({ isOpen: false, fileId: '', fileName: '', currentSummary: '' })}
+                onSave={async (summary: string) => console.log('Summary saved:', summary)}
+                fileName={editSummaryModal.fileName}
+                currentSummary={editSummaryModal.currentSummary}
+            />
 
-                    <KBFilePreviewModal
-                        isOpen={filePreviewModal.isOpen}
-                        onClose={() => setFilePreviewModal({ isOpen: false, file: null })}
-                        file={filePreviewModal.file}
-                onEdit={() => console.log('Edit file')}
-                onDelete={() => console.log('Delete file')}
-                    />
+            {filePreviewModal.file && (
+                <KBFilePreviewModal
+                    isOpen={filePreviewModal.isOpen}
+                    onClose={() => setFilePreviewModal({ isOpen: false, file: null })}
+                    file={filePreviewModal.file}
+                    onEditSummary={(fileId: string, fileName: string, summary: string) => console.log('Edit summary:', fileId, fileName, summary)}
+                />
+            )}
         </div>
     );
 }
