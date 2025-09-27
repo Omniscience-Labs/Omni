@@ -25,7 +25,16 @@ from core.sandbox import api as sandbox_api
 from core.billing.api import router as billing_router
 from core.billing.admin import router as billing_admin_router
 from core.admin.users_admin import router as users_admin_router
-from core.services import enterprise_billing_api
+
+# Import enterprise billing API with error handling
+enterprise_billing_api = None
+try:
+    from core.services import enterprise_billing_api as _enterprise_billing_api
+    enterprise_billing_api = _enterprise_billing_api
+except ImportError as e:
+    logger.warning(f"Failed to import enterprise_billing_api: {e}")
+    enterprise_billing_api = None
+
 from core.services import transcription as transcription_api
 import sys
 from core.services import email_api
@@ -164,8 +173,13 @@ api_router.include_router(sandbox_api.router)
 
 # Use enterprise billing API when ENTERPRISE_MODE is enabled, otherwise use Stripe billing
 if config.ENTERPRISE_MODE:
-    api_router.include_router(enterprise_billing_api.router)
-    logger.info("Enterprise billing API enabled")
+    if enterprise_billing_api is not None:
+        api_router.include_router(enterprise_billing_api.router)
+        logger.info("Enterprise billing API enabled")
+    else:
+        logger.error("Enterprise mode is enabled but enterprise_billing_api failed to import. Falling back to Stripe billing.")
+        api_router.include_router(billing_router)
+        logger.info("Stripe billing API enabled (fallback)")
 else:
     api_router.include_router(billing_router)
     logger.info("Stripe billing API enabled")
@@ -201,8 +215,11 @@ from core.admin import api as admin_api
 api_router.include_router(admin_api.router)
 
 # Enterprise admin API - always load but endpoints check ENTERPRISE_MODE internally
-from core.services import enterprise_admin_api
-api_router.include_router(enterprise_admin_api.router)
+try:
+    from core.services import enterprise_admin_api
+    api_router.include_router(enterprise_admin_api.router)
+except ImportError as e:
+    logger.warning(f"Failed to import enterprise_admin_api: {e}. Skipping enterprise admin routes.")
 
 from core.composio_integration import api as composio_api
 api_router.include_router(composio_api.router)
