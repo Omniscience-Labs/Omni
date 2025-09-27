@@ -33,18 +33,8 @@ class SandboxImageSearchTool(SandboxToolsBase):
                 "type": "object",
                 "properties": {
                     "query": {
-                        "oneOf": [
-                            {
-                                "type": "string",
-                                "description": "Single search query. Be specific about what kind of images you're looking for (e.g., 'cats playing', 'mountain landscape', 'modern architecture')"
-                            },
-                            {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "Multiple search queries for batch processing. More efficient for multiple searches (e.g., ['cats', 'dogs', 'birds'])"
-                            }
-                        ],
-                        "description": "Search query or queries. Single string for one search, array of strings for batch search."
+                        "type": "string",
+                        "description": "Search query for images. Be specific about what kind of images you're looking for (e.g., 'cats playing', 'mountain landscape', 'modern architecture'). For multiple searches, use comma-separated values or call the function multiple times."
                     },
                     "num_results": {
                         "type": "integer",
