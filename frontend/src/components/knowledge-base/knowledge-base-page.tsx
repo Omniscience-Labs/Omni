@@ -20,7 +20,6 @@ import {
     ChevronDownIcon,
     ChevronRightIcon,
     MoreVerticalIcon,
-    FileText,
     Database
 } from 'lucide-react';
 import { KnowledgeBasePageHeader } from './knowledge-base-header';
@@ -51,12 +50,6 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-    Tabs,
-    TabsContent,
-    TabsList,
-    TabsTrigger,
-} from '@/components/ui/tabs';
 import { SharedTreeItem, FileDragOverlay } from '@/components/knowledge-base/shared-kb-tree';
 import { KBFilePreviewModal } from './kb-file-preview-modal';
 
@@ -208,9 +201,6 @@ const useKnowledgeFolders = () => {
 };
 
 export function KnowledgeBasePage() {
-    // Tab state
-    const [activeTab, setActiveTab] = useState<'documents' | 'llamacloud'>('documents');
-    
     const [treeData, setTreeData] = useState<TreeItem[]>([]);
     const [folderEntries, setFolderEntries] = useState<{ [folderId: string]: Entry[] }>({});
     const [loadingFolders, setLoadingFolders] = useState<{ [folderId: string]: boolean }>({});
@@ -268,8 +258,12 @@ export function KnowledgeBasePage() {
 
     const { folders, recentFiles, loading: foldersLoading, refetch: refetchFolders } = useKnowledgeFolders();
 
-    const handleTabChange = (value: string) => {
-        setActiveTab(value as 'documents' | 'llamacloud');
+    const handleCreateFolder = () => {
+        console.log('Create folder clicked');
+    };
+
+    const handleAddCloudKB = () => {
+        console.log('Add Cloud Knowledge Base clicked');
     };
 
     if (foldersLoading) {
@@ -315,127 +309,125 @@ export function KnowledgeBasePage() {
                 </div>
                 <div className="container mx-auto max-w-7xl px-4 py-2">
                     <div className="w-full min-h-[calc(100vh-300px)]">
-                        
-                        <Tabs value={activeTab} onValueChange={handleTabChange}>
-                            <div className="flex justify-between items-start mb-8">
-                                <div className="space-y-4">
-                                    <div className="space-y-1">
-                                        <h2 className="text-xl font-semibold text-foreground">Knowledge Base</h2>
-                                        <p className="text-sm text-muted-foreground">
-                                            Upload and organize your documents to enhance AI conversations
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <TabsList>
-                                            <TabsTrigger value="documents" className="flex items-center gap-2">
-                                                <FileText className="h-4 w-4" />
-                                                Documents
-                                            </TabsTrigger>
-                                            <TabsTrigger value="llamacloud" className="flex items-center gap-2">
-                                                <Database className="h-4 w-4" />
-                                                LlamaCloud
-                                            </TabsTrigger>
-                                        </TabsList>
-                                    </div>
-                                </div>
-                                <div className="flex gap-3">
-                                    <Button variant="outline">
-                                        <UploadIcon className="mr-2 h-4 w-4" />
-                                        Upload Files
-                                    </Button>
-                                    <Button variant="outline">
-                                        <FolderPlusIcon className="mr-2 h-4 w-4" />
-                                        Create Folder
-                                    </Button>
-                                </div>
+                        {/* Header Section */}
+                        <div className="flex justify-between items-start mb-8">
+                            <div className="space-y-1">
+                                <h2 className="text-xl font-semibold text-foreground">Knowledge Base</h2>
+                                <p className="text-sm text-muted-foreground">
+                                    Organize documents and files for AI agents to search and reference
+                                </p>
                             </div>
+                            <div className="flex gap-3">
+                                <Button variant="outline" onClick={handleAddCloudKB}>
+                                    <Database className="h-4 w-4 mr-2" />
+                                    Cloud Knowledge Base
+                                </Button>
+                                <Button variant="outline" onClick={handleCreateFolder}>
+                                    <FolderPlusIcon className="h-4 w-4 mr-2" />
+                                    New Folder
+                                </Button>
+                                <FileUploadModal
+                                    folders={folders}
+                                    onUploadComplete={refetchFolders}
+                                />
+                            </div>
+                        </div>
 
-                            <TabsContent value="documents" className="space-y-8 mt-6">
-                                {/* Recent Files Section */}
-                                {recentFiles && recentFiles.length > 0 && (
-                                    <div className="space-y-6">
-                                        <div className="space-y-2">
-                                            <h3 className="text-lg font-medium text-foreground">Recent Files</h3>
-                                            <p className="text-sm text-muted-foreground">Recently uploaded documents</p>
-                                        </div>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-8">
-                                            {recentFiles.slice(0, 6).map((file) => {
-                                                const fileInfo = getFileTypeInfo(file.filename);
-                                                return (
-                                                    <div
-                                                        key={file.entry_id}
-                                                        className="group cursor-pointer"
-                                                        onClick={() => setFilePreviewModal({
-                                                            isOpen: true,
-                                                            file: file,
-                                                        })}
-                                                    >
-                                                        <div className="p-4 border border-border rounded-lg hover:shadow-md hover:border-border/80 transition-all duration-200">
-                                                            <div className="space-y-3">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${fileInfo.colorClass}`}>
-                                                                        {fileInfo.extension}
-                                                                    </div>
+                        {/* Main Content */}
+                        <div className="space-y-8">
+                            {/* Recent Files Section */}
+                            {recentFiles && recentFiles.length > 0 && (
+                                <div className="space-y-6">
+                                    <div className="space-y-2">
+                                        <h3 className="text-lg font-medium text-foreground">Recent Files</h3>
+                                        <p className="text-sm text-muted-foreground">Recently uploaded documents</p>
+                                    </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-8">
+                                        {recentFiles.slice(0, 6).map((file) => {
+                                            const fileInfo = getFileTypeInfo(file.filename);
+                                            return (
+                                                <div
+                                                    key={file.entry_id}
+                                                    className="group cursor-pointer"
+                                                    onClick={() => setFilePreviewModal({
+                                                        isOpen: true,
+                                                        file: file,
+                                                    })}
+                                                >
+                                                    <div className="p-4 border border-border rounded-lg hover:shadow-md hover:border-border/80 transition-all duration-200">
+                                                        <div className="space-y-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${fileInfo.colorClass}`}>
+                                                                    {fileInfo.extension}
                                                                 </div>
-                                                                
-                                                                <div className="space-y-1">
-                                                                    <p className="text-xs font-medium text-foreground truncate" title={file.filename}>
-                                                                        {file.filename}
-                                                                    </p>
-                                                                    <p className="text-xs text-muted-foreground">
-                                                                        {formatDate(file.created_at)}
-                                                                    </p>
-                                                                </div>
+                                                            </div>
+                                                            
+                                                            <div className="space-y-1">
+                                                                <p className="text-xs font-medium text-foreground truncate" title={file.filename}>
+                                                                    {file.filename}
+                                                                </p>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    {formatDate(file.created_at)}
+                                                                </p>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                )}
+                                </div>
+                            )}
 
-                                {/* Empty State */}
-                                {(!folders || folders.length === 0) && !foldersLoading && (
-                                    <div className="text-center py-16 space-y-6">
-                                        <div className="mx-auto w-24 h-24 bg-muted/50 rounded-full flex items-center justify-center">
-                                            <FolderIcon className="h-12 w-12 text-muted-foreground/50" />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <h3 className="text-lg font-semibold text-foreground">No folders yet</h3>
-                                            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                                                Create your first folder to start organizing your documents and files.
-                                            </p>
-                                        </div>
-                                        <Button size="lg">
-                                            <FolderPlusIcon className="mr-2 h-5 w-5" />
-                                            Create First Folder
-                                        </Button>
-                                    </div>
-                                )}
-                            </TabsContent>
-
-                            <TabsContent value="llamacloud" className="space-y-8 mt-6">
+                            {/* Empty State */}
+                            {(!folders || folders.length === 0) && !foldersLoading && (
                                 <div className="text-center py-16 space-y-6">
                                     <div className="mx-auto w-24 h-24 bg-muted/50 rounded-full flex items-center justify-center">
-                                        <Database className="h-12 w-12 text-muted-foreground/50" />
-                                    </div>
+                                        <FolderIcon className="h-12 w-12 text-muted-foreground/50" />
+                                            </div>
                                     <div className="space-y-2">
-                                        <h3 className="text-lg font-semibold text-foreground">LlamaCloud Integration</h3>
+                                        <h3 className="text-lg font-semibold text-foreground">No folders yet</h3>
                                         <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                                            Connect to LlamaCloud to access advanced document processing and indexing capabilities.
+                                            Create your first folder to start organizing your documents and files.
                                         </p>
                                     </div>
-                                    <Button variant="outline" size="lg">
-                                        <Database className="mr-2 h-5 w-5" />
-                                        Connect LlamaCloud
+                                    <Button size="lg" onClick={handleCreateFolder}>
+                                        <FolderPlusIcon className="mr-2 h-5 w-5" />
+                                        Create First Folder
                                     </Button>
                                 </div>
-                            </TabsContent>
-                        </Tabs>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
+
+                {/* Modals */}
+                <KBDeleteConfirmDialog
+                    isOpen={deleteConfirm.isOpen}
+                    onClose={() => setDeleteConfirm({ isOpen: false, item: null, isDeleting: false })}
+                onConfirm={() => console.log('Delete confirmed')}
+                    itemName={deleteConfirm.item?.name || ''}
+                    itemType={deleteConfirm.item?.type || 'file'}
+                    isDeleting={deleteConfirm.isDeleting}
+                />
+
+                <EditSummaryModal
+                    isOpen={editSummaryModal.isOpen}
+                    onClose={() => setEditSummaryModal({ isOpen: false, fileId: '', fileName: '', currentSummary: '' })}
+                onSave={() => console.log('Summary saved')}
+                    fileName={editSummaryModal.fileName}
+                    currentSummary={editSummaryModal.currentSummary}
+                isSaving={false}
+                />
+
+                    <KBFilePreviewModal
+                        isOpen={filePreviewModal.isOpen}
+                        onClose={() => setFilePreviewModal({ isOpen: false, file: null })}
+                        file={filePreviewModal.file}
+                onEdit={() => console.log('Edit file')}
+                onDelete={() => console.log('Delete file')}
+                    />
         </div>
     );
 }
