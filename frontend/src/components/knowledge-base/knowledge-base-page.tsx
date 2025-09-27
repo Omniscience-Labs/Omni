@@ -20,7 +20,8 @@ import {
     ChevronDownIcon,
     ChevronRightIcon,
     MoreVerticalIcon,
-    Database
+    Database,
+    Loader2
 } from 'lucide-react';
 import { KnowledgeBasePageHeader } from './knowledge-base-header';
 import {
@@ -50,6 +51,15 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { SharedTreeItem, FileDragOverlay } from '@/components/knowledge-base/shared-kb-tree';
 import { KBFilePreviewModal } from './kb-file-preview-modal';
 
@@ -212,6 +222,34 @@ export function KnowledgeBasePage() {
     const [activeId, setActiveId] = useState<string | null>(null);
     const editInputRef = useRef<HTMLInputElement>(null);
 
+    // Create folder dialog state
+    const [createFolderDialog, setCreateFolderDialog] = useState<{
+        isOpen: boolean;
+        name: string;
+        description: string;
+        isCreating: boolean;
+    }>({
+        isOpen: false,
+        name: '',
+        description: '',
+        isCreating: false,
+    });
+
+    // Cloud KB dialog state  
+    const [cloudKBDialog, setCloudKBDialog] = useState<{
+        isOpen: boolean;
+        name: string;
+        indexName: string;
+        description: string;
+        isCreating: boolean;
+    }>({
+        isOpen: false,
+        name: '',
+        indexName: '',
+        description: '',
+        isCreating: false,
+    });
+
     // Delete confirmation state
     const [deleteConfirm, setDeleteConfirm] = useState<{
         isOpen: boolean;
@@ -259,11 +297,92 @@ export function KnowledgeBasePage() {
     const { folders, recentFiles, loading: foldersLoading, refetch: refetchFolders } = useKnowledgeFolders();
 
     const handleCreateFolder = () => {
-        console.log('Create folder clicked');
+        setCreateFolderDialog({
+                isOpen: true,
+            name: '',
+            description: '',
+            isCreating: false,
+        });
     };
 
     const handleAddCloudKB = () => {
-        console.log('Add Cloud Knowledge Base clicked');
+        setCloudKBDialog({
+            isOpen: true,
+            name: '',
+            indexName: '',
+            description: '',
+            isCreating: false,
+        });
+    };
+
+    const createFolder = async () => {
+        if (!createFolderDialog.name.trim()) return;
+
+        setCreateFolderDialog(prev => ({ ...prev, isCreating: true }));
+        
+        try {
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session?.access_token) {
+                toast.error('Please log in to create folders');
+                return;
+            }
+
+            const response = await fetch(`${API_URL}/knowledge-base/folders`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: createFolderDialog.name.trim(),
+                    description: createFolderDialog.description.trim() || null,
+                }),
+            });
+
+            if (response.ok) {
+                toast.success('Folder created successfully');
+                setCreateFolderDialog({
+                    isOpen: false,
+                    name: '',
+                    description: '',
+                    isCreating: false,
+                });
+                refetchFolders();
+            } else {
+                const error = await response.text();
+                toast.error(`Failed to create folder: ${error}`);
+            }
+        } catch (error) {
+            toast.error('Failed to create folder');
+            console.error('Create folder error:', error);
+        } finally {
+            setCreateFolderDialog(prev => ({ ...prev, isCreating: false }));
+        }
+    };
+
+    const createCloudKB = async () => {
+        if (!cloudKBDialog.name.trim() || !cloudKBDialog.indexName.trim()) return;
+
+        setCloudKBDialog(prev => ({ ...prev, isCreating: true }));
+        
+        try {
+            // For now, just show a placeholder message
+            toast.info('Cloud Knowledge Base functionality coming soon');
+            setCloudKBDialog({
+                isOpen: false,
+                name: '',
+                indexName: '',
+                description: '',
+                isCreating: false,
+            });
+        } catch (error) {
+            toast.error('Failed to create cloud knowledge base');
+            console.error('Create cloud KB error:', error);
+        } finally {
+            setCloudKBDialog(prev => ({ ...prev, isCreating: false }));
+        }
     };
 
     if (foldersLoading) {
@@ -403,22 +522,22 @@ export function KnowledgeBasePage() {
             </div>
 
                 {/* Modals */}
-            <KBDeleteConfirmDialog
-                isOpen={deleteConfirm.isOpen}
-                onClose={() => setDeleteConfirm({ isOpen: false, item: null, isDeleting: false })}
+                <KBDeleteConfirmDialog
+                    isOpen={deleteConfirm.isOpen}
+                    onClose={() => setDeleteConfirm({ isOpen: false, item: null, isDeleting: false })}
                 onConfirm={async () => console.log('Delete confirmed')}
-                itemName={deleteConfirm.item?.name || ''}
-                itemType={deleteConfirm.item?.type || 'file'}
-                isDeleting={deleteConfirm.isDeleting}
-            />
+                    itemName={deleteConfirm.item?.name || ''}
+                    itemType={deleteConfirm.item?.type || 'file'}
+                    isDeleting={deleteConfirm.isDeleting}
+                />
 
-            <EditSummaryModal
-                isOpen={editSummaryModal.isOpen}
-                onClose={() => setEditSummaryModal({ isOpen: false, fileId: '', fileName: '', currentSummary: '' })}
+                <EditSummaryModal
+                    isOpen={editSummaryModal.isOpen}
+                    onClose={() => setEditSummaryModal({ isOpen: false, fileId: '', fileName: '', currentSummary: '' })}
                 onSave={async (summary: string) => console.log('Summary saved:', summary)}
-                fileName={editSummaryModal.fileName}
-                currentSummary={editSummaryModal.currentSummary}
-            />
+                    fileName={editSummaryModal.fileName}
+                    currentSummary={editSummaryModal.currentSummary}
+                />
 
             {filePreviewModal.file && (
                 <KBFilePreviewModal
@@ -428,6 +547,118 @@ export function KnowledgeBasePage() {
                     onEditSummary={(fileId: string, fileName: string, summary: string) => console.log('Edit summary:', fileId, fileName, summary)}
                 />
             )}
+
+            {/* Create Folder Dialog */}
+            <Dialog open={createFolderDialog.isOpen} onOpenChange={(open) => setCreateFolderDialog(prev => ({ ...prev, isOpen: open }))}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <FolderPlusIcon className="h-5 w-5" />
+                            Create New Folder
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <Label htmlFor="folder-name">Folder Name</Label>
+                            <Input
+                                id="folder-name"
+                                placeholder="Enter folder name..."
+                                value={createFolderDialog.name}
+                                onChange={(e) => setCreateFolderDialog(prev => ({ ...prev, name: e.target.value }))}
+                                disabled={createFolderDialog.isCreating}
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="folder-description">Description (Optional)</Label>
+                            <Textarea
+                                id="folder-description"
+                                placeholder="Brief description of this folder..."
+                                value={createFolderDialog.description}
+                                onChange={(e) => setCreateFolderDialog(prev => ({ ...prev, description: e.target.value }))}
+                                disabled={createFolderDialog.isCreating}
+                                rows={3}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setCreateFolderDialog(prev => ({ ...prev, isOpen: false }))}
+                            disabled={createFolderDialog.isCreating}
+                        >
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={createFolder}
+                            disabled={!createFolderDialog.name.trim() || createFolderDialog.isCreating}
+                        >
+                            {createFolderDialog.isCreating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                            Create Folder
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Cloud Knowledge Base Dialog */}
+            <Dialog open={cloudKBDialog.isOpen} onOpenChange={(open) => setCloudKBDialog(prev => ({ ...prev, isOpen: open }))}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Database className="h-5 w-5" />
+                            Add Cloud Knowledge Base
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <Label htmlFor="kb-name">Knowledge Base Name</Label>
+                            <Input
+                                id="kb-name"
+                                placeholder="e.g., Documentation"
+                                value={cloudKBDialog.name}
+                                onChange={(e) => setCloudKBDialog(prev => ({ ...prev, name: e.target.value }))}
+                                disabled={cloudKBDialog.isCreating}
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="kb-index">LlamaCloud Index Name</Label>
+                            <Input
+                                id="kb-index"
+                                placeholder="Enter your LlamaCloud index identifier..."
+                                value={cloudKBDialog.indexName}
+                                onChange={(e) => setCloudKBDialog(prev => ({ ...prev, indexName: e.target.value }))}
+                                disabled={cloudKBDialog.isCreating}
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="kb-description">Description (Optional)</Label>
+                            <Textarea
+                                id="kb-description"
+                                placeholder="What information does this knowledge base contain?"
+                                value={cloudKBDialog.description}
+                                onChange={(e) => setCloudKBDialog(prev => ({ ...prev, description: e.target.value }))}
+                                disabled={cloudKBDialog.isCreating}
+                                rows={3}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setCloudKBDialog(prev => ({ ...prev, isOpen: false }))}
+                            disabled={cloudKBDialog.isCreating}
+                        >
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={createCloudKB}
+                            disabled={!cloudKBDialog.name.trim() || !cloudKBDialog.indexName.trim() || cloudKBDialog.isCreating}
+                        >
+                            {cloudKBDialog.isCreating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                            Add Knowledge Base
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
