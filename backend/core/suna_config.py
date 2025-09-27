@@ -4,7 +4,7 @@ from core.prompts.prompt import SYSTEM_PROMPT
 SUNA_CONFIG = {
     "name": "Suna",
     "description": "Suna is your AI assistant with access to various tools and integrations to help you with tasks across domains.",
-    "model": "Claude Sonnet 4",
+    "model": "GPT-5",
     "system_prompt": SYSTEM_PROMPT,
     "configured_mcps": [],
     "custom_mcps": [],

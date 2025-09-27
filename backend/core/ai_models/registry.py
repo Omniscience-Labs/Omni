@@ -1,8 +1,8 @@
 from typing import Dict, List, Optional, Set
 from .ai_models import Model, ModelProvider, ModelCapability, ModelPricing
 
-DEFAULT_FREE_MODEL = "Claude Sonnet 4"
-DEFAULT_PREMIUM_MODEL = "Claude Sonnet 4"
+DEFAULT_FREE_MODEL = "GPT-5"
+DEFAULT_PREMIUM_MODEL = "GPT-5"
 
 class ModelRegistry:
     def __init__(self):
@@ -74,10 +74,10 @@ class ModelRegistry:
         # ))
         
         self.register(Model(
-            id="openai/gpt-5",
+            id="openrouter/openai/gpt-5",
             name="GPT-5",
-            provider=ModelProvider.OPENAI,
-            aliases=["gpt-5", "GPT-5"],
+            provider=ModelProvider.OPENROUTER,
+            aliases=["gpt-5", "GPT-5", "openrouter/openai/gpt-5"],
             context_window=400_000,
             capabilities=[
                 ModelCapability.CHAT,
