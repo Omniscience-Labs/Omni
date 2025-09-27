@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client';
 import { getSandboxFileContent } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { FileNameValidator } from '@/lib/validation';
 import {
     FolderIcon,
@@ -143,6 +144,7 @@ interface TreeItem {
 const useKnowledgeFolders = () => {
     const [folders, setFolders] = useState<Folder[]>([]);
     const [recentFiles, setRecentFiles] = useState<Entry[]>([]);
+    const [llamacloudKBs, setLlamacloudKBs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     const fetchFolders = async () => {
@@ -196,6 +198,26 @@ const useKnowledgeFolders = () => {
             );
 
             setFolders(foldersWithCounts);
+
+            // Fetch global LlamaCloud knowledge bases
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.access_token) {
+                try {
+                    const kbResponse = await fetch(`${API_URL}/knowledge-base/llamacloud`, {
+                        headers: {
+                            'Authorization': `Bearer ${session.access_token}`,
+                            'Content-Type': 'application/json',
+                        },
+                    });
+                    
+                    if (kbResponse.ok) {
+                        const kbData = await kbResponse.json();
+                        setLlamacloudKBs(kbData.knowledge_bases || []);
+                    }
+                } catch (kbError) {
+                    console.error('Failed to fetch LlamaCloud KBs:', kbError);
+                }
+            }
         } catch (error) {
             console.error('Failed to fetch folders:', error);
         } finally {
@@ -207,7 +229,7 @@ const useKnowledgeFolders = () => {
         fetchFolders();
     }, []);
 
-    return { folders, recentFiles, loading, refetch: fetchFolders };
+    return { folders, recentFiles, llamacloudKBs, loading, refetch: fetchFolders };
 };
 
 export function KnowledgeBasePage() {
@@ -294,7 +316,7 @@ export function KnowledgeBasePage() {
         file: null,
     });
 
-    const { folders, recentFiles, loading: foldersLoading, refetch: refetchFolders } = useKnowledgeFolders();
+    const { folders, recentFiles, llamacloudKBs, loading: foldersLoading, refetch: refetchFolders } = useKnowledgeFolders();
 
     const handleCreateFolder = () => {
         setCreateFolderDialog({
@@ -366,17 +388,43 @@ export function KnowledgeBasePage() {
         if (!cloudKBDialog.name.trim() || !cloudKBDialog.indexName.trim()) return;
 
         setCloudKBDialog(prev => ({ ...prev, isCreating: true }));
-        
+
         try {
-            // For now, just show a placeholder message
-            toast.info('Cloud Knowledge Base functionality coming soon');
-            setCloudKBDialog({
-                isOpen: false,
-                name: '',
-                indexName: '',
-                description: '',
-                isCreating: false,
-            });
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session?.access_token) {
+                toast.error('Please log in to create cloud knowledge bases');
+            return;
+        }
+
+            const response = await fetch(`${API_URL}/knowledge-base/llamacloud`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: cloudKBDialog.name.trim(),
+                    index_name: cloudKBDialog.indexName.trim(),
+                    description: cloudKBDialog.description.trim() || null,
+                }),
+                    });
+
+                    if (response.ok) {
+                toast.success('Cloud Knowledge Base created successfully');
+                setCloudKBDialog({
+                    isOpen: false,
+                    name: '',
+                    indexName: '',
+                    description: '',
+                    isCreating: false,
+                });
+                refetchFolders(); // This now also fetches LlamaCloud KBs
+            } else {
+                const error = await response.text();
+                toast.error(`Failed to create cloud knowledge base: ${error}`);
+            }
         } catch (error) {
             toast.error('Failed to create cloud knowledge base');
             console.error('Create cloud KB error:', error);
@@ -479,7 +527,7 @@ export function KnowledgeBasePage() {
                                                                 <div className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${fileInfo.colorClass}`}>
                                                                     {fileInfo.extension}
                                                                 </div>
-                                                            </div>
+                                                                </div>
                                                             
                                                             <div className="space-y-1">
                                                                 <p className="text-xs font-medium text-foreground truncate" title={file.filename}>
@@ -498,22 +546,80 @@ export function KnowledgeBasePage() {
                                 </div>
                             )}
 
+                            {/* LlamaCloud Knowledge Bases Section */}
+                            {llamacloudKBs && llamacloudKBs.length > 0 && (
+                                <div className="space-y-6">
+                                    <div className="space-y-2">
+                                        <h3 className="text-lg font-medium text-foreground">Cloud Knowledge Bases</h3>
+                                        <p className="text-sm text-muted-foreground">LlamaCloud indices available for agent assignment</p>
+                                            </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {llamacloudKBs.map((kb) => (
+                                            <div
+                                                key={kb.kb_id}
+                                                className="group cursor-pointer"
+                                            >
+                                                <div className="p-4 border border-blue-200 bg-blue-50/30 dark:border-blue-800 dark:bg-blue-900/10 rounded-lg hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200">
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                                                                <Database className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2">
+                                                                    <p className="text-sm font-medium text-foreground truncate" title={kb.name}>
+                                                                        {kb.name}
+                                                                    </p>
+                                                                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400">
+                                                                        LlamaCloud
+                                                                    </Badge>
+                                        </div>
+                                                                <p className="text-xs text-blue-600 dark:text-blue-400 truncate">
+                                                                    Index: {kb.index_name}
+                                                                </p>
+                                                    </div>
+                                                </div>
+                                                        
+                                                        {kb.description && (
+                                                            <div className="space-y-1">
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    {kb.description}
+                                                                </p>
+                                            </div>
+                                                        )}
+                                                        
+                                                        <div className="flex items-center justify-between">
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {formatDate(kb.created_at)}
+                                                            </p>
+                                                            <Badge variant="outline" className="text-xs border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-400">
+                                                                search_{kb.name.replace(/-/g, '_')}()
+                                                            </Badge>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                                ))}
+                                            </div>
+                                </div>
+                            )}
+
                             {/* Empty State */}
-                            {(!folders || folders.length === 0) && !foldersLoading && (
+                            {(!folders || folders.length === 0) && (!llamacloudKBs || llamacloudKBs.length === 0) && !foldersLoading && (
                                 <div className="text-center py-16 space-y-6">
                                     <div className="mx-auto w-24 h-24 bg-muted/50 rounded-full flex items-center justify-center">
                                         <FolderIcon className="h-12 w-12 text-muted-foreground/50" />
-                                            </div>
+                                                            </div>
                                     <div className="space-y-2">
-                                        <h3 className="text-lg font-semibold text-foreground">No folders yet</h3>
+                                        <h3 className="text-lg font-semibold text-foreground">No knowledge base content yet</h3>
                                         <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                                            Create your first folder to start organizing your documents and files.
+                                            Create folders for documents or add Cloud Knowledge Bases to get started.
                                         </p>
-                                    </div>
+                                                        </div>
                                     <Button size="lg" onClick={handleCreateFolder}>
                                         <FolderPlusIcon className="mr-2 h-5 w-5" />
                                         Create First Folder
-                                    </Button>
+                                        </Button>
                                 </div>
                             )}
                         </div>
@@ -539,11 +645,11 @@ export function KnowledgeBasePage() {
                     currentSummary={editSummaryModal.currentSummary}
                 />
 
-            {filePreviewModal.file && (
-                <KBFilePreviewModal
-                    isOpen={filePreviewModal.isOpen}
-                    onClose={() => setFilePreviewModal({ isOpen: false, file: null })}
-                    file={filePreviewModal.file}
+                {filePreviewModal.file && (
+                    <KBFilePreviewModal
+                        isOpen={filePreviewModal.isOpen}
+                        onClose={() => setFilePreviewModal({ isOpen: false, file: null })}
+                        file={filePreviewModal.file}
                     onEditSummary={(fileId: string, fileName: string, summary: string) => console.log('Edit summary:', fileId, fileName, summary)}
                 />
             )}
@@ -567,7 +673,7 @@ export function KnowledgeBasePage() {
                                 onChange={(e) => setCreateFolderDialog(prev => ({ ...prev, name: e.target.value }))}
                                 disabled={createFolderDialog.isCreating}
                             />
-                        </div>
+            </div>
                         <div>
                             <Label htmlFor="folder-description">Description (Optional)</Label>
                             <Textarea

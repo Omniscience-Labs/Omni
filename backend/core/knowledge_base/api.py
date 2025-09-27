@@ -69,6 +69,25 @@ class UnifiedKnowledgeBaseEntry(BaseModel):
     # Fields for LlamaCloud KB entries
     index_name: Optional[str] = None
 
+# Global LlamaCloud Knowledge Base Models
+class GlobalLlamaCloudKnowledgeBase(BaseModel):
+    kb_id: str
+    name: str
+    index_name: str
+    description: Optional[str]
+    is_active: bool
+    created_at: str
+    updated_at: str
+
+class GlobalLlamaCloudKnowledgeBaseListResponse(BaseModel):
+    knowledge_bases: List[GlobalLlamaCloudKnowledgeBase]
+    total_count: int
+
+class CreateGlobalLlamaCloudKnowledgeBaseRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255, description="Knowledge base name")
+    index_name: str = Field(..., min_length=1, max_length=255, description="LlamaCloud index identifier")
+    description: Optional[str] = Field(None, description="What this knowledge base contains")
+
 # Note: UnifiedKnowledgeBaseListResponse moved after KnowledgeBaseEntryResponse definition
 
 def format_knowledge_base_name(name: str) -> str:
@@ -248,6 +267,96 @@ async def update_folder(
     except Exception as e:
         logger.error(f"Error updating folder: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to update folder")
+
+# =============================================================================
+# GLOBAL LLAMACLOUD KNOWLEDGE BASE ENDPOINTS
+# =============================================================================
+
+@router.get("/llamacloud", response_model=GlobalLlamaCloudKnowledgeBaseListResponse)
+async def get_global_llamacloud_knowledge_bases(
+    include_inactive: bool = False,
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
+):
+    """Get all global LlamaCloud knowledge bases for the current user's account"""
+    try:
+        client = await db.client
+        
+        # Get current account_id from user
+        account_id = await get_user_account_id(client, user_id)
+        
+        result = await client.rpc('get_global_llamacloud_knowledge_bases', {
+            'p_account_id': account_id,
+            'p_include_inactive': include_inactive
+        }).execute()
+        
+        knowledge_bases = []
+        
+        for kb_data in result.data or []:
+            kb = GlobalLlamaCloudKnowledgeBase(
+                kb_id=kb_data['kb_id'],
+                name=kb_data['name'],
+                index_name=kb_data['index_name'],
+                description=kb_data['description'],
+                is_active=kb_data['is_active'],
+                created_at=kb_data['created_at'],
+                updated_at=kb_data['updated_at']
+            )
+            knowledge_bases.append(kb)
+        
+        return GlobalLlamaCloudKnowledgeBaseListResponse(
+            knowledge_bases=knowledge_bases,
+            total_count=len(knowledge_bases)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting global LlamaCloud knowledge bases: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve global LlamaCloud knowledge bases")
+
+@router.post("/llamacloud", response_model=GlobalLlamaCloudKnowledgeBase)
+async def create_global_llamacloud_knowledge_base(
+    kb_data: CreateGlobalLlamaCloudKnowledgeBaseRequest,
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
+):
+    """Create a new global LlamaCloud knowledge base"""
+    try:
+        client = await db.client
+        
+        # Get current account_id from user
+        account_id = await get_user_account_id(client, user_id)
+        
+        insert_data = {
+            'account_id': account_id,
+            'name': kb_data.name,
+            'index_name': kb_data.index_name,
+            'description': kb_data.description
+        }
+        
+        result = await client.table('llamacloud_knowledge_bases').insert(insert_data).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Failed to create LlamaCloud knowledge base")
+        
+        created_kb = result.data[0]
+        
+        logger.info(f"Created global LlamaCloud knowledge base {created_kb['kb_id']}")
+        
+        return GlobalLlamaCloudKnowledgeBase(
+            kb_id=created_kb['kb_id'],
+            name=created_kb['name'],
+            index_name=created_kb['index_name'],
+            description=created_kb['description'],
+            is_active=created_kb['is_active'],
+            created_at=created_kb['created_at'],
+            updated_at=created_kb['updated_at']
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating global LlamaCloud knowledge base: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create global LlamaCloud knowledge base")
 
 @router.get("/folders/{folder_id}/entries")
 async def get_folder_entries(
@@ -916,13 +1025,13 @@ async def get_agent_unified_assignments(
         regular_result = await client.from_("agent_knowledge_entry_assignments").select("entry_id, enabled").eq("agent_id", agent_id).execute()
         regular_assignments = {row['entry_id']: row['enabled'] for row in regular_result.data}
         
-        # Get LlamaCloud KB assignments (all LlamaCloud KBs for this agent are considered assigned)
-        llamacloud_result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
+        # Get LlamaCloud KB assignments from the new global assignment system
+        llamacloud_result = await client.rpc('get_agent_assigned_llamacloud_kbs', {
             'p_agent_id': agent_id,
             'p_include_inactive': False
         }).execute()
         
-        llamacloud_assignments = {kb_data['id']: kb_data['is_active'] for kb_data in llamacloud_result.data or []}
+        llamacloud_assignments = {kb_data['kb_id']: kb_data['enabled'] for kb_data in llamacloud_result.data or []}
         
         return UnifiedAssignmentResponse(
             regular_assignments=regular_assignments,
@@ -964,8 +1073,18 @@ async def update_agent_unified_assignments(
                 "enabled": True
             }).execute()
         
-        # Note: LlamaCloud KBs are managed through their own create/delete endpoints
-        # They don't have a separate assignment system - if a LlamaCloud KB exists for an agent, it's assigned
+        # Update LlamaCloud KB assignments
+        # Delete existing LlamaCloud assignments for this agent
+        await client.from_("agent_llamacloud_kb_assignments").delete().eq("agent_id", agent_id).execute()
+        
+        # Insert new LlamaCloud KB assignments
+        for kb_id in request.llamacloud_kb_ids:
+            await client.from_("agent_llamacloud_kb_assignments").insert({
+                "agent_id": agent_id,
+                "kb_id": kb_id,
+                "account_id": account_id,
+                "enabled": True
+            }).execute()
         
         return {"message": "Unified agent assignments updated successfully", "regular_count": len(request.regular_entry_ids), "llamacloud_count": len(request.llamacloud_kb_ids)}
         
