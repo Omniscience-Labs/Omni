@@ -46,6 +46,36 @@ class UpdateLlamaCloudKnowledgeBaseRequest(BaseModel):
     description: Optional[str] = None
     is_active: Optional[bool] = None
 
+# Unified Knowledge Base Models
+class UnifiedKnowledgeBaseEntry(BaseModel):
+    id: str
+    name: str
+    description: Optional[str]
+    type: str  # 'regular' or 'llamacloud'
+    is_active: bool
+    created_at: str
+    updated_at: str
+    
+    # Fields for regular KB entries
+    entry_id: Optional[str] = None
+    content: Optional[str] = None
+    usage_context: Optional[str] = None
+    content_tokens: Optional[int] = None
+    source_type: Optional[str] = None
+    source_metadata: Optional[dict] = None
+    file_size: Optional[int] = None
+    file_mime_type: Optional[str] = None
+    
+    # Fields for LlamaCloud KB entries
+    index_name: Optional[str] = None
+
+class UnifiedKnowledgeBaseListResponse(BaseModel):
+    regular_entries: List[KnowledgeBaseEntryResponse]
+    llamacloud_entries: List[LlamaCloudKnowledgeBaseResponse]
+    total_regular_count: int
+    total_llamacloud_count: int
+    total_tokens: Optional[int] = None
+
 def format_knowledge_base_name(name: str) -> str:
     """Format knowledge base name for tool function generation."""
     return (name.lower()
@@ -310,6 +340,79 @@ class ProcessingJobResponse(BaseModel):
 
 db = DBConnection()
 
+@router.get("/agents/{agent_id}/unified", response_model=UnifiedKnowledgeBaseListResponse)
+async def get_agent_unified_knowledge_base(
+    agent_id: str,
+    include_inactive: bool = False,
+    auth: AuthorizedAgentAccess = Depends(require_agent_access)
+):
+    """Get all knowledge base entries (both regular and LlamaCloud) for an agent in a unified response"""
+    try:
+        client = await db.client
+        user_id = auth.user_id
+        agent_data = auth.agent_data
+        
+        # Get regular knowledge base entries
+        regular_result = await client.rpc('get_agent_knowledge_base', {
+            'p_agent_id': agent_id,
+            'p_include_inactive': include_inactive
+        }).execute()
+        
+        regular_entries = []
+        total_tokens = 0
+        
+        for entry_data in regular_result.data or []:
+            entry = KnowledgeBaseEntryResponse(
+                entry_id=entry_data['entry_id'],
+                name=entry_data['name'],
+                description=entry_data['description'],
+                content=entry_data['content'],
+                usage_context=entry_data['usage_context'],
+                is_active=entry_data['is_active'],
+                content_tokens=entry_data.get('content_tokens'),
+                created_at=entry_data['created_at'],
+                updated_at=entry_data.get('updated_at', entry_data['created_at']),
+                source_type=entry_data.get('source_type'),
+                source_metadata=entry_data.get('source_metadata'),
+                file_size=entry_data.get('file_size'),
+                file_mime_type=entry_data.get('file_mime_type')
+            )
+            regular_entries.append(entry)
+            total_tokens += entry_data.get('content_tokens', 0) or 0
+        
+        # Get LlamaCloud knowledge base entries
+        llamacloud_result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
+            'p_agent_id': agent_id,
+            'p_include_inactive': include_inactive
+        }).execute()
+        
+        llamacloud_entries = []
+        
+        for kb_data in llamacloud_result.data or []:
+            kb = LlamaCloudKnowledgeBaseResponse(
+                id=kb_data['id'],
+                name=kb_data['name'],
+                index_name=kb_data['index_name'],
+                description=kb_data['description'],
+                is_active=kb_data['is_active'],
+                created_at=kb_data['created_at'],
+                updated_at=kb_data['updated_at']
+            )
+            llamacloud_entries.append(kb)
+        
+        return UnifiedKnowledgeBaseListResponse(
+            regular_entries=regular_entries,
+            llamacloud_entries=llamacloud_entries,
+            total_regular_count=len(regular_entries),
+            total_llamacloud_count=len(llamacloud_entries),
+            total_tokens=total_tokens
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting unified knowledge base for agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve unified agent knowledge base")
 
 @router.get("/agents/{agent_id}", response_model=KnowledgeBaseListResponse)
 async def get_agent_knowledge_base(
@@ -761,6 +864,17 @@ class AgentAssignmentResponse(BaseModel):
     enabled: bool
     file_assignments: dict
 
+# Unified Assignment Models
+class UnifiedAssignmentRequest(BaseModel):
+    regular_entry_ids: list[str] = Field(default=[], description="List of regular knowledge base entry IDs")
+    llamacloud_kb_ids: list[str] = Field(default=[], description="List of LlamaCloud knowledge base IDs")
+
+class UnifiedAssignmentResponse(BaseModel):
+    regular_assignments: dict[str, bool] = Field(default={}, description="Entry ID to enabled status mapping")
+    llamacloud_assignments: dict[str, bool] = Field(default={}, description="LlamaCloud KB ID to enabled status mapping")
+    total_regular_count: int
+    total_llamacloud_count: int
+
 @router.get("/agents/{agent_id}/assignments")
 async def get_agent_assignments(
     agent_id: str,
@@ -784,6 +898,80 @@ async def get_agent_assignments(
         logger.error(f"Error getting agent assignments for {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve agent assignments")
 
+@router.get("/agents/{agent_id}/assignments/unified", response_model=UnifiedAssignmentResponse)
+async def get_agent_unified_assignments(
+    agent_id: str,
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
+):
+    """Get unified knowledge base assignments for an agent (both regular and LlamaCloud)"""
+    try:
+        client = await db.client
+        
+        # Verify agent access
+        await verify_and_get_agent_authorization(client, agent_id, user_id)
+        
+        # Get regular KB assignments
+        regular_result = await client.from_("agent_knowledge_entry_assignments").select("entry_id, enabled").eq("agent_id", agent_id).execute()
+        regular_assignments = {row['entry_id']: row['enabled'] for row in regular_result.data}
+        
+        # Get LlamaCloud KB assignments (all LlamaCloud KBs for this agent are considered assigned)
+        llamacloud_result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
+            'p_agent_id': agent_id,
+            'p_include_inactive': False
+        }).execute()
+        
+        llamacloud_assignments = {kb_data['id']: kb_data['is_active'] for kb_data in llamacloud_result.data or []}
+        
+        return UnifiedAssignmentResponse(
+            regular_assignments=regular_assignments,
+            llamacloud_assignments=llamacloud_assignments,
+            total_regular_count=len(regular_assignments),
+            total_llamacloud_count=len(llamacloud_assignments)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting unified assignments for agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve unified agent assignments")
+
+@router.post("/agents/{agent_id}/assignments/unified")
+async def update_agent_unified_assignments(
+    agent_id: str,
+    request: UnifiedAssignmentRequest,
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
+):
+    """Update unified knowledge base assignments for an agent (both regular and LlamaCloud)"""
+    try:
+        client = await db.client
+        
+        # Verify agent access
+        agent_auth = await verify_and_get_agent_authorization(client, agent_id, user_id)
+        account_id = agent_auth['account_id']
+        
+        # Update regular KB assignments
+        # Delete existing regular assignments for this agent
+        await client.from_("agent_knowledge_entry_assignments").delete().eq("agent_id", agent_id).execute()
+        
+        # Insert new regular entry assignments
+        for entry_id in request.regular_entry_ids:
+            await client.from_("agent_knowledge_entry_assignments").insert({
+                "agent_id": agent_id,
+                "entry_id": entry_id,
+                "account_id": account_id,
+                "enabled": True
+            }).execute()
+        
+        # Note: LlamaCloud KBs are managed through their own create/delete endpoints
+        # They don't have a separate assignment system - if a LlamaCloud KB exists for an agent, it's assigned
+        
+        return {"message": "Unified agent assignments updated successfully", "regular_count": len(request.regular_entry_ids), "llamacloud_count": len(request.llamacloud_kb_ids)}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating unified assignments for agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update unified agent assignments")
 
 # =============================================================================
 # LLAMACLOUD KNOWLEDGE BASE ENDPOINTS (LEGACY/ENTERPRISE SUPPORT)

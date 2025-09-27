@@ -33,7 +33,8 @@ import {
   FolderIcon,
   Settings,
   Grid,
-  List
+  List,
+  Database
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -52,6 +53,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import {
   useAgentKnowledgeBaseEntries,
   useCreateAgentKnowledgeBaseEntry,
   useUpdateKnowledgeBaseEntry,
@@ -59,12 +66,14 @@ import {
   useUploadAgentFiles,
   useCloneGitRepository,
   useAgentProcessingJobs,
+  useAgentUnifiedKnowledgeBase,
 } from '@/hooks/react-query/knowledge-base/use-knowledge-base-queries';
 import { cn, truncateString } from '@/lib/utils';
 import { CreateKnowledgeBaseEntryRequest, KnowledgeBaseEntry, UpdateKnowledgeBaseEntryRequest, ProcessingJob } from '@/hooks/react-query/knowledge-base/types';
 import { toast } from 'sonner';
 import JSZip from 'jszip';
 import { LlamaCloudKnowledgeBaseManager } from '../llamacloud-knowledge-base/llamacloud-kb-manager';
+import { useAgentLlamaCloudKnowledgeBases, useCreateLlamaCloudKnowledgeBase } from '@/hooks/react-query/llamacloud-knowledge-base/use-llamacloud-knowledge-base-queries';
 import { createClient } from '@/lib/supabase/client';
 import { SharedTreeItem } from '@/components/knowledge-base/shared-kb-tree';
 
@@ -306,6 +315,9 @@ const AgentKnowledgeBaseSkeleton = () => (
 );
 
 export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledgeBaseManagerProps) => {
+  // Main tab state
+  const [activeTab, setActiveTab] = useState<'documents' | 'llamacloud'>('documents');
+  
   const [editDialog, setEditDialog] = useState<EditDialogData>({ isOpen: false });
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -852,7 +864,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
 
   return (
     <div
-      className="space-y-4"
+      className="space-y-6"
       onDragEnter={handleDrag}
       onDragLeave={handleDrag}
       onDragOver={handleDrag}
@@ -869,41 +881,55 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
           </div>
         </div>
       )}
-      <div className="flex items-center justify-between">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search knowledge..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center border rounded-lg p-1">
-            <Button
-              size="sm"
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              onClick={() => setViewMode('list')}
-              className="h-7 px-2"
-            >
-              <Grid className="h-3 w-3" />
-            </Button>
-            <Button
-              size="sm"
-              variant={viewMode === 'tree' ? 'default' : 'ghost'}
-              onClick={() => setViewMode('tree')}
-              className="h-7 px-2"
-            >
-              <List className="h-3 w-3" />
-            </Button>
+
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'documents' | 'llamacloud')}>
+        <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+          <TabsTrigger value="documents" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Documents
+          </TabsTrigger>
+          <TabsTrigger value="llamacloud" className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            LlamaCloud
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="documents" className="space-y-4 mt-6">
+          <div className="flex items-center justify-between">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search knowledge..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center border rounded-lg p-1">
+                <Button
+                  size="sm"
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  onClick={() => setViewMode('list')}
+                  className="h-7 px-2"
+                >
+                  <Grid className="h-3 w-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant={viewMode === 'tree' ? 'default' : 'ghost'}
+                  onClick={() => setViewMode('tree')}
+                  className="h-7 px-2"
+                >
+                  <List className="h-3 w-3" />
+                </Button>
+              </div>
+              <Button onClick={() => handleOpenAddDialog()} size="sm" className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add Knowledge
+              </Button>
+            </div>
           </div>
-          <Button onClick={() => handleOpenAddDialog()} size="sm" className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add Knowledge
-          </Button>
-        </div>
-      </div>
       {entries.length === 0 ? (
         <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
           <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
@@ -1066,6 +1092,16 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         className="hidden"
         accept=".txt,.pdf,.docx,.zip"
       />
+        </TabsContent>
+
+        <TabsContent value="llamacloud" className="space-y-6 mt-6">
+          <LlamaCloudKnowledgeBaseManager 
+            agentId={agentId} 
+            agentName={agentName}
+          />
+        </TabsContent>
+      </Tabs>
+
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0">

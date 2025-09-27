@@ -19,7 +19,9 @@ import {
     FolderPlusIcon,
     ChevronDownIcon,
     ChevronRightIcon,
-    MoreVerticalIcon
+    MoreVerticalIcon,
+    FileText,
+    Database
 } from 'lucide-react';
 import { KnowledgeBasePageHeader } from './knowledge-base-header';
 import {
@@ -49,6 +51,12 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+} from '@/components/ui/tabs';
 import { SharedTreeItem, FileDragOverlay } from '@/components/knowledge-base/shared-kb-tree';
 import { KBFilePreviewModal } from './kb-file-preview-modal';
 
@@ -200,6 +208,9 @@ const useKnowledgeFolders = () => {
 };
 
 export function KnowledgeBasePage() {
+    // Tab state
+    const [activeTab, setActiveTab] = useState<'documents' | 'llamacloud'>('documents');
+    
     const [treeData, setTreeData] = useState<TreeItem[]>([]);
     const [folderEntries, setFolderEntries] = useState<{ [folderId: string]: Entry[] }>({});
     const [loadingFolders, setLoadingFolders] = useState<{ [folderId: string]: boolean }>({});
@@ -901,27 +912,44 @@ export function KnowledgeBasePage() {
                 </div>
                 <div className="container mx-auto max-w-7xl px-4 py-2">
                     <div className="w-full min-h-[calc(100vh-300px)]">
-                        {/* Header Section */}
-                        <div className="flex justify-between items-start mb-8">
-                            <div className="space-y-1">
-                                <h2 className="text-xl font-semibold text-foreground">Knowledge Base</h2>
-                                <p className="text-sm text-muted-foreground">
-                                    Organize documents and files for AI agents to search and reference
-                                </p>
+                        
+                        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'documents' | 'llamacloud')}>
+                            <div className="flex justify-between items-start mb-8">
+                                <div className="space-y-4">
+                                    <div className="space-y-1">
+                                        <h2 className="text-xl font-semibold text-foreground">Knowledge Base</h2>
+                                        <p className="text-sm text-muted-foreground">
+                                            Organize documents and files for AI agents to search and reference
+                                        </p>
+                                    </div>
+                                    
+                                    <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+                                        <TabsTrigger value="documents" className="flex items-center gap-2">
+                                            <FileText className="h-4 w-4" />
+                                            Documents
+                                        </TabsTrigger>
+                                        <TabsTrigger value="llamacloud" className="flex items-center gap-2">
+                                            <Database className="h-4 w-4" />
+                                            LlamaCloud
+                                        </TabsTrigger>
+                                    </TabsList>
+                                </div>
+                                
+                                {activeTab === 'documents' && (
+                                    <div className="flex gap-3">
+                                        <Button variant="outline" onClick={handleCreateFolder}>
+                                            <FolderPlusIcon className="h-4 w-4 mr-2" />
+                                            New Folder
+                                        </Button>
+                                        <FileUploadModal
+                                            folders={folders}
+                                            onUploadComplete={refetchFolders}
+                                        />
+                                    </div>
+                                )}
                             </div>
-                            <div className="flex gap-3">
-                                <Button variant="outline" onClick={handleCreateFolder}>
-                                    <FolderPlusIcon className="h-4 w-4 mr-2" />
-                                    New Folder
-                                </Button>
-                                <FileUploadModal
-                                    folders={folders}
-                                    onUploadComplete={refetchFolders}
-                                />
-                            </div>
-                        </div>
 
-                        {/* Main Content */}
+                            <TabsContent value="documents" className="space-y-8 mt-6">{/* Main Content */}
                         <div
                             className="space-y-8"
                             onDragOver={(e) => e.preventDefault()}
@@ -1107,6 +1135,24 @@ export function KnowledgeBasePage() {
                                     </DndContext>
                                 </div>
                             )}
+                            </TabsContent>
+
+                            <TabsContent value="llamacloud" className="space-y-8 mt-6">
+                                <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
+                                    <Database className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                                        LlamaCloud Knowledge Bases
+                                    </h3>
+                                    <p className="text-muted-foreground mb-4 max-w-md mx-auto">
+                                        LlamaCloud knowledge bases are managed per agent. Visit the specific agent's knowledge base section to configure LlamaCloud indices.
+                                    </p>
+                                    <div className="text-sm text-muted-foreground">
+                                        <p>To manage LlamaCloud knowledge bases:</p>
+                                        <p className="mt-1">Go to <strong>Agents</strong> → <strong>Select Agent</strong> → <strong>Knowledge Base</strong> → <strong>LlamaCloud</strong> tab</p>
+                                    </div>
+                                </div>
+                            </TabsContent>
+                        </Tabs>
                         </div>
                     </div>
                 </div>
