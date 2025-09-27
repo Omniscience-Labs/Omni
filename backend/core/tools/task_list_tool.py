@@ -189,7 +189,7 @@ class TaskListTool(SandboxToolsBase):
                 "properties": {
                     "sections": {
                         "type": "array",
-                        "description": "List of sections with their tasks for batch creation",
+                        "description": "List of sections with their tasks for batch creation. Use this for multi-section creation.",
                         "items": {
                             "type": "object",
                             "properties": {
@@ -209,28 +209,18 @@ class TaskListTool(SandboxToolsBase):
                     },
                     "section_title": {
                         "type": "string",
-                        "description": "Single section title (creates if doesn't exist - use this OR sections array)"
+                        "description": "Single section title (creates if doesn't exist - for single section creation only, do not use with sections array)"
                     },
                     "section_id": {
                         "type": "string",
-                        "description": "Existing section ID (use this OR sections array OR section_title)"
+                        "description": "Existing section ID (for single section creation only, do not use with sections array)"
                     },
                     "task_contents": {
                         "type": "array",
-                        "description": "Task contents for single section creation (use with section_title or section_id)",
+                        "description": "Task contents for single section creation (required when using section_title or section_id, do not use with sections array)",
                         "items": {"type": "string"}
                     }
-                },
-                "anyOf": [
-                    {"required": ["sections"]},
-                    {
-                        "required": ["task_contents"],
-                        "anyOf": [
-                            {"required": ["section_title"]},
-                            {"required": ["section_id"]}
-                        ]
-                    }
-                ]
+                }
             }
         }
     })
