@@ -445,7 +445,7 @@ class TaskListTool(SandboxToolsBase):
                     "confirm": {
                         "type": "boolean",
                         "description": "Must be true to confirm deletion of sections (required when deleting sections)",
-                        "default": false
+                        "default": False
                     }
                 }
             }

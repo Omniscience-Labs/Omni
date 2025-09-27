@@ -332,6 +332,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
   });
 
   const { data: knowledgeBase, isLoading, error, refetch } = useAgentKnowledgeBaseEntries(agentId);
+  const { data: unifiedData, isLoading: unifiedLoading } = useAgentUnifiedKnowledgeBase(agentId);
   const { data: processingJobsData, refetch: refetchJobs } = useAgentProcessingJobs(agentId);
   const createMutation = useCreateAgentKnowledgeBaseEntry();
   const updateMutation = useUpdateKnowledgeBaseEntry();
@@ -846,11 +847,19 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
   }
 
   const entries = knowledgeBase?.entries || [];
+  const llamacloudEntries = unifiedData?.llamacloud_entries || [];
   const processingJobs = processingJobsData?.jobs || [];
+  
   const filteredEntries = entries.filter(entry =>
     entry.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     entry.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (entry.description && entry.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+  
+  const filteredLlamaCloudEntries = llamacloudEntries.filter(kb =>
+    kb.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    kb.index_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (kb.description && kb.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -912,7 +921,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
           </Button>
         </div>
       </div>
-      {entries.length === 0 ? (
+      {entries.length === 0 && filteredLlamaCloudEntries.length === 0 ? (
         <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
           <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
             <BookOpen className="h-6 w-6 text-muted-foreground" />
@@ -939,53 +948,120 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
               </p>
             </div>
           ) : (
-            filteredEntries.map((entry) => {
-              const contextConfig = getUsageContextConfig(entry.usage_context);
-              const ContextIcon = contextConfig.icon;
-              const SourceIcon = getSourceIcon(entry.source_type || 'manual', entry.source_metadata?.filename);
+            <>
+              {/* Regular Knowledge Base Entries */}
+              {filteredEntries.map((entry) => {
+                const contextConfig = getUsageContextConfig(entry.usage_context);
+                const ContextIcon = contextConfig.icon;
+                const SourceIcon = getSourceIcon(entry.source_type || 'manual', entry.source_metadata?.filename);
 
-              return (
+                return (
+                  <div
+                    key={entry.entry_id}
+                    className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors group"
+                  >
+                    <div className="flex items-center space-x-4 flex-1 min-w-0">
+                      <div className="p-2 rounded-lg bg-muted border">
+                        <SourceIcon className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1 min-w-0">
+                          <h4 className="text-sm font-medium truncate w-full">{entry.name}</h4>
+                          {/* Show NEW badge for recently created entries */}
+                          {new Date(entry.created_at).getTime() > Date.now() - 300000 && ( // 5 minutes
+                            <Badge variant="default" className="text-xs flex-shrink-0 bg-green-600 hover:bg-green-600">
+                              NEW
+                            </Badge>
+                          )}
+                          {entry.source_type && entry.source_type !== 'manual' && (
+                            <Badge variant="outline" className="text-xs flex-shrink-0">
+                              {entry.source_type === 'git_repo' ? 'Git' :
+                                entry.source_type === 'zip_extracted' ? 'ZIP' : 'File'}
+                            </Badge>
+                          )}
+                        </div>
+                        {entry.description && (
+                          <p className="text-xs text-muted-foreground truncate w-full mb-1">
+                            {entry.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <Badge variant="outline" className={cn("text-xs gap-1", contextConfig.color)}>
+                            <ContextIcon className="h-3 w-3" />
+                            {contextConfig.label}
+                          </Badge>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date(entry.created_at).toLocaleDateString()}
+                          </span>
+                          {entry.content_tokens && (
+                            <span>~{entry.content_tokens.toLocaleString()} tokens</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handleOpenEditDialog(entry)}
+                        aria-label="Edit knowledge entry"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        onClick={() => setDeleteEntryId(entry.entry_id)}
+                        aria-label="Delete knowledge entry"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* LlamaCloud Knowledge Base Entries */}
+              {filteredLlamaCloudEntries.map((kb) => (
                 <div
-                  key={entry.entry_id}
-                  className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors group"
+                  key={kb.id}
+                  className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors group border-blue-200 bg-blue-50/30 dark:border-blue-800 dark:bg-blue-900/10"
                 >
                   <div className="flex items-center space-x-4 flex-1 min-w-0">
-                    <div className="p-2 rounded-lg bg-muted border">
-                      <SourceIcon className="h-4 w-4" />
+                    <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                      <Database className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2 mb-1 min-w-0">
-                        <h4 className="text-sm font-medium truncate w-full">{entry.name}</h4>
+                        <h4 className="text-sm font-medium truncate w-full">{kb.name}</h4>
+                        <Badge variant="secondary" className="text-xs flex-shrink-0 bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400">
+                          LlamaCloud
+                        </Badge>
                         {/* Show NEW badge for recently created entries */}
-                        {new Date(entry.created_at).getTime() > Date.now() - 300000 && ( // 5 minutes
+                        {new Date(kb.created_at).getTime() > Date.now() - 300000 && ( // 5 minutes
                           <Badge variant="default" className="text-xs flex-shrink-0 bg-green-600 hover:bg-green-600">
                             NEW
                           </Badge>
                         )}
-                        {entry.source_type && entry.source_type !== 'manual' && (
-                          <Badge variant="outline" className="text-xs flex-shrink-0">
-                            {entry.source_type === 'git_repo' ? 'Git' :
-                              entry.source_type === 'zip_extracted' ? 'ZIP' : 'File'}
-                          </Badge>
-                        )}
                       </div>
-                      {entry.description && (
+                      {kb.description && (
                         <p className="text-xs text-muted-foreground truncate w-full mb-1">
-                          {entry.description}
+                          {kb.description}
                         </p>
                       )}
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <Badge variant="outline" className={cn("text-xs gap-1", contextConfig.color)}>
-                          <ContextIcon className="h-3 w-3" />
-                          {contextConfig.label}
+                        <Badge variant="outline" className="text-xs gap-1 border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-400">
+                          <Search className="h-3 w-3" />
+                          search_{kb.name.replace(/-/g, '_')}()
                         </Badge>
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {new Date(entry.created_at).toLocaleDateString()}
+                          {new Date(kb.created_at).toLocaleDateString()}
                         </span>
-                        {entry.content_tokens && (
-                          <span>~{entry.content_tokens.toLocaleString()} tokens</span>
-                        )}
+                        <span className="text-blue-600 dark:text-blue-400">Index: {kb.index_name}</span>
                       </div>
                     </div>
                   </div>
@@ -994,8 +1070,8 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                       size="sm"
                       variant="ghost"
                       className="h-8 w-8 p-0"
-                      onClick={() => handleOpenEditDialog(entry)}
-                      aria-label="Edit knowledge entry"
+                      onClick={() => console.log('Edit LlamaCloud KB:', kb.id)}
+                      aria-label="Edit LlamaCloud knowledge base"
                     >
                       <Edit2 className="h-4 w-4" />
                     </Button>
@@ -1003,15 +1079,15 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                       size="sm"
                       variant="ghost"
                       className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                      onClick={() => setDeleteEntryId(entry.entry_id)}
-                      aria-label="Delete knowledge entry"
+                      onClick={() => console.log('Delete LlamaCloud KB:', kb.id)}
+                      aria-label="Delete LlamaCloud knowledge base"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
-              );
-            })
+              ))}
+            </>
           )}
         </div>
       )}
