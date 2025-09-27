@@ -288,6 +288,9 @@ class Configuration:
     
 
     
+    # Frontend URL configuration
+    NEXT_PUBLIC_URL: Optional[str] = "http://localhost:3000"
+    
     # Supabase configuration
     SUPABASE_URL: str
     SUPABASE_ANON_KEY: str

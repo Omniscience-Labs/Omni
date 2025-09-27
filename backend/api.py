@@ -141,6 +141,10 @@ if config.ENV_MODE == EnvMode.STAGING:
     allowed_origins.append("http://localhost:3000")
     allow_origin_regex = r"https://suna-.*-prjcts\.vercel\.app"
 
+# Add NEXT_PUBLIC_URL to allowed origins if configured and not already present
+if config.NEXT_PUBLIC_URL and config.NEXT_PUBLIC_URL not in allowed_origins:
+    allowed_origins.append(config.NEXT_PUBLIC_URL)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
