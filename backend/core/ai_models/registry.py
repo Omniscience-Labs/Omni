@@ -77,7 +77,7 @@ class ModelRegistry:
             id="openrouter/openai/gpt-5",
             name="GPT-5",
             provider=ModelProvider.OPENROUTER,
-            aliases=["gpt-5", "GPT-5", "openrouter/openai/gpt-5"],
+            aliases=["gpt-5", "GPT-5", "openai/gpt-5", "openrouter/openai/gpt-5"],
             context_window=400_000,
             capabilities=[
                 ModelCapability.CHAT,

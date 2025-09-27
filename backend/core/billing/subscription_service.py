@@ -709,10 +709,23 @@ class SubscriptionService:
                 logger.debug(f"[ALLOWED_MODELS] User {user_id} has specific models: {tier_info['models']}")
                 return tier_info['models']
             
-            # If user has no access (free/none tier)
+            # If user has no access (free/none tier), check model's tier_availability
             else:
-                logger.debug(f"[ALLOWED_MODELS] User {user_id} has no model access (tier: {tier_name})")
-                return []
+                # For free/none tiers, check which models are available for this tier
+                all_models = model_manager.list_available_models(include_disabled=False)
+                allowed_model_ids = []
+                
+                # Determine what tier to check for
+                tier_to_check = "free" if tier_name in ["free", "none"] else "paid"
+                
+                for model_data in all_models:
+                    # Check if model supports this tier level
+                    model = model_manager.get_model(model_data["id"])
+                    if model and tier_to_check in model.tier_availability:
+                        allowed_model_ids.append(model_data["id"])
+                
+                logger.debug(f"[ALLOWED_MODELS] User {user_id} ({tier_name}) has access to {len(allowed_model_ids)} tier-compatible models")
+                return allowed_model_ids
                 
         except Exception as e:
             logger.error(f"[ALLOWED_MODELS] Error getting allowed models for user {user_id}: {e}")
