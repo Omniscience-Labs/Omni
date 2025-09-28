@@ -31,7 +31,8 @@ OMNI_CONFIG = {
         "mcp_search_tool": True,
         "credential_profile_tool": True,
         "workflow_tool": True,
-        "trigger_tool": True
+        "trigger_tool": True,
+        "sb_custom_automation_tool": False
     },
     "is_default": True
 }

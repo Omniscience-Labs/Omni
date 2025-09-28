@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Search, Settings } from 'lucide-react';
 import { AGENTPRESS_TOOL_DEFINITIONS, getToolDisplayName } from './tools';
+import { CustomAutomationConfig } from './custom-automation/custom-automation-config';
 import { toast } from 'sonner';
 
 interface AgentToolsConfigurationProps {
   tools: Record<string, boolean | { enabled: boolean; description: string }>;
   onToolsChange: (tools: Record<string, boolean | { enabled: boolean; description: string }>) => void;
   disabled?: boolean;
+  agentId?: string;
   isSunaAgent?: boolean;
   isLoading?: boolean;
 }
 
-export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false, isSunaAgent = false, isLoading = false }: AgentToolsConfigurationProps) => {
+export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false, agentId, isSunaAgent = false, isLoading = false }: AgentToolsConfigurationProps) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showCustomAutomationConfig, setShowCustomAutomationConfig] = useState(false);
 
   const isToolEnabled = (tool: boolean | { enabled: boolean; description: string } | undefined): boolean => {
     if (tool === undefined) return false;
@@ -99,7 +103,19 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
                 </div>
               </div>
               
-              <div className="flex justify-end items-center">
+              <div className="flex justify-end items-center gap-2">
+                {toolName === 'sb_custom_automation_tool' && agentId && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setShowCustomAutomationConfig(true)}
+                    title="Configure Custom Automation"
+                    disabled={disabled || isLoading}
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                )}
                 <Switch
                   checked={isToolEnabled(tools[toolName])}
                   onCheckedChange={(checked) => handleToolToggle(toolName, checked)}
@@ -123,6 +139,19 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
             </div>
           )}
       </div>
+
+      {/* Custom Automation Configuration Dialog */}
+      {agentId && (
+        <CustomAutomationConfig
+          open={showCustomAutomationConfig}
+          onOpenChange={setShowCustomAutomationConfig}
+          agentId={agentId}
+          onSave={() => {
+            // Optionally refresh tools configuration or show success state
+            // The dialog handles its own success feedback
+          }}
+        />
+      )}
     </div>
   );
 }; 
