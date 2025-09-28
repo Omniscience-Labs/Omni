@@ -11,7 +11,7 @@ async def get_agent_llamacloud_knowledge_bases(agent_id: str) -> List[Dict[str, 
         db = DBConnection()
         client = await db.client
         
-        result = await client.rpc('get_agent_assigned_llamacloud_kbs', {
+        result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
             'p_agent_id': agent_id,
             'p_include_inactive': False
         }).execute()
@@ -431,7 +431,7 @@ async def get_agent_llamacloud_knowledge_bases(agent_id: str) -> List[Dict[str, 
         db = DBConnection()
         client = await db.client
         
-        result = await client.rpc('get_agent_assigned_llamacloud_kbs', {
+        result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
             'p_agent_id': agent_id,
             'p_include_inactive': False
         }).execute()

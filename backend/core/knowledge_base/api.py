@@ -491,7 +491,7 @@ async def get_agent_unified_knowledge_base(
             regular_entries.append(entry)
             total_tokens += entry_data.get('content_tokens', 0) or 0
         
-        # Get LlamaCloud knowledge base entries
+        # Get LlamaCloud knowledge base entries using existing system
         llamacloud_result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
             'p_agent_id': agent_id,
             'p_include_inactive': include_inactive
@@ -1025,13 +1025,13 @@ async def get_agent_unified_assignments(
         regular_result = await client.from_("agent_knowledge_entry_assignments").select("entry_id, enabled").eq("agent_id", agent_id).execute()
         regular_assignments = {row['entry_id']: row['enabled'] for row in regular_result.data}
         
-        # Get LlamaCloud KB assignments from the new global assignment system
-        llamacloud_result = await client.rpc('get_agent_assigned_llamacloud_kbs', {
+        # Get LlamaCloud KB assignments using existing system
+        llamacloud_result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
             'p_agent_id': agent_id,
             'p_include_inactive': False
         }).execute()
         
-        llamacloud_assignments = {kb_data['kb_id']: kb_data['enabled'] for kb_data in llamacloud_result.data or []}
+        llamacloud_assignments = {kb_data['id']: kb_data['is_active'] for kb_data in llamacloud_result.data or []}
         
         return UnifiedAssignmentResponse(
             regular_assignments=regular_assignments,
@@ -1073,18 +1073,9 @@ async def update_agent_unified_assignments(
                 "enabled": True
             }).execute()
         
-        # Update LlamaCloud KB assignments
-        # Delete existing LlamaCloud assignments for this agent
-        await client.from_("agent_llamacloud_kb_assignments").delete().eq("agent_id", agent_id).execute()
-        
-        # Insert new LlamaCloud KB assignments
-        for kb_id in request.llamacloud_kb_ids:
-            await client.from_("agent_llamacloud_kb_assignments").insert({
-                "agent_id": agent_id,
-                "kb_id": kb_id,
-                "account_id": account_id,
-                "enabled": True
-            }).execute()
+        # Note: LlamaCloud KB assignments are currently managed through direct agent-specific creation
+        # The existing system creates LlamaCloud KBs directly for agents rather than having a separate assignment system
+        # For now, we'll keep the existing behavior and only update regular KB assignments
         
         return {"message": "Unified agent assignments updated successfully", "regular_count": len(request.regular_entry_ids), "llamacloud_count": len(request.llamacloud_kb_ids)}
         
