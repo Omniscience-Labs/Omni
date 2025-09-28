@@ -244,18 +244,6 @@ export function KnowledgeBasePage() {
     const [activeId, setActiveId] = useState<string | null>(null);
     const editInputRef = useRef<HTMLInputElement>(null);
 
-    // Create folder dialog state
-    const [createFolderDialog, setCreateFolderDialog] = useState<{
-        isOpen: boolean;
-        name: string;
-        description: string;
-        isCreating: boolean;
-    }>({
-        isOpen: false,
-        name: '',
-        description: '',
-        isCreating: false,
-    });
 
     // Cloud KB dialog state  
     const [cloudKBDialog, setCloudKBDialog] = useState<{
@@ -318,13 +306,82 @@ export function KnowledgeBasePage() {
 
     const { folders, recentFiles, llamacloudKBs, loading: foldersLoading, refetch: refetchFolders } = useKnowledgeFolders();
 
-    const handleCreateFolder = () => {
-        setCreateFolderDialog({
-                isOpen: true,
-            name: '',
-            description: '',
-            isCreating: false,
-        });
+    // DND Sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    // Build tree structure
+    React.useEffect(() => {
+        const buildTree = () => {
+            const tree: TreeItem[] = folders.map(folder => {
+                // Preserve existing expanded state
+                const existingFolder = treeData.find(item => item.id === folder.folder_id);
+                const isExpanded = existingFolder?.expanded || false;
+
+                return {
+                    id: folder.folder_id,
+                    type: 'folder' as const,
+                    name: folder.name,
+                    data: folder,
+                    children: folderEntries[folder.folder_id]?.map(entry => ({
+                        id: entry.entry_id,
+                        type: 'file' as const,
+                        name: entry.filename,
+                        parentId: folder.folder_id,
+                        data: entry,
+                    })) || [],
+                    expanded: isExpanded,
+                };
+            });
+            setTreeData(tree);
+        };
+
+        buildTree();
+    }, [folders, folderEntries]);
+
+    const handleCreateFolder = async () => {
+        try {
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session?.access_token) {
+                toast.error('Authentication error');
+                return;
+            }
+
+            // Create folder using API - backend will handle unique naming
+            const response = await fetch(`${API_URL}/knowledge-base/folders`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: 'Untitled Folder'
+                })
+            });
+
+            if (response.ok) {
+                const newFolder = await response.json();
+                toast.success('Folder created successfully');
+                refetchFolders();
+                // Start editing the new folder immediately
+                setTimeout(() => {
+                    setEditingFolder(newFolder.folder_id);
+                    setEditingName(newFolder.name);
+                }, 100);
+            } else {
+                const errorData = await response.json().catch(() => null);
+                toast.error(errorData?.detail || 'Failed to create folder');
+            }
+        } catch (error) {
+            console.error('Error creating folder:', error);
+            toast.error('Failed to create folder');
+        }
     };
 
     const handleAddCloudKB = () => {
@@ -337,71 +394,25 @@ export function KnowledgeBasePage() {
         });
     };
 
-    const createFolder = async () => {
-        if (!createFolderDialog.name.trim()) return;
-
-        setCreateFolderDialog(prev => ({ ...prev, isCreating: true }));
-        
-        try {
-            const supabase = createClient();
-            const { data: { session } } = await supabase.auth.getSession();
-
-            if (!session?.access_token) {
-                toast.error('Please log in to create folders');
-                return;
-            }
-
-            const response = await fetch(`${API_URL}/knowledge-base/folders`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${session.access_token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    name: createFolderDialog.name.trim(),
-                    description: createFolderDialog.description.trim() || null,
-                }),
-            });
-
-            if (response.ok) {
-                toast.success('Folder created successfully');
-                setCreateFolderDialog({
-                    isOpen: false,
-                    name: '',
-                    description: '',
-                    isCreating: false,
-                });
-                refetchFolders();
-            } else {
-                const error = await response.text();
-                toast.error(`Failed to create folder: ${error}`);
-            }
-        } catch (error) {
-            toast.error('Failed to create folder');
-            console.error('Create folder error:', error);
-        } finally {
-            setCreateFolderDialog(prev => ({ ...prev, isCreating: false }));
-        }
-    };
 
     const createCloudKB = async () => {
         if (!cloudKBDialog.name.trim() || !cloudKBDialog.indexName.trim()) return;
 
         setCloudKBDialog(prev => ({ ...prev, isCreating: true }));
-
+        
         try {
             const supabase = createClient();
             const { data: { session } } = await supabase.auth.getSession();
-
+            
             if (!session?.access_token) {
                 toast.error('Please log in to create cloud knowledge bases');
-            return;
-        }
+                return;
+            }
 
             const response = await fetch(`${API_URL}/knowledge-base/llamacloud`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${session.access_token}`,
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
@@ -409,9 +420,9 @@ export function KnowledgeBasePage() {
                     index_name: cloudKBDialog.indexName.trim(),
                     description: cloudKBDialog.description.trim() || null,
                 }),
-                    });
+            });
 
-                    if (response.ok) {
+            if (response.ok) {
                 toast.success('Cloud Knowledge Base created successfully');
                 setCloudKBDialog({
                     isOpen: false,
@@ -430,6 +441,493 @@ export function KnowledgeBasePage() {
             console.error('Create cloud KB error:', error);
         } finally {
             setCloudKBDialog(prev => ({ ...prev, isCreating: false }));
+        }
+    };
+
+    const handleFileSelect = (item: TreeItem) => {
+        if (item.type === 'file' && item.data && 'entry_id' in item.data) {
+            setFilePreviewModal({
+                isOpen: true,
+                file: item.data,
+            });
+        } else {
+            setSelectedItem(item);
+        }
+    };
+
+    const handleStartEdit = (folderId: string, currentName: string) => {
+        setEditingFolder(folderId);
+        setEditingName(currentName);
+        setValidationError(null);
+        setTimeout(() => {
+            editInputRef.current?.focus();
+            editInputRef.current?.select();
+        }, 0);
+    };
+
+    const handleEditChange = (newName: string) => {
+        setEditingName(newName);
+
+        // Real-time validation
+        const existingNames = folders
+            .map(f => f.name)
+            .filter(name => name !== folders.find(f => f.folder_id === editingFolder)?.name);
+
+        const nameValidation = FileNameValidator.validateName(newName, 'folder');
+        const hasConflict = nameValidation.isValid && FileNameValidator.checkNameConflict(newName, existingNames);
+        const isValid = nameValidation.isValid && !hasConflict;
+        const errorMessage = hasConflict
+            ? 'A folder with this name already exists'
+            : FileNameValidator.getFriendlyErrorMessage(newName, 'folder');
+
+        setValidationError(isValid ? null : errorMessage);
+    };
+
+    const handleFinishEdit = async () => {
+        if (!editingFolder || !editingName.trim()) {
+            setEditingFolder(null);
+            return;
+        }
+
+        const trimmedName = editingName.trim();
+
+        // Validate the name
+        const existingNames = folders.map(f => f.name).filter(name => name !== folders.find(f => f.folder_id === editingFolder)?.name);
+        const nameValidation = FileNameValidator.validateName(trimmedName, 'folder');
+        const hasConflict = nameValidation.isValid && FileNameValidator.checkNameConflict(trimmedName, existingNames);
+        const isValid = nameValidation.isValid && !hasConflict;
+
+        if (!isValid) {
+            const errorMessage = hasConflict
+                ? 'A folder with this name already exists'
+                : FileNameValidator.getFriendlyErrorMessage(trimmedName, 'folder');
+            toast.error(errorMessage);
+            return;
+        }
+
+        try {
+            const supabase = createClient();
+
+            // Update folder name directly using Supabase client
+            const { error } = await supabase
+                .from('knowledge_base_folders')
+                .update({ name: trimmedName })
+                .eq('folder_id', editingFolder);
+
+            if (error) {
+                console.error('Supabase error:', error);
+                if (error.message?.includes('duplicate') || error.code === '23505') {
+                    toast.error('A folder with this name already exists');
+                } else {
+                    toast.error('Failed to rename folder');
+                }
+            } else {
+                toast.success('Folder renamed successfully');
+                refetchFolders();
+            }
+        } catch (error) {
+            console.error('Error renaming folder:', error);
+            toast.error('Failed to rename folder');
+        }
+
+        setEditingFolder(null);
+        setEditingName('');
+        setValidationError(null);
+    };
+
+    const handleEditKeyPress = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            handleFinishEdit();
+        } else if (e.key === 'Escape') {
+            setEditingFolder(null);
+            setEditingName('');
+            setValidationError(null);
+        }
+    };
+
+    const fetchFolderEntries = async (folderId: string) => {
+        setLoadingFolders(prev => ({ ...prev, [folderId]: true }));
+
+        try {
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session?.access_token) {
+                throw new Error('No session found');
+            }
+
+            const response = await fetch(`${API_URL}/knowledge-base/folders/${folderId}/entries`, {
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setFolderEntries(prev => ({ ...prev, [folderId]: data }));
+            }
+        } catch (error) {
+            console.error('Failed to fetch entries:', error);
+        } finally {
+            setLoadingFolders(prev => ({ ...prev, [folderId]: false }));
+        }
+    };
+
+    const handleExpand = async (folderId: string) => {
+        const folder = treeData.find(item => item.id === folderId);
+        const isCurrentlyExpanded = folder?.expanded;
+
+        setTreeData(prev =>
+            prev.map(item =>
+                item.id === folderId
+                    ? { ...item, expanded: !item.expanded }
+                    : item
+            )
+        );
+
+        // Fetch entries if expanding and not already loaded
+        if (folder && !isCurrentlyExpanded && !folderEntries[folderId]) {
+            await fetchFolderEntries(folderId);
+        }
+
+        // Clear loading state if collapsing
+        if (isCurrentlyExpanded) {
+            setLoadingFolders(prev => ({ ...prev, [folderId]: false }));
+        }
+    };
+
+    const handleDelete = (id: string, type: 'folder' | 'file') => {
+        const item = treeData.flatMap(folder => [folder, ...(folder.children || [])])
+            .find(item => item.id === id);
+
+        if (!item) return;
+
+        setDeleteConfirm({
+            isOpen: true,
+            item: { id, name: item.name, type },
+            isDeleting: false,
+        });
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteConfirm.item) return;
+
+        const { id, type } = deleteConfirm.item;
+
+        setDeleteConfirm(prev => ({ ...prev, isDeleting: true }));
+
+        try {
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session?.access_token) {
+                throw new Error('No session found');
+            }
+
+            const endpoint = type === 'folder'
+                ? `${API_URL}/knowledge-base/folders/${id}`
+                : `${API_URL}/knowledge-base/entries/${id}`;
+
+            const response = await fetch(endpoint, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                toast.success(`${type === 'folder' ? 'Folder' : 'File'} deleted`);
+                refetchFolders();
+
+                if (type === 'folder') {
+                    if (selectedItem?.id === id) {
+                        setSelectedItem(null);
+                    }
+                } else {
+                    // Also reload folder entries for immediate UI update
+                    const parentFolder = treeData.find(folder =>
+                        folder.children?.some(child => child.id === id)
+                    );
+                    if (parentFolder) {
+                        await fetchFolderEntries(parentFolder.id);
+                    }
+                }
+            } else {
+                toast.error(`Failed to delete ${type}`);
+            }
+        } catch (error) {
+            toast.error(`Failed to delete ${type}`);
+        } finally {
+            setDeleteConfirm({
+                isOpen: false,
+                item: null,
+                isDeleting: false,
+            });
+        }
+    };
+
+    const handleEditSummary = (fileId: string, fileName: string, currentSummary: string) => {
+        setEditSummaryModal({
+            isOpen: true,
+            fileId,
+            fileName,
+            currentSummary,
+        });
+    };
+
+    const handleSaveSummary = async (newSummary: string) => {
+        try {
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session?.access_token) {
+                throw new Error('No session found');
+            }
+
+            const response = await fetch(`${API_URL}/knowledge-base/entries/${editSummaryModal.fileId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    summary: newSummary
+                })
+            });
+
+            if (response.ok) {
+                toast.success('Summary updated successfully');
+                // Refresh the folder entries to show updated summary
+                const fileItem = treeData.flatMap(folder => folder.children || []).find(file => file.id === editSummaryModal.fileId);
+                if (fileItem?.parentId) {
+                    await fetchFolderEntries(fileItem.parentId);
+                }
+                refetchFolders();
+            } else {
+                const errorData = await response.json().catch(() => null);
+                toast.error(errorData?.detail || 'Failed to update summary');
+            }
+        } catch (error) {
+            console.error('Error updating summary:', error);
+            toast.error('Failed to update summary');
+        }
+    };
+
+    const handleNativeFileDrop = async (files: FileList, folderId: string) => {
+        try {
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session?.access_token) {
+                throw new Error('No session found');
+            }
+
+            const fileArray = Array.from(files);
+            const totalFiles = fileArray.length;
+
+            // Initialize upload status
+            setUploadStatus(prev => ({
+                ...prev,
+                [folderId]: {
+                    isUploading: true,
+                    progress: 0,
+                    totalFiles,
+                    completedFiles: 0,
+                    currentFile: fileArray[0]?.name
+                }
+            }));
+
+            // Upload files one by one
+            let successCount = 0;
+            let limitErrorShown = false;
+
+            for (let i = 0; i < fileArray.length; i++) {
+                const file = fileArray[i];
+
+                // Validate filename before upload
+                const validation = FileNameValidator.validateName(file.name, 'file');
+                if (!validation.isValid) {
+                    toast.error(`Invalid filename "${file.name}": ${FileNameValidator.getFriendlyErrorMessage(file.name, 'file')}`);
+                    continue;
+                }
+
+                // Update current file status
+                setUploadStatus(prev => ({
+                    ...prev,
+                    [folderId]: {
+                        ...prev[folderId],
+                        currentFile: file.name,
+                        progress: (i / totalFiles) * 100
+                    }
+                }));
+
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const response = await fetch(`${API_URL}/knowledge-base/folders/${folderId}/upload`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${session.access_token}`,
+                        },
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        successCount++;
+
+                        // Show info about filename changes
+                        if (result.filename_changed) {
+                            toast.info(`File "${result.original_filename}" was renamed to "${result.final_filename}" to avoid conflicts`);
+                        }
+                    } else {
+                        // Handle specific error cases
+                        if (response.status === 413) {
+                            if (!limitErrorShown) {
+                                try {
+                                    const errorData = await response.json();
+                                    toast.error(`Knowledge base limit exceeded: ${errorData.detail || 'Total file size limit (50MB) exceeded'}`);
+                                } catch {
+                                    toast.error('Knowledge base limit exceeded: Total file size limit (50MB) exceeded');
+                                }
+                                limitErrorShown = true;
+                            }
+                        } else if (response.status === 400) {
+                            try {
+                                const errorData = await response.json();
+                                toast.error(`Failed to upload ${file.name}: ${errorData.detail}`);
+                            } catch {
+                                toast.error(`Failed to upload ${file.name}: Invalid file`);
+                            }
+                        } else {
+                            toast.error(`Failed to upload ${file.name}: Error ${response.status}`);
+                            console.error(`Failed to upload ${file.name}:`, response.status);
+                        }
+                    }
+                } catch (fileError) {
+                    toast.error(`Error uploading ${file.name}`);
+                    console.error(`Error uploading ${file.name}:`, fileError);
+                }
+
+                // Update completed count
+                setUploadStatus(prev => ({
+                    ...prev,
+                    [folderId]: {
+                        ...prev[folderId],
+                        completedFiles: i + 1,
+                        progress: ((i + 1) / totalFiles) * 100
+                    }
+                }));
+            }
+
+            // Clear upload status after a short delay
+            setTimeout(() => {
+                setUploadStatus(prev => {
+                    const newStatus = { ...prev };
+                    delete newStatus[folderId];
+                    return newStatus;
+                });
+            }, 3000);
+
+            if (successCount === totalFiles) {
+                toast.success(`Successfully uploaded ${successCount} file(s)`);
+            } else if (successCount > 0) {
+                toast.success(`Uploaded ${successCount} of ${totalFiles} files`);
+            } else {
+                toast.error('Failed to upload files');
+            }
+
+            // Refresh the folder contents
+            refetchFolders();
+            // Also refresh the specific folder's entries to show new files immediately
+            await fetchFolderEntries(folderId);
+
+        } catch (error) {
+            console.error('Error uploading files:', error);
+            toast.error('Failed to upload files');
+
+            // Clear upload status on error
+            setUploadStatus(prev => {
+                const newStatus = { ...prev };
+                delete newStatus[folderId];
+                return newStatus;
+            });
+        }
+    };
+
+    const handleDragStart = (event: DragStartEvent) => {
+        setActiveId(event.active.id as string);
+    };
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (!over || active.id === over.id) {
+            setActiveId(null);
+            return;
+        }
+
+        // Handle internal DND - get the actual item IDs
+        const activeItemId = active.id.toString();
+        const overItemId = over.id.toString().replace('droppable-', ''); // Remove droppable prefix if present
+
+        const activeItem = treeData.flatMap(folder => [folder, ...(folder.children || [])]).find(item => item.id === activeItemId);
+        const overItem = treeData.flatMap(folder => [folder, ...(folder.children || [])]).find(item => item.id === overItemId);
+
+        if (!activeItem || !overItem) {
+            setActiveId(null);
+            return;
+        }
+
+        // File to folder: Move file to different folder
+        if (activeItem.type === 'file' && overItem.type === 'folder') {
+            handleMoveFile(activeItem.id, overItem.id);
+        }
+
+        setActiveId(null);
+    };
+
+    const handleMoveFile = async (fileId: string, targetFolderId: string) => {
+        setMovingFiles(prev => ({ ...prev, [fileId]: true }));
+
+        try {
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session?.access_token) {
+                throw new Error('No session found');
+            }
+
+            const response = await fetch(`${API_URL}/knowledge-base/entries/${fileId}/move`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    folder_id: targetFolderId
+                })
+            });
+
+            if (response.ok) {
+                toast.success('File moved successfully');
+                refetchFolders();
+                // Refresh folder entries for both source and target folders
+                const movedItem = treeData.flatMap(folder => folder.children || []).find(file => file.id === fileId);
+                if (movedItem) {
+                    await fetchFolderEntries(movedItem.parentId!);
+                    await fetchFolderEntries(targetFolderId);
+                }
+            } else {
+                toast.error('Failed to move file');
+            }
+        } catch (error) {
+            toast.error('Failed to move file');
+        } finally {
+            setMovingFiles(prev => ({ ...prev, [fileId]: false }));
         }
     };
 
@@ -501,20 +999,28 @@ export function KnowledgeBasePage() {
                         </div>
 
                         {/* Main Content */}
-                        <div className="space-y-8">
-                            {/* Recent Files Section */}
-                            {recentFiles && recentFiles.length > 0 && (
+                        <div 
+                            className="space-y-8"
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                // Only prevent default - don't show any message since folders handle their own drops
+                            }}
+                        >
+                            {/* Recent Files Section - Mix files and LlamaCloud KBs */}
+                            {((recentFiles && recentFiles.length > 0) || (llamacloudKBs && llamacloudKBs.length > 0)) && (
                                 <div className="space-y-6">
                                     <div className="space-y-2">
-                                        <h3 className="text-lg font-medium text-foreground">Recent Files</h3>
-                                        <p className="text-sm text-muted-foreground">Recently uploaded documents</p>
+                                        <h3 className="text-lg font-medium text-foreground">Recent Items</h3>
+                                        <p className="text-sm text-muted-foreground">Recently uploaded documents and cloud knowledge bases</p>
                                     </div>
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-8">
-                                        {recentFiles.slice(0, 6).map((file) => {
+                                        {/* Regular Files */}
+                                        {recentFiles.slice(0, (llamacloudKBs.length > 0 ? 4 : 6)).map((file) => {
                                             const fileInfo = getFileTypeInfo(file.filename);
                                             return (
                                                 <div
-                                                    key={file.entry_id}
+                                                    key={`file-${file.entry_id}`}
                                                     className="group cursor-pointer"
                                                     onClick={() => setFilePreviewModal({
                                                         isOpen: true,
@@ -527,7 +1033,7 @@ export function KnowledgeBasePage() {
                                                                 <div className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${fileInfo.colorClass}`}>
                                                                     {fileInfo.extension}
                                                                 </div>
-                                                                </div>
+                                                            </div>
                                                             
                                                             <div className="space-y-1">
                                                                 <p className="text-xs font-medium text-foreground truncate" title={file.filename}>
@@ -542,70 +1048,125 @@ export function KnowledgeBasePage() {
                                                 </div>
                                             );
                                         })}
-                                    </div>
-                                </div>
-                            )}
 
-                            {/* LlamaCloud Knowledge Bases Section */}
-                            {llamacloudKBs && llamacloudKBs.length > 0 && (
-                                <div className="space-y-6">
-                                    <div className="space-y-2">
-                                        <h3 className="text-lg font-medium text-foreground">Cloud Knowledge Bases</h3>
-                                        <p className="text-sm text-muted-foreground">LlamaCloud indices available for agent assignment</p>
-                                            </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {llamacloudKBs.map((kb) => (
+                                        {/* LlamaCloud Knowledge Bases as File-like Items */}
+                                        {llamacloudKBs.slice(0, 2).map((kb) => (
                                             <div
-                                                key={kb.kb_id}
+                                                key={`cloud-${kb.kb_id}`}
                                                 className="group cursor-pointer"
+                                                onClick={() => console.log('View LlamaCloud KB:', kb.name)}
                                             >
                                                 <div className="p-4 border border-blue-200 bg-blue-50/30 dark:border-blue-800 dark:bg-blue-900/10 rounded-lg hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200">
                                                     <div className="space-y-3">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                                                                <Database className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center gap-2">
-                                                                    <p className="text-sm font-medium text-foreground truncate" title={kb.name}>
-                                                                        {kb.name}
-                                                                    </p>
-                                                                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400">
-                                                                        LlamaCloud
-                                                                    </Badge>
-                                        </div>
-                                                                <p className="text-xs text-blue-600 dark:text-blue-400 truncate">
-                                                                    Index: {kb.index_name}
-                                                                </p>
-                                                    </div>
-                                                </div>
+                                                            <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                                                                <Database className="h-3 w-3 mr-1" />
+                                                                CLOUD
+                                                            </div>
+                                                        </div>
                                                         
-                                                        {kb.description && (
-                                                            <div className="space-y-1">
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    {kb.description}
-                                                                </p>
-                                            </div>
-                                                        )}
-                                                        
-                                                        <div className="flex items-center justify-between">
-                                                            <p className="text-xs text-muted-foreground">
+                                                        <div className="space-y-1">
+                                                            <p className="text-xs font-medium text-foreground truncate" title={kb.name}>
+                                                                {kb.name}
+                                                            </p>
+                                                            <p className="text-xs text-blue-600 dark:text-blue-400">
                                                                 {formatDate(kb.created_at)}
                                                             </p>
-                                                            <Badge variant="outline" className="text-xs border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-400">
-                                                                search_{kb.name.replace(/-/g, '_')}()
-                                                            </Badge>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Folders Tree Structure */}
+                            {treeData.length > 0 && (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="text-lg font-medium text-foreground">All Folders</h3>
+                                        <span className="text-xs text-muted-foreground">
+                                            {folders.length} folders
+                                        </span>
+                                    </div>
+                                    <DndContext
+                                        sensors={sensors}
+                                        collisionDetection={closestCenter}
+                                        onDragStart={handleDragStart}
+                                        onDragEnd={handleDragEnd}
+                                    >
+                                        <SortableContext
+                                            items={[]} // No sorting - only drag files to folders
+                                            strategy={verticalListSortingStrategy}
+                                        >
+                                            <div className="space-y-3">
+                                                {treeData.map((item) => (
+                                                    <SharedTreeItem
+                                                        key={item.id}
+                                                        item={item}
+                                                        onExpand={handleExpand}
+                                                        onSelect={handleFileSelect}
+                                                        enableDnd={true}
+                                                        enableActions={true}
+                                                        enableEdit={true}
+                                                        onDelete={handleDelete}
+                                                        onEditSummary={handleEditSummary}
+                                                        editingFolder={editingFolder}
+                                                        editingName={editingName}
+                                                        onStartEdit={handleStartEdit}
+                                                        onFinishEdit={handleFinishEdit}
+                                                        onEditChange={handleEditChange}
+                                                        onEditKeyPress={handleEditKeyPress}
+                                                        editInputRef={editInputRef}
+                                                        onNativeFileDrop={handleNativeFileDrop}
+                                                        uploadStatus={uploadStatus[item.id]}
+                                                        validationError={editingFolder === item.id ? validationError : null}
+                                                        isLoadingEntries={loadingFolders[item.id]}
+                                                        movingFiles={movingFiles}
+                                                    />
                                                 ))}
                                             </div>
+                                        </SortableContext>
+
+                                        <DragOverlay>
+                                            {activeId ? (() => {
+                                                // Find the active item in the tree data
+                                                const findActiveItem = (items: any[]): any => {
+                                                    for (const item of items) {
+                                                        if (item.id === activeId) return item;
+                                                        if (item.children) {
+                                                            const found = findActiveItem(item.children);
+                                                            if (found) return found;
+                                                        }
+                                                    }
+                                                    return null;
+                                                };
+
+                                                const activeItem = findActiveItem(treeData);
+
+                                                if (activeItem?.type === 'file') {
+                                                    return <FileDragOverlay item={activeItem} />;
+                                                } else {
+                                                    return (
+                                                        <div className="bg-background border rounded-lg p-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <FolderIcon className="h-4 w-4 text-blue-500" />
+                                                                <span className="font-medium text-sm">
+                                                                    {activeItem?.name}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                            })() : null}
+                                        </DragOverlay>
+                                    </DndContext>
                                 </div>
                             )}
 
                             {/* Empty State */}
-                            {(!folders || folders.length === 0) && (!llamacloudKBs || llamacloudKBs.length === 0) && !foldersLoading && (
+                            {treeData.length === 0 && (!llamacloudKBs || llamacloudKBs.length === 0) && !foldersLoading && (
                                 <div className="text-center py-16 space-y-6">
                                     <div className="mx-auto w-24 h-24 bg-muted/50 rounded-full flex items-center justify-center">
                                         <FolderIcon className="h-12 w-12 text-muted-foreground/50" />
@@ -631,7 +1192,7 @@ export function KnowledgeBasePage() {
                 <KBDeleteConfirmDialog
                     isOpen={deleteConfirm.isOpen}
                     onClose={() => setDeleteConfirm({ isOpen: false, item: null, isDeleting: false })}
-                onConfirm={async () => console.log('Delete confirmed')}
+                onConfirm={confirmDelete}
                     itemName={deleteConfirm.item?.name || ''}
                     itemType={deleteConfirm.item?.type || 'file'}
                     isDeleting={deleteConfirm.isDeleting}
@@ -640,7 +1201,7 @@ export function KnowledgeBasePage() {
                 <EditSummaryModal
                     isOpen={editSummaryModal.isOpen}
                     onClose={() => setEditSummaryModal({ isOpen: false, fileId: '', fileName: '', currentSummary: '' })}
-                onSave={async (summary: string) => console.log('Summary saved:', summary)}
+                onSave={handleSaveSummary}
                     fileName={editSummaryModal.fileName}
                     currentSummary={editSummaryModal.currentSummary}
                 />
@@ -650,60 +1211,10 @@ export function KnowledgeBasePage() {
                         isOpen={filePreviewModal.isOpen}
                         onClose={() => setFilePreviewModal({ isOpen: false, file: null })}
                         file={filePreviewModal.file}
-                    onEditSummary={(fileId: string, fileName: string, summary: string) => console.log('Edit summary:', fileId, fileName, summary)}
+                    onEditSummary={handleEditSummary}
                 />
             )}
 
-            {/* Create Folder Dialog */}
-            <Dialog open={createFolderDialog.isOpen} onOpenChange={(open) => setCreateFolderDialog(prev => ({ ...prev, isOpen: open }))}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <FolderPlusIcon className="h-5 w-5" />
-                            Create New Folder
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div>
-                            <Label htmlFor="folder-name">Folder Name</Label>
-                            <Input
-                                id="folder-name"
-                                placeholder="Enter folder name..."
-                                value={createFolderDialog.name}
-                                onChange={(e) => setCreateFolderDialog(prev => ({ ...prev, name: e.target.value }))}
-                                disabled={createFolderDialog.isCreating}
-                            />
-            </div>
-                        <div>
-                            <Label htmlFor="folder-description">Description (Optional)</Label>
-                            <Textarea
-                                id="folder-description"
-                                placeholder="Brief description of this folder..."
-                                value={createFolderDialog.description}
-                                onChange={(e) => setCreateFolderDialog(prev => ({ ...prev, description: e.target.value }))}
-                                disabled={createFolderDialog.isCreating}
-                                rows={3}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button 
-                            variant="outline" 
-                            onClick={() => setCreateFolderDialog(prev => ({ ...prev, isOpen: false }))}
-                            disabled={createFolderDialog.isCreating}
-                        >
-                            Cancel
-                        </Button>
-                        <Button 
-                            onClick={createFolder}
-                            disabled={!createFolderDialog.name.trim() || createFolderDialog.isCreating}
-                        >
-                            {createFolderDialog.isCreating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                            Create Folder
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
 
             {/* Cloud Knowledge Base Dialog */}
             <Dialog open={cloudKBDialog.isOpen} onOpenChange={(open) => setCloudKBDialog(prev => ({ ...prev, isOpen: open }))}>

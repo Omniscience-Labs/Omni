@@ -370,7 +370,13 @@ export const PlaybackControls = ({
           try {
             const parsed = JSON.parse(content);
             if (parsed.content) {
-              content = parsed.content;
+              // Handle structured content with separate thinking
+              if (typeof parsed.content === 'object' && parsed.content?.thinking && parsed.content?.content) {
+                // For playback, combine thinking and content with clear separation
+                content = `**Thinking:** ${parsed.content.thinking}\n\n---\n\n${parsed.content.content}`;
+              } else {
+                content = parsed.content;
+              }
             }
           } catch (e) {
             // Not JSON, use as is
