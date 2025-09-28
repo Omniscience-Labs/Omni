@@ -22,8 +22,8 @@ import uuid
 from core import api as core_api
 
 from core.sandbox import api as sandbox_api
-from billing.api import router as billing_router
-from billing.admin import router as billing_admin_router
+from core.billing.api import router as billing_router
+from core.billing.admin import router as billing_admin_router
 from core.services import enterprise_billing_api
 
 from admin import users_admin
