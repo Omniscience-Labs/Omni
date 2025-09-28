@@ -333,6 +333,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
 
   const { data: knowledgeBase, isLoading, error, refetch } = useAgentKnowledgeBaseEntries(agentId);
   const { data: processingJobsData, refetch: refetchJobs } = useAgentProcessingJobs(agentId);
+  const { data: cloudKnowledgeBases, isLoading: cloudKBLoading, refetch: refetchCloudKB } = useAgentLlamaCloudKnowledgeBases(agentId);
   const createMutation = useCreateAgentKnowledgeBaseEntry();
   const updateMutation = useUpdateKnowledgeBaseEntry();
   const deleteMutation = useDeleteKnowledgeBaseEntry();
@@ -794,6 +795,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         setTimeout(() => {
           refetch();
           refetchJobs();
+          refetchCloudKB();
         }, 500);
       }, 1000);
     }
@@ -833,7 +835,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
     }
   };
 
-  if (isLoading) {
+  if (isLoading || cloudKBLoading) {
     return <AgentKnowledgeBaseSkeleton />;
   }
 
@@ -850,11 +852,18 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
 
   const entries = knowledgeBase?.entries || [];
   const processingJobs = processingJobsData?.jobs || [];
+  const cloudKBs = cloudKnowledgeBases?.knowledge_bases || [];
   
   const filteredEntries = entries.filter(entry =>
     entry.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     entry.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (entry.description && entry.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredCloudKBs = cloudKBs.filter(kb =>
+    kb.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    kb.index_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (kb.description && kb.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -912,8 +921,51 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
           </Button>
         </div>
       </div>
+
+      {/* Cloud Knowledge Bases Section */}
+      {filteredCloudKBs.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+            <Database className="h-4 w-4" />
+            Cloud Knowledge Bases ({filteredCloudKBs.length})
+          </h3>
+          <div className="space-y-3">
+            {filteredCloudKBs.map((kb) => (
+              <div
+                key={kb.id}
+                className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors group"
+              >
+                <div className="flex items-center space-x-4 flex-1 min-w-0">
+                  <div className="p-2 rounded-lg bg-muted border">
+                    <Database className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2 mb-1 min-w-0">
+                      <h4 className="text-sm font-medium truncate">{kb.name}</h4>
+                      <Badge variant="outline" className="text-xs flex-shrink-0 bg-blue-50 text-blue-700 border-blue-200">
+                        search_{kb.name.replace(/-/g, '_')}()
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs flex-shrink-0">
+                        Cloud
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">
+                      Index: {kb.index_name}
+                    </p>
+                    {kb.description && (
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {kb.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
-      {entries.length === 0 ? (
+      {entries.length === 0 && filteredCloudKBs.length === 0 ? (
         <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
           <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
             <BookOpen className="h-6 w-6 text-muted-foreground" />
@@ -926,8 +978,17 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filteredEntries.length === 0 ? (
+        <div className="space-y-4">
+          {filteredEntries.length > 0 && (
+            <>
+              <h3 className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+                <FileIcon className="h-4 w-4" />
+                Document Knowledge ({filteredEntries.length})
+              </h3>
+            </>
+          )}
+          <div className="space-y-3">
+            {filteredEntries.length === 0 ? (
             <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
               <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
                 <Search className="h-6 w-6 text-muted-foreground" />
@@ -1013,7 +1074,8 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                   </div>
                 );
               })
-          )}
+            )}
+          </div>
         </div>
       )}
 

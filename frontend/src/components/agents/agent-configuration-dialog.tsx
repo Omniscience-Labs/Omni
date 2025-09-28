@@ -48,7 +48,7 @@ import { ExpandableMarkdownEditor } from '@/components/ui/expandable-markdown-ed
 import { AgentModelSelector } from './config/model-selector';
 import { AgentToolsConfiguration } from './agent-tools-configuration';
 import { AgentMCPConfiguration } from './agent-mcp-configuration';
-import { AgentKnowledgeBaseManager } from './knowledge-base/agent-kb-tree';
+import { AgentKnowledgeBaseManager } from './knowledge-base/agent-knowledge-base-manager';
 import { AgentPlaybooksConfiguration } from './playbooks/agent-playbooks-configuration';
 import { AgentTriggersConfiguration } from './triggers/agent-triggers-configuration';
 import { ProfilePictureDialog } from './config/profile-picture-dialog';

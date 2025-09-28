@@ -1,9 +1,11 @@
+'use client';
+
 import React from 'react';
 import { Settings, Wrench, Server, BookOpen, Workflow, Zap, ChevronDown, Brain, FileText } from 'lucide-react';
 import { ExpandableMarkdownEditor } from '@/components/ui/expandable-markdown-editor';
 import { AgentToolsConfiguration } from '../agent-tools-configuration';
 import { AgentMCPConfiguration } from '../agent-mcp-configuration';
-import { AgentKnowledgeBaseManager } from '../knowledge-base/agent-kb-tree';
+import { AgentKnowledgeBaseManager } from '../knowledge-base/agent-knowledge-base-manager';
 import { AgentPlaybooksConfiguration } from '../playbooks/agent-playbooks-configuration';
 import { AgentTriggersConfiguration } from '../triggers/agent-triggers-configuration';
 import { AgentModelSelector } from './model-selector';
