@@ -249,12 +249,158 @@ export default function CreditTransactions({ accountId }: Props) {
         </Card>
       )}
       {isEnterpriseMode ? (
-        // Enterprise mode: Show usage information (UsageLogs component removed by upstream)
+        // Enterprise mode: Show hierarchical usage table
         <Card className='p-0 px-0 bg-transparent shadow-none border-none'>
           <CardHeader className='px-0'>
             <CardTitle>Enterprise Usage Logs</CardTitle>
-            <CardDescription>Usage tracking functionality has been integrated into the main billing system.</CardDescription>
+            <CardDescription>Detailed usage breakdown by date and project</CardDescription>
           </CardHeader>
+          <CardContent className='px-0'>
+            {(() => {
+              const usageData = data as any;
+              const hierarchicalUsage = usageData?.hierarchical_usage || {};
+              const usageDates = Object.keys(hierarchicalUsage).sort().reverse();
+              
+              if (usageDates.length === 0) {
+                return (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No usage data found for the selected period.</p>
+                  </div>
+                );
+              }
+              
+              return (
+                <div className="space-y-6">
+                  {usageDates.map((date) => {
+                    const dateData = hierarchicalUsage[date];
+                    const projects = Object.values(dateData.projects || {});
+                    
+                    return (
+                      <div key={date} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold">
+                            {new Date(date).toLocaleDateString('en-US', {
+                              weekday: 'long',
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </h3>
+                          <div className="text-right">
+                            <div className="text-sm text-muted-foreground">Total Cost</div>
+                            <div className="text-lg font-bold">${dateData.total_cost?.toFixed(4) || '0.0000'}</div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          {projects.map((project: any) => (
+                            <div key={project.thread_id} className="border-l-2 border-blue-200 pl-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <div>
+                                  <h4 className="font-medium">{project.project_title || 'Untitled Project'}</h4>
+                                  <p className="text-sm text-muted-foreground">
+                                    Thread ID: {project.thread_id?.slice(0, 8)}...
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-sm text-muted-foreground">Thread Cost</div>
+                                  <div className="font-semibold">${project.thread_cost?.toFixed(4) || '0.0000'}</div>
+                                </div>
+                              </div>
+                              
+                              <div className="ml-4">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="w-[120px]">Time</TableHead>
+                                      <TableHead className="w-[100px]">Model</TableHead>
+                                      <TableHead className="w-[80px]">Type</TableHead>
+                                      <TableHead className="w-[100px]">Tokens</TableHead>
+                                      <TableHead className="w-[100px]">Tool</TableHead>
+                                      <TableHead className="w-[80px] text-right">Cost</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {project.usage_details?.map((detail: any) => (
+                                      <TableRow key={detail.id}>
+                                        <TableCell className="font-mono text-xs">
+                                          {new Date(detail.created_at).toLocaleTimeString('en-US', {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            second: '2-digit'
+                                          })}
+                                        </TableCell>
+                                        <TableCell className="text-xs">
+                                          {detail.model_name || 'N/A'}
+                                        </TableCell>
+                                        <TableCell>
+                                          <Badge variant="outline" className="text-xs">
+                                            {detail.usage_type || 'token'}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-xs">
+                                          {detail.usage_type === 'tool' ? (
+                                            <span className="text-orange-600">
+                                              Tool: {detail.tool_tokens || 0}
+                                            </span>
+                                          ) : (
+                                            <span>
+                                              P: {detail.prompt_tokens || 0} | C: {detail.completion_tokens || 0}
+                                            </span>
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="text-xs">
+                                          {detail.tool_name ? (
+                                            <span className="text-blue-600">{detail.tool_name}</span>
+                                          ) : (
+                                            <span className="text-muted-foreground">-</span>
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-xs">
+                                          ${detail.cost?.toFixed(4) || '0.0000'}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Pagination for enterprise usage */}
+                  {data?.page !== undefined && (
+                    <div className="flex items-center justify-between mt-4">
+                      <p className="text-sm text-muted-foreground">
+                        Page {data.page + 1} • {data.items_per_page} items per page
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setOffset(Math.max(0, offset - limit))}
+                          disabled={offset === 0}
+                        >
+                          Previous
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setOffset(offset + limit)}
+                          disabled={!data?.has_more}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </CardContent>
         </Card>
       ) : (
         // Non-enterprise mode: Show traditional transaction table
