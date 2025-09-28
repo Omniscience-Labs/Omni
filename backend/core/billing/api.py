@@ -765,6 +765,35 @@ async def get_available_models(
                 "total_models": len(model_info)
             }
         
+        # Check if enterprise mode is enabled
+        if config.ENTERPRISE_MODE:
+            logger.debug(f"Enterprise mode enabled - providing all models to account {account_id}")
+            all_models = model_manager.list_available_models(include_disabled=False)
+            model_info = []
+            
+            for model_data in all_models:
+                model_info.append({
+                    "id": model_data["id"],
+                    "display_name": model_data["name"],
+                    "short_name": model_data.get("aliases", [model_data["name"]])[0] if model_data.get("aliases") else model_data["name"],
+                    "requires_subscription": False,  # All models available in enterprise mode
+                    "input_cost_per_million_tokens": model_data["pricing"]["input_per_million"] if model_data["pricing"] else None,
+                    "output_cost_per_million_tokens": model_data["pricing"]["output_per_million"] if model_data["pricing"] else None,
+                    "context_window": model_data["context_window"],
+                    "capabilities": model_data["capabilities"],
+                    "recommended": model_data["recommended"],
+                    "priority": model_data["priority"]
+                })
+            
+            model_info.sort(key=lambda x: (-x["priority"], x["display_name"]))
+            
+            return {
+                "models": model_info,
+                "subscription_tier": "Enterprise",
+                "total_models": len(model_info),
+                "allowed_models_count": len(model_info)  # All models allowed in enterprise
+            }
+        
         db = DBConnection()
         client = await db.client
         account_result = await client.from_('credit_accounts').select('tier').eq('account_id', account_id).execute()
