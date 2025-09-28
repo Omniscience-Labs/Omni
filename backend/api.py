@@ -130,11 +130,7 @@ async def log_requests_middleware(request: Request, call_next):
         raise
 
 # Define allowed origins based on environment
-<<<<<<< Updated upstream
 allowed_origins = ["https://www.suna.so", "https://suna.so", "https://operator.becomeomni.net", "https://coldchain.becomeomni.ai", "https://sundar-dev.operator.becomeomni.net","https://varnica.operator.becomeomni.net","https://mssc.becomeomni.net", "https://mssc.becomeomni.ai","https://coppermoon.becomeomni.ai","https://huston.becomeomni.ai"]
-=======
-allowed_origins = ["https://www.suna.so", "https://suna.so", "https://operator.becomeomni.net","https://sundar-dev.operator.becomeomni.net","https://varnica.operator.becomeomni.net","https://mssc.becomeomni.net", "https://mssc.becomeomni.ai", "https://coldchain.becomeomni.net"]
->>>>>>> Stashed changes
 allow_origin_regex = None
 
 # Add staging-specific origins
@@ -144,7 +140,7 @@ if config.ENV_MODE == EnvMode.LOCAL:
 # Add staging-specific origins
 if config.ENV_MODE == EnvMode.STAGING:
     allowed_origins.append("https://staging.suna.so")
-    allowed_origins.append("http://localhost:3000")
+    allowed_origins.append("https://huston.staging.becomeomni.net")
     allow_origin_regex = r"https://suna-.*-prjcts\.vercel\.app"
 
 app.add_middleware(
