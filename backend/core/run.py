@@ -47,6 +47,7 @@ from core.agentpress.tool import SchemaType
 from core.tools.sb_sheets_tool import SandboxSheetsTool
 # from core.tools.sb_web_dev_tool import SandboxWebDevTool  # DEACTIVATED
 from core.tools.sb_upload_file_tool import SandboxUploadFileTool
+from core.tools.sb_custom_automation_tool import SandboxCustomAutomationTool
 from core.tools.podcast_tool import SandboxPodcastTool
 from core.tools.sb_docs_tool import SandboxDocsTool
 
@@ -127,6 +128,7 @@ class ToolManager:
             ('sb_sheets_tool', SandboxSheetsTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             # ('sb_web_dev_tool', SandboxWebDevTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),  # DEACTIVATED
             ('sb_upload_file_tool', SandboxUploadFileTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_custom_automation_tool', SandboxCustomAutomationTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('podcast_tool', SandboxPodcastTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_docs_tool', SandboxDocsTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
 
