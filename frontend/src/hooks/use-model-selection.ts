@@ -71,6 +71,12 @@ export const useModelSelection = () => {
 
   // Get accessible models based on subscription
   const accessibleModels = useMemo(() => {
+    // In enterprise mode, all models should be accessible (backend sets requires_subscription: false)
+    const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+    if (isEnterpriseMode) {
+      return availableModels; // All models accessible in enterprise mode
+    }
+    
     const hasActiveSubscription = subscriptionData?.status === 'active' || subscriptionData?.status === 'trialing';
     return availableModels.filter(model => hasActiveSubscription || !model.requiresSubscription);
   }, [availableModels, subscriptionData]);
