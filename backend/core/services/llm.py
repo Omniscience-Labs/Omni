@@ -212,7 +212,7 @@ def _add_tools_config(params: Dict[str, Any], tools: Optional[List[Dict[str, Any
         "tools": tools,
         "tool_choice": tool_choice
     })
-    # logger.debug(f"Added {len(tools)} tools to API parameters")
+    logger.debug(f"🔧 [TOOLS_CONFIG] Added {len(tools)} tools to API parameters with tool_choice={tool_choice}")
 
 def prepare_params(
     messages: List[Dict[str, Any]],

@@ -328,6 +328,10 @@ class ThreadManager:
 
             # Get tool schemas if needed
             openapi_tool_schemas = self.tool_registry.get_openapi_schemas() if config.native_tool_calling else None
+            if openapi_tool_schemas:
+                logger.debug(f"🔧 [TOOLS_SETUP] Using {len(openapi_tool_schemas)} native tool schemas for {llm_model}")
+            else:
+                logger.debug(f"🔧 [TOOLS_SETUP] No native tool schemas (native_tool_calling={config.native_tool_calling})")
 
             # Update generation tracking
             if generation:
