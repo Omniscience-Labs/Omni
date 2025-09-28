@@ -423,6 +423,7 @@ class ResponseProcessor:
 
                     # --- Process Native Tool Call Chunks ---
                     if config.native_tool_calling and delta and hasattr(delta, 'tool_calls') and delta.tool_calls:
+                        logger.debug(f"🔧 [NATIVE_TOOLS] Detected {len(delta.tool_calls)} tool call chunks")
                         for tool_call_chunk in delta.tool_calls:
                             # Yield Native Tool Call Chunk (transient status, not saved)
                             # ... (safe extraction logic for tool_call_data_chunk) ...
@@ -449,9 +450,27 @@ class ResponseProcessor:
                             # --- Buffer and Execute Complete Native Tool Calls ---
                             if not hasattr(tool_call_chunk, 'function'): continue
                             idx = tool_call_chunk.index if hasattr(tool_call_chunk, 'index') else 0
-                            # ... (buffer update logic remains same) ...
-                            # ... (check complete logic remains same) ...
-                            has_complete_tool_call = False # Placeholder
+                            
+                            # Initialize buffer entry if not exists
+                            if idx not in tool_calls_buffer:
+                                tool_calls_buffer[idx] = {
+                                    'id': None,
+                                    'function': {'name': None, 'arguments': ''}
+                                }
+                            
+                            # Update buffer with incoming chunk data
+                            if hasattr(tool_call_chunk, 'id') and tool_call_chunk.id:
+                                tool_calls_buffer[idx]['id'] = tool_call_chunk.id
+                            
+                            if hasattr(tool_call_chunk, 'function'):
+                                if hasattr(tool_call_chunk.function, 'name') and tool_call_chunk.function.name:
+                                    tool_calls_buffer[idx]['function']['name'] = tool_call_chunk.function.name
+                                if hasattr(tool_call_chunk.function, 'arguments') and tool_call_chunk.function.arguments:
+                                    # Accumulate arguments as they stream in
+                                    tool_calls_buffer[idx]['function']['arguments'] += tool_call_chunk.function.arguments
+                            
+                            # Check if tool call is complete and ready for execution
+                            has_complete_tool_call = False
                             if (tool_calls_buffer.get(idx) and
                                 tool_calls_buffer[idx]['id'] and
                                 tool_calls_buffer[idx]['function']['name'] and
@@ -459,7 +478,10 @@ class ResponseProcessor:
                                 try:
                                     safe_json_parse(tool_calls_buffer[idx]['function']['arguments'])
                                     has_complete_tool_call = True
-                                except json.JSONDecodeError: pass
+                                    logger.debug(f"✅ Complete native tool call detected: {tool_calls_buffer[idx]['function']['name']}")
+                                except json.JSONDecodeError: 
+                                    logger.debug(f"⏳ Tool call arguments still incomplete for {tool_calls_buffer[idx]['function']['name']}")
+                                    pass
 
 
                             if has_complete_tool_call and config.execute_tools and config.execute_on_stream:
