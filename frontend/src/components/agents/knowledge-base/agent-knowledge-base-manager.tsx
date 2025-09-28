@@ -333,6 +333,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
 
   const { data: knowledgeBase, isLoading, error, refetch } = useAgentKnowledgeBaseEntries(agentId);
   const { data: unifiedData, isLoading: unifiedLoading } = useAgentUnifiedKnowledgeBase(agentId);
+  const { data: llamacloudData, isLoading: llamacloudLoading } = useAgentLlamaCloudKnowledgeBases(agentId);
   const { data: processingJobsData, refetch: refetchJobs } = useAgentProcessingJobs(agentId);
   const createMutation = useCreateAgentKnowledgeBaseEntry();
   const updateMutation = useUpdateKnowledgeBaseEntry();
@@ -393,11 +394,11 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         console.warn('Failed to load assignments:', assignError);
       }
 
-      // Load unified data to get both regular entries and LlamaCloud KBs
-      const unifiedResponse = await fetch(`${API_URL}/knowledge-base/agents/${agentId}/unified`, { headers });
-      let unifiedData = null;
-      if (unifiedResponse.ok) {
-        unifiedData = await unifiedResponse.json();
+      // Load LlamaCloud data using existing working endpoint
+      const llamacloudResponse = await fetch(`${API_URL}/knowledge-base/llamacloud/agents/${agentId}`, { headers });
+      let llamacloudData = null;
+      if (llamacloudResponse.ok) {
+        llamacloudData = await llamacloudResponse.json();
       }
 
       // Build tree structure
@@ -442,8 +443,8 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         }
 
         // Add LlamaCloud KBs as file-like items (only for the first folder for simplicity)
-        if (folder === folders[0] && unifiedData?.llamacloud_entries) {
-          for (const kb of unifiedData.llamacloud_entries) {
+        if (folder === folders[0] && llamacloudData?.knowledge_bases) {
+          for (const kb of llamacloudData.knowledge_bases) {
             children.push({
               id: `cloud-${kb.id}`,
               name: `${kb.name} (LlamaCloud)`,
@@ -454,6 +455,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                 filename: `${kb.name}.llamacloud`,
                 summary: kb.description || 'LlamaCloud knowledge base',
                 file_size: 0,
+                created_at: kb.created_at,
                 isLlamaCloud: true
               }
             });
@@ -874,7 +876,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
   }
 
   const entries = knowledgeBase?.entries || [];
-  const llamacloudEntries = unifiedData?.llamacloud_entries || [];
+  const llamacloudEntries = llamacloudData?.knowledge_bases || []; // Use existing working hook
   const processingJobs = processingJobsData?.jobs || [];
   
   const filteredEntries = entries.filter(entry =>
