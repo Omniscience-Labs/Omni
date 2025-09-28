@@ -148,7 +148,7 @@ if config.ENV_MODE == EnvMode.LOCAL:
 # Add staging-specific origins
 if config.ENV_MODE == EnvMode.STAGING:
     allowed_origins.append("https://staging.suna.so")
-    allowed_origins.append("http://localhost:3000")
+    allowed_origins.append("https://huston.staging.becomeomni.net")
     allow_origin_regex = r"https://suna-.*-prjcts\.vercel\.app"
 
 # Add NEXT_PUBLIC_URL to allowed origins if configured and not already present
