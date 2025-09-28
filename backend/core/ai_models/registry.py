@@ -1,8 +1,8 @@
 from typing import Dict, List, Optional, Set
 from .ai_models import Model, ModelProvider, ModelCapability, ModelPricing
 
-DEFAULT_FREE_MODEL = "Qwen3 VL 235B Thinking"
-DEFAULT_PREMIUM_MODEL = "Qwen3 VL 235B Thinking"
+DEFAULT_FREE_MODEL = "Claude Sonnet 4"
+DEFAULT_PREMIUM_MODEL = "Claude Sonnet 4"
 
 class ModelRegistry:
     def __init__(self):
@@ -89,7 +89,7 @@ class ModelRegistry:
                 input_cost_per_million_tokens=1.25,
                 output_cost_per_million_tokens=10.00
             ),
-            tier_availability=["paid", "free"],
+            tier_availability=["free", "paid"],
             priority=99,
             enabled=True,
             recommended=True
