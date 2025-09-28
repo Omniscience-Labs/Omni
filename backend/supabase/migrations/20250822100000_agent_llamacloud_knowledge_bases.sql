@@ -96,62 +96,94 @@ CREATE TRIGGER trigger_agent_llamacloud_kb_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_agent_llamacloud_kb_timestamp();
 
--- Migrate existing knowledge_bases data from agents table
+-- Migrate existing knowledge_bases data from agents table (only if column exists)
 -- This takes the JSON array from agents.knowledge_bases and creates individual rows
-INSERT INTO agent_llamacloud_knowledge_bases (
-    agent_id,
-    account_id,
-    name,
-    index_name,
-    description,
-    is_active,
-    created_at,
-    updated_at
-)
-SELECT 
-    a.agent_id,
-    a.account_id,
-    kb_item->>'name' as name,
-    kb_item->>'index_name' as index_name,
-    kb_item->>'description' as description,
-    TRUE as is_active,  -- Default to active
-    a.created_at,
-    a.updated_at
-FROM agents a
-CROSS JOIN LATERAL jsonb_array_elements(
-    CASE 
-        WHEN jsonb_typeof(a.knowledge_bases) = 'array' THEN a.knowledge_bases
-        ELSE '[]'::jsonb
-    END
-) AS kb_item
-WHERE 
-    a.knowledge_bases IS NOT NULL 
-    AND jsonb_typeof(a.knowledge_bases) = 'array'
-    AND jsonb_array_length(a.knowledge_bases) > 0
-    AND kb_item->>'name' IS NOT NULL 
-    AND kb_item->>'index_name' IS NOT NULL
-    AND LENGTH(TRIM(kb_item->>'name')) > 0
-    AND LENGTH(TRIM(kb_item->>'index_name')) > 0;
+DO $$
+BEGIN
+    -- Check if the knowledge_bases column exists before attempting migration
+    IF EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_name = 'agents' 
+        AND column_name = 'knowledge_bases'
+        AND table_schema = 'public'
+    ) THEN
+        -- Perform the migration
+        INSERT INTO agent_llamacloud_knowledge_bases (
+            agent_id,
+            account_id,
+            name,
+            index_name,
+            description,
+            is_active,
+            created_at,
+            updated_at
+        )
+        SELECT 
+            a.agent_id,
+            a.account_id,
+            kb_item->>'name' as name,
+            kb_item->>'index_name' as index_name,
+            kb_item->>'description' as description,
+            TRUE as is_active,  -- Default to active
+            a.created_at,
+            a.updated_at
+        FROM agents a
+        CROSS JOIN LATERAL jsonb_array_elements(
+            CASE 
+                WHEN jsonb_typeof(a.knowledge_bases) = 'array' THEN a.knowledge_bases
+                ELSE '[]'::jsonb
+            END
+        ) AS kb_item
+        WHERE 
+            a.knowledge_bases IS NOT NULL 
+            AND jsonb_typeof(a.knowledge_bases) = 'array'
+            AND jsonb_array_length(a.knowledge_bases) > 0
+            AND kb_item->>'name' IS NOT NULL 
+            AND kb_item->>'index_name' IS NOT NULL
+            AND LENGTH(TRIM(kb_item->>'name')) > 0
+            AND LENGTH(TRIM(kb_item->>'index_name')) > 0;
+            
+        RAISE NOTICE 'Knowledge base migration completed - data migrated from agents.knowledge_bases column';
+    ELSE
+        RAISE NOTICE 'Knowledge base migration skipped - agents.knowledge_bases column does not exist';
+    END IF;
+END $$;
 
 -- Log the migration results
 DO $$
 DECLARE
     migrated_count INTEGER;
-    agents_with_kb_count INTEGER;
+    agents_with_kb_count INTEGER := 0;
+    column_exists BOOLEAN;
 BEGIN
     -- Count how many records were migrated
     SELECT COUNT(*) INTO migrated_count FROM agent_llamacloud_knowledge_bases;
     
-    -- Count how many agents had knowledge bases
-    SELECT COUNT(*) INTO agents_with_kb_count 
-    FROM agents 
-    WHERE knowledge_bases IS NOT NULL 
-      AND jsonb_typeof(knowledge_bases) = 'array' 
-      AND jsonb_array_length(knowledge_bases) > 0;
+    -- Check if the knowledge_bases column exists
+    SELECT EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_name = 'agents' 
+        AND column_name = 'knowledge_bases'
+        AND table_schema = 'public'
+    ) INTO column_exists;
+    
+    -- Count how many agents had knowledge bases (only if column exists)
+    IF column_exists THEN
+        SELECT COUNT(*) INTO agents_with_kb_count 
+        FROM agents 
+        WHERE knowledge_bases IS NOT NULL 
+          AND jsonb_typeof(knowledge_bases) = 'array' 
+          AND jsonb_array_length(knowledge_bases) > 0;
+    END IF;
     
     RAISE NOTICE 'Knowledge base migration completed:';
     RAISE NOTICE '  - Agents with knowledge bases: %', agents_with_kb_count;
     RAISE NOTICE '  - Total knowledge base entries migrated: %', migrated_count;
+    IF NOT column_exists THEN
+        RAISE NOTICE '  - Note: agents.knowledge_bases column does not exist, no data to migrate';
+    END IF;
 END $$;
 
 -- Grant permissions
