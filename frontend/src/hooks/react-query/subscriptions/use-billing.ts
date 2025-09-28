@@ -36,8 +36,10 @@ export const useCreateCheckoutSession = createMutationHook(
   }
 );
 
-export const useAdminUserUsageLogs = (accountId: string, page: number = 0, itemsPerPage: number = 1000, days: number = 30) => 
-  createQueryHook(
+export const useAdminUserUsageLogs = (accountId: string, page: number = 0, itemsPerPage: number = 1000, days: number = 30) => {
+  const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+  
+  return createQueryHook(
     ['admin-user-usage', accountId, page, itemsPerPage, days],
     async () => {
       const response = await fetch(`/api/enterprise/admin/users/${accountId}?page=${page}&items_per_page=${itemsPerPage}&days=${days}`, {
@@ -54,6 +56,7 @@ export const useAdminUserUsageLogs = (accountId: string, page: number = 0, items
       staleTime: 30 * 1000, // 30 seconds
       refetchOnMount: true,
       refetchOnWindowFocus: false,
-      enabled: !!accountId, // Only run if accountId is provided
+      enabled: !!accountId && isEnterpriseMode, // Only run if accountId is provided and in enterprise mode
     }
-  )(); 
+  )();
+}; 
