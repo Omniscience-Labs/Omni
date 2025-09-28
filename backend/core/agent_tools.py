@@ -369,3 +369,111 @@ async def get_agent_tools(
             mcp_tools.append({"name": tool_name, "server": server, "enabled": True})
     return {"agentpress_tools": agentpress_tools, "mcp_tools": mcp_tools}
 
+@router.post("/agents/{agent_id}/custom-automation")
+async def configure_custom_automation(
+    agent_id: str,
+    request: dict,
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
+):
+    """Configure custom automation for a specific agent."""
+    logger.debug(f"Configuring custom automation for agent {agent_id}, user {user_id}")
+    
+    try:
+        client = await utils.db.client
+        
+        # Verify agent ownership
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found or access denied")
+        
+        # Extract and validate request data
+        config_name = request.get('config_name')
+        description = request.get('description', '')
+        chrome_profile_base64 = request.get('chrome_profile_base64')
+        automation_script = request.get('automation_script')
+        
+        if not config_name:
+            raise HTTPException(status_code=400, detail="Configuration name is required")
+        if not chrome_profile_base64:
+            raise HTTPException(status_code=400, detail="Chrome profile ZIP is required")
+        if not automation_script:
+            raise HTTPException(status_code=400, detail="Automation script is required")
+        
+        # Check if configuration already exists for this agent
+        existing_config = await client.table('custom_automations')\
+            .select('*')\
+            .eq('account_id', user_id)\
+            .eq('config_name', config_name)\
+            .execute()
+        
+        # Prepare data for database
+        config_data = {
+            'account_id': user_id,
+            'config_name': config_name,
+            'description': description,
+            'profile_path': f"/workspace/custom_automation/profiles/{config_name}.zip",
+            'script_path': f"/workspace/custom_automation/scripts/{config_name}.js",
+            'script_content': automation_script
+        }
+        
+        if existing_config.data:
+            # Update existing configuration
+            result = await client.table('custom_automations')\
+                .update(config_data)\
+                .eq('account_id', user_id)\
+                .eq('config_name', config_name)\
+                .execute()
+        else:
+            # Insert new configuration
+            result = await client.table('custom_automations')\
+                .insert(config_data)\
+                .execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Failed to save custom automation configuration")
+        
+        return {
+            "success": True,
+            "message": f"Custom automation '{config_name}' configured successfully",
+            "config": result.data[0]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error configuring custom automation: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.get("/agents/{agent_id}/custom-automation")
+async def list_custom_automations(
+    agent_id: str,
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
+):
+    """List all custom automation configurations for a user."""
+    logger.debug(f"Listing custom automations for agent {agent_id}, user {user_id}")
+    
+    try:
+        client = await utils.db.client
+        
+        # Verify agent ownership
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found or access denied")
+        
+        # Get all custom automations for this user
+        result = await client.table('custom_automations')\
+            .select('id, config_name, description, created_at, updated_at')\
+            .eq('account_id', user_id)\
+            .execute()
+        
+        return {
+            "success": True,
+            "automations": result.data or []
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error listing custom automations: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+

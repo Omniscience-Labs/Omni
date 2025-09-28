@@ -242,6 +242,7 @@ export function ConfigurationTab({
                        tools={displayData.agentpress_tools}
                        onToolsChange={areToolsEditable ? handleToolsChange : () => { }}
                        disabled={!areToolsEditable}
+                       agentId={agentId}
                        isSunaAgent={isSunaAgent}
                        isLoading={isLoading}
                      />
