@@ -1,8 +1,8 @@
 from typing import Dict, List, Optional, Set
 from .ai_models import Model, ModelProvider, ModelCapability, ModelPricing
 
-DEFAULT_FREE_MODEL = "GPT-5"
-DEFAULT_PREMIUM_MODEL = "GPT-5"
+DEFAULT_FREE_MODEL = "Qwen3 VL 235B Thinking"
+DEFAULT_PREMIUM_MODEL = "Qwen3 VL 235B Thinking"
 
 class ModelRegistry:
     def __init__(self):
@@ -74,10 +74,10 @@ class ModelRegistry:
         # ))
         
         self.register(Model(
-            id="openrouter/openai/gpt-5",
+            id="openai/gpt-5",
             name="GPT-5",
-            provider=ModelProvider.OPENROUTER,
-            aliases=["gpt-5", "GPT-5", "openai/gpt-5", "openrouter/openai/gpt-5"],
+            provider=ModelProvider.OPENAI,
+            aliases=["gpt-5", "GPT-5", "openai/gpt-5"],
             context_window=400_000,
             capabilities=[
                 ModelCapability.CHAT,
@@ -213,6 +213,28 @@ class ModelRegistry:
             tier_availability=["free", "paid"],
             priority=90,
             enabled=False  # Currently disabled
+        ))
+        
+        self.register(Model(
+            id="openrouter/qwen/qwen3-vl-235b-a22b-thinking",
+            name="Qwen3 VL 235B Thinking",
+            provider=ModelProvider.OPENROUTER,
+            aliases=["qwen3-vl-thinking", "qwen-vl-thinking"],
+            context_window=131_072,
+            capabilities=[
+                ModelCapability.CHAT,
+                ModelCapability.FUNCTION_CALLING,
+                ModelCapability.VISION,
+                ModelCapability.THINKING,
+            ],
+            pricing=ModelPricing(
+                input_cost_per_million_tokens=0.30,
+                output_cost_per_million_tokens=3.00
+            ),
+            tier_availability=["free", "paid"],
+            priority=98,
+            enabled=True,
+            recommended=True
         ))
         """
     
