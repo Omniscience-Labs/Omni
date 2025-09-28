@@ -58,26 +58,6 @@ export default function UsageLogs({ accountId, isAdminView = false }: Props) {
   
   const ITEMS_PER_PAGE = 1000;
   
-  // Ensure this component only works in enterprise mode
-  const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
-  
-  if (!isEnterpriseMode) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Usage Logs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="p-4 bg-muted/30 border border-border rounded-lg text-center">
-            <p className="text-sm text-muted-foreground">
-              Usage logs are only available in enterprise mode.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   // Get current user ID to check if viewing own logs
   useEffect(() => {
     const getCurrentUser = async () => {

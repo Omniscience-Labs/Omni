@@ -101,8 +101,6 @@ export function useTransactionsSummary(days: number = 30) {
 
 // Hook for usage logs that works in both enterprise and non-enterprise modes
 export function useUsageLogs(page = 0, itemsPerPage = 100) {
-  const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
-  
   return useQuery({
     queryKey: ['billing', 'usage-logs', page, itemsPerPage],
     queryFn: async () => {
@@ -113,7 +111,6 @@ export function useUsageLogs(page = 0, itemsPerPage = 100) {
       return response.data;
     },
     staleTime: 30000, // 30 seconds
-    enabled: isEnterpriseMode, // Only enable in enterprise mode
   });
 }
 
