@@ -19,6 +19,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { KortixEnterpriseModal } from '@/components/sidebar/kortix-enterprise-modal';
 import { OmniLogo } from '@/components/sidebar/omni-logo';
@@ -254,7 +255,13 @@ const BenefitsSection = () => {
 
 // Testimonials Section
 const TestimonialsSection = () => {
-  const testimonials = [
+  const testimonials: Array<{
+    quote: string;
+    author: string;
+    company: string;
+    avatar: string;
+    logo?: string;
+  }> = [
     {
       quote: "The implementation team transformed our entire workflow. Their expertise in enterprise AI deployment is unmatched.",
       author: "Sarah Chen",
@@ -266,6 +273,13 @@ const TestimonialsSection = () => {
       author: "Marcus Rodriguez", 
       company: "Global Manufacturing Corp",
       avatar: "💡"
+    },
+    {
+      quote: "Omni saves us a tonne of time putting quotes together",
+      author: "Tim Burnside",
+      company: "Huston Electric",
+      avatar: "⚡",
+      logo: "/company-logos/huston.png"
     },
     {
       quote: "Outstanding technical depth and business understanding. They delivered exactly what we envisioned.",
@@ -317,8 +331,18 @@ const TestimonialsSection = () => {
                     </blockquote>
                     
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-lg">
-                        {testimonial.avatar}
+                      <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-lg overflow-hidden">
+                        {testimonial.logo ? (
+                          <Image
+                            src={testimonial.logo}
+                            alt={`${testimonial.company} logo`}
+                            width={40}
+                            height={40}
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          testimonial.avatar
+                        )}
                       </div>
                       <div>
                         <p className="font-semibold">{testimonial.author}</p>

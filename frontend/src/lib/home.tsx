@@ -59,10 +59,10 @@ export interface PricingTier {
 
 export const siteConfig = {
       name: 'Operator',
-  description: 'The Generalist AI Worker that can act on your behalf.',
+  description: 'The Industrial AI Operator that can act on your behalf.',
   cta: 'Start Free',
   url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-  keywords: ['AI Worker', 'Generalist AI', 'Open Source AI', 'Autonomous Agent'],
+  keywords: ['Industrial AI Operator', 'AI Worker', 'Enterprise AI', 'Autonomous Agent'],
   links: {
     email: 'support@omnisciencelabs.com',
     linkedin: 'https://www.linkedin.com/company/become-omni',
@@ -112,7 +112,7 @@ export const siteConfig = {
     githubUrl: 'https://github.com/omniscience-labs/omni',
     title: 'Omni – Build, manage and train your AI Workforce.',
     description:
-      'Omni – open-source platform to build, manage and train your AI Workforce.',
+      'Omni – industrial platform to build, manage and train your AI Workforce.',
     inputPlaceholder: 'Ask Omni to...',
   },
   cloudPricingItems: [
@@ -238,6 +238,29 @@ export const siteConfig = {
             src="/company-logos/pps.svg"
             alt="PPS"
             className="h-14 w-auto object-contain"
+          />
+        ),
+      },
+      {
+        id: 5,
+        name: 'Copper Moon',
+        logo: (
+          <img
+            src="/company-logos/Maroon CM Logo.svg"
+            alt="Copper Moon"
+            className="h-16 w-auto object-contain"
+            // Added Copper Moon logo to showcase trusted enterprise partners
+          />
+        ),
+      },
+      {
+        id: 6,
+        name: 'Cold Chain',
+        logo: (
+          <img
+            src="/company-logos/cold-chain.png"
+            alt="Cold Chain"
+            className="h-16 w-auto object-contain"
           />
         ),
       },
@@ -978,21 +1001,8 @@ export const siteConfig = {
     {
       title: 'Omniscience Labs',
       links: [
-        { id: 1, title: 'About', url: 'https://omnisciencelabs.com' },
-        { id: 3, title: 'Contact', url: 'mailto:hey@omnisciencelabs.com' },
-        { id: 4, title: 'Careers', url: 'https://omnisciencelabs.com/careers' },
-      ],
-    },
-    {
-      title: 'Resources',
-      links: [
-        {
-          id: 5,
-          title: 'Documentation',
-          url: 'https://github.com/omniscience-labs/omni',
-        },
-        { id: 7, title: 'Discord', url: 'https://discord.gg/Py6pCBUUPw' },
-        { id: 8, title: 'GitHub', url: 'https://github.com/omniscience-labs/omni' },
+        { id: 1, title: 'About', url: 'https://www.linkedin.com/company/become-omni' },
+        { id: 3, title: 'Contact', url: 'mailto:arjun@latent-labs.ai' },
       ],
     },
     {
@@ -1001,17 +1011,12 @@ export const siteConfig = {
         {
           id: 9,
           title: 'Privacy Policy',
-          url: 'https://omnisciencelabs.com/legal?tab=privacy',
+          url: '/legal?tab=privacy',
         },
         {
           id: 10,
           title: 'Terms of Service',
-          url: 'https://omnisciencelabs.com/legal?tab=terms',
-        },
-        {
-          id: 11,
-          title: 'License Apache 2.0',
-          url: 'https://github.com/omniscience-labs/omni/blob/main/LICENSE',
+          url: '/legal?tab=terms',
         },
       ],
     },

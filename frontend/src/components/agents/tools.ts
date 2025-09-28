@@ -21,6 +21,7 @@ export const AGENTPRESS_TOOL_DEFINITIONS: Record<string, { enabled: boolean; des
     
     // Browser and interaction tools
     'browser_tool': { enabled: true, description: 'Browser automation for web navigation, clicking, form filling, and page interaction', icon: '🌐', color: 'bg-indigo-100 dark:bg-indigo-800/50' },
+    'sb_custom_automation_tool': { enabled: false, description: 'Upload custom browser automation scripts with Chrome profiles for persistent sessions and advanced workflows', icon: '⚡', color: 'bg-violet-100 dark:bg-violet-800/50' },
     
     // Data provider tools
     'data_providers_tool': { enabled: true, description: 'Access to data providers and external APIs', icon: '🔗', color: 'bg-cyan-100 dark:bg-cyan-800/50' },
@@ -61,6 +62,7 @@ export const getToolDisplayName = (toolName: string): string => {
 
       
       'browser_tool': 'Browser Automation',
+      'sb_custom_automation_tool': 'Custom Automation',
       
       'data_providers_tool': 'Data Providers',
       
