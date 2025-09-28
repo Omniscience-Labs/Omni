@@ -26,7 +26,7 @@ from core.billing.api import router as billing_router
 from core.billing.admin import router as billing_admin_router
 from core.services import enterprise_billing_api
 
-from admin import users_admin
+from core.admin import users_admin
 from core.services import transcription as transcription_api
 import sys
 from core.services import email_api
