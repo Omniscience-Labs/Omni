@@ -369,14 +369,12 @@ export const PlaybackControls = ({
           let content = currentMessage.content;
           try {
             const parsed = JSON.parse(content);
-            if (parsed.content) {
-              // Handle structured content with separate thinking
-              if (typeof parsed.content === 'object' && parsed.content?.thinking && parsed.content?.content) {
-                // For playback, combine thinking and content with clear separation
-                content = `**Thinking:** ${parsed.content.thinking}\n\n---\n\n${parsed.content.content}`;
-              } else {
-                content = parsed.content;
-              }
+            // Handle thinking content using established pattern (same as other reasoning models)
+            if (parsed.thinking && parsed.content) {
+              // For playback, combine thinking and content with clear separation
+              content = `**Thinking:** ${parsed.thinking}\n\n---\n\n${parsed.content}`;
+            } else if (parsed.content) {
+              content = parsed.content;
             }
           } catch (e) {
             // Not JSON, use as is

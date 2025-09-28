@@ -865,14 +865,14 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                         const parsedContent = safeJsonParse<ParsedContent>(message.content, {});
                                                                         const msgKey = message.message_id || `submsg-assistant-${msgIndex}`;
 
-                                                                        // Handle both structured content with thinking and plain content
+                                                                        // Handle thinking content using established pattern (same as other reasoning models)
                                                                         let thinkingContent = null;
                                                                         let mainContent = parsedContent.content;
                                                                         
-                                                                        // Check if content is structured with separate thinking
-                                                                        if (typeof parsedContent.content === 'object' && parsedContent.content?.thinking && parsedContent.content?.content) {
-                                                                            thinkingContent = parsedContent.content.thinking;
-                                                                            mainContent = parsedContent.content.content;
+                                                                        // Check for thinking using the same pattern as podcast tool and other reasoning models
+                                                                        if (typeof parsedContent === 'object' && parsedContent.thinking && parsedContent.content) {
+                                                                            thinkingContent = parsedContent.thinking;
+                                                                            mainContent = parsedContent.content;
                                                                         }
 
                                                                         if (!mainContent) return;

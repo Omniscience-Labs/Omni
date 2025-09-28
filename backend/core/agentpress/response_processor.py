@@ -346,7 +346,7 @@ class ResponseProcessor:
                 if hasattr(chunk, 'choices') and chunk.choices:
                     delta = chunk.choices[0].delta if hasattr(chunk.choices[0], 'delta') else None
                     
-                    # Check for and log Anthropic thinking content
+                    # Check for and log reasoning content from thinking-capable models (Anthropic, xAI, GPT-5)
                     if delta and hasattr(delta, 'reasoning_content') and delta.reasoning_content:
                         if not has_printed_thinking_prefix:
                             # print("[THINKING]: ", end='', flush=True)
@@ -676,24 +676,31 @@ class ResponseProcessor:
                                 })
                             except json.JSONDecodeError: continue
 
-                # Structure content to separate thinking from regular content
-                message_content = accumulated_content
+                # Structure content to match established reasoning pattern (same as Claude/Anthropic)
                 if accumulated_thinking:
-                    # Create structured content with thinking separate from main response
-                    message_content = {
+                    # Follow the EXACT same pattern as other reasoning models
+                    content_with_thinking = {
                         "thinking": accumulated_thinking,
-                        "content": accumulated_content
+                        "content": accumulated_content,
+                        "role": "assistant",
+                        "tool_calls": complete_native_tool_calls or None
                     }
                     
-                message_data = { # Dict to be saved in 'content'
-                    "role": "assistant", "content": message_content,
-                    "tool_calls": complete_native_tool_calls or None
-                }
-
-                last_assistant_message_object = await self._add_message_with_agent_info(
-                    thread_id=thread_id, type="assistant", content=message_data,
-                    is_llm_message=True, metadata={"thread_run_id": thread_run_id}
-                )
+                    last_assistant_message_object = await self._add_message_with_agent_info(
+                        thread_id=thread_id, type="assistant", content=content_with_thinking,
+                        is_llm_message=True, metadata={"thread_run_id": thread_run_id}
+                    )
+                else:
+                    # Standard message structure for non-thinking responses
+                    message_data = { # Dict to be saved in 'content'
+                        "role": "assistant", "content": accumulated_content,
+                        "tool_calls": complete_native_tool_calls or None
+                    }
+                    
+                    last_assistant_message_object = await self._add_message_with_agent_info(
+                        thread_id=thread_id, type="assistant", content=message_data,
+                        is_llm_message=True, metadata={"thread_run_id": thread_run_id}
+                    )
 
                 if last_assistant_message_object:
                     # Yield the complete saved object, adding stream_status metadata just for yield

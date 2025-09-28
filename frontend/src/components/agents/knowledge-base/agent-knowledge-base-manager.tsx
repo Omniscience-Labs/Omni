@@ -332,8 +332,6 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
   });
 
   const { data: knowledgeBase, isLoading, error, refetch } = useAgentKnowledgeBaseEntries(agentId);
-  const { data: unifiedData, isLoading: unifiedLoading } = useAgentUnifiedKnowledgeBase(agentId);
-  const { data: llamacloudData, isLoading: llamacloudLoading } = useAgentLlamaCloudKnowledgeBases(agentId);
   const { data: processingJobsData, refetch: refetchJobs } = useAgentProcessingJobs(agentId);
   const createMutation = useCreateAgentKnowledgeBaseEntry();
   const updateMutation = useUpdateKnowledgeBaseEntry();
@@ -394,12 +392,6 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         console.warn('Failed to load assignments:', assignError);
       }
 
-      // Load LlamaCloud data using existing working endpoint
-      const llamacloudResponse = await fetch(`${API_URL}/knowledge-base/llamacloud/agents/${agentId}`, { headers });
-      let llamacloudData = null;
-      if (llamacloudResponse.ok) {
-        llamacloudData = await llamacloudResponse.json();
-      }
 
       // Build tree structure
       const tree: TreeItem[] = [];
@@ -442,25 +434,6 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
           });
         }
 
-        // Add LlamaCloud KBs as file-like items (only for the first folder for simplicity)
-        if (folder === folders[0] && llamacloudData?.knowledge_bases) {
-          for (const kb of llamacloudData.knowledge_bases) {
-            children.push({
-              id: `cloud-${kb.id}`,
-              name: `${kb.name} (LlamaCloud)`,
-              type: 'file',
-              data: { 
-                ...kb, 
-                entry_id: `cloud-${kb.id}`,
-                filename: `${kb.name}.llamacloud`,
-                summary: kb.description || 'LlamaCloud knowledge base',
-                file_size: 0,
-                created_at: kb.created_at,
-                isLlamaCloud: true
-              }
-            });
-          }
-        }
 
         tree.push({
           id: folder.folder_id,
@@ -876,19 +849,12 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
   }
 
   const entries = knowledgeBase?.entries || [];
-  const llamacloudEntries = llamacloudData?.knowledge_bases || []; // Use existing working hook
   const processingJobs = processingJobsData?.jobs || [];
   
   const filteredEntries = entries.filter(entry =>
     entry.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     entry.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (entry.description && entry.description.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-  
-  const filteredLlamaCloudEntries = llamacloudEntries.filter(kb =>
-    kb.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    kb.index_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (kb.description && kb.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -922,10 +888,6 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
           />
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={() => { setAddDialogMode('cloud'); setAddDialogOpen(true); }} size="sm" className="gap-2">
-            <Database className="h-4 w-4" />
-            Cloud Knowledge Base
-          </Button>
           <div className="flex items-center border rounded-lg p-1">
             <Button
               size="sm"
@@ -951,18 +913,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         </div>
       </div>
       
-      {/* Stats */}
-      {(entries.length > 0 || llamacloudEntries.length > 0) && (
-        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-          <span>{entries.length + llamacloudEntries.length} total items</span>
-          {entries.length > 0 && <span>{entries.length} documents</span>}
-          {llamacloudEntries.length > 0 && <span>{llamacloudEntries.length} cloud indexes</span>}
-          {searchQuery && (
-            <span>{filteredEntries.length + filteredLlamaCloudEntries.length} matching search</span>
-          )}
-        </div>
-      )}
-      {entries.length === 0 && filteredLlamaCloudEntries.length === 0 ? (
+      {entries.length === 0 ? (
         <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
           <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
             <BookOpen className="h-6 w-6 text-muted-foreground" />
@@ -976,7 +927,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredEntries.length === 0 && filteredLlamaCloudEntries.length === 0 ? (
+          {filteredEntries.length === 0 ? (
             <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
               <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
                 <Search className="h-6 w-6 text-muted-foreground" />
@@ -989,9 +940,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
               </p>
             </div>
           ) : (
-            <>
-              {/* Regular Knowledge Base Entries */}
-              {filteredEntries.map((entry) => {
+            filteredEntries.map((entry) => {
                 const contextConfig = getUsageContextConfig(entry.usage_context);
                 const ContextIcon = contextConfig.icon;
                 const SourceIcon = getSourceIcon(entry.source_type || 'manual', entry.source_metadata?.filename);
@@ -1063,72 +1012,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                     </div>
                   </div>
                 );
-              })}
-
-              {/* LlamaCloud Knowledge Base Entries - Displayed as file-like items */}
-              {filteredLlamaCloudEntries.map((kb) => (
-                <div
-                  key={kb.id}
-                  className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors group"
-                >
-                  <div className="flex items-center space-x-4 flex-1 min-w-0">
-                    <div className="p-2 rounded-lg bg-muted border">
-                      <Database className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2 mb-1 min-w-0">
-                        <h4 className="text-sm font-medium truncate w-full">{kb.name}</h4>
-                        <Badge variant="outline" className="text-xs flex-shrink-0 bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
-                          LlamaCloud
-                        </Badge>
-                        {/* Show NEW badge for recently created entries */}
-                        {new Date(kb.created_at).getTime() > Date.now() - 300000 && ( // 5 minutes
-                          <Badge variant="default" className="text-xs flex-shrink-0 bg-green-600 hover:bg-green-600">
-                            NEW
-                          </Badge>
-                        )}
-                      </div>
-                      {kb.description && (
-                        <p className="text-xs text-muted-foreground truncate w-full mb-1">
-                          {kb.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <Badge variant="outline" className="text-xs gap-1 border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-400">
-                          <Search className="h-3 w-3" />
-                          search_{kb.name.replace(/-/g, '_')}()
-                        </Badge>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {new Date(kb.created_at).toLocaleDateString()}
-                        </span>
-                        <span className="text-blue-600 dark:text-blue-400 text-xs">Index: {kb.index_name}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 p-0"
-                      onClick={() => console.log('Edit LlamaCloud KB:', kb.id)}
-                      aria-label="Edit LlamaCloud knowledge base"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                      onClick={() => console.log('Delete LlamaCloud KB:', kb.id)}
-                      aria-label="Delete LlamaCloud knowledge base"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </>
+              })
           )}
         </div>
       )}
@@ -1230,6 +1114,20 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                   Upload Files
                 </>
               )}
+              {addDialogMode === 'cloud' && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAddDialogMode('selection')}
+                    className="p-0 h-6 w-6 mr-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  Cloud Knowledge Base
+                </>
+              )}
             </DialogTitle>
           </DialogHeader>
 
@@ -1272,18 +1170,18 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                       </p>
                     </div>
                   </button>
-                  
+
                   <button
                     className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
                     onClick={() => setAddDialogMode('cloud')}
                   >
                     <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/20 border">
-                      <Globe className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-sm font-semibold mb-1">Cloud</h3>
+                      <h3 className="text-sm font-semibold mb-1">Cloud Knowledge Base</h3>
                       <p className="text-xs text-muted-foreground">
-                        Connect to existing Cloud Knowledge Base for dynamic search
+                        Connect to existing LlamaCloud indices for dynamic search capabilities
                       </p>
                     </div>
                   </button>
