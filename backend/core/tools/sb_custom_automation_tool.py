@@ -293,6 +293,9 @@ async function runAutomation() {
             logger.info(f"Running custom automation: {config_name} (headless={headless})")
             
             # Create a wrapper script that ensures proper browser configuration
+            # Escape the script content outside of the f-string to avoid backslash issues
+            escaped_script_content = config['script_content'].replace('"', '\\"')
+            
             wrapper_script = f"""
 const {{ chromium }} = require('playwright');
 const fs = require('fs');
@@ -330,7 +333,7 @@ async function runWithVncDisplay() {{
         console.log('👁️  Switch to Browser view in the side panel to see the automation');
         
         // Load and run the user's custom script
-        {config['script_content'].replace('"', '\\"')}
+        {escaped_script_content}
         
     }} catch (error) {{
         console.error('❌ Automation error:', error);
