@@ -463,33 +463,48 @@ async def get_agent_unified_knowledge_base(
         user_id = auth.user_id
         agent_data = auth.agent_data
         
-        # Get regular knowledge base entries
-        regular_result = await client.rpc('get_agent_knowledge_base', {
-            'p_agent_id': agent_id,
-            'p_include_inactive': include_inactive
-        }).execute()
+        # Get assigned entries for this agent from the new schema
+        assignment_result = await client.from_('agent_knowledge_entry_assignments').select('entry_id').eq('agent_id', agent_id).eq('enabled', True).execute()
         
         regular_entries = []
         total_tokens = 0
         
-        for entry_data in regular_result.data or []:
-            entry = KnowledgeBaseEntryResponse(
-                entry_id=entry_data['entry_id'],
-                name=entry_data['name'],
-                description=entry_data['description'],
-                content=entry_data['content'],
-                usage_context=entry_data['usage_context'],
-                is_active=entry_data['is_active'],
-                content_tokens=entry_data.get('content_tokens'),
-                created_at=entry_data['created_at'],
-                updated_at=entry_data.get('updated_at', entry_data['created_at']),
-                source_type=entry_data.get('source_type'),
-                source_metadata=entry_data.get('source_metadata'),
-                file_size=entry_data.get('file_size'),
-                file_mime_type=entry_data.get('file_mime_type')
-            )
-            regular_entries.append(entry)
-            total_tokens += entry_data.get('content_tokens', 0) or 0
+        # Get entry details for each assigned entry
+        for assignment in assignment_result.data or []:
+            entry_result = await client.from_('knowledge_base_entries').select('''
+                entry_id,
+                filename,
+                summary,
+                usage_context,
+                is_active,
+                file_size,
+                mime_type,
+                created_at,
+                updated_at
+            ''').eq('entry_id', assignment['entry_id']).single().execute()
+            
+            if entry_result.data:
+                entry_data = entry_result.data
+                # Estimate tokens from summary length
+                estimated_tokens = len(entry_data.get('summary', '')) // 4
+                
+                entry = KnowledgeBaseEntryResponse(
+                    entry_id=entry_data['entry_id'],
+                    name=entry_data['filename'],
+                    description=entry_data['summary'],
+                    content=entry_data['summary'],  # Use summary as content for now
+                    usage_context=entry_data.get('usage_context', 'always'),
+                    is_active=entry_data['is_active'],
+                    content_tokens=estimated_tokens,
+                    created_at=entry_data['created_at'],
+                    updated_at=entry_data.get('updated_at', entry_data['created_at']),
+                    source_type='file',
+                    source_metadata={'filename': entry_data['filename']},
+                    file_size=entry_data.get('file_size'),
+                    file_mime_type=entry_data.get('mime_type')
+                )
+                regular_entries.append(entry)
+                total_tokens += estimated_tokens
         
         # Get LlamaCloud knowledge base entries using existing system
         llamacloud_result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
@@ -540,32 +555,48 @@ async def get_agent_knowledge_base(
 
         # No need for manual authorization - it's already done in the dependency!
 
-        result = await client.rpc('get_agent_knowledge_base', {
-            'p_agent_id': agent_id,
-            'p_include_inactive': include_inactive
-        }).execute()
+        # Get assigned entries for this agent from the new schema
+        assignment_result = await client.from_('agent_knowledge_entry_assignments').select('entry_id').eq('agent_id', agent_id).eq('enabled', True).execute()
         
         entries = []
         total_tokens = 0
         
-        for entry_data in result.data or []:
-            entry = KnowledgeBaseEntryResponse(
-                entry_id=entry_data['entry_id'],
-                name=entry_data['name'],
-                description=entry_data['description'],
-                content=entry_data['content'],
-                usage_context=entry_data['usage_context'],
-                is_active=entry_data['is_active'],
-                content_tokens=entry_data.get('content_tokens'),
-                created_at=entry_data['created_at'],
-                updated_at=entry_data.get('updated_at', entry_data['created_at']),
-                source_type=entry_data.get('source_type'),
-                source_metadata=entry_data.get('source_metadata'),
-                file_size=entry_data.get('file_size'),
-                file_mime_type=entry_data.get('file_mime_type')
-            )
-            entries.append(entry)
-            total_tokens += entry_data.get('content_tokens', 0) or 0
+        # Get entry details for each assigned entry
+        for assignment in assignment_result.data or []:
+            entry_result = await client.from_('knowledge_base_entries').select('''
+                entry_id,
+                filename,
+                summary,
+                usage_context,
+                is_active,
+                file_size,
+                mime_type,
+                created_at,
+                updated_at
+            ''').eq('entry_id', assignment['entry_id']).single().execute()
+            
+            if entry_result.data:
+                entry_data = entry_result.data
+                # Estimate tokens from summary length
+                estimated_tokens = len(entry_data.get('summary', '')) // 4
+                
+                entry = KnowledgeBaseEntryResponse(
+                    entry_id=entry_data['entry_id'],
+                    name=entry_data['filename'],
+                    description=entry_data['summary'],
+                    content=entry_data['summary'],  # Use summary as content for now
+                    usage_context=entry_data.get('usage_context', 'always'),
+                    is_active=entry_data['is_active'],
+                    content_tokens=estimated_tokens,
+                    created_at=entry_data['created_at'],
+                    updated_at=entry_data.get('updated_at', entry_data['created_at']),
+                    source_type='file',
+                    source_metadata={'filename': entry_data['filename']},
+                    file_size=entry_data.get('file_size'),
+                    file_mime_type=entry_data.get('mime_type')
+                )
+                entries.append(entry)
+                total_tokens += estimated_tokens
         
         return KnowledgeBaseListResponse(
             entries=entries,
@@ -603,24 +634,8 @@ async def create_agent_knowledge_base_entry(
             'usage_context': entry_data.usage_context
         }
         
-        result = await client.table('agent_knowledge_base_entries').insert(insert_data).execute()
-        
-        if not result.data:
-            raise HTTPException(status_code=500, detail="Failed to create agent knowledge base entry")
-        
-        created_entry = result.data[0]
-        
-        return KnowledgeBaseEntryResponse(
-            entry_id=created_entry['entry_id'],
-            name=created_entry['name'],
-            description=created_entry['description'],
-            content=created_entry['content'],
-            usage_context=created_entry['usage_context'],
-            is_active=created_entry['is_active'],
-            content_tokens=created_entry.get('content_tokens'),
-            created_at=created_entry['created_at'],
-            updated_at=created_entry['updated_at']
-        )
+        # For now, return an error since direct agent knowledge base creation was moved to the folder-based system
+        raise HTTPException(status_code=400, detail="Agent knowledge base entries are now managed through the global folder system. Please use the knowledge base page to upload files and assign them to agents.")
         
     except HTTPException:
         raise
@@ -698,25 +713,25 @@ async def update_knowledge_base_entry(
     try:
         client = await db.client
         
-        # Get the entry and verify it exists in agent_knowledge_base_entries table
-        entry_result = await client.table('agent_knowledge_base_entries').select('*').eq('entry_id', entry_id).execute()
+        # Get the entry from the new schema
+        entry_result = await client.from_('knowledge_base_entries').select('*').eq('entry_id', entry_id).execute()
             
         if not entry_result.data:
             raise HTTPException(status_code=404, detail="Knowledge base entry not found")
         
         entry = entry_result.data[0]
-        agent_id = entry['agent_id']
         
-        # Verify agent access
-        await verify_and_get_agent_authorization(client, agent_id, user_id)
+        # Check if user has access to this entry through their account
+        account_id = await get_user_account_id(client, user_id)
+        if entry['account_id'] != account_id:
+            raise HTTPException(status_code=403, detail="Access denied")
         
+        # Update logic for the entry (only filename and summary can be updated)
         update_data = {}
         if entry_data.name is not None:
-            update_data['name'] = entry_data.name
+            update_data['filename'] = entry_data.name
         if entry_data.description is not None:
-            update_data['description'] = entry_data.description
-        if entry_data.content is not None:
-            update_data['content'] = entry_data.content
+            update_data['summary'] = entry_data.description
         if entry_data.usage_context is not None:
             update_data['usage_context'] = entry_data.usage_context
         if entry_data.is_active is not None:
@@ -725,23 +740,23 @@ async def update_knowledge_base_entry(
         if not update_data:
             raise HTTPException(status_code=400, detail="No fields to update")
         
-        result = await client.table('agent_knowledge_base_entries').update(update_data).eq('entry_id', entry_id).execute()
+        result = await client.from_('knowledge_base_entries').update(update_data).eq('entry_id', entry_id).execute()
         
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to update knowledge base entry")
         
         updated_entry = result.data[0]
         
-        logger.debug(f"Updated agent knowledge base entry {entry_id} for agent {agent_id}")
+        logger.debug(f"Updated knowledge base entry {entry_id}")
         
         return KnowledgeBaseEntryResponse(
             entry_id=updated_entry['entry_id'],
-            name=updated_entry['name'],
-            description=updated_entry['description'],
-            content=updated_entry['content'],
+            name=updated_entry['filename'],
+            description=updated_entry['summary'],
+            content=updated_entry['summary'],
             usage_context=updated_entry['usage_context'],
             is_active=updated_entry['is_active'],
-            content_tokens=updated_entry.get('content_tokens'),
+            content_tokens=len(updated_entry.get('summary', '')) // 4,
             created_at=updated_entry['created_at'],
             updated_at=updated_entry['updated_at'],
             source_type=updated_entry.get('source_type'),
@@ -766,21 +781,22 @@ async def delete_knowledge_base_entry(
     try:
         client = await db.client
         
-        # Get the entry and verify it exists in agent_knowledge_base_entries table
-        entry_result = await client.table('agent_knowledge_base_entries').select('entry_id, agent_id').eq('entry_id', entry_id).execute()
+        # Get the entry from the new schema
+        entry_result = await client.from_('knowledge_base_entries').select('entry_id, account_id').eq('entry_id', entry_id).execute()
             
         if not entry_result.data:
             raise HTTPException(status_code=404, detail="Knowledge base entry not found")
         
         entry = entry_result.data[0]
-        agent_id = entry['agent_id']
         
-        # Verify agent access
-        await verify_and_get_agent_authorization(client, agent_id, user_id)
+        # Check if user has access to this entry through their account
+        account_id = await get_user_account_id(client, user_id)
+        if entry['account_id'] != account_id:
+            raise HTTPException(status_code=403, detail="Access denied")
         
-        result = await client.table('agent_knowledge_base_entries').delete().eq('entry_id', entry_id).execute()
+        result = await client.from_('knowledge_base_entries').delete().eq('entry_id', entry_id).execute()
         
-        logger.debug(f"Deleted agent knowledge base entry {entry_id} for agent {agent_id}")
+        logger.debug(f"Deleted knowledge base entry {entry_id}")
         
         return {"message": "Knowledge base entry deleted successfully"}
         
@@ -800,28 +816,29 @@ async def get_knowledge_base_entry(
     try:
         client = await db.client
         
-        # Get the entry from agent_knowledge_base_entries table only
-        result = await client.table('agent_knowledge_base_entries').select('*').eq('entry_id', entry_id).execute()
+        # Get the entry from the new schema
+        result = await client.from_('knowledge_base_entries').select('*').eq('entry_id', entry_id).execute()
         
         if not result.data:
             raise HTTPException(status_code=404, detail="Knowledge base entry not found")
         
         entry = result.data[0]
-        agent_id = entry['agent_id']
         
-        # Verify agent access
-        await verify_and_get_agent_authorization(client, agent_id, user_id)
+        # Check if user has access to this entry through their account
+        account_id = await get_user_account_id(client, user_id)
+        if entry['account_id'] != account_id:
+            raise HTTPException(status_code=403, detail="Access denied")
         
-        logger.debug(f"Retrieved agent knowledge base entry {entry_id} for agent {agent_id}")
+        logger.debug(f"Retrieved knowledge base entry {entry_id}")
         
         return KnowledgeBaseEntryResponse(
             entry_id=entry['entry_id'],
-            name=entry['name'],
-            description=entry['description'],
-            content=entry['content'],
+            name=entry['filename'],
+            description=entry['summary'],
+            content=entry['summary'],
             usage_context=entry['usage_context'],
             is_active=entry['is_active'],
-            content_tokens=entry.get('content_tokens'),
+            content_tokens=len(entry.get('summary', '')) // 4,
             created_at=entry['created_at'],
             updated_at=entry['updated_at'],
             source_type=entry.get('source_type'),
@@ -851,28 +868,9 @@ async def get_agent_processing_jobs(
         # Verify agent access
         await verify_and_get_agent_authorization(client, agent_id, user_id)
         
-        result = await client.rpc('get_agent_kb_processing_jobs', {
-            'p_agent_id': agent_id,
-            'p_limit': limit
-        }).execute()
-        
-        jobs = []
-        for job_data in result.data or []:
-            job = ProcessingJobResponse(
-                job_id=job_data['job_id'],
-                job_type=job_data['job_type'],
-                status=job_data['status'],
-                source_info=job_data['source_info'],
-                result_info=job_data['result_info'],
-                entries_created=job_data['entries_created'],
-                total_files=job_data['total_files'],
-                created_at=job_data['created_at'],
-                completed_at=job_data.get('completed_at'),
-                error_message=job_data.get('error_message')
-            )
-            jobs.append(job)
-        
-        return jobs
+        # Since the old processing jobs table was dropped, return empty for now
+        # TODO: Implement new processing jobs system if needed
+        return []
         
     except HTTPException:
         raise
