@@ -22,19 +22,11 @@ import uuid
 from core import api as core_api
 
 from core.sandbox import api as sandbox_api
-from core.billing.api import router as billing_router
-from core.billing.admin import router as billing_admin_router
-from core.admin.users_admin import router as users_admin_router
+from billing.api import router as billing_router
+from billing.admin import router as billing_admin_router
+from core.services import enterprise_billing_api
 
-# Import enterprise billing API with error handling
-enterprise_billing_api = None
-try:
-    from core.services import enterprise_billing_api as _enterprise_billing_api
-    enterprise_billing_api = _enterprise_billing_api
-except ImportError as e:
-    logger.warning(f"Failed to import enterprise_billing_api: {e}")
-    enterprise_billing_api = None
-
+from admin import users_admin
 from core.services import transcription as transcription_api
 import sys
 from core.services import email_api
@@ -138,7 +130,11 @@ async def log_requests_middleware(request: Request, call_next):
         raise
 
 # Define allowed origins based on environment
-allowed_origins = ["https://www.suna.so", "https://suna.so", "https://becomeomni.com", "https://operator.becomeomni.net","https://operator.becomeomni.ai","https://operator.becomeomni.com", "https://coldchain.becomeomni.ai", "https://sundar-dev.operator.becomeomni.net","https://varnica.operator.becomeomni.net","https://mssc.becomeomni.net", "https://mssc.becomeomni.ai","https://coppermoon.becomeomni.ai","https://huston.becomeomni.ai"]
+<<<<<<< Updated upstream
+allowed_origins = ["https://www.suna.so", "https://suna.so", "https://operator.becomeomni.net", "https://coldchain.becomeomni.ai", "https://sundar-dev.operator.becomeomni.net","https://varnica.operator.becomeomni.net","https://mssc.becomeomni.net", "https://mssc.becomeomni.ai","https://coppermoon.becomeomni.ai","https://huston.becomeomni.ai"]
+=======
+allowed_origins = ["https://www.suna.so", "https://suna.so", "https://operator.becomeomni.net","https://sundar-dev.operator.becomeomni.net","https://varnica.operator.becomeomni.net","https://mssc.becomeomni.net", "https://mssc.becomeomni.ai", "https://coldchain.becomeomni.net"]
+>>>>>>> Stashed changes
 allow_origin_regex = None
 
 # Add staging-specific origins
@@ -148,12 +144,8 @@ if config.ENV_MODE == EnvMode.LOCAL:
 # Add staging-specific origins
 if config.ENV_MODE == EnvMode.STAGING:
     allowed_origins.append("https://staging.suna.so")
-    allowed_origins.append("https://huston.staging.becomeomni.net")
+    allowed_origins.append("http://localhost:3000")
     allow_origin_regex = r"https://suna-.*-prjcts\.vercel\.app"
-
-# Add NEXT_PUBLIC_URL to allowed origins if configured and not already present
-if config.NEXT_PUBLIC_URL and config.NEXT_PUBLIC_URL not in allowed_origins:
-    allowed_origins.append(config.NEXT_PUBLIC_URL)
 
 app.add_middleware(
     CORSMiddleware,
@@ -173,20 +165,15 @@ api_router.include_router(sandbox_api.router)
 
 # Use enterprise billing API when ENTERPRISE_MODE is enabled, otherwise use Stripe billing
 if config.ENTERPRISE_MODE:
-    if enterprise_billing_api is not None:
-        api_router.include_router(enterprise_billing_api.router)
-        logger.info("Enterprise billing API enabled")
-    else:
-        logger.error("Enterprise mode is enabled but enterprise_billing_api failed to import. Falling back to Stripe billing.")
-        api_router.include_router(billing_router)
-        logger.info("Stripe billing API enabled (fallback)")
+    api_router.include_router(enterprise_billing_api.router)
+    logger.info("Enterprise billing API enabled")
 else:
     api_router.include_router(billing_router)
     logger.info("Stripe billing API enabled")
     
 api_router.include_router(api_keys_api.router)
 api_router.include_router(billing_admin_router)
-api_router.include_router(users_admin_router)
+api_router.include_router(users_admin.router)
 
 from core.mcp_module import api as mcp_api
 from core.credentials import api as credentials_api
@@ -200,11 +187,8 @@ api_router.include_router(transcription_api.router)
 api_router.include_router(email_api.router)
 api_router.include_router(memory_api.router)
 
-from knowledge_base import api as knowledge_base_api
+from core.knowledge_base import api as knowledge_base_api
 api_router.include_router(knowledge_base_api.router)
-
-from core.knowledge_base import api as core_knowledge_base_api
-api_router.include_router(core_knowledge_base_api.router)
 
 api_router.include_router(triggers_api.router)
 
@@ -215,20 +199,14 @@ from core.admin import api as admin_api
 api_router.include_router(admin_api.router)
 
 # Enterprise admin API - always load but endpoints check ENTERPRISE_MODE internally
-try:
-    from core.services import enterprise_admin_api
-    api_router.include_router(enterprise_admin_api.router)
-except ImportError as e:
-    logger.warning(f"Failed to import enterprise_admin_api: {e}. Skipping enterprise admin routes.")
+from core.services import enterprise_admin_api
+api_router.include_router(enterprise_admin_api.router)
 
 from core.composio_integration import api as composio_api
 api_router.include_router(composio_api.router)
 
 from core.google.google_slides_api import router as google_slides_router
 api_router.include_router(google_slides_router)
-
-from core.google.google_docs_api import router as google_docs_router
-api_router.include_router(google_docs_router)
 
 @api_router.get("/health")
 async def health_check():
