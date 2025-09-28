@@ -393,6 +393,13 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         console.warn('Failed to load assignments:', assignError);
       }
 
+      // Load unified data to get both regular entries and LlamaCloud KBs
+      const unifiedResponse = await fetch(`${API_URL}/knowledge-base/agents/${agentId}/unified`, { headers });
+      let unifiedData = null;
+      if (unifiedResponse.ok) {
+        unifiedData = await unifiedResponse.json();
+      }
+
       // Build tree structure
       const tree: TreeItem[] = [];
       const selectedEntrySet = new Set<string>();
@@ -424,6 +431,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         const children: TreeItem[] = [];
         const entries = entriesData.entries || [];
 
+        // Add regular files
         for (const entry of entries) {
           children.push({
             id: entry.entry_id,
@@ -431,6 +439,25 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
             type: 'file',
             data: entry
           });
+        }
+
+        // Add LlamaCloud KBs as file-like items (only for the first folder for simplicity)
+        if (folder === folders[0] && unifiedData?.llamacloud_entries) {
+          for (const kb of unifiedData.llamacloud_entries) {
+            children.push({
+              id: `cloud-${kb.id}`,
+              name: `${kb.name} (LlamaCloud)`,
+              type: 'file',
+              data: { 
+                ...kb, 
+                entry_id: `cloud-${kb.id}`,
+                filename: `${kb.name}.llamacloud`,
+                summary: kb.description || 'LlamaCloud knowledge base',
+                file_size: 0,
+                isLlamaCloud: true
+              }
+            });
+          }
         }
 
         tree.push({
@@ -921,6 +948,18 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
           </Button>
         </div>
       </div>
+      
+      {/* Stats */}
+      {(entries.length > 0 || llamacloudEntries.length > 0) && (
+        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+          <span>{entries.length + llamacloudEntries.length} total items</span>
+          {entries.length > 0 && <span>{entries.length} documents</span>}
+          {llamacloudEntries.length > 0 && <span>{llamacloudEntries.length} cloud indexes</span>}
+          {searchQuery && (
+            <span>{filteredEntries.length + filteredLlamaCloudEntries.length} matching search</span>
+          )}
+        </div>
+      )}
       {entries.length === 0 && filteredLlamaCloudEntries.length === 0 ? (
         <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
           <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
@@ -930,12 +969,12 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
             No knowledge entries yet
           </h4>
           <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-            Add knowledge entries to provide {agentName} with specialized context and information
+            Add documents, files, or cloud knowledge bases to provide {agentName} with specialized context and search capabilities
           </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredEntries.length === 0 ? (
+          {filteredEntries.length === 0 && filteredLlamaCloudEntries.length === 0 ? (
             <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
               <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
                 <Search className="h-6 w-6 text-muted-foreground" />
@@ -1024,20 +1063,20 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                 );
               })}
 
-              {/* LlamaCloud Knowledge Base Entries */}
+              {/* LlamaCloud Knowledge Base Entries - Displayed as file-like items */}
               {filteredLlamaCloudEntries.map((kb) => (
                 <div
                   key={kb.id}
-                  className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors group border-blue-200 bg-blue-50/30 dark:border-blue-800 dark:bg-blue-900/10"
+                  className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors group"
                 >
                   <div className="flex items-center space-x-4 flex-1 min-w-0">
-                    <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                    <div className="p-2 rounded-lg bg-muted border">
                       <Database className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2 mb-1 min-w-0">
                         <h4 className="text-sm font-medium truncate w-full">{kb.name}</h4>
-                        <Badge variant="secondary" className="text-xs flex-shrink-0 bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400">
+                        <Badge variant="outline" className="text-xs flex-shrink-0 bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
                           LlamaCloud
                         </Badge>
                         {/* Show NEW badge for recently created entries */}
@@ -1061,7 +1100,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                           <Clock className="h-3 w-3" />
                           {new Date(kb.created_at).toLocaleDateString()}
                         </span>
-                        <span className="text-blue-600 dark:text-blue-400">Index: {kb.index_name}</span>
+                        <span className="text-blue-600 dark:text-blue-400 text-xs">Index: {kb.index_name}</span>
                       </div>
                     </div>
                   </div>

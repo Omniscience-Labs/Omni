@@ -236,6 +236,7 @@ class ResponseProcessor:
         has_printed_thinking_prefix = False # Flag for printing thinking prefix only once
         agent_should_terminate = False # Flag to track if a terminating tool has been executed
         complete_native_tool_calls = [] # Initialize early for use in assistant_response_end
+        accumulated_thinking = ""  # Separate accumulator for thinking content
 
         # Collect metadata for reconstructing LiteLLM response object
         streaming_metadata = {
@@ -351,13 +352,13 @@ class ResponseProcessor:
                             # print("[THINKING]: ", end='', flush=True)
                             has_printed_thinking_prefix = True
                         # print(delta.reasoning_content, end='', flush=True)
-                        # Append reasoning to main content to be saved in the final message
+                        # Store reasoning content separately from main content
                         reasoning_content = delta.reasoning_content
                         # logger.debug(f"Processing reasoning_content: type={type(reasoning_content)}, value={reasoning_content}")
                         if isinstance(reasoning_content, list):
                             reasoning_content = ''.join(str(item) for item in reasoning_content)
-                        # logger.debug(f"About to concatenate reasoning_content (type={type(reasoning_content)}) to accumulated_content (type={type(accumulated_content)})")
-                        accumulated_content += reasoning_content
+                        # logger.debug(f"About to concatenate reasoning_content to accumulated_thinking")
+                        accumulated_thinking += reasoning_content
 
                     # Process content chunk
                     if delta and hasattr(delta, 'content') and delta.content:
@@ -675,8 +676,17 @@ class ResponseProcessor:
                                 })
                             except json.JSONDecodeError: continue
 
+                # Structure content to separate thinking from regular content
+                message_content = accumulated_content
+                if accumulated_thinking:
+                    # Create structured content with thinking separate from main response
+                    message_content = {
+                        "thinking": accumulated_thinking,
+                        "content": accumulated_content
+                    }
+                    
                 message_data = { # Dict to be saved in 'content'
-                    "role": "assistant", "content": accumulated_content,
+                    "role": "assistant", "content": message_content,
                     "tool_calls": complete_native_tool_calls or None
                 }
 
