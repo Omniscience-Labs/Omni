@@ -228,10 +228,11 @@ const useKnowledgeFolders = () => {
                 return;
             }
 
-            // Fetch recent files (last 6 files across all folders)
+            // Fetch recent files (last 6 files across all folders) - only FILE entries, not cloud KBs
             const { data: recentFilesData, error: recentError } = await supabase
                 .from('knowledge_base_entries')
                 .select('entry_id, filename, summary, file_size, created_at, folder_id')
+                .eq('entry_type', ENTRY_TYPE_FILE)
                 .order('created_at', { ascending: false })
                 .limit(6);
 
@@ -241,13 +242,14 @@ const useKnowledgeFolders = () => {
                 setRecentFiles(recentFilesData || []);
             }
 
-            // Get entry counts for each folder
+            // Get entry counts for each folder (only FILE entries, not cloud KBs)
             const foldersWithCounts = await Promise.all(
                 foldersData.map(async (folder) => {
                     const { count, error: countError } = await supabase
                         .from('knowledge_base_entries')
                         .select('*', { count: 'exact', head: true })
-                        .eq('folder_id', folder.folder_id);
+                        .eq('folder_id', folder.folder_id)
+                        .eq('entry_type', ENTRY_TYPE_FILE);
 
                     if (countError) {
                         console.error('Error counting entries:', countError);
