@@ -71,3 +71,59 @@ export interface KnowledgeBaseEntry {
     job_id: string;
     message: string;
   }
+
+  // Import LlamaCloud types for unified interface
+  export interface LlamaCloudKnowledgeBase {
+    id: string;
+    name: string;
+    index_name: string;
+    description?: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+  }
+
+  // Unified Knowledge Base Types
+  export interface UnifiedKnowledgeBaseEntry {
+    id: string;
+    name: string;
+    description?: string;
+    type: 'regular' | 'llamacloud';
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+    
+    // Fields for regular KB entries
+    entry_id?: string;
+    content?: string;
+    usage_context?: 'always' | 'on_request' | 'contextual';
+    content_tokens?: number;
+    source_type?: string;
+    source_metadata?: any;
+    file_size?: number;
+    file_mime_type?: string;
+    
+    // Fields for LlamaCloud KB entries
+    index_name?: string;
+  }
+
+  export interface UnifiedKnowledgeBaseListResponse {
+    regular_entries: KnowledgeBaseEntry[];
+    llamacloud_entries: LlamaCloudKnowledgeBase[];
+    total_regular_count: number;
+    total_llamacloud_count: number;
+    total_tokens?: number;
+  }
+
+  // Unified Assignment Types
+  export interface UnifiedAssignmentRequest {
+    regular_entry_ids: string[];
+    llamacloud_kb_ids: string[];
+  }
+
+  export interface UnifiedAssignmentResponse {
+    regular_assignments: Record<string, boolean>;
+    llamacloud_assignments: Record<string, boolean>;
+    total_regular_count: number;
+    total_llamacloud_count: number;
+  }

@@ -133,8 +133,9 @@ async def google_oauth_callback(
     This endpoint receives the authorization code from Google and exchanges it for tokens.
     Redirects to the frontend with success/error status.
     """
-    # Get frontend URL from environment (supports different environments)
-    frontend_url = os.getenv("FRONTEND_URL")
+    # Get frontend URL from configuration
+    from core.utils.config import config
+    frontend_url = config.NEXT_PUBLIC_URL
     
     if error:
         logger.error(f"Google OAuth error: {error}")

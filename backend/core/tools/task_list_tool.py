@@ -189,7 +189,7 @@ class TaskListTool(SandboxToolsBase):
                 "properties": {
                     "sections": {
                         "type": "array",
-                        "description": "List of sections with their tasks for batch creation",
+                        "description": "List of sections with their tasks for batch creation. Use this for multi-section creation.",
                         "items": {
                             "type": "object",
                             "properties": {
@@ -209,28 +209,18 @@ class TaskListTool(SandboxToolsBase):
                     },
                     "section_title": {
                         "type": "string",
-                        "description": "Single section title (creates if doesn't exist - use this OR sections array)"
+                        "description": "Single section title (creates if doesn't exist - for single section creation only, do not use with sections array)"
                     },
                     "section_id": {
                         "type": "string",
-                        "description": "Existing section ID (use this OR sections array OR section_title)"
+                        "description": "Existing section ID (for single section creation only, do not use with sections array)"
                     },
                     "task_contents": {
                         "type": "array",
-                        "description": "Task contents for single section creation (use with section_title or section_id)",
+                        "description": "Task contents for single section creation (required when using section_title or section_id, do not use with sections array)",
                         "items": {"type": "string"}
                     }
-                },
-                "anyOf": [
-                    {"required": ["sections"]},
-                    {
-                        "required": ["task_contents"],
-                        "anyOf": [
-                            {"required": ["section_title"]},
-                            {"required": ["section_id"]}
-                        ]
-                    }
-                ]
+                }
             }
         }
     })
@@ -350,11 +340,9 @@ class TaskListTool(SandboxToolsBase):
                 "type": "object",
                 "properties": {
                     "task_ids": {
-                        "oneOf": [
-                            {"type": "string"},
-                            {"type": "array", "items": {"type": "string"}, "minItems": 1}
-                        ],
-                        "description": "Task ID (string) or array of task IDs to update. EFFICIENT APPROACH: Batch multiple completed tasks into a single call rather than making multiple consecutive update calls. Always maintain sequential execution order."
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Array of task IDs to update. EFFICIENT APPROACH: Batch multiple completed tasks into a single call rather than making multiple consecutive update calls. Always maintain sequential execution order."
                     },
                     "content": {
                         "type": "string",
@@ -379,7 +367,7 @@ class TaskListTool(SandboxToolsBase):
         # Update single task (when only one task is completed):
         <function_calls>
         <invoke name="update_tasks">
-        <parameter name="task_ids">task-uuid-here</parameter>
+        <parameter name="task_ids">["task-uuid-here"]</parameter>
         <parameter name="status">completed</parameter>
         </invoke>
         </function_calls>
@@ -393,22 +381,18 @@ class TaskListTool(SandboxToolsBase):
         </function_calls>
         '''
     )
-    async def update_tasks(self, task_ids, content: Optional[str] = None,
+    async def update_tasks(self, task_ids: List[str], content: Optional[str] = None,
                           status: Optional[str] = None, section_id: Optional[str] = None) -> ToolResult:
         """Update one or more tasks"""
         try:
-            # Normalize task_ids to always be a list
-            if isinstance(task_ids, str):
-                target_task_ids = [task_ids]
-            else:
-                target_task_ids = task_ids
+            # task_ids is already a list from the schema
             
             sections, tasks = await self._load_data()
             section_map = {s.id: s for s in sections}
             task_map = {t.id: t for t in tasks}
             
             # Validate all task IDs exist
-            missing_tasks = [tid for tid in target_task_ids if tid not in task_map]
+            missing_tasks = [tid for tid in task_ids if tid not in task_map]
             if missing_tasks:
                 return ToolResult(success=False, output=f"❌ Task IDs not found: {missing_tasks}")
             
@@ -418,7 +402,7 @@ class TaskListTool(SandboxToolsBase):
             
             # Apply updates
             updated_count = 0
-            for tid in target_task_ids:
+            for tid in task_ids:
                 task = task_map[tid]
                 
                 if content is not None:
@@ -444,33 +428,26 @@ class TaskListTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "delete_tasks",
-            "description": "Delete one or more tasks and/or sections. Can delete tasks by their IDs or sections by their IDs (which will also delete all tasks in those sections).",
+            "description": "Delete one or more tasks and/or sections. Can delete tasks by their IDs or sections by their IDs (which will also delete all tasks in those sections). Must provide at least one of task_ids or section_ids.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "task_ids": {
-                        "oneOf": [
-                            {"type": "string"},
-                            {"type": "array", "items": {"type": "string"}, "minItems": 1}
-                        ],
-                        "description": "Task ID (string) or array of task IDs to delete (optional)"
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Array of task IDs to delete (optional)"
                     },
                     "section_ids": {
-                        "oneOf": [
-                            {"type": "string"},
-                            {"type": "array", "items": {"type": "string"}, "minItems": 1}
-                        ],
-                        "description": "Section ID (string) or array of section IDs to delete (will also delete all tasks in these sections) (optional)"
+                        "type": "array", 
+                        "items": {"type": "string"},
+                        "description": "Array of section IDs to delete (will also delete all tasks in these sections) (optional)"
                     },
                     "confirm": {
                         "type": "boolean",
-                        "description": "Must be true to confirm deletion of sections (required when deleting sections)"
+                        "description": "Must be true to confirm deletion of sections (required when deleting sections)",
+                        "default": False
                     }
-                },
-                "anyOf": [
-                    {"required": ["task_ids"]},
-                    {"required": ["section_ids", "confirm"]}
-                ]
+                }
             }
         }
     })
@@ -479,7 +456,7 @@ class TaskListTool(SandboxToolsBase):
         # Delete single task:
         <function_calls>
         <invoke name="delete_tasks">
-        <parameter name="task_ids">task-uuid-here</parameter>
+        <parameter name="task_ids">["task-uuid-here"]</parameter>
         </invoke>
         </function_calls>
         
@@ -493,7 +470,7 @@ class TaskListTool(SandboxToolsBase):
         # Delete single section (and all its tasks):
         <function_calls>
         <invoke name="delete_tasks">
-        <parameter name="section_ids">section-uuid-here</parameter>
+        <parameter name="section_ids">["section-uuid-here"]</parameter>
         <parameter name="confirm">true</parameter>
         </invoke>
         </function_calls>
@@ -516,7 +493,7 @@ class TaskListTool(SandboxToolsBase):
         </function_calls>
         '''
     )
-    async def delete_tasks(self, task_ids=None, section_ids=None, confirm: bool = False) -> ToolResult:
+    async def delete_tasks(self, task_ids: Optional[List[str]] = None, section_ids: Optional[List[str]] = None, confirm: bool = False) -> ToolResult:
         """Delete one or more tasks and/or sections"""
         try:
             # Validate that at least one of task_ids or section_ids is provided
@@ -535,19 +512,13 @@ class TaskListTool(SandboxToolsBase):
             deleted_tasks = 0
             remaining_tasks = tasks.copy()
             if task_ids:
-                # Normalize task_ids to always be a list
-                if isinstance(task_ids, str):
-                    target_task_ids = [task_ids]
-                else:
-                    target_task_ids = task_ids
-                
                 # Validate all task IDs exist
-                missing_tasks = [tid for tid in target_task_ids if tid not in task_map]
+                missing_tasks = [tid for tid in task_ids if tid not in task_map]
                 if missing_tasks:
                     return ToolResult(success=False, output=f"❌ Task IDs not found: {missing_tasks}")
                 
                 # Remove tasks
-                task_id_set = set(target_task_ids)
+                task_id_set = set(task_ids)
                 remaining_tasks = [task for task in tasks if task.id not in task_id_set]
                 deleted_tasks = len(tasks) - len(remaining_tasks)
             
@@ -555,19 +526,15 @@ class TaskListTool(SandboxToolsBase):
             deleted_sections = 0
             remaining_sections = sections.copy()
             if section_ids:
-                # Normalize section_ids to always be a list
-                if isinstance(section_ids, str):
-                    target_section_ids = [section_ids]
-                else:
-                    target_section_ids = section_ids
+                # section_ids is already a list from the schema
                 
                 # Validate all section IDs exist
-                missing_sections = [sid for sid in target_section_ids if sid not in section_map]
+                missing_sections = [sid for sid in section_ids if sid not in section_map]
                 if missing_sections:
                     return ToolResult(success=False, output=f"❌ Section IDs not found: {missing_sections}")
                 
                 # Remove sections and their tasks
-                section_id_set = set(target_section_ids)
+                section_id_set = set(section_ids)
                 remaining_sections = [s for s in sections if s.id not in section_id_set]
                 remaining_tasks = [t for t in remaining_tasks if t.section_id not in section_id_set]
                 deleted_sections = len(sections) - len(remaining_sections)

@@ -137,11 +137,6 @@ export default function CreditTransactions({ accountId }: Props) {
     }
   };
 
-  const handleTypeFilterChange = (value: string) => {
-    setTypeFilter(value === 'all' ? undefined : value);
-    setOffset(0); // Reset pagination when filter changes
-  };
-
   if (isLoading && offset === 0) {
     return (
       <div className="space-y-6">
@@ -343,9 +338,7 @@ export default function CreditTransactions({ accountId }: Props) {
                   </TableBody>
                 </Table>
               </div>
-
-              {/* Pagination */}
-              {(data as any)?.pagination && (
+              {data?.pagination && (
                 <div className="flex items-center justify-between mt-4">
                   <p className="text-sm text-muted-foreground">
                     Showing {offset + 1}-{Math.min(offset + limit, (data as any)?.pagination?.total || 0)} of {(data as any)?.pagination?.total || 0} transactions

@@ -8,11 +8,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Clock, 
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Clock,
   AlertCircle,
   FileText,
   Globe,
@@ -29,7 +29,12 @@ import {
   BookOpen,
   PenTool,
   X,
-  ArrowLeft
+  ArrowLeft,
+  FolderIcon,
+  Settings,
+  Grid,
+  List,
+  Database
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -47,7 +52,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { 
+import {
   useAgentKnowledgeBaseEntries,
   useCreateAgentKnowledgeBaseEntry,
   useUpdateKnowledgeBaseEntry,
@@ -55,33 +60,58 @@ import {
   useUploadAgentFiles,
   useCloneGitRepository,
   useAgentProcessingJobs,
+  useAgentUnifiedKnowledgeBase,
 } from '@/hooks/react-query/knowledge-base/use-knowledge-base-queries';
 import { cn, truncateString } from '@/lib/utils';
 import { CreateKnowledgeBaseEntryRequest, KnowledgeBaseEntry, UpdateKnowledgeBaseEntryRequest, ProcessingJob } from '@/hooks/react-query/knowledge-base/types';
 import { toast } from 'sonner';
 import JSZip from 'jszip';
 import { LlamaCloudKnowledgeBaseManager } from '../llamacloud-knowledge-base/llamacloud-kb-manager';
+import { useAgentLlamaCloudKnowledgeBases, useCreateLlamaCloudKnowledgeBase } from '@/hooks/react-query/llamacloud-knowledge-base/use-llamacloud-knowledge-base-queries';
+import { createClient } from '@/lib/supabase/client';
+import { SharedTreeItem } from '@/components/knowledge-base/shared-kb-tree';
 
-import { 
-  Code2 as SiJavascript, 
-  Code2 as SiTypescript, 
-  Code2 as SiPython, 
-  Code2 as SiReact, 
-  Code2 as SiHtml5, 
-  Code2 as SiCss3, 
+import {
+  Code2 as SiJavascript,
+  Code2 as SiTypescript,
+  Code2 as SiPython,
+  Code2 as SiReact,
+  Code2 as SiHtml5,
+  Code2 as SiCss3,
   FileText as SiJson,
   FileText as SiMarkdown,
   FileText as SiYaml,
   FileText as SiXml,
-  FileText as FaFilePdf, 
-  FileText as FaFileWord, 
-  FileText as FaFileExcel, 
-  FileImage as FaFileImage, 
-  Archive as FaFileArchive, 
+  FileText as FaFilePdf,
+  FileText as FaFileWord,
+  FileText as FaFileExcel,
+  FileImage as FaFileImage,
+  Archive as FaFileArchive,
   Code as FaFileCode,
   FileText as FaFileAlt,
   File as FaFile
 } from 'lucide-react';
+
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
+// Helper function to get auth headers
+const getAuthHeaders = async () => {
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  return {
+    'Content-Type': 'application/json',
+    ...(session?.access_token && { 'Authorization': `Bearer ${session.access_token}` })
+  };
+};
+
+interface TreeItem {
+  id: string;
+  name: string;
+  type: 'folder' | 'file';
+  expanded?: boolean;
+  children?: TreeItem[];
+  data?: any;
+}
 
 interface AgentKnowledgeBaseManagerProps {
   agentId: string;
@@ -104,9 +134,9 @@ interface UploadedFile {
 }
 
 const USAGE_CONTEXT_OPTIONS = [
-  { 
-    value: 'always', 
-    label: 'Always Active', 
+  {
+    value: 'always',
+    label: 'Always Active',
     icon: Globe,
     color: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
   },
@@ -173,7 +203,7 @@ const getFileTypeIcon = (filename: string, mimeType?: string) => {
 
 const getFileIconColor = (filename: string) => {
   const extension = filename.split('.').pop()?.toLowerCase();
-  
+
   switch (extension) {
     case 'js':
       return 'text-yellow-500';
@@ -287,7 +317,13 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
+  // Tree view state
+  const [viewMode, setViewMode] = useState<'list' | 'tree'>('list');
+  const [treeData, setTreeData] = useState<TreeItem[]>([]);
+  const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
+  const [treeLoading, setTreeLoading] = useState(false);
+
   const [formData, setFormData] = useState<CreateKnowledgeBaseEntryRequest>({
     name: '',
     description: '',
@@ -297,6 +333,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
 
   const { data: knowledgeBase, isLoading, error, refetch } = useAgentKnowledgeBaseEntries(agentId);
   const { data: processingJobsData, refetch: refetchJobs } = useAgentProcessingJobs(agentId);
+  const { data: cloudKnowledgeBases, isLoading: cloudKBLoading, refetch: refetchCloudKB } = useAgentLlamaCloudKnowledgeBases(agentId);
   const createMutation = useCreateAgentKnowledgeBaseEntry();
   const updateMutation = useUpdateKnowledgeBaseEntry();
   const deleteMutation = useDeleteKnowledgeBaseEntry();
@@ -307,22 +344,196 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
   useEffect(() => {
     if (processingJobsData?.jobs && processingJobsData.jobs.length > 0) {
       const hasProcessingJobs = processingJobsData.jobs.some(job => job.status === 'processing');
-      const hasRecentlyCompleted = processingJobsData.jobs.some(job => 
-        job.status === 'completed' && 
-        job.completed_at && 
+      const hasRecentlyCompleted = processingJobsData.jobs.some(job =>
+        job.status === 'completed' &&
+        job.completed_at &&
         new Date(job.completed_at).getTime() > Date.now() - 10000 // Completed in last 10 seconds
       );
-      
+
       if (hasProcessingJobs || hasRecentlyCompleted) {
         const interval = setInterval(() => {
           refetchJobs();
           refetch();
         }, hasProcessingJobs ? 2000 : 5000); // More frequent refresh while processing
-        
+
         return () => clearInterval(interval);
       }
     }
   }, [processingJobsData?.jobs, refetch, refetchJobs]);
+
+  // Load tree data when in tree view mode
+  useEffect(() => {
+    if (viewMode === 'tree') {
+      loadTreeData();
+    }
+  }, [agentId, viewMode]);
+
+  const loadTreeData = async () => {
+    setTreeLoading(true);
+    try {
+      const headers = await getAuthHeaders();
+
+      // Load folders
+      const foldersResponse = await fetch(`${API_URL}/knowledge-base/folders`, { headers });
+      if (!foldersResponse.ok) {
+        throw new Error(`Failed to load folders: ${foldersResponse.status}`);
+      }
+
+      const foldersData = await foldersResponse.json();
+      const folders = Array.isArray(foldersData) ? foldersData : (foldersData.folders || []);
+
+      // Load current assignments
+      let currentAssignments = {};
+      try {
+        const assignmentsResponse = await fetch(`${API_URL}/knowledge-base/agents/${agentId}/assignments`, { headers });
+        if (assignmentsResponse.ok) {
+          currentAssignments = await assignmentsResponse.json();
+        }
+      } catch (assignError) {
+        console.warn('Failed to load assignments:', assignError);
+      }
+
+
+      // Build tree structure
+      const tree: TreeItem[] = [];
+      const selectedEntrySet = new Set<string>();
+
+      // Add enabled entries to selection
+      Object.entries(currentAssignments).forEach(([entryId, enabled]) => {
+        if (enabled) {
+          selectedEntrySet.add(entryId);
+        }
+      });
+
+      for (const folder of folders) {
+        // Load entries for this folder
+        let entriesData = { entries: [] };
+        try {
+          const entriesResponse = await fetch(`${API_URL}/knowledge-base/folders/${folder.folder_id}/entries`, { headers });
+          if (entriesResponse.ok) {
+            const rawEntriesData = await entriesResponse.json();
+            if (Array.isArray(rawEntriesData)) {
+              entriesData = { entries: rawEntriesData };
+            } else {
+              entriesData = rawEntriesData;
+            }
+          }
+        } catch (entriesError) {
+          console.warn(`Failed to load entries for folder ${folder.folder_id}:`, entriesError);
+        }
+
+        const children: TreeItem[] = [];
+        const entries = entriesData.entries || [];
+
+        // Add regular files
+        for (const entry of entries) {
+          children.push({
+            id: entry.entry_id,
+            name: entry.filename,
+            type: 'file',
+            data: entry
+          });
+        }
+
+
+        tree.push({
+          id: folder.folder_id,
+          name: folder.name,
+          type: 'folder',
+          expanded: true,
+          children,
+          data: folder
+        });
+      }
+
+      setTreeData(tree);
+      setSelectedEntries(selectedEntrySet);
+    } catch (error) {
+      console.error('Failed to load tree data:', error);
+      toast.error(`Failed to load knowledge base tree: ${error.message}`);
+    } finally {
+      setTreeLoading(false);
+    }
+  };
+
+  const getFolderSelectionState = (folderId: string) => {
+    const folder = treeData.find(f => f.id === folderId);
+    if (!folder?.children || folder.children.length === 0) {
+      return { selected: false, indeterminate: false };
+    }
+
+    const folderEntryIds = folder.children.map(child => child.id);
+    const selectedCount = folderEntryIds.filter(id => selectedEntries.has(id)).length;
+
+    if (selectedCount === 0) {
+      return { selected: false, indeterminate: false };
+    } else if (selectedCount === folderEntryIds.length) {
+      return { selected: true, indeterminate: false };
+    } else {
+      return { selected: false, indeterminate: true };
+    }
+  };
+
+  const toggleEntrySelection = async (entryId: string) => {
+    const newSelection = new Set(selectedEntries);
+    if (newSelection.has(entryId)) {
+      newSelection.delete(entryId);
+    } else {
+      newSelection.add(entryId);
+    }
+    setSelectedEntries(newSelection);
+    await saveAssignments(newSelection);
+  };
+
+  const toggleFolderSelection = async (folderId: string) => {
+    const folder = treeData.find(f => f.id === folderId);
+    if (!folder?.children) return;
+
+    const folderEntryIds = folder.children.map(child => child.id);
+    const allSelected = folderEntryIds.every(id => selectedEntries.has(id));
+
+    const newSelection = new Set(selectedEntries);
+
+    if (allSelected) {
+      // Deselect all entries in folder
+      folderEntryIds.forEach(id => newSelection.delete(id));
+    } else {
+      // Select all entries in folder
+      folderEntryIds.forEach(id => newSelection.add(id));
+    }
+
+    setSelectedEntries(newSelection);
+    await saveAssignments(newSelection);
+  };
+
+  const saveAssignments = async (selectedSet: Set<string>) => {
+    try {
+      const headers = await getAuthHeaders();
+
+      const response = await fetch(`${API_URL}/knowledge-base/agents/${agentId}/assignments`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ entry_ids: Array.from(selectedSet) })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save assignments');
+      }
+
+      toast.success('Knowledge base access updated');
+    } catch (error) {
+      console.error('Failed to save assignments:', error);
+      toast.error('Failed to save assignments');
+    }
+  };
+
+  const toggleExpand = (folderId: string) => {
+    setTreeData(prev => prev.map(folder =>
+      folder.id === folderId
+        ? { ...folder, expanded: !folder.expanded }
+        : folder
+    ));
+  };
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -338,7 +549,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFileUpload(e.dataTransfer.files);
     }
@@ -381,7 +592,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim() || !formData.content.trim()) {
       return;
     }
@@ -401,7 +612,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
       } else {
         await createMutation.mutateAsync({ agentId, data: formData });
       }
-      
+
       handleCloseDialog();
     } catch (error) {
       console.error('Error saving agent knowledge base entry:', error);
@@ -430,7 +641,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
 
   const extractZipFile = async (zipFile: File, zipId: string) => {
     try {
-      setUploadedFiles(prev => prev.map(f => 
+      setUploadedFiles(prev => prev.map(f =>
         f.id === zipId ? { ...f, status: 'extracting' } : f
       ));
 
@@ -444,13 +655,13 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         if (!file.dir && !path.startsWith('__MACOSX/') && !path.includes('/.')) {
           const fileName = path.split('/').pop() || path;
           const fileExtension = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
-          
+
           // Only process supported file formats
           if (!supportedExtensions.includes(fileExtension)) {
             rejectedFiles.push(fileName);
             continue;
           }
-          
+
           try {
             const blob = await file.async('blob');
             const extractedFile = new File([blob], fileName);
@@ -478,15 +689,15 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
       if (rejectedFiles.length > 0) {
         message += `. Skipped ${rejectedFiles.length} unsupported files: ${rejectedFiles.slice(0, 5).join(', ')}${rejectedFiles.length > 5 ? '...' : ''}`;
       }
-      
+
       toast.success(message);
     } catch (error) {
       console.error('Error extracting ZIP:', error);
-      setUploadedFiles(prev => prev.map(f => 
-        f.id === zipId ? { 
-          ...f, 
-          status: 'error', 
-          error: 'Failed to extract ZIP file' 
+      setUploadedFiles(prev => prev.map(f =>
+        f.id === zipId ? {
+          ...f,
+          status: 'error',
+          error: 'Failed to extract ZIP file'
         } : f
       ));
       toast.error('Failed to extract ZIP file');
@@ -495,39 +706,39 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
 
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    
+
     const supportedExtensions = ['.txt', '.pdf', '.docx'];
     const newFiles: UploadedFile[] = [];
     const rejectedFiles: string[] = [];
-    
+
     for (const file of Array.from(files)) {
       const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-      
+
       // Allow ZIP files as they can contain supported formats
       if (!supportedExtensions.includes(fileExtension) && fileExtension !== '.zip') {
         rejectedFiles.push(file.name);
         continue;
       }
-      
+
       const fileId = Math.random().toString(36).substr(2, 9);
       const uploadedFile: UploadedFile = {
         file,
         id: fileId,
         status: 'pending'
       };
-      
+
       newFiles.push(uploadedFile);
-      
+
       // Extract ZIP files to get individual files
       if (file.name.toLowerCase().endsWith('.zip')) {
         setTimeout(() => extractZipFile(file, fileId), 100);
       }
     }
-    
+
     if (rejectedFiles.length > 0) {
       toast.error(`Unsupported file format(s): ${rejectedFiles.join(', ')}. Only .txt, .pdf, .docx, and .zip files are supported.`);
     }
-    
+
     if (newFiles.length > 0) {
       setUploadedFiles(prev => [...prev, ...newFiles]);
       if (!addDialogOpen) {
@@ -538,52 +749,53 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
   };
 
   const uploadFiles = async () => {
-    const filesToUpload = uploadedFiles.filter(f => 
-      f.status === 'pending' && 
+    const filesToUpload = uploadedFiles.filter(f =>
+      f.status === 'pending' &&
       (f.isFromZip || !f.file.name.toLowerCase().endsWith('.zip'))
     );
-    
+
     let allSuccessful = true;
-    
+
     for (const uploadedFile of filesToUpload) {
       try {
-        setUploadedFiles(prev => prev.map(f => 
+        setUploadedFiles(prev => prev.map(f =>
           f.id === uploadedFile.id ? { ...f, status: 'uploading' as const } : f
         ));
-        
+
         await uploadMutation.mutateAsync({ agentId, file: uploadedFile.file });
-        
-        setUploadedFiles(prev => prev.map(f => 
+
+        setUploadedFiles(prev => prev.map(f =>
           f.id === uploadedFile.id ? { ...f, status: 'success' as const } : f
         ));
       } catch (error) {
         allSuccessful = false;
-        setUploadedFiles(prev => prev.map(f => 
-          f.id === uploadedFile.id ? { 
-            ...f, 
-            status: 'error' as const, 
-            error: error instanceof Error ? error.message : 'Upload failed' 
+        setUploadedFiles(prev => prev.map(f =>
+          f.id === uploadedFile.id ? {
+            ...f,
+            status: 'error' as const,
+            error: error instanceof Error ? error.message : 'Upload failed'
           } : f
         ));
       }
     }
-    
+
     // Auto-close dialog and show success message if all uploads succeeded
     if (allSuccessful && filesToUpload.length > 0) {
       // Trigger immediate refetch to show processing jobs
       refetchJobs();
-      
+
       setTimeout(() => {
         toast.success(
           `Successfully uploaded ${filesToUpload.length} file${filesToUpload.length > 1 ? 's' : ''}. ` +
           `Knowledge entries will appear below once processing is complete.`
         );
         handleCloseDialog();
-        
+
         // Trigger another refetch after closing dialog
         setTimeout(() => {
           refetch();
           refetchJobs();
+          refetchCloudKB();
         }, 500);
       }, 1000);
     }
@@ -623,7 +835,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
     }
   };
 
-  if (isLoading) {
+  if (isLoading || cloudKBLoading) {
     return <AgentKnowledgeBaseSkeleton />;
   }
 
@@ -640,15 +852,23 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
 
   const entries = knowledgeBase?.entries || [];
   const processingJobs = processingJobsData?.jobs || [];
-  const filteredEntries = entries.filter(entry => 
+  const cloudKBs = cloudKnowledgeBases?.knowledge_bases || [];
+  
+  const filteredEntries = entries.filter(entry =>
     entry.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     entry.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (entry.description && entry.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  const filteredCloudKBs = cloudKBs.filter(kb =>
+    kb.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    kb.index_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (kb.description && kb.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
   return (
-    <div 
-      className="space-y-4"
+    <div
+      className="space-y-6"
       onDragEnter={handleDrag}
       onDragLeave={handleDrag}
       onDragOver={handleDrag}
@@ -665,6 +885,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
           </div>
         </div>
       )}
+
       <div className="flex items-center justify-between">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -675,12 +896,76 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
             className="pl-9 h-9"
           />
         </div>
-        <Button onClick={() => handleOpenAddDialog()} size="sm" className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add Knowledge
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center border rounded-lg p-1">
+            <Button
+              size="sm"
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              onClick={() => setViewMode('list')}
+              className="h-7 px-2"
+            >
+              <Grid className="h-3 w-3" />
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === 'tree' ? 'default' : 'ghost'}
+              onClick={() => setViewMode('tree')}
+              className="h-7 px-2"
+            >
+              <List className="h-3 w-3" />
+            </Button>
+          </div>
+          <Button onClick={() => handleOpenAddDialog()} size="sm" className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Knowledge
+          </Button>
+        </div>
       </div>
-      {entries.length === 0 ? (
+
+      {/* Cloud Knowledge Bases Section */}
+      {filteredCloudKBs.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+            <Database className="h-4 w-4" />
+            Cloud Knowledge Bases ({filteredCloudKBs.length})
+          </h3>
+          <div className="space-y-3">
+            {filteredCloudKBs.map((kb) => (
+              <div
+                key={kb.id}
+                className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors group"
+              >
+                <div className="flex items-center space-x-4 flex-1 min-w-0">
+                  <div className="p-2 rounded-lg bg-muted border">
+                    <Database className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2 mb-1 min-w-0">
+                      <h4 className="text-sm font-medium truncate">{kb.name}</h4>
+                      <Badge variant="outline" className="text-xs flex-shrink-0 bg-blue-50 text-blue-700 border-blue-200">
+                        search_{kb.name.replace(/-/g, '_')}()
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs flex-shrink-0">
+                        Cloud
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">
+                      Index: {kb.index_name}
+                    </p>
+                    {kb.description && (
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {kb.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {entries.length === 0 && filteredCloudKBs.length === 0 ? (
         <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
           <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
             <BookOpen className="h-6 w-6 text-muted-foreground" />
@@ -689,12 +974,21 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
             No knowledge entries yet
           </h4>
           <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-            Add knowledge entries to provide {agentName} with specialized context and information
+            Add documents, files, or cloud knowledge bases to provide {agentName} with specialized context and search capabilities
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filteredEntries.length === 0 ? (
+        <div className="space-y-4">
+          {filteredEntries.length > 0 && (
+            <>
+              <h3 className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+                <FileIcon className="h-4 w-4" />
+                Document Knowledge ({filteredEntries.length})
+              </h3>
+            </>
+          )}
+          <div className="space-y-3">
+            {filteredEntries.length === 0 ? (
             <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
               <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
                 <Search className="h-6 w-6 text-muted-foreground" />
@@ -708,79 +1002,80 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
             </div>
           ) : (
             filteredEntries.map((entry) => {
-              const contextConfig = getUsageContextConfig(entry.usage_context);
-              const ContextIcon = contextConfig.icon;
-              const SourceIcon = getSourceIcon(entry.source_type || 'manual', entry.source_metadata?.filename);
-              
-              return (
-                <div
-                  key={entry.entry_id}
-                  className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors group"
-                >
-                  <div className="flex items-center space-x-4 flex-1 min-w-0">
-                    <div className="p-2 rounded-lg bg-muted border">
-                      <SourceIcon className="h-4 w-4" />
+                const contextConfig = getUsageContextConfig(entry.usage_context);
+                const ContextIcon = contextConfig.icon;
+                const SourceIcon = getSourceIcon(entry.source_type || 'manual', entry.source_metadata?.filename);
+
+                return (
+                  <div
+                    key={entry.entry_id}
+                    className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors group"
+                  >
+                    <div className="flex items-center space-x-4 flex-1 min-w-0">
+                      <div className="p-2 rounded-lg bg-muted border">
+                        <SourceIcon className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1 min-w-0">
+                          <h4 className="text-sm font-medium truncate w-full">{entry.name}</h4>
+                          {/* Show NEW badge for recently created entries */}
+                          {new Date(entry.created_at).getTime() > Date.now() - 300000 && ( // 5 minutes
+                            <Badge variant="default" className="text-xs flex-shrink-0 bg-green-600 hover:bg-green-600">
+                              NEW
+                            </Badge>
+                          )}
+                          {entry.source_type && entry.source_type !== 'manual' && (
+                            <Badge variant="outline" className="text-xs flex-shrink-0">
+                              {entry.source_type === 'git_repo' ? 'Git' :
+                                entry.source_type === 'zip_extracted' ? 'ZIP' : 'File'}
+                            </Badge>
+                          )}
+                        </div>
+                        {entry.description && (
+                          <p className="text-xs text-muted-foreground truncate w-full mb-1">
+                            {entry.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <Badge variant="outline" className={cn("text-xs gap-1", contextConfig.color)}>
+                            <ContextIcon className="h-3 w-3" />
+                            {contextConfig.label}
+                          </Badge>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date(entry.created_at).toLocaleDateString()}
+                          </span>
+                          {entry.content_tokens && (
+                            <span>~{entry.content_tokens.toLocaleString()} tokens</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2 mb-1 min-w-0">
-                        <h4 className="text-sm font-medium truncate w-full">{entry.name}</h4>
-                        {/* Show NEW badge for recently created entries */}
-                        {new Date(entry.created_at).getTime() > Date.now() - 300000 && ( // 5 minutes
-                          <Badge variant="default" className="text-xs flex-shrink-0 bg-green-600 hover:bg-green-600">
-                            NEW
-                          </Badge>
-                        )}
-                        {entry.source_type && entry.source_type !== 'manual' && (
-                          <Badge variant="outline" className="text-xs flex-shrink-0">
-                            {entry.source_type === 'git_repo' ? 'Git' : 
-                             entry.source_type === 'zip_extracted' ? 'ZIP' : 'File'}
-                          </Badge>
-                        )}
-                      </div>
-                      {entry.description && (
-                        <p className="text-xs text-muted-foreground truncate w-full mb-1">
-                          {entry.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <Badge variant="outline" className={cn("text-xs gap-1", contextConfig.color)}>
-                          <ContextIcon className="h-3 w-3" />
-                          {contextConfig.label}
-                        </Badge>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {new Date(entry.created_at).toLocaleDateString()}
-                        </span>
-                        {entry.content_tokens && (
-                          <span>~{entry.content_tokens.toLocaleString()} tokens</span>
-                        )}
-                      </div>
+                    <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handleOpenEditDialog(entry)}
+                        aria-label="Edit knowledge entry"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        onClick={() => setDeleteEntryId(entry.entry_id)}
+                        aria-label="Delete knowledge entry"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                    <Button 
-                      size="sm"
-                      variant="ghost" 
-                      className="h-8 w-8 p-0"
-                      onClick={() => handleOpenEditDialog(entry)}
-                      aria-label="Edit knowledge entry"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      size="sm"
-                      variant="ghost" 
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                      onClick={() => setDeleteEntryId(entry.entry_id)}
-                      aria-label="Delete knowledge entry"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })
-          )}
+                );
+              })
+            )}
+          </div>
         </div>
       )}
 
@@ -795,7 +1090,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
             {processingJobs.map((job) => {
               const StatusIcon = getJobStatusIcon(job.status);
               const statusColor = getJobStatusColor(job.status);
-              
+
               return (
                 <div key={job.job_id} className="flex items-center justify-between p-4 rounded-lg border bg-card">
                   <div className="flex items-center gap-4">
@@ -806,10 +1101,10 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                       <div className="flex items-center space-x-2 mb-1">
                         <h4 className="text-sm font-medium">
                           {job.job_type === 'file_upload' ? 'File Upload' :
-                           job.job_type === 'git_clone' ? 'Git Repository' : 'Processing'}
+                            job.job_type === 'git_clone' ? 'Git Repository' : 'Processing'}
                         </h4>
-                        <Badge variant={job.status === 'completed' ? 'default' : 
-                                     job.status === 'failed' ? 'destructive' : 'secondary'} className="text-xs">
+                        <Badge variant={job.status === 'completed' ? 'default' :
+                          job.status === 'failed' ? 'destructive' : 'secondary'} className="text-xs">
                           {job.status}
                         </Badge>
                       </div>
@@ -842,6 +1137,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         className="hidden"
         accept=".txt,.pdf,.docx,.zip"
       />
+
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0">
@@ -880,9 +1176,23 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                   Upload Files
                 </>
               )}
+              {addDialogMode === 'cloud' && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAddDialogMode('selection')}
+                    className="p-0 h-6 w-6 mr-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  Cloud Knowledge Base
+                </>
+              )}
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="flex-1 overflow-y-auto">
             {addDialogMode === 'selection' && (
               <div className="space-y-6 p-6">
@@ -891,7 +1201,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                     Choose how you'd like to add knowledge to {agentName}
                   </p>
                 </div>
-                
+
                 <div className="grid gap-3">
                   <button
                     className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
@@ -907,7 +1217,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                       </p>
                     </div>
                   </button>
-                  
+
                   <button
                     className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
                     onClick={() => setAddDialogMode('files')}
@@ -922,18 +1232,18 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                       </p>
                     </div>
                   </button>
-                  
+
                   <button
                     className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors text-left"
                     onClick={() => setAddDialogMode('cloud')}
                   >
                     <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/20 border">
-                      <Globe className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-sm font-semibold mb-1">Cloud</h3>
+                      <h3 className="text-sm font-semibold mb-1">Cloud Knowledge Base</h3>
                       <p className="text-xs text-muted-foreground">
-                        Connect to existing Cloud Knowledge Base for dynamic search
+                        Connect to existing LlamaCloud indices for dynamic search capabilities
                       </p>
                     </div>
                   </button>
@@ -960,7 +1270,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                     <Label htmlFor="usage_context" className="text-sm font-medium">Usage Context</Label>
                     <Select
                       value={formData.usage_context}
-                      onValueChange={(value: 'always' | 'on_request' | 'contextual') => 
+                      onValueChange={(value: 'always' | 'on_request' | 'contextual') =>
                         setFormData(prev => ({ ...prev, usage_context: value }))
                       }
                     >
@@ -1012,8 +1322,8 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                     <Button type="button" variant="outline" onClick={handleCloseDialog}>
                       Cancel
                     </Button>
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       disabled={!formData.name.trim() || !formData.content.trim() || createMutation.isPending}
                       className="gap-2"
                     >
@@ -1040,7 +1350,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                         Drag and drop files here or click to browse.<br />
                         Supports: Documents, Code, ZIP archives
                       </p>
-                      <Button 
+                      <Button
                         onClick={() => fileInputRef.current?.click()}
                         variant="outline"
                         className="gap-2"
@@ -1165,10 +1475,10 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                       <Button type="button" variant="outline" onClick={handleCloseDialog}>
                         Cancel
                       </Button>
-                      <Button 
+                      <Button
                         onClick={uploadFiles}
-                        disabled={uploadMutation.isPending || uploadedFiles.filter(f => 
-                          f.status === 'pending' && 
+                        disabled={uploadMutation.isPending || uploadedFiles.filter(f =>
+                          f.status === 'pending' &&
                           (f.isFromZip || !f.file.name.toLowerCase().endsWith('.zip'))
                         ).length === 0}
                         className="gap-2"
@@ -1178,8 +1488,8 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                         ) : (
                           <Upload className="h-4 w-4" />
                         )}
-                        Upload Files ({uploadedFiles.filter(f => 
-                          f.status === 'pending' && 
+                        Upload Files ({uploadedFiles.filter(f =>
+                          f.status === 'pending' &&
                           (f.isFromZip || !f.file.name.toLowerCase().endsWith('.zip'))
                         ).length})
                       </Button>
@@ -1222,7 +1532,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
               Edit Knowledge Entry
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="flex-1 overflow-y-auto">
             <form onSubmit={handleSubmit} className="space-y-6 p-1">
               <div className="space-y-2">
@@ -1240,7 +1550,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                 <Label htmlFor="edit-usage_context" className="text-sm font-medium">Usage Context</Label>
                 <Select
                   value={formData.usage_context}
-                  onValueChange={(value: 'always' | 'on_request' | 'contextual') => 
+                  onValueChange={(value: 'always' | 'on_request' | 'contextual') =>
                     setFormData(prev => ({ ...prev, usage_context: value }))
                   }
                 >
@@ -1292,8 +1602,8 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                 <Button type="button" variant="outline" onClick={handleCloseDialog}>
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={!formData.name.trim() || !formData.content.trim() || updateMutation.isPending}
                   className="gap-2"
                 >

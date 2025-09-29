@@ -12,7 +12,10 @@ import {
   ProcessingJob,
   ProcessingJobsResponse,
   UploadResponse,
-  CloneResponse
+  CloneResponse,
+  UnifiedKnowledgeBaseListResponse,
+  UnifiedAssignmentRequest,
+  UnifiedAssignmentResponse
 } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
@@ -310,5 +313,81 @@ export function useAgentProcessingJobs(agentId: string) {
     },
     // Stop polling when window is not focused to save resources
     refetchIntervalInBackground: false,
+  });
+}
+
+// New unified hook that gets both regular and LlamaCloud knowledge bases
+export function useAgentUnifiedKnowledgeBase(agentId: string, includeInactive = false) {
+  const { getHeaders } = useAuthHeaders();
+  
+  return useQuery({
+    queryKey: [...knowledgeBaseKeys.agent(agentId), 'unified'],
+    queryFn: async (): Promise<UnifiedKnowledgeBaseListResponse> => {
+      const headers = await getHeaders();
+      const url = new URL(`${API_URL}/knowledge-base/agents/${agentId}/unified`);
+      url.searchParams.set('include_inactive', includeInactive.toString());
+      
+      const response = await fetch(url.toString(), { headers });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Failed to fetch unified agent knowledge base');
+      }
+      
+      return await response.json();
+    },
+    enabled: !!agentId,
+  });
+}
+
+// Unified assignment hooks
+export function useAgentUnifiedAssignments(agentId: string) {
+  const { getHeaders } = useAuthHeaders();
+  
+  return useQuery({
+    queryKey: [...knowledgeBaseKeys.agent(agentId), 'assignments', 'unified'],
+    queryFn: async (): Promise<UnifiedAssignmentResponse> => {
+      const headers = await getHeaders();
+      const response = await fetch(`${API_URL}/knowledge-base/agents/${agentId}/assignments/unified`, { headers });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Failed to fetch unified agent assignments');
+      }
+      
+      return await response.json();
+    },
+    enabled: !!agentId,
+  });
+}
+
+export function useUpdateAgentUnifiedAssignments() {
+  const queryClient = useQueryClient();
+  const { getHeaders } = useAuthHeaders();
+  
+  return useMutation({
+    mutationFn: async ({ agentId, assignments }: { agentId: string; assignments: UnifiedAssignmentRequest }) => {
+      const headers = await getHeaders();
+      const response = await fetch(`${API_URL}/knowledge-base/agents/${agentId}/assignments/unified`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(assignments),
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Failed to update unified agent assignments');
+      }
+      
+      return await response.json();
+    },
+    onSuccess: (_, { agentId }) => {
+      queryClient.invalidateQueries({ queryKey: [...knowledgeBaseKeys.agent(agentId), 'assignments'] });
+      queryClient.invalidateQueries({ queryKey: [...knowledgeBaseKeys.agent(agentId), 'unified'] });
+      toast.success('Agent knowledge base assignments updated successfully');
+    },
+    onError: (error) => {
+      toast.error(`Failed to update assignments: ${error.message}`);
+    },
   });
 } 

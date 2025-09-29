@@ -716,7 +716,7 @@ class SimplifiedEnterpriseBillingService:
                         # Verify cost calculation using actual model pricing
                         expected_cost = 0
                         try:
-                            from billing.api import calculate_token_cost
+                            from core.billing.api import calculate_token_cost
                             expected_cost = float(calculate_token_cost(prompt_tokens, completion_tokens, row['model_name']))
                         except Exception as calc_error:
                             logger.debug(f"Could not calculate expected cost for verification: {calc_error}")

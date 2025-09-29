@@ -27,11 +27,9 @@ class MessageTool(Tool):
                         "description": "Question text to present to user - should be specific and clearly indicate what information you need. Use natural, conversational language. Include: 1) Clear question or request, 2) Context about why the input is needed, 3) Available options if applicable, 4) Impact of different choices, 5) Any relevant constraints or considerations."
                     },
                     "attachments": {
-                        "anyOf": [
-                            {"type": "string"},
-                            {"items": {"type": "string"}, "type": "array"}
-                        ],
-                        "description": "(Optional) List of files or URLs to attach to the question. Include when: 1) Question relates to specific files or configurations, 2) User needs to review content before answering, 3) Options or choices are documented in files, 4) Supporting evidence or context is needed. Always use relative paths to /workspace directory."
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "(Optional) List of files or URLs to attach to the question. Can be a single file path or array of paths. Include when: 1) Question relates to specific files or configurations, 2) User needs to review content before answering, 3) Options or choices are documented in files, 4) Supporting evidence or context is needed. Always use relative paths to /workspace directory."
                     }
                 },
                 "required": ["text"]
@@ -84,11 +82,9 @@ This information will help me make sure the cake meets your expectations for the
                         "description": "Instructions for the user about what actions to take in the browser. Include: 1) Clear explanation of why takeover is needed, 2) Specific steps the user should take, 3) What information to look for or extract, 4) How to indicate when they're done, 5) Any important context about the current page state."
                     },
                     "attachments": {
-                        "anyOf": [
-                            {"type": "string"},
-                            {"items": {"type": "string"}, "type": "array"}
-                        ],
-                        "description": "(Optional) List of files or URLs to attach to the takeover request. Include when: 1) Screenshots or visual references are needed, 2) Previous search results or crawled content is relevant, 3) Supporting documentation is required. Always use relative paths to /workspace directory."
+                        "type": "array", 
+                        "items": {"type": "string"},
+                        "description": "(Optional) List of files or URLs to attach to the takeover request. Can be a single file path or array of paths. Include when: 1) Screenshots or visual references are needed, 2) Previous search results or crawled content is relevant, 3) Supporting documentation is required. Always use relative paths to /workspace directory."
                     }
                 },
                 "required": ["text"]
