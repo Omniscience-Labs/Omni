@@ -6,10 +6,14 @@ interface ModelStore {
   setSelectedModel: (model: string) => void;
 }
 
+// Default models matching PRODUCTION branch
+const DEFAULT_FREE_MODEL_ID = 'claude-sonnet-4';
+const DEFAULT_PREMIUM_MODEL_ID = 'claude-sonnet-4';
+
 export const useModelStore = create<ModelStore>()(
   persist(
     (set) => ({
-      selectedModel: '', // Will be set by the hook based on API data
+      selectedModel: DEFAULT_FREE_MODEL_ID, // Default to Claude Sonnet 4
       setSelectedModel: (model: string) => {
         console.log('🔧 ModelStore: Setting selected model to:', model);
         set({ selectedModel: model });
