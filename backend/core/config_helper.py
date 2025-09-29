@@ -6,34 +6,72 @@ import os
 
 
 async def get_agent_llamacloud_knowledge_bases(agent_id: str) -> List[Dict[str, Any]]:
-    """Fetch LlamaCloud knowledge bases for an agent"""
+    """
+    Fetch LlamaCloud knowledge bases for an agent from ALL sources.
+    
+    Includes BOTH:
+    1. Agent-specific cloud KBs (from agent_llamacloud_knowledge_bases table - legacy)
+    2. Global cloud KBs assigned to this agent (from llamacloud_knowledge_bases + agent_llamacloud_kb_assignments)
+    
+    This ensures agents can search both their private cloud KBs and globally shared ones.
+    """
     try:
         db = DBConnection()
         client = await db.client
         
-        result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
-            'p_agent_id': agent_id,
-            'p_include_inactive': False
-        }).execute()
-        
-        if not result.data:
-            return []
-        
-        # Transform database results to the format expected by KnowledgeSearchTool
         knowledge_bases = []
-        for kb_data in result.data:
-            kb = {
-                'name': kb_data['name'],
-                'index_name': kb_data['index_name'],
-                'description': kb_data.get('description', '')
-            }
-            knowledge_bases.append(kb)
+        seen_indices = set()  # Track unique indices to avoid duplicates
         
-        logger.info(f"Loaded {len(knowledge_bases)} LlamaCloud knowledge bases for agent {agent_id}")
+        # 1. Get agent-specific LlamaCloud knowledge bases (legacy table)
+        try:
+            agent_specific_result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
+                'p_agent_id': agent_id,
+                'p_include_inactive': False
+            }).execute()
+            
+            if agent_specific_result.data:
+                for kb_data in agent_specific_result.data:
+                    index_name = kb_data['index_name']
+                    if index_name not in seen_indices:
+                        kb = {
+                            'name': kb_data['name'],
+                            'index_name': index_name,
+                            'description': kb_data.get('description', '')
+                        }
+                        knowledge_bases.append(kb)
+                        seen_indices.add(index_name)
+                        logger.debug(f"Added agent-specific cloud KB: {kb_data['name']} (index: {index_name})")
+        except Exception as e:
+            logger.warning(f"Could not fetch agent-specific cloud KBs (table may not exist): {e}")
+        
+        # 2. Get globally assigned LlamaCloud knowledge bases (new global system)
+        try:
+            global_assigned_result = await client.rpc('get_agent_assigned_llamacloud_kbs', {
+                'p_agent_id': agent_id,
+                'p_include_inactive': False
+            }).execute()
+            
+            if global_assigned_result.data:
+                for kb_data in global_assigned_result.data:
+                    index_name = kb_data['index_name']
+                    # Only add if not already present (avoid duplicates from migration)
+                    if index_name not in seen_indices:
+                        kb = {
+                            'name': kb_data['name'],
+                            'index_name': index_name,
+                            'description': kb_data.get('description', '')
+                        }
+                        knowledge_bases.append(kb)
+                        seen_indices.add(index_name)
+                        logger.debug(f"Added globally assigned cloud KB: {kb_data['name']} (index: {index_name})")
+        except Exception as e:
+            logger.warning(f"Could not fetch globally assigned cloud KBs: {e}")
+        
+        logger.info(f"Loaded {len(knowledge_bases)} total LlamaCloud knowledge bases for agent {agent_id}")
         return knowledge_bases
         
     except Exception as e:
-        logger.error(f"Failed to load LlamaCloud knowledge bases for agent {agent_id}: {e}")
+        logger.error(f"Failed to load LlamaCloud knowledge bases for agent {agent_id}: {e}", exc_info=True)
         return []
 
 
@@ -423,51 +461,3 @@ def get_default_system_prompt_for_suna_agent() -> str:
 def get_default_system_prompt_for_omni_agent() -> str:
     from core.omni_config import OMNI_CONFIG
     return OMNI_CONFIG['system_prompt']
-
-
-async def get_agent_llamacloud_knowledge_bases(agent_id: str) -> List[Dict[str, Any]]:
-    """Fetch LlamaCloud knowledge bases for an agent"""
-    try:
-        db = DBConnection()
-        client = await db.client
-        
-        result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
-            'p_agent_id': agent_id,
-            'p_include_inactive': False
-        }).execute()
-        
-        if not result.data:
-            return []
-        
-        # Transform database results to the format expected by KnowledgeSearchTool
-        knowledge_bases = []
-        for kb_data in result.data:
-            kb = {
-                'name': kb_data['name'],
-                'index_name': kb_data['index_name'],
-                'description': kb_data.get('description', '')
-            }
-            knowledge_bases.append(kb)
-        
-        logger.info(f"Loaded {len(knowledge_bases)} LlamaCloud knowledge bases for agent {agent_id}")
-        return knowledge_bases
-        
-    except Exception as e:
-        logger.error(f"Failed to load LlamaCloud knowledge bases for agent {agent_id}: {e}")
-        return []
-
-
-async def enrich_agent_config_with_llamacloud_kb(config: Dict[str, Any]) -> Dict[str, Any]:
-    """Enrich agent config with LlamaCloud knowledge bases"""
-    if not config.get('agent_id'):
-        return config
-    
-    try:
-        llamacloud_knowledge_bases = await get_agent_llamacloud_knowledge_bases(config['agent_id'])
-        if llamacloud_knowledge_bases:
-            config['llamacloud_knowledge_bases'] = llamacloud_knowledge_bases
-            logger.info(f"Enriched agent {config['agent_id']} config with {len(llamacloud_knowledge_bases)} LlamaCloud knowledge bases")
-    except Exception as e:
-        logger.error(f"Failed to enrich agent config with LlamaCloud knowledge bases: {e}")
-    
-    return config
