@@ -354,7 +354,9 @@ async def create_global_llamacloud_knowledge_base(
             'account_id': account_id,
             'name': kb_data.name,
             'index_name': kb_data.index_name,
-            'description': kb_data.description
+            'description': kb_data.description,
+            'folder_id': None,  # Explicitly set to None for root level
+            'is_active': True   # Explicitly set to True
         }
         
         result = await client.table('llamacloud_knowledge_bases').insert(insert_data).execute()
