@@ -288,6 +288,9 @@ class Configuration:
     
 
     
+    # Frontend URL configuration
+    NEXT_PUBLIC_URL: Optional[str] = "http://localhost:3000"
+    
     # Supabase configuration
     SUPABASE_URL: str
     SUPABASE_ANON_KEY: str
@@ -327,8 +330,8 @@ class Configuration:
     STRIPE_PRODUCT_ID_STAGING: str = 'prod_T3rD6SHVkq3b0r'
     
     # Sandbox configuration
-    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.3.16"
-    SANDBOX_SNAPSHOT_NAME = "kortix/suna:0.1.3.16"
+    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.3.19"
+    SANDBOX_SNAPSHOT_NAME = "kortix/suna:0.1.3.19"
     SANDBOX_ENTRYPOINT = "/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf"
 
     # LangFuse configuration

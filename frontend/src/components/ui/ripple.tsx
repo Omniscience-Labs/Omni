@@ -3,9 +3,10 @@ import React, { ComponentPropsWithoutRef, CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 
 interface RippleProps extends ComponentPropsWithoutRef<"div"> {
-  mainCircleSize?: number;
+mainCircleSize?: number;
   mainCircleOpacity?: number;
   numCircles?: number;
+  children?: React.ReactNode;
 }
 
 export const Ripple = React.memo(function Ripple({
@@ -13,6 +14,7 @@ export const Ripple = React.memo(function Ripple({
   mainCircleOpacity = 0.24,
   numCircles = 8,
   className,
+  children,
   ...props
 }: RippleProps) {
   return (
@@ -51,6 +53,11 @@ export const Ripple = React.memo(function Ripple({
           />
         );
       })}
+      {children && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-auto">
+          {children}
+        </div>
+      )}
     </div>
   );
 });

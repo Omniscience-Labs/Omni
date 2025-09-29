@@ -33,13 +33,14 @@ import {
 import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { Ripple } from '@/components/ui/ripple';
 import { ReleaseBadge } from '@/components/auth/release-badge';
+import { ThreeSpinner } from '@/components/ui/three-spinner';
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading } = useAuth();
   const mode = searchParams.get('mode');
-  const returnUrl = searchParams.get('returnUrl');
+  const returnUrl = searchParams.get('returnUrl') || searchParams.get('redirect');
   const message = searchParams.get('message');
 
   const isSignUp = mode === 'signup';
@@ -50,7 +51,7 @@ function LoginContent() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.push(returnUrl || '/dashboard');
+      router.push(returnUrl || '/');
     }
   }, [user, isLoading, router, returnUrl]);
 
@@ -85,11 +86,8 @@ function LoginContent() {
   const handleSignIn = async (prevState: any, formData: FormData) => {
     markEmailAsUsed();
 
-    if (returnUrl) {
-      formData.append('returnUrl', returnUrl);
-    } else {
-      formData.append('returnUrl', '/dashboard');
-    }
+    const finalReturnUrl = returnUrl || '/dashboard';
+    formData.append('returnUrl', finalReturnUrl);
     const result = await signIn(prevState, formData);
 
     if (
@@ -120,9 +118,8 @@ function LoginContent() {
     const email = formData.get('email') as string;
     setRegistrationEmail(email);
 
-    if (returnUrl) {
-      formData.append('returnUrl', returnUrl);
-    }
+    const finalReturnUrl = returnUrl || '/dashboard';
+    formData.append('returnUrl', finalReturnUrl);
 
     // Add origin for email redirects
     formData.append('origin', window.location.origin);
@@ -277,7 +274,7 @@ function LoginContent() {
           <div className="relative flex-1 flex items-center justify-center p-4 lg:p-8">
             <div className="w-full max-w-sm">
               <div className="mb-4 flex items-center flex-col gap-3 sm:gap-4 justify-center">
-                <ReleaseBadge className='mb-2 sm:mb-4' text="Custom Agents, Playbooks, and more!" />
+                {/* <ReleaseBadge className='mb-2 sm:mb-4' text="Custom Agents, Playbooks, and more!" /> */}
                 <h1 className="text-xl sm:text-2xl font-semibold text-foreground text-center leading-tight">
                   {isSignUp ? 'Create your account' : 'Log into your account'}
                 </h1>
@@ -372,7 +369,9 @@ function LoginContent() {
         </div>
         <div className="hidden lg:flex flex-1 items-center justify-center bg-sidebar relative overflow-hidden">
           <div className="absolute inset-0">
-            <Ripple />
+            <Ripple>
+              <ThreeSpinner size={120} className="opacity-90" />
+            </Ripple>
           </div>
         </div>
       </div>

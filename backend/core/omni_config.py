@@ -6,7 +6,7 @@ OMNI_CONFIG = {
     "description": "Omni is your AI assistant with access to various tools and integrations to help you with tasks across domains.",
     "avatar": "🌟",
     "avatar_color": "#8B5CF6",
-    "model": "openrouter/anthropic/sonnet-4",
+    "model": "openrouter/qwen/qwen3-vl-235b-a22b-thinking",
     "system_prompt": SYSTEM_PROMPT,
     "configured_mcps": [],
     "custom_mcps": [],
@@ -31,7 +31,8 @@ OMNI_CONFIG = {
         "mcp_search_tool": True,
         "credential_profile_tool": True,
         "workflow_tool": True,
-        "trigger_tool": True
+        "trigger_tool": True,
+        "sb_custom_automation_tool": False
     },
     "is_default": True
 }

@@ -29,7 +29,8 @@ import { Button } from '@/components/ui/button';
 import { ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { OpenInNewWindowIcon } from '@radix-ui/react-icons';
-import { useUsageLogs, useAdminUserUsageLogs } from '@/hooks/react-query/subscriptions/use-billing';
+import { useUsageLogs } from '@/hooks/react-query/billing/use-transactions';
+import { useAdminUserUsageLogs } from '@/hooks/react-query/subscriptions/use-billing';
 import { UsageLogEntry, DailyToolUsage } from '@/lib/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -56,7 +57,7 @@ export default function UsageLogs({ accountId, isAdminView = false }: Props) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   const ITEMS_PER_PAGE = 1000;
-
+  
   // Get current user ID to check if viewing own logs
   useEffect(() => {
     const getCurrentUser = async () => {
@@ -77,9 +78,7 @@ export default function UsageLogs({ accountId, isAdminView = false }: Props) {
     ITEMS_PER_PAGE, 
     30
   );
-  const regularUsageQuery = useUsageLogs(page, ITEMS_PER_PAGE, {
-    enabled: !isAdminView
-  });
+  const regularUsageQuery = useUsageLogs(page, ITEMS_PER_PAGE);
 
   // Use appropriate query result based on context
   const { data: currentPageData, isLoading, error, refetch } = isAdminView 

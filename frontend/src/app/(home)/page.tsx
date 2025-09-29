@@ -10,7 +10,7 @@ import { FooterSection } from '@/components/home/sections/footer-section';
 import { HeroSection } from '@/components/home/sections/hero-section';
 import { PricingSection } from '@/components/home/sections/pricing-section';
 import { PlatformOverviewSection } from '@/components/home/sections/platform-overview-section';
-import { UserTestimonialSection } from '@/components/home/sections/user-testimonial-section';
+import { QuoteSection } from '@/components/home/sections/quote-section';
 import { UseCasesSection } from '@/components/home/sections/use-cases-section';
 import { ModalProviders } from '@/providers/modal-providers';
 
@@ -23,7 +23,7 @@ export default function Home() {
           <HeroSection />
           <PlatformOverviewSection />
           <CompanyShowcase />
-          <UserTestimonialSection />
+          <QuoteSection />
           <EnterpriseSecuritySection />
           <FeatureSection />
           <UseCasesSection />

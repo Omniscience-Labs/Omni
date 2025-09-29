@@ -2,7 +2,9 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// Routes that don't require authentication
 const PUBLIC_ROUTES = [
+  '/', // Homepage should be public!
   '/auth',
   '/auth/callback',
   '/auth/signup',
@@ -10,18 +12,27 @@ const PUBLIC_ROUTES = [
   '/auth/reset-password',
   '/legal',
   '/api/auth',
+  '/share', // Shared content should be public
 ];
 
+// Routes that require authentication but are related to billing/trials
 const BILLING_ROUTES = [
   '/activate-trial',
   '/subscription',
 ];
 
+// Routes that require authentication and active subscription
+const PROTECTED_ROUTES = [
+  '/dashboard',
+  '/agents',
+  '/projects',
+  '/settings',
+];
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
-    return NextResponse.next();
-  }
+  
+  // Skip middleware for static files and API routes
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
@@ -31,6 +42,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Allow all public routes without any checks
+  if (PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))) {
+    return NextResponse.next();
+  }
+
+  // Everything else requires authentication
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -59,6 +76,7 @@ export async function middleware(request: NextRequest) {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
+    // Redirect to auth if not authenticated
     if (authError || !user) {
       const url = request.nextUrl.clone();
       url.pathname = '/auth';
@@ -66,28 +84,25 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
+    // Skip billing checks in local mode
     const isLocalMode = process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
     if (isLocalMode) {
       return supabaseResponse;
     }
 
-    // Check if enterprise mode is enabled - if so, skip billing checks entirely
+    // Check if enterprise mode is enabled - if so, skip billing checks entirely (PRESERVE ENTERPRISE)
     const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
     if (isEnterpriseMode) {
       return supabaseResponse;
     }
-  // // Define protected routes
-  // const protectedRoutes = ['/dashboard', '/agents', '/projects', '/settings', '/invitation', '/admin']
-  // const authRoutes = ['/auth', '/login', '/signup']
-  
-  // const isProtectedRoute = protectedRoutes.some(route => 
-  //   request.nextUrl.pathname.startsWith(route)
-  // )
-  // const isAuthRoute = authRoutes.some(route => 
-  //   request.nextUrl.pathname.startsWith(route)
-  // )
 
-    if (!BILLING_ROUTES.includes(pathname) && pathname !== '/') {
+    // Skip billing checks for billing-related routes (ADOPT SUNA IMPROVEMENT)
+    if (BILLING_ROUTES.some(route => pathname.startsWith(route))) {
+      return supabaseResponse;
+    }
+
+    // Only check billing for protected routes that require active subscription (ADOPT SUNA IMPROVEMENT)
+    if (PROTECTED_ROUTES.some(route => pathname.startsWith(route))) {
       const { data: accounts } = await supabase
         .schema('basejump')
         .from('accounts')
@@ -97,9 +112,6 @@ export async function middleware(request: NextRequest) {
         .single();
 
       if (!accounts) {
-        if (pathname === '/activate-trial') {
-          return supabaseResponse;
-        }
         const url = request.nextUrl.clone();
         url.pathname = '/activate-trial';
         return NextResponse.redirect(url);
@@ -122,18 +134,10 @@ export async function middleware(request: NextRequest) {
 
       if (!creditAccount) {
         if (hasUsedTrial) {
-          // Don't redirect if already on subscription page
-          if (pathname === '/subscription') {
-            return supabaseResponse;
-          }
           const url = request.nextUrl.clone();
           url.pathname = '/subscription';
           return NextResponse.redirect(url);
         } else {
-          // Don't redirect if already on activate-trial page
-          if (pathname === '/activate-trial') {
-            return supabaseResponse;
-          }
           const url = request.nextUrl.clone();
           url.pathname = '/activate-trial';
           return NextResponse.redirect(url);
@@ -144,33 +148,22 @@ export async function middleware(request: NextRequest) {
       const hasActiveTrial = creditAccount.trial_status === 'active';
       const trialExpired = creditAccount.trial_status === 'expired' || creditAccount.trial_status === 'cancelled';
       const trialConverted = creditAccount.trial_status === 'converted';
+      
       if (hasTier && (trialConverted || !trialExpired)) {
         return supabaseResponse;
       }
 
       if (!hasTier && !hasActiveTrial && !trialConverted) {
         if (hasUsedTrial || trialExpired || creditAccount.trial_status === 'cancelled') {
-          // Don't redirect if already on subscription page
-          if (pathname === '/subscription') {
-            return supabaseResponse;
-          }
           const url = request.nextUrl.clone();
           url.pathname = '/subscription';
           return NextResponse.redirect(url);
         } else {
-          // Don't redirect if already on activate-trial page
-          if (pathname === '/activate-trial') {
-            return supabaseResponse;
-          }
           const url = request.nextUrl.clone();
           url.pathname = '/activate-trial';
           return NextResponse.redirect(url);
         }
       } else if ((trialExpired || trialConverted) && !hasTier) {
-        // Don't redirect if already on subscription page
-        if (pathname === '/subscription') {
-          return supabaseResponse;
-        }
         const url = request.nextUrl.clone();
         url.pathname = '/subscription';
         return NextResponse.redirect(url);

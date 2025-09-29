@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTrialStatus } from '@/hooks/react-query/billing/use-trial-status';
 import { useCancelTrial } from '@/hooks/react-query/billing/use-cancel-trial';
+import { useAuth } from '@/components/AuthProvider';
 import {
   Card,
   CardContent,
@@ -27,6 +28,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 
 export function TrialManagement() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const { user } = useAuth();
   const { data: trialStatus, isLoading } = useTrialStatus();
   const cancelTrialMutation = useCancelTrial();
 

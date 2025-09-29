@@ -368,7 +368,7 @@ export const LlamaCloudKnowledgeBaseManager = ({ agentId, agentName }: LlamaClou
 
       {/* Add Knowledge Base Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Add LlamaCloud Knowledge Base</DialogTitle>
           </DialogHeader>
@@ -422,7 +422,7 @@ export const LlamaCloudKnowledgeBaseManager = ({ agentId, agentName }: LlamaClou
 
       {/* Edit Knowledge Base Dialog */}
       <Dialog open={editDialog.isOpen} onOpenChange={(open) => setEditDialog({ isOpen: open })}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit LlamaCloud Knowledge Base</DialogTitle>
           </DialogHeader>

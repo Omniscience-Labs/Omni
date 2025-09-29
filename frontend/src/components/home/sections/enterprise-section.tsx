@@ -118,25 +118,6 @@ export function EnterpriseSection() {
           </div>
         </div>
 
-        {/* Motivational CTA Section */}
-        <div className="flex flex-col items-center mt-12 space-y-6">
-          <div className="text-center max-w-2xl">
-            <h3 className="text-2xl md:text-3xl font-semibold tracking-tight text-primary mb-4">
-              Supercharge your competitive advantage without giving it away
-            </h3>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              Deploy <GradientText text="AI" /> agents that work exclusively for you. Keep your data, processes, and insights secure while scaling your capabilities beyond what any competitor can achieve.
-            </p>
-          </div>
-          
-          {/* Enhanced Schedule Demo CTA */}
-          <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-secondary to-primary rounded-2xl blur opacity-25 group-hover:opacity-75 transition duration-300"></div>
-            <div className="relative group inline-flex h-14 items-center justify-center gap-3 text-base font-semibold tracking-wide rounded-xl text-primary-foreground dark:text-black px-12 shadow-[0_4px_14px_0_rgba(0,0,0,0.1)] bg-primary dark:bg-white hover:bg-primary/90 dark:hover:bg-white/90 transition-all duration-300 hover:shadow-[0_6px_20px_rgba(0,0,0,0.15)] hover:scale-105">
-              <OmniProcessModal />
-            </div>
-          </div>
-        </div>
       </div>
     </section>
   );

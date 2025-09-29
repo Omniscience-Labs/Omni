@@ -736,9 +736,12 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         const messageContent = (() => {
                                             try {
                                                 const parsed = safeJsonParse<ParsedContent>(message.content, { content: message.content });
-                                                return parsed.content || message.content;
+                                                const content = parsed.content || message.content;
+                                                // Ensure we always return a string
+                                                return typeof content === 'string' ? content : String(content || '');
                                             } catch {
-                                                return message.content;
+                                                // Ensure message.content is a string
+                                                return typeof message.content === 'string' ? message.content : String(message.content || '');
                                             }
                                         })();
 
@@ -862,10 +865,20 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                         const parsedContent = safeJsonParse<ParsedContent>(message.content, {});
                                                                         const msgKey = message.message_id || `submsg-assistant-${msgIndex}`;
 
-                                                                        if (!parsedContent.content) return;
+                                                                        // Handle thinking content using established pattern (same as other reasoning models)
+                                                                        let thinkingContent = null;
+                                                                        let mainContent = parsedContent.content;
+                                                                        
+                                                                        // Check for thinking using the same pattern as podcast tool and other reasoning models
+                                                                        if (typeof parsedContent === 'object' && parsedContent.thinking && parsedContent.content) {
+                                                                            thinkingContent = parsedContent.thinking;
+                                                                            mainContent = parsedContent.content;
+                                                                        }
+
+                                                                        if (!mainContent) return;
 
                                                                         const renderedContent = renderMarkdownContent(
-                                                                            parsedContent.content,
+                                                                            mainContent,
                                                                             handleToolClick,
                                                                             message.message_id,
                                                                             handleOpenFileViewer,
@@ -876,6 +889,19 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                                                         elements.push(
                                                                             <div key={msgKey} className={assistantMessageCount > 0 ? "mt-4" : ""}>
+                                                                                {/* Render thinking content if present */}
+                                                                                {thinkingContent && (
+                                                                                    <div className="mb-3 p-3 bg-muted/30 rounded-lg border-l-2 border-muted-foreground/20">
+                                                                                        <div className="flex items-center gap-2 mb-2">
+                                                                                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                                                                                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Thinking</span>
+                                                                                        </div>
+                                                                                        <div className="text-xs text-muted-foreground font-mono leading-relaxed whitespace-pre-wrap">
+                                                                                            {thinkingContent}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                                {/* Main content */}
                                                                                 <div className="prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-hidden">
                                                                                     {renderedContent}
                                                                                 </div>

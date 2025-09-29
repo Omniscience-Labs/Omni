@@ -23,7 +23,10 @@ import {
   CreateCheckoutSessionResponse,
 } from '@/lib/api';
 import { toast } from 'sonner';
-import { isLocalMode } from '@/lib/config';
+import { isLocalMode, isYearlyCommitmentDowngrade, isPlanChangeAllowed, getPlanInfo } from '@/lib/config';
+import { useSubscription, useSubscriptionCommitment } from '@/hooks/react-query';
+import { useAuth } from '@/components/AuthProvider';
+import posthog from 'posthog-js';
 
 // Constants
 const DEFAULT_SELECTED_PLAN = '6 hours';
@@ -785,29 +788,18 @@ export function PricingSection({
   const [deploymentType, setDeploymentType] = useState<'cloud' | 'self-hosted'>(
     'cloud',
   );
-  const [currentSubscription, setCurrentSubscription] =
-    useState<SubscriptionStatus | null>(null);
   const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
-  const [isFetchingPlan, setIsFetchingPlan] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const fetchCurrentPlan = async () => {
-    setIsFetchingPlan(true);
-    try {
-      const subscriptionData = await getSubscription();
-      console.log('Fetched Subscription Status:', subscriptionData);
-      setCurrentSubscription(subscriptionData);
-      setIsAuthenticated(true);
-    } catch (error) {
-      console.error('Error fetching subscription:', error);
-      setCurrentSubscription(null);
-      setIsAuthenticated(false);
-    } finally {
-      setIsFetchingPlan(false);
-    }
-  };
+  const { user } = useAuth();
+  const isUserAuthenticated = !!user;
 
-  const getDefaultBillingPeriod = useCallback(() => {
+  const { data: subscriptionData, isLoading: isFetchingPlan, error: subscriptionQueryError, refetch: refetchSubscription } = useSubscription({ enabled: isUserAuthenticated });
+  const subCommitmentQuery = useSubscriptionCommitment(subscriptionData?.subscription_id, isUserAuthenticated);
+
+  const isAuthenticated = isUserAuthenticated && !!subscriptionData && subscriptionQueryError === null;
+  const currentSubscription = subscriptionData || null;
+
+  const getDefaultBillingPeriod = useCallback((): 'monthly' | 'yearly' | 'yearly_commitment' => {
     if (!isAuthenticated || !currentSubscription) {
       return 'yearly_commitment';
     }
@@ -843,7 +835,7 @@ export function PricingSection({
   };
 
   const handleSubscriptionUpdate = () => {
-    fetchCurrentPlan();
+    refetchSubscription();
     setTimeout(() => {
       setIsLoading({});
     }, 1000);
@@ -852,10 +844,6 @@ export function PricingSection({
       onSubscriptionUpdate();
     }
   };
-
-  useEffect(() => {
-    fetchCurrentPlan();
-  }, []);
 
   const handleTabChange = (tab: 'cloud' | 'self-hosted') => {
     if (tab === 'self-hosted') {

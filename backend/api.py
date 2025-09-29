@@ -22,11 +22,11 @@ import uuid
 from core import api as core_api
 
 from core.sandbox import api as sandbox_api
-from billing.api import router as billing_router
-from billing.admin import router as billing_admin_router
+from core.billing.api import router as billing_router
+from core.billing.admin import router as billing_admin_router
 from core.services import enterprise_billing_api
 
-from admin import users_admin
+from core.admin import users_admin
 from core.services import transcription as transcription_api
 import sys
 from core.services import email_api
@@ -131,7 +131,7 @@ async def log_requests_middleware(request: Request, call_next):
         raise
 
 # Define allowed origins based on environment
-allowed_origins = ["https://www.suna.so", "https://suna.so", "https://becomeomni.com", "https://operator.becomeomni.net","https://operator.becomeomni.ai","https://operator.becomeomni.com", "https://coldchain.becomeomni.ai", "https://sundar-dev.operator.becomeomni.net","https://varnica.operator.becomeomni.net","https://mssc.becomeomni.net", "https://mssc.becomeomni.ai","https://coppermoon.becomeomni.ai","https://huston.becomeomni.ai"]
+allowed_origins = ["https://www.suna.so", "https://suna.so", "https://operator.becomeomni.net", "https://coldchain.becomeomni.ai", "https://sundar-dev.operator.becomeomni.net","https://varnica.operator.becomeomni.net","https://mssc.becomeomni.net", "https://mssc.becomeomni.ai","https://coppermoon.becomeomni.ai","https://huston.becomeomni.ai"]
 allow_origin_regex = None
 
 # Add staging-specific origins
@@ -141,7 +141,7 @@ if config.ENV_MODE == EnvMode.LOCAL:
 # Add staging-specific origins
 if config.ENV_MODE == EnvMode.STAGING:
     allowed_origins.append("https://staging.suna.so")
-    allowed_origins.append("http://localhost:3000")
+    allowed_origins.append("https://huston.staging.becomeomni.net")
     allow_origin_regex = r"https://suna-.*-prjcts\.vercel\.app"
 
 app.add_middleware(

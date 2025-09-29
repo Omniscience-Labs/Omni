@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useAdminCheck } from '@/hooks/use-admin-check';
-import UsageLogs from '@/components/billing/usage-logs';
+// UsageLogs component was removed by upstream
 
 export default function AdminPage() {
   const queryClient = useQueryClient();
@@ -278,7 +278,10 @@ function UserDetails({ accountId }: { accountId: string }) {
         </Card>
       </div>
       
-      <UsageLogs accountId={accountId} isAdminView={true} />
+      {/* UsageLogs component was removed by upstream - functionality moved to billing system */}
+      <div className="text-muted-foreground text-sm">
+        Usage logs functionality has been integrated into the main billing system.
+      </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+// Enterprise modal component for scheduling demos and consultations
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,6 +13,7 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import Image from 'next/image';
 import Cal, { getCalApi } from '@calcom/embed-react';
 import { useTheme } from 'next-themes';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 export function OmniProcessModal() {
   const [open, setOpen] = useState(false);
@@ -155,6 +157,44 @@ export function OmniProcessModal() {
           </div>
           <div className="bg-white dark:bg-[#171717] h-full overflow-hidden">
             <div className="h-full overflow-auto">
+              <style jsx global>{`
+                /* Allow all images including OMNI logo and profile images */
+                /* Only hide broken/undefined images */
+                [data-cal-namespace="enterprise-demo"] img[src=""],
+                [data-cal-namespace="enterprise-demo"] img[src*="undefined"],
+                [data-cal-namespace="enterprise-demo"] img[src*="null"],
+                [data-cal-namespace="enterprise-demo"] img[onerror] {
+                  display: none !important;
+                }
+                
+                /* Hide Cal.com branding but keep OMNI logo area */
+                [data-cal-namespace="enterprise-demo"] .cal-branding,
+                [data-cal-namespace="enterprise-demo"] .cal-powered-by,
+                [data-cal-namespace="enterprise-demo"] [class*="branding"],
+                [data-cal-namespace="enterprise-demo"] [class*="powered-by"],
+                [data-cal-namespace="enterprise-demo"] .cal-powered,
+                [data-cal-namespace="enterprise-demo"] [class*="cal-powered"],
+                [data-cal-namespace="enterprise-demo"] .cal-footer,
+                [data-cal-namespace="enterprise-demo"] [class*="footer"] {
+                  display: none !important;
+                }
+                
+                /* Ensure the calendar takes full height and remove any padding */
+                [data-cal-namespace="enterprise-demo"] iframe {
+                  height: 100% !important;
+                  border: none !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                }
+                
+                /* Hide any Cal.com watermark or overlay */
+                [data-cal-namespace="enterprise-demo"] .cal-watermark,
+                [data-cal-namespace="enterprise-demo"] [class*="watermark"],
+                [data-cal-namespace="enterprise-demo"] .cal-overlay,
+                [data-cal-namespace="enterprise-demo"] [class*="overlay"] {
+                  display: none !important;
+                }
+              `}</style>
               <Cal
                 namespace="enterprise-demo"
                 calLink="team/omniscience-labs/omni-intro-chat"
@@ -162,6 +202,9 @@ export function OmniProcessModal() {
                 config={{
                   layout: 'month_view',
                   hideEventTypeDetails: 'false',
+                  hideBranding: 'true',
+                  hideLogo: 'false',
+                  hideProfileImage: 'false',
                 }}
               />
             </div>

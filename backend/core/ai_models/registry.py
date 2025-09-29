@@ -77,7 +77,7 @@ class ModelRegistry:
             id="openai/gpt-5",
             name="GPT-5",
             provider=ModelProvider.OPENAI,
-            aliases=["gpt-5", "GPT-5"],
+            aliases=["gpt-5", "GPT-5", "openai/gpt-5"],
             context_window=400_000,
             capabilities=[
                 ModelCapability.CHAT,
@@ -89,7 +89,7 @@ class ModelRegistry:
                 input_cost_per_million_tokens=1.25,
                 output_cost_per_million_tokens=10.00
             ),
-            tier_availability=["paid", "free"],
+            tier_availability=["free", "paid"],
             priority=99,
             enabled=True,
             recommended=True
@@ -111,7 +111,7 @@ class ModelRegistry:
                 output_cost_per_million_tokens=2.00
             ),
             tier_availability=["free", "paid"],
-            priority=85,
+            priority=96,
             enabled=True
         ))
         
@@ -213,6 +213,28 @@ class ModelRegistry:
             tier_availability=["free", "paid"],
             priority=90,
             enabled=False  # Currently disabled
+        ))
+        
+        self.register(Model(
+            id="openrouter/qwen/qwen3-vl-235b-a22b-thinking",
+            name="Qwen3 VL 235B Thinking",
+            provider=ModelProvider.OPENROUTER,
+            aliases=["qwen3-vl-thinking", "qwen-vl-thinking"],
+            context_window=131_072,
+            capabilities=[
+                ModelCapability.CHAT,
+                ModelCapability.FUNCTION_CALLING,
+                ModelCapability.VISION,
+                ModelCapability.THINKING,
+            ],
+            pricing=ModelPricing(
+                input_cost_per_million_tokens=0.30,
+                output_cost_per_million_tokens=3.00
+            ),
+            tier_availability=["free", "paid"],
+            priority=98,
+            enabled=True,
+            recommended=True
         ))
         """
     
