@@ -495,34 +495,9 @@ async def get_folder_entries(
                 raise HTTPException(status_code=404, detail="Folder not found or access denied")
             raise HTTPException(status_code=500, detail=str(result.error))
         
-        raw_entries = result.data if result.data else []
+        entries = result.data if result.data else []
         
-        # Convert to serializable format (UUIDs to strings, etc.)
-        entries = []
-        for i, entry in enumerate(raw_entries):
-            try:
-                serialized_entry = {
-                    'entry_id': str(entry['entry_id']) if entry.get('entry_id') else None,
-                    'entry_type': entry.get('entry_type'),
-                    'name': entry.get('name'),
-                    'summary': entry.get('summary'),
-                    'description': entry.get('description'),
-                    'usage_context': entry.get('usage_context', 'always'),
-                    'is_active': entry.get('is_active', True),
-                    'created_at': entry['created_at'].isoformat() if entry.get('created_at') and hasattr(entry['created_at'], 'isoformat') else str(entry.get('created_at', '')),
-                    'updated_at': entry['updated_at'].isoformat() if entry.get('updated_at') and hasattr(entry['updated_at'], 'isoformat') else str(entry.get('updated_at', '')),
-                    'filename': entry.get('filename'),
-                    'file_size': entry.get('file_size'),
-                    'mime_type': entry.get('mime_type'),
-                    'index_name': entry.get('index_name'),
-                    'account_id': str(entry['account_id']) if entry.get('account_id') else None,
-                    'folder_id': str(entry['folder_id']) if entry.get('folder_id') else None,
-                }
-                entries.append(serialized_entry)
-            except Exception as serialize_error:
-                logger.error(f"Error serializing folder entry {i}: {serialize_error}, entry data: {entry}")
-                continue
-        
+        # FastAPI should handle JSON serialization automatically
         return {"entries": entries}
         
     except HTTPException:
@@ -547,55 +522,45 @@ async def get_root_cloud_knowledge_bases(
         account_id = await get_user_account_id(client, user_id)
         logger.info(f"Got account_id: {account_id}")
         
-        # Use the SQL function to get root-level unified entries
-        logger.info(f"Calling RPC get_unified_root_entries with account_id={account_id}, include_inactive={include_inactive}")
-        result = await client.rpc(
-            'get_unified_root_entries',
-            {
-                'p_account_id': account_id,
-                'p_include_inactive': include_inactive
-            }
-        ).execute()
+        # Query llamacloud_knowledge_bases table directly for root-level entries
+        query = client.table('llamacloud_knowledge_bases').select('*').eq('account_id', account_id).is_('folder_id', 'null')
         
-        logger.info(f"RPC result: error={result.error}, data_count={len(result.data) if result.data else 0}")
+        if not include_inactive:
+            query = query.eq('is_active', True)
+        
+        result = await query.order('created_at', desc=True).execute()
+        
+        logger.info(f"Query result: error={result.error}, count={len(result.data) if result.data else 0}")
         
         if result.error:
-            logger.error(f"RPC error getting root cloud KBs: {result.error}")
+            logger.error(f"Query error getting root cloud KBs: {result.error}")
             raise HTTPException(status_code=500, detail=str(result.error))
         
-        raw_entries = result.data if result.data else []
+        cloud_kbs = result.data if result.data else []
         
-        logger.info(f"Successfully fetched {len(raw_entries)} root cloud knowledge bases for account {account_id}")
-        
-        # Convert to serializable format (UUIDs to strings, etc.)
+        # Transform to match the unified entry format expected by frontend
         entries = []
-        for i, entry in enumerate(raw_entries):
-            try:
-                serialized_entry = {
-                    'entry_id': str(entry['entry_id']) if entry.get('entry_id') else None,
-                    'entry_type': entry.get('entry_type'),
-                    'name': entry.get('name'),
-                    'summary': entry.get('summary'),
-                    'description': entry.get('description'),
-                    'usage_context': entry.get('usage_context', 'always'),
-                    'is_active': entry.get('is_active', True),
-                    'created_at': entry['created_at'].isoformat() if entry.get('created_at') and hasattr(entry['created_at'], 'isoformat') else str(entry.get('created_at', '')),
-                    'updated_at': entry['updated_at'].isoformat() if entry.get('updated_at') and hasattr(entry['updated_at'], 'isoformat') else str(entry.get('updated_at', '')),
-                    'filename': entry.get('filename'),
-                    'file_size': entry.get('file_size'),
-                    'mime_type': entry.get('mime_type'),
-                    'index_name': entry.get('index_name'),
-                    'account_id': str(entry['account_id']) if entry.get('account_id') else None,
-                    'folder_id': str(entry['folder_id']) if entry.get('folder_id') else None,
-                }
-                entries.append(serialized_entry)
-                logger.debug(f"Serialized entry {i}: {serialized_entry}")
-            except Exception as serialize_error:
-                logger.error(f"Error serializing entry {i}: {serialize_error}, entry data: {entry}")
-                # Skip this entry and continue
-                continue
+        for kb in cloud_kbs:
+            entry = {
+                'entry_id': kb['kb_id'],
+                'entry_type': 'cloud_kb',
+                'name': kb['name'],
+                'summary': kb.get('summary') or kb.get('description'),
+                'description': kb.get('description'),
+                'usage_context': kb.get('usage_context', 'always'),
+                'is_active': kb.get('is_active', True),
+                'created_at': kb['created_at'],
+                'updated_at': kb['updated_at'],
+                'filename': None,
+                'file_size': None,
+                'mime_type': None,
+                'index_name': kb['index_name'],
+                'account_id': kb['account_id'],
+                'folder_id': kb.get('folder_id'),
+            }
+            entries.append(entry)
         
-        logger.info(f"Successfully serialized {len(entries)} entries")
+        logger.info(f"Successfully returning {len(entries)} cloud knowledge bases for account {account_id}")
         
         return {"entries": entries}
         
