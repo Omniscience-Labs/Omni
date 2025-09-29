@@ -326,11 +326,11 @@ export function KnowledgeBasePage() {
         // Filter tree data (folders and their files)
         const filteredFolders = treeData.map(folder => {
             const folderMatches = folder.name.toLowerCase().includes(query) ||
-                                folder.data?.description?.toLowerCase().includes(query);
+                                (folder.data && 'description' in folder.data && folder.data.description?.toLowerCase().includes(query));
             
             const filteredChildren = (folder.children || []).filter(child =>
                 child.name.toLowerCase().includes(query) ||
-                child.data?.summary?.toLowerCase().includes(query)
+                (child.data && 'summary' in child.data && child.data.summary?.toLowerCase().includes(query))
             );
 
             // Include folder if it matches or has matching children
