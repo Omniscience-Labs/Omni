@@ -445,18 +445,20 @@ export function KnowledgeBasePage() {
                 const existingFolder = treeData.find(item => item.id === folder.folder_id);
                 const isExpanded = existingFolder?.expanded || false;
 
+                const children: LocalTreeItem[] = folderEntries[folder.folder_id]?.map(entry => ({
+                    id: entry.entry_id,
+                    type: 'file' as const,
+                    name: entry.filename,
+                    parentId: folder.folder_id,
+                    data: entry,
+                })) || [];
+
                 return {
                     id: folder.folder_id,
                     type: 'folder' as const,
                     name: folder.name,
                     data: folder,
-                    children: folderEntries[folder.folder_id]?.map(entry => ({
-                        id: entry.entry_id,
-                        type: 'file' as const,
-                        name: entry.filename,
-                        parentId: folder.folder_id,
-                        data: entry,
-                    })) || [],
+                    children,
                     expanded: isExpanded,
                 };
             });
