@@ -15,7 +15,7 @@ import type {
     KnowledgeBaseEntry, 
     CloudKBEntry
 } from '@/types/knowledge-base';
-import type { Folder, TreeItem } from '@/types/knowledge-base';
+import type { Folder, TreeItem, FileEntry } from '@/types/knowledge-base';
 import {
     ENTRY_TYPE_FILE,
     ENTRY_TYPE_CLOUD_KB,
