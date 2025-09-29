@@ -24,8 +24,8 @@ class ModelRegistry:
                 ModelCapability.THINKING,
             ],
             pricing=ModelPricing(
-                input_cost_per_million_tokens=3.00,
-                output_cost_per_million_tokens=15.00
+                input_cost_per_million_tokens=4.50,
+                output_cost_per_million_tokens=22.50
             ),
             tier_availability=["free", "paid"],
             priority=100,
