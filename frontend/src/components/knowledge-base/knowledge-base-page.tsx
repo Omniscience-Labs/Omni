@@ -366,7 +366,7 @@ export function KnowledgeBasePage() {
     // File preview modal state
     const [filePreviewModal, setFilePreviewModal] = useState<{
         isOpen: boolean;
-        file: Entry | null;
+        file: Entry | KnowledgeBaseEntry | null;
     }>({
         isOpen: false,
         file: null,
