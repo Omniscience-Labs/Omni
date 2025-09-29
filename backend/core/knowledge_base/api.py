@@ -1,7 +1,9 @@
 import json
 from typing import List, Optional
+from datetime import datetime
+from uuid import UUID
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, validator
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt, verify_and_get_agent_authorization, require_agent_access, AuthorizedAgentAccess
 from core.services.supabase import DBConnection
 from core.knowledge_base.file_processor import FileProcessor
@@ -9,10 +11,21 @@ from core.utils.logger import logger
 
 # Constants
 MAX_TOTAL_FILE_SIZE = 50 * 1024 * 1024  # 50MB total limit per user
+ENTRY_TYPE_FILE = 'file'
+ENTRY_TYPE_CLOUD_KB = 'cloud_kb'
 
 db = DBConnection()
 
 router = APIRouter(prefix="/knowledge-base", tags=["knowledge-base"])
+
+# Helper function to validate UUID
+def validate_uuid(uuid_string: str, field_name: str = "ID") -> str:
+    """Validate that a string is a valid UUID format."""
+    try:
+        UUID(uuid_string)
+        return uuid_string
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name} format")
 
 # LlamaCloud Knowledge Base Models
 class LlamaCloudKnowledgeBase(BaseModel):
@@ -155,7 +168,7 @@ async def get_user_account_id(client, user_id: str) -> str:
 async def get_folders(
     user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
-    """Get all folders for the current user"""
+    """Get all folders for the current user with correct entry counts (files + cloud KBs)"""
     try:
         client = await db.client
         
@@ -167,11 +180,22 @@ async def get_folders(
         
         folders = []
         for folder in result.data:
+            # Get correct entry count using SQL function (includes both files and cloud KBs)
+            count_result = await client.rpc(
+                'get_folder_entry_count',
+                {
+                    'p_folder_id': folder["folder_id"],
+                    'p_account_id': account_id
+                }
+            ).execute()
+            
+            entry_count = count_result.data if count_result.data is not None else 0
+            
             folders.append(FolderResponse(
                 folder_id=folder["folder_id"],
                 name=folder["name"],
                 description=folder.get("description"),
-                entry_count=folder.get("entry_count", 0),
+                entry_count=entry_count,
                 created_at=folder["created_at"]
             ))
         
@@ -180,7 +204,7 @@ async def get_folders(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting folders: {str(e)}")
+        logger.error(f"Error getting folders for account {account_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve folders")
 
 @router.post("/folders", response_model=FolderResponse)
@@ -330,7 +354,9 @@ async def create_global_llamacloud_knowledge_base(
             'account_id': account_id,
             'name': kb_data.name,
             'index_name': kb_data.index_name,
-            'description': kb_data.description
+            'description': kb_data.description,
+            'folder_id': None,  # Explicitly set to None for root level
+            'is_active': True   # Explicitly set to True
         }
         
         result = await client.table('llamacloud_knowledge_bases').insert(insert_data).execute()
@@ -358,36 +384,161 @@ async def create_global_llamacloud_knowledge_base(
         logger.error(f"Error creating global LlamaCloud knowledge base: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to create global LlamaCloud knowledge base")
 
+# Move LlamaCloud knowledge base to folder
+class CloudKBMoveRequest(BaseModel):
+    folder_id: Optional[str] = None  # None means move to root level
+    
+    @validator('folder_id')
+    def validate_folder_id(cls, v):
+        if v is not None:
+            try:
+                UUID(v)
+            except (ValueError, AttributeError):
+                raise ValueError('Invalid folder_id format')
+        return v
+
+@router.put("/llamacloud/{kb_id}/move")
+async def move_llamacloud_kb_to_folder(
+    kb_id: str,
+    request: CloudKBMoveRequest,
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
+):
+    """Move a LlamaCloud knowledge base to a folder or root level."""
+    try:
+        # Validate UUID format
+        validate_uuid(kb_id, "kb_id")
+        
+        client = await db.client
+        
+        # Get current account_id from user
+        account_id = await get_user_account_id(client, user_id)
+        
+        # Verify the LlamaCloud KB belongs to the user
+        kb_result = await client.table('llamacloud_knowledge_bases').select(
+            'kb_id, account_id, folder_id, name'
+        ).eq('kb_id', kb_id).execute()
+        
+        if not kb_result.data:
+            raise HTTPException(status_code=404, detail="LlamaCloud knowledge base not found")
+        
+        kb = kb_result.data[0]
+        if kb['account_id'] != account_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # If folder_id is provided, verify it belongs to the user
+        if request.folder_id:
+            folder_result = await client.table('knowledge_base_folders').select(
+                'folder_id, account_id'
+            ).eq('folder_id', request.folder_id).eq('account_id', account_id).execute()
+            
+            if not folder_result.data:
+                raise HTTPException(status_code=404, detail="Target folder not found")
+        
+        # Check if already in target location
+        current_folder_id = kb.get('folder_id')
+        if current_folder_id == request.folder_id:
+            return {"success": True, "message": "Knowledge base is already in the target location"}
+        
+        # Update the folder_id with proper timestamp
+        update_result = await client.table('llamacloud_knowledge_bases').update({
+            'folder_id': request.folder_id,
+            'updated_at': datetime.utcnow().isoformat()
+        }).eq('kb_id', kb_id).execute()
+        
+        if not update_result.data:
+            raise HTTPException(status_code=500, detail="Failed to move knowledge base")
+        
+        location = f"folder" if request.folder_id else "root level"
+        logger.info(f"Moved cloud KB '{kb['name']}' ({kb_id}) to {location} for account {account_id}")
+        
+        return {
+            "success": True, 
+            "message": f"LlamaCloud knowledge base moved to {location} successfully",
+            "kb_id": kb_id,
+            "folder_id": request.folder_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error moving LlamaCloud knowledge base {kb_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to move LlamaCloud knowledge base: {str(e)}")
+
 @router.get("/folders/{folder_id}/entries")
 async def get_folder_entries(
     folder_id: str,
+    include_inactive: bool = False,
     user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
-    """Get all entries in a folder"""
+    """Get all entries in a folder (both regular files and cloud knowledge bases)"""
     try:
+        # Validate UUID format
+        validate_uuid(folder_id, "folder_id")
+        
         client = await db.client
         
-        # Verify folder access
-        folder_result = await client.from_("knowledge_base_folders").select("account_id").eq("folder_id", folder_id).single().execute()
-        if not folder_result.data:
-            raise HTTPException(status_code=404, detail="Folder not found")
-        
         # Get current account_id from user
-        user_account_id = await get_user_account_id(client, user_id)
-        if user_account_id != folder_result.data["account_id"]:
-            raise HTTPException(status_code=403, detail="Access denied")
+        account_id = await get_user_account_id(client, user_id)
         
-        # Get entries
-        result = await client.from_("knowledge_base_entries").select("*").eq("folder_id", folder_id).order("created_at", desc=True).execute()
+        # Use the SQL function to get unified entries (more efficient, single query)
+        result = await client.rpc(
+            'get_unified_folder_entries',
+            {
+                'p_folder_id': folder_id,
+                'p_account_id': account_id,
+                'p_include_inactive': include_inactive
+            }
+        ).execute()
+        
+        if result.error:
+            if 'not found' in str(result.error).lower():
+                raise HTTPException(status_code=404, detail="Folder not found or access denied")
+            raise HTTPException(status_code=500, detail=str(result.error))
         
         entries = result.data if result.data else []
+        
         return {"entries": entries}
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting folder entries: {str(e)}")
+        logger.error(f"Error getting folder entries for folder {folder_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve folder entries")
+
+# Get cloud knowledge bases at root level (not in any folder)
+@router.get("/llamacloud/root")
+async def get_root_cloud_knowledge_bases(
+    include_inactive: bool = False,
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
+):
+    """Get cloud knowledge bases at root level (not in any folder)"""
+    try:
+        client = await db.client
+        
+        # Get current account_id from user
+        account_id = await get_user_account_id(client, user_id)
+        
+        # Use the SQL function to get root-level unified entries
+        result = await client.rpc(
+            'get_unified_root_entries',
+            {
+                'p_account_id': account_id,
+                'p_include_inactive': include_inactive
+            }
+        ).execute()
+        
+        if result.error:
+            raise HTTPException(status_code=500, detail=str(result.error))
+        
+        entries = result.data if result.data else []
+        
+        return {"entries": entries}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting root cloud knowledge bases for account {account_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve root cloud knowledge bases")
 
 class KnowledgeBaseEntry(BaseModel):
     entry_id: Optional[str] = None

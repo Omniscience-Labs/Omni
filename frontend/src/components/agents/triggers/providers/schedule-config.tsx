@@ -715,7 +715,13 @@ export const ScheduleTriggerConfigForm: React.FC<ScheduleTriggerConfigFormProps>
                                 mode="single"
                                 selected={selectedDate}
                                 onSelect={setSelectedDate}
-                                disabled={(date) => date < startOfDay(new Date())}
+                                disabled={(date) => {
+                                  const today = new Date();
+                                  today.setHours(0, 0, 0, 0); // Start of today in local timezone
+                                  const compareDate = new Date(date);
+                                  compareDate.setHours(0, 0, 0, 0); // Start of selected date
+                                  return compareDate < today;
+                                }}
                                 initialFocus
                               />
                             </PopoverContent>

@@ -30,6 +30,11 @@ export const useModelStore = create<ModelStore>()(
 
 // Utility functions for compatibility
 export const formatModelName = (name: string): string => {
+  // Special case for Claude Sonnet 4 to display as "Omni 4"
+  if (name === 'Claude Sonnet 4' || name === 'claude-sonnet-4' || name === 'anthropic/claude-sonnet-4-20250514') {
+    return 'Omni 4';
+  }
+  
   return name
     .split('-')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
