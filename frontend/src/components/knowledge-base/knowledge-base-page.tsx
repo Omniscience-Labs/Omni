@@ -440,7 +440,7 @@ export function KnowledgeBasePage() {
     // Build tree structure
     React.useEffect(() => {
         const buildTree = () => {
-            const tree: TreeItem[] = folders.map(folder => {
+            const tree: LocalTreeItem[] = folders.map(folder => {
                 // Preserve existing expanded state
                 const existingFolder = treeData.find(item => item.id === folder.folder_id);
                 const isExpanded = existingFolder?.expanded || false;
