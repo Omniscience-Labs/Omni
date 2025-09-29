@@ -495,7 +495,29 @@ async def get_folder_entries(
                 raise HTTPException(status_code=404, detail="Folder not found or access denied")
             raise HTTPException(status_code=500, detail=str(result.error))
         
-        entries = result.data if result.data else []
+        raw_entries = result.data if result.data else []
+        
+        # Convert to serializable format (UUIDs to strings, etc.)
+        entries = []
+        for entry in raw_entries:
+            serialized_entry = {
+                'entry_id': str(entry['entry_id']),
+                'entry_type': entry['entry_type'],
+                'name': entry['name'],
+                'summary': entry['summary'],
+                'description': entry['description'],
+                'usage_context': entry['usage_context'],
+                'is_active': entry['is_active'],
+                'created_at': entry['created_at'].isoformat() if hasattr(entry['created_at'], 'isoformat') else str(entry['created_at']),
+                'updated_at': entry['updated_at'].isoformat() if hasattr(entry['updated_at'], 'isoformat') else str(entry['updated_at']),
+                'filename': entry['filename'],
+                'file_size': entry['file_size'],
+                'mime_type': entry['mime_type'],
+                'index_name': entry['index_name'],
+                'account_id': str(entry['account_id']),
+                'folder_id': str(entry['folder_id']) if entry['folder_id'] else None,
+            }
+            entries.append(serialized_entry)
         
         return {"entries": entries}
         
@@ -514,12 +536,15 @@ async def get_root_cloud_knowledge_bases(
     """Get cloud knowledge bases at root level (not in any folder)"""
     account_id = None
     try:
+        logger.info(f"Starting fetch of root cloud KBs for user {user_id}")
         client = await db.client
         
         # Get current account_id from user
         account_id = await get_user_account_id(client, user_id)
+        logger.info(f"Got account_id: {account_id}")
         
         # Use the SQL function to get root-level unified entries
+        logger.info(f"Calling RPC get_unified_root_entries with account_id={account_id}, include_inactive={include_inactive}")
         result = await client.rpc(
             'get_unified_root_entries',
             {
@@ -528,13 +553,39 @@ async def get_root_cloud_knowledge_bases(
             }
         ).execute()
         
+        logger.info(f"RPC result: error={result.error}, data_count={len(result.data) if result.data else 0}")
+        
         if result.error:
             logger.error(f"RPC error getting root cloud KBs: {result.error}")
             raise HTTPException(status_code=500, detail=str(result.error))
         
-        entries = result.data if result.data else []
+        raw_entries = result.data if result.data else []
         
-        logger.info(f"Fetched {len(entries)} root cloud knowledge bases for account {account_id}")
+        logger.info(f"Successfully fetched {len(raw_entries)} root cloud knowledge bases for account {account_id}")
+        
+        # Convert to serializable format (UUIDs to strings, etc.)
+        entries = []
+        for entry in raw_entries:
+            serialized_entry = {
+                'entry_id': str(entry['entry_id']),
+                'entry_type': entry['entry_type'],
+                'name': entry['name'],
+                'summary': entry['summary'],
+                'description': entry['description'],
+                'usage_context': entry['usage_context'],
+                'is_active': entry['is_active'],
+                'created_at': entry['created_at'].isoformat() if hasattr(entry['created_at'], 'isoformat') else str(entry['created_at']),
+                'updated_at': entry['updated_at'].isoformat() if hasattr(entry['updated_at'], 'isoformat') else str(entry['updated_at']),
+                'filename': entry['filename'],
+                'file_size': entry['file_size'],
+                'mime_type': entry['mime_type'],
+                'index_name': entry['index_name'],
+                'account_id': str(entry['account_id']),
+                'folder_id': str(entry['folder_id']) if entry['folder_id'] else None,
+            }
+            entries.append(serialized_entry)
+        
+        logger.debug(f"Serialized entries: {entries}")
         
         return {"entries": entries}
         
@@ -542,7 +593,7 @@ async def get_root_cloud_knowledge_bases(
         raise
     except Exception as e:
         logger.error(f"Error getting root cloud knowledge bases for account {account_id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to retrieve root cloud knowledge bases")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve root cloud knowledge bases: {str(e)}")
 
 class KnowledgeBaseEntry(BaseModel):
     entry_id: Optional[str] = None
@@ -1237,53 +1288,6 @@ async def update_agent_unified_assignments(
     except Exception as e:
         logger.error(f"Error updating unified assignments for agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to update unified agent assignments")
-
-# =============================================================================
-# LLAMACLOUD KNOWLEDGE BASE ENDPOINTS (LEGACY/ENTERPRISE SUPPORT)
-# =============================================================================
-
-@router.get("/llamacloud/agents/{agent_id}", response_model=LlamaCloudKnowledgeBaseListResponse)
-async def get_agent_llamacloud_knowledge_bases(
-    agent_id: str,
-    include_inactive: bool = False,
-    user_id: str = Depends(verify_and_get_user_id_from_jwt)
-):
-    """Get all LlamaCloud knowledge bases for an agent"""
-    try:
-        client = await db.client
-
-        # Verify agent access
-        await verify_and_get_agent_authorization(client, agent_id, user_id)
-
-        result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
-            'p_agent_id': agent_id,
-            'p_include_inactive': include_inactive
-        }).execute()
-        
-        knowledge_bases = []
-        
-        for kb_data in result.data or []:
-            kb = LlamaCloudKnowledgeBaseResponse(
-                id=kb_data['id'],
-                name=kb_data['name'],
-                index_name=kb_data['index_name'],
-                description=kb_data['description'],
-                is_active=kb_data['is_active'],
-                created_at=kb_data['created_at'],
-                updated_at=kb_data['updated_at']
-            )
-            knowledge_bases.append(kb)
-        
-        return LlamaCloudKnowledgeBaseListResponse(
-            knowledge_bases=knowledge_bases,
-            total_count=len(knowledge_bases)
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting LlamaCloud knowledge bases for agent {agent_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve agent LlamaCloud knowledge bases")
 
 @router.post("/agents/{agent_id}/assignments")
 async def update_agent_assignments(
