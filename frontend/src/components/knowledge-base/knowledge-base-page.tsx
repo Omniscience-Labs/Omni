@@ -421,7 +421,7 @@ export function KnowledgeBasePage() {
                 };
             }
             return null;
-        }).filter((item): item is LocalTreeItem => item !== null);
+        }).filter(item => item !== null) as LocalTreeItem[];
 
         return { 
             folders: filteredFolders, 
