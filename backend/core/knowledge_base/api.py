@@ -499,25 +499,29 @@ async def get_folder_entries(
         
         # Convert to serializable format (UUIDs to strings, etc.)
         entries = []
-        for entry in raw_entries:
-            serialized_entry = {
-                'entry_id': str(entry['entry_id']),
-                'entry_type': entry['entry_type'],
-                'name': entry['name'],
-                'summary': entry['summary'],
-                'description': entry['description'],
-                'usage_context': entry['usage_context'],
-                'is_active': entry['is_active'],
-                'created_at': entry['created_at'].isoformat() if hasattr(entry['created_at'], 'isoformat') else str(entry['created_at']),
-                'updated_at': entry['updated_at'].isoformat() if hasattr(entry['updated_at'], 'isoformat') else str(entry['updated_at']),
-                'filename': entry['filename'],
-                'file_size': entry['file_size'],
-                'mime_type': entry['mime_type'],
-                'index_name': entry['index_name'],
-                'account_id': str(entry['account_id']),
-                'folder_id': str(entry['folder_id']) if entry['folder_id'] else None,
-            }
-            entries.append(serialized_entry)
+        for i, entry in enumerate(raw_entries):
+            try:
+                serialized_entry = {
+                    'entry_id': str(entry['entry_id']) if entry.get('entry_id') else None,
+                    'entry_type': entry.get('entry_type'),
+                    'name': entry.get('name'),
+                    'summary': entry.get('summary'),
+                    'description': entry.get('description'),
+                    'usage_context': entry.get('usage_context', 'always'),
+                    'is_active': entry.get('is_active', True),
+                    'created_at': entry['created_at'].isoformat() if entry.get('created_at') and hasattr(entry['created_at'], 'isoformat') else str(entry.get('created_at', '')),
+                    'updated_at': entry['updated_at'].isoformat() if entry.get('updated_at') and hasattr(entry['updated_at'], 'isoformat') else str(entry.get('updated_at', '')),
+                    'filename': entry.get('filename'),
+                    'file_size': entry.get('file_size'),
+                    'mime_type': entry.get('mime_type'),
+                    'index_name': entry.get('index_name'),
+                    'account_id': str(entry['account_id']) if entry.get('account_id') else None,
+                    'folder_id': str(entry['folder_id']) if entry.get('folder_id') else None,
+                }
+                entries.append(serialized_entry)
+            except Exception as serialize_error:
+                logger.error(f"Error serializing folder entry {i}: {serialize_error}, entry data: {entry}")
+                continue
         
         return {"entries": entries}
         
@@ -565,27 +569,33 @@ async def get_root_cloud_knowledge_bases(
         
         # Convert to serializable format (UUIDs to strings, etc.)
         entries = []
-        for entry in raw_entries:
-            serialized_entry = {
-                'entry_id': str(entry['entry_id']),
-                'entry_type': entry['entry_type'],
-                'name': entry['name'],
-                'summary': entry['summary'],
-                'description': entry['description'],
-                'usage_context': entry['usage_context'],
-                'is_active': entry['is_active'],
-                'created_at': entry['created_at'].isoformat() if hasattr(entry['created_at'], 'isoformat') else str(entry['created_at']),
-                'updated_at': entry['updated_at'].isoformat() if hasattr(entry['updated_at'], 'isoformat') else str(entry['updated_at']),
-                'filename': entry['filename'],
-                'file_size': entry['file_size'],
-                'mime_type': entry['mime_type'],
-                'index_name': entry['index_name'],
-                'account_id': str(entry['account_id']),
-                'folder_id': str(entry['folder_id']) if entry['folder_id'] else None,
-            }
-            entries.append(serialized_entry)
+        for i, entry in enumerate(raw_entries):
+            try:
+                serialized_entry = {
+                    'entry_id': str(entry['entry_id']) if entry.get('entry_id') else None,
+                    'entry_type': entry.get('entry_type'),
+                    'name': entry.get('name'),
+                    'summary': entry.get('summary'),
+                    'description': entry.get('description'),
+                    'usage_context': entry.get('usage_context', 'always'),
+                    'is_active': entry.get('is_active', True),
+                    'created_at': entry['created_at'].isoformat() if entry.get('created_at') and hasattr(entry['created_at'], 'isoformat') else str(entry.get('created_at', '')),
+                    'updated_at': entry['updated_at'].isoformat() if entry.get('updated_at') and hasattr(entry['updated_at'], 'isoformat') else str(entry.get('updated_at', '')),
+                    'filename': entry.get('filename'),
+                    'file_size': entry.get('file_size'),
+                    'mime_type': entry.get('mime_type'),
+                    'index_name': entry.get('index_name'),
+                    'account_id': str(entry['account_id']) if entry.get('account_id') else None,
+                    'folder_id': str(entry['folder_id']) if entry.get('folder_id') else None,
+                }
+                entries.append(serialized_entry)
+                logger.debug(f"Serialized entry {i}: {serialized_entry}")
+            except Exception as serialize_error:
+                logger.error(f"Error serializing entry {i}: {serialize_error}, entry data: {entry}")
+                # Skip this entry and continue
+                continue
         
-        logger.debug(f"Serialized entries: {entries}")
+        logger.info(f"Successfully serialized {len(entries)} entries")
         
         return {"entries": entries}
         
