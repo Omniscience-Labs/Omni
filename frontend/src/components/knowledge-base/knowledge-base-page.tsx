@@ -688,7 +688,17 @@ export function KnowledgeBasePage() {
 
             if (response.ok) {
                 const data = await response.json();
-                setFolderEntries(prev => ({ ...prev, [folderId]: data }));
+                console.log('Download response status:', response.status);
+                console.log('Download result:', data);
+                
+                // Extract the entries array from the response
+                const entries = data.entries || data;
+                if (!Array.isArray(entries)) {
+                    console.error('Expected entries to be an array, got:', typeof entries, entries);
+                }
+                setFolderEntries(prev => ({ ...prev, [folderId]: Array.isArray(entries) ? entries : [] }));
+            } else {
+                console.error('Failed to fetch folder entries:', response.status, response.statusText);
             }
         } catch (error) {
             console.error('Failed to fetch entries:', error);
