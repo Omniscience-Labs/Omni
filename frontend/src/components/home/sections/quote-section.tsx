@@ -38,7 +38,7 @@ export function QuoteSection() {
         <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
           <blockquote className="text-left">
             <p className="text-xl md:text-2xl text-primary leading-relaxed tracking-tighter font-medium mb-6">
-              "Omni saves us a tonne of time putting quotes together. The automation features have streamlined our entire workflow and improved our response times significantly."
+              "Omni saves us a ton of time putting quotes together. The automation features have streamlined our entire workflow and improved our response times significantly."
             </p>
 
           <div className="flex gap-4">
