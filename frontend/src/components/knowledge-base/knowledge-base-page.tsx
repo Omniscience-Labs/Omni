@@ -280,7 +280,13 @@ const useKnowledgeFolders = () => {
                     
                     if (kbResponse.ok) {
                         const kbData = await kbResponse.json();
+                        console.log('Cloud KB Response:', kbData);
+                        console.log('Cloud KB Entries:', kbData.entries);
                         setLlamacloudKBs(kbData.entries || []);
+                    } else {
+                        console.error('Failed to fetch cloud KBs, status:', kbResponse.status);
+                        const errorText = await kbResponse.text();
+                        console.error('Error response:', errorText);
                     }
                 } catch (kbError) {
                     console.error('Failed to fetch root LlamaCloud KBs:', kbError);
