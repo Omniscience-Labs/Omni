@@ -22,7 +22,8 @@ import {
     ChevronRightIcon,
     MoreVerticalIcon,
     Database,
-    Loader2
+    Loader2,
+    SearchIcon
 } from 'lucide-react';
 import { KnowledgeBasePageHeader } from './knowledge-base-header';
 import {
@@ -242,6 +243,7 @@ export function KnowledgeBasePage() {
     const [editingName, setEditingName] = useState('');
     const [validationError, setValidationError] = useState<string | null>(null);
     const [activeId, setActiveId] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
     const editInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -305,6 +307,48 @@ export function KnowledgeBasePage() {
     });
 
     const { folders, recentFiles, llamacloudKBs, loading: foldersLoading, refetch: refetchFolders } = useKnowledgeFolders();
+
+    // Filter data based on search query
+    const filteredData = React.useMemo(() => {
+        if (!searchQuery.trim()) {
+            return { folders: treeData, llamacloudKBs };
+        }
+
+        const query = searchQuery.toLowerCase().trim();
+        
+        // Filter LlamaCloud KBs
+        const filteredCloudKBs = llamacloudKBs.filter(kb => 
+            kb.name.toLowerCase().includes(query) ||
+            kb.description?.toLowerCase().includes(query) ||
+            kb.index_name.toLowerCase().includes(query)
+        );
+
+        // Filter tree data (folders and their files)
+        const filteredFolders = treeData.map(folder => {
+            const folderMatches = folder.name.toLowerCase().includes(query) ||
+                                folder.data?.description?.toLowerCase().includes(query);
+            
+            const filteredChildren = (folder.children || []).filter(child =>
+                child.name.toLowerCase().includes(query) ||
+                child.data?.summary?.toLowerCase().includes(query)
+            );
+
+            // Include folder if it matches or has matching children
+            if (folderMatches || filteredChildren.length > 0) {
+                return {
+                    ...folder,
+                    children: filteredChildren,
+                    expanded: filteredChildren.length > 0 ? true : folder.expanded // Auto-expand if has matching children
+                };
+            }
+            return null;
+        }).filter(Boolean);
+
+        return { 
+            folders: filteredFolders, 
+            llamacloudKBs: filteredCloudKBs 
+        };
+    }, [treeData, llamacloudKBs, searchQuery]);
 
     // DND Sensors
     const sensors = useSensors(
@@ -976,11 +1020,23 @@ export function KnowledgeBasePage() {
                     <div className="w-full min-h-[calc(100vh-300px)]">
                         {/* Header Section */}
                         <div className="flex justify-between items-start mb-8">
-                            <div className="space-y-1">
-                                <h2 className="text-xl font-semibold text-foreground">Knowledge Base</h2>
-                                <p className="text-sm text-muted-foreground">
-                                    Organize documents and files for AI agents to search and reference
-                                </p>
+                            <div className="space-y-3">
+                                <div>
+                                    <h2 className="text-xl font-semibold text-foreground">Knowledge Base</h2>
+                                    <p className="text-sm text-muted-foreground">
+                                        Organize documents and files for AI agents to search and reference
+                                    </p>
+                                </div>
+                                {/* Search Input */}
+                                <div className="relative w-96">
+                                    <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Search folders, files, and cloud knowledge bases..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="pl-10"
+                                    />
+                                </div>
                             </div>
                             <div className="flex gap-3">
                                 <Button variant="outline" onClick={handleAddCloudKB}>
@@ -1050,11 +1106,18 @@ export function KnowledgeBasePage() {
                                         })}
 
                                         {/* LlamaCloud Knowledge Bases as File-like Items */}
-                                        {llamacloudKBs.slice(0, 2).map((kb) => (
+                                        {filteredData.llamacloudKBs.map((kb) => (
                                             <div
                                                 key={`cloud-${kb.kb_id}`}
                                                 className="group cursor-pointer"
-                                                onClick={() => console.log('View LlamaCloud KB:', kb.name)}
+                                                onClick={() => {
+                                                    setSelectedItem({
+                                                        id: `cloud-${kb.kb_id}`,
+                                                        type: 'file',
+                                                        name: kb.name,
+                                                        data: kb,
+                                                    });
+                                                }}
                                             >
                                                 <div className="p-4 border border-blue-200 bg-blue-50/30 dark:border-blue-800 dark:bg-blue-900/10 rounded-lg hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200">
                                                     <div className="space-y-3">
@@ -1100,8 +1163,17 @@ export function KnowledgeBasePage() {
                                             items={[]} // No sorting - only drag files to folders
                                             strategy={verticalListSortingStrategy}
                                         >
-                                            <div className="space-y-3">
-                                                {treeData.map((item) => (
+                                            {searchQuery.trim() && filteredData.folders.length === 0 && filteredData.llamacloudKBs.length === 0 ? (
+                                                <div className="text-center py-12">
+                                                    <SearchIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                                                    <h3 className="text-lg font-medium text-foreground mb-2">No results found</h3>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        No folders, files, or cloud knowledge bases match "{searchQuery}"
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {filteredData.folders.map((item) => (
                                                     <SharedTreeItem
                                                         key={item.id}
                                                         item={item}
@@ -1126,7 +1198,8 @@ export function KnowledgeBasePage() {
                                                         movingFiles={movingFiles}
                                                     />
                                                 ))}
-                                            </div>
+                                                </div>
+                                            )}
                                         </SortableContext>
 
                                         <DragOverlay>
@@ -1218,7 +1291,7 @@ export function KnowledgeBasePage() {
 
             {/* Cloud Knowledge Base Dialog */}
             <Dialog open={cloudKBDialog.isOpen} onOpenChange={(open) => setCloudKBDialog(prev => ({ ...prev, isOpen: open }))}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <Database className="h-5 w-5" />
