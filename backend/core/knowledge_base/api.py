@@ -512,6 +512,7 @@ async def get_root_cloud_knowledge_bases(
     user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     """Get cloud knowledge bases at root level (not in any folder)"""
+    account_id = None
     try:
         client = await db.client
         
@@ -528,9 +529,12 @@ async def get_root_cloud_knowledge_bases(
         ).execute()
         
         if result.error:
+            logger.error(f"RPC error getting root cloud KBs: {result.error}")
             raise HTTPException(status_code=500, detail=str(result.error))
         
         entries = result.data if result.data else []
+        
+        logger.info(f"Fetched {len(entries)} root cloud knowledge bases for account {account_id}")
         
         return {"entries": entries}
         
