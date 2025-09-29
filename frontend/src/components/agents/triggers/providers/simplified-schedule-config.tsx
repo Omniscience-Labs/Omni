@@ -778,7 +778,12 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
 
                           {/* Date Selection */}
                           <div className="space-y-2">
-                            <Label className="text-xs">Date</Label>
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs">Date</Label>
+                              <span className="text-xs text-muted-foreground">
+                                Timezone: {timezone}
+                              </span>
+                            </div>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <Button
@@ -797,7 +802,13 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
                                   mode="single"
                                   selected={oneTimeDate}
                                   onSelect={setOneTimeDate}
-                                  disabled={(date) => date < new Date()}
+                                  disabled={(date) => {
+                                    const today = new Date();
+                                    today.setHours(0, 0, 0, 0); // Start of today in local timezone
+                                    const compareDate = new Date(date);
+                                    compareDate.setHours(0, 0, 0, 0); // Start of selected date
+                                    return compareDate < today;
+                                  }}
                                   initialFocus
                                 />
                               </PopoverContent>
@@ -806,7 +817,12 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
 
                           {/* Time Selection */}
                           <div className="space-y-2">
-                            <Label className="text-xs">Time</Label>
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs">Time</Label>
+                              <span className="text-xs text-muted-foreground">
+                                {timezone}
+                              </span>
+                            </div>
                             <div className="flex gap-2">
                               <Select value={oneTimeHour} onValueChange={setOneTimeHour}>
                                 <SelectTrigger className="w-20">

@@ -275,7 +275,7 @@ const TestimonialsSection = () => {
       avatar: "💡"
     },
     {
-      quote: "Omni saves us a tonne of time putting quotes together",
+      quote: "Omni saves us a ton of time putting quotes together",
       author: "Tim Burnside",
       company: "Huston Electric",
       avatar: "⚡",
