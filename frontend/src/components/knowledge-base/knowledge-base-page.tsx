@@ -196,7 +196,7 @@ const DraggableCloudKB = ({ kb, isMoving, onSelect }: {
 interface Entry {
     entry_id: string;
     filename: string;
-    summary: string;
+    summary?: string;
     file_size: number;
     created_at: string;
 }
