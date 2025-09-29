@@ -363,10 +363,10 @@ export function KnowledgeBasePage() {
         currentSummary: '',
     });
 
-    // File preview modal state
+    // File preview modal state (only for files, not cloud KBs)
     const [filePreviewModal, setFilePreviewModal] = useState<{
         isOpen: boolean;
-        file: Entry | KnowledgeBaseEntry | null;
+        file: (Entry | FileEntry) | null;
     }>({
         isOpen: false,
         file: null,
@@ -570,10 +570,10 @@ export function KnowledgeBasePage() {
     };
 
     const handleFileSelect = (item: TreeItem) => {
-        if (item.type === 'file' && item.data && 'entry_id' in item.data) {
+        if (item.type === 'file' && item.data && 'entry_id' in item.data && 'filename' in item.data && item.data.filename) {
             setFilePreviewModal({
                 isOpen: true,
-                file: item.data,
+                file: item.data as Entry | FileEntry,
             });
         } else {
             setSelectedItem(item);
@@ -1474,14 +1474,14 @@ export function KnowledgeBasePage() {
                     currentSummary={editSummaryModal.currentSummary}
                 />
 
-                {filePreviewModal.file && (
+                {filePreviewModal.file && filePreviewModal.file.filename && (
                     <KBFilePreviewModal
                         isOpen={filePreviewModal.isOpen}
                         onClose={() => setFilePreviewModal({ isOpen: false, file: null })}
-                        file={filePreviewModal.file}
-                    onEditSummary={handleEditSummary}
-                />
-            )}
+                        file={filePreviewModal.file as { entry_id: string; filename: string; summary?: string; file_size?: number; created_at: string }}
+                        onEditSummary={handleEditSummary}
+                    />
+                )}
 
 
             {/* Cloud Knowledge Base Dialog */}
