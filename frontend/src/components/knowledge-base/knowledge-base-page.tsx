@@ -11,6 +11,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { FileNameValidator } from '@/lib/validation';
+import type { 
+    KnowledgeBaseEntry, 
+    CloudKBEntry
+} from '@/types/knowledge-base';
+import type { Folder, TreeItem, FileEntry } from '@/types/knowledge-base';
+import {
+    ENTRY_TYPE_FILE,
+    ENTRY_TYPE_CLOUD_KB,
+    CLOUD_KB_ID_PREFIX,
+    getCloudKBId,
+    extractCloudKBId,
+    isCloudKBId,
+    isCloudKBEntry
+} from '@/types/knowledge-base';
 import {
     FolderIcon,
     FileIcon,
@@ -22,7 +36,8 @@ import {
     ChevronRightIcon,
     MoreVerticalIcon,
     Database,
-    Loader2
+    Loader2,
+    SearchIcon
 } from 'lucide-react';
 import { KnowledgeBasePageHeader } from './knowledge-base-header';
 import {
@@ -36,6 +51,7 @@ import {
     DragOverlay,
     DragStartEvent,
     useDroppable,
+    useDraggable,
 } from '@dnd-kit/core';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -114,37 +130,87 @@ const formatDate = (dateString: string) => {
     });
 };
 
-interface Folder {
-    folder_id: string;
-    name: string;
-    description?: string;
-    entry_count: number;
-    created_at: string;
-}
+// Draggable Cloud Knowledge Base Component
+const DraggableCloudKB = ({ kb, isMoving, onSelect }: { 
+    kb: CloudKBEntry, 
+    isMoving: boolean, 
+    onSelect: (item: TreeItem) => void 
+}) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        isDragging,
+    } = useDraggable({
+        id: getCloudKBId(kb.entry_id),
+    });
 
+    const style = {
+        transform: `translate3d(${transform?.x ?? 0}px, ${transform?.y ?? 0}px, 0)`,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            {...listeners}
+            {...attributes}
+            className={`group cursor-pointer ${isMoving ? 'opacity-50' : ''}`}
+            onClick={() => {
+                if (!isDragging) {
+                    onSelect({
+                        id: getCloudKBId(kb.entry_id),
+                        type: 'file',
+                        name: kb.name,
+                        data: kb,
+                    });
+                }
+            }}
+        >
+            <div className="p-4 border border-blue-200 bg-blue-50/30 dark:border-blue-800 dark:bg-blue-900/10 rounded-lg hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200">
+                <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                        <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                            <Database className="h-3 w-3 mr-1" />
+                            CLOUD
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                        <p className="text-xs font-medium text-foreground truncate" title={kb.name}>
+                            {kb.name}
+                        </p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400">
+                            {formatDate(kb.created_at)}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Local interface for simplified entry display (recent files)
 interface Entry {
     entry_id: string;
     filename: string;
-    summary: string;
+    summary?: string;
     file_size: number;
     created_at: string;
 }
 
-interface TreeItem {
-    id: string;
-    type: 'folder' | 'file';
-    name: string;
-    parentId?: string;
-    data?: Folder | Entry;
-    children?: TreeItem[];
-    expanded?: boolean;
-}
+// Extended TreeItem type for this component (includes Entry for compatibility)
+type LocalTreeItem = TreeItem & {
+    data?: Folder | Entry | KnowledgeBaseEntry;
+};
 
 // Hooks for API calls
 const useKnowledgeFolders = () => {
     const [folders, setFolders] = useState<Folder[]>([]);
     const [recentFiles, setRecentFiles] = useState<Entry[]>([]);
-    const [llamacloudKBs, setLlamacloudKBs] = useState<any[]>([]);
+    const [llamacloudKBs, setLlamacloudKBs] = useState<CloudKBEntry[]>([]);
     const [loading, setLoading] = useState(true);
 
     const fetchFolders = async () => {
@@ -162,10 +228,11 @@ const useKnowledgeFolders = () => {
                 return;
             }
 
-            // Fetch recent files (last 6 files across all folders)
+            // Fetch recent files (last 6 files across all folders) - only FILE entries, not cloud KBs
             const { data: recentFilesData, error: recentError } = await supabase
                 .from('knowledge_base_entries')
                 .select('entry_id, filename, summary, file_size, created_at, folder_id')
+                .eq('entry_type', ENTRY_TYPE_FILE)
                 .order('created_at', { ascending: false })
                 .limit(6);
 
@@ -175,13 +242,14 @@ const useKnowledgeFolders = () => {
                 setRecentFiles(recentFilesData || []);
             }
 
-            // Get entry counts for each folder
+            // Get entry counts for each folder (only FILE entries, not cloud KBs)
             const foldersWithCounts = await Promise.all(
                 foldersData.map(async (folder) => {
                     const { count, error: countError } = await supabase
                         .from('knowledge_base_entries')
                         .select('*', { count: 'exact', head: true })
-                        .eq('folder_id', folder.folder_id);
+                        .eq('folder_id', folder.folder_id)
+                        .eq('entry_type', ENTRY_TYPE_FILE);
 
                     if (countError) {
                         console.error('Error counting entries:', countError);
@@ -199,11 +267,11 @@ const useKnowledgeFolders = () => {
 
             setFolders(foldersWithCounts);
 
-            // Fetch global LlamaCloud knowledge bases
+            // Fetch global LlamaCloud knowledge bases at root level (not in folders)
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.access_token) {
                 try {
-                    const kbResponse = await fetch(`${API_URL}/knowledge-base/llamacloud`, {
+                    const kbResponse = await fetch(`${API_URL}/knowledge-base/llamacloud/root`, {
                         headers: {
                             'Authorization': `Bearer ${session.access_token}`,
                             'Content-Type': 'application/json',
@@ -212,10 +280,16 @@ const useKnowledgeFolders = () => {
                     
                     if (kbResponse.ok) {
                         const kbData = await kbResponse.json();
-                        setLlamacloudKBs(kbData.knowledge_bases || []);
+                        console.log('Cloud KB Response:', kbData);
+                        console.log('Cloud KB Entries:', kbData.entries);
+                        setLlamacloudKBs(kbData.entries || []);
+                    } else {
+                        console.error('Failed to fetch cloud KBs, status:', kbResponse.status);
+                        const errorText = await kbResponse.text();
+                        console.error('Error response:', errorText);
                     }
                 } catch (kbError) {
-                    console.error('Failed to fetch LlamaCloud KBs:', kbError);
+                    console.error('Failed to fetch root LlamaCloud KBs:', kbError);
                 }
             }
         } catch (error) {
@@ -233,7 +307,7 @@ const useKnowledgeFolders = () => {
 };
 
 export function KnowledgeBasePage() {
-    const [treeData, setTreeData] = useState<TreeItem[]>([]);
+    const [treeData, setTreeData] = useState<LocalTreeItem[]>([]);
     const [folderEntries, setFolderEntries] = useState<{ [folderId: string]: Entry[] }>({});
     const [loadingFolders, setLoadingFolders] = useState<{ [folderId: string]: boolean }>({});
     const [movingFiles, setMovingFiles] = useState<{ [fileId: string]: boolean }>({});
@@ -242,7 +316,9 @@ export function KnowledgeBasePage() {
     const [editingName, setEditingName] = useState('');
     const [validationError, setValidationError] = useState<string | null>(null);
     const [activeId, setActiveId] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
     const editInputRef = useRef<HTMLInputElement>(null);
+    const isOperationInProgress = useRef(false);
 
 
     // Cloud KB dialog state  
@@ -295,16 +371,71 @@ export function KnowledgeBasePage() {
         currentSummary: '',
     });
 
-    // File preview modal state
+    // File preview modal state (only for files, not cloud KBs)
     const [filePreviewModal, setFilePreviewModal] = useState<{
         isOpen: boolean;
-        file: Entry | null;
+        file: (Entry | FileEntry) | null;
     }>({
         isOpen: false,
         file: null,
     });
 
     const { folders, recentFiles, llamacloudKBs, loading: foldersLoading, refetch: refetchFolders } = useKnowledgeFolders();
+
+    // Cleanup movingFiles state periodically to prevent memory leaks
+    React.useEffect(() => {
+        const cleanup = () => {
+            setMovingFiles(prev => {
+                const active = Object.entries(prev).filter(([_, isMoving]) => isMoving);
+                return Object.fromEntries(active);
+            });
+        };
+
+        const interval = setInterval(cleanup, 60000); // Cleanup every minute
+        return () => clearInterval(interval);
+    }, []);
+
+    // Filter data based on search query
+    const filteredData: { folders: LocalTreeItem[]; llamacloudKBs: CloudKBEntry[] } = React.useMemo(() => {
+        if (!searchQuery.trim()) {
+            return { folders: treeData, llamacloudKBs };
+        }
+
+        const query = searchQuery.toLowerCase().trim();
+        
+        // Filter LlamaCloud KBs
+        const filteredCloudKBs = llamacloudKBs.filter(kb => 
+            kb.name.toLowerCase().includes(query) ||
+            kb.description?.toLowerCase().includes(query) ||
+            kb.index_name?.toLowerCase().includes(query)
+        );
+
+        // Filter tree data (folders and their files)
+        const filteredFolders = treeData.map(folder => {
+            const folderMatches = folder.name.toLowerCase().includes(query) ||
+                                (folder.data && 'description' in folder.data && folder.data.description?.toLowerCase().includes(query));
+            
+            const filteredChildren = (folder.children || []).filter(child =>
+                child.name.toLowerCase().includes(query) ||
+                (child.data && 'summary' in child.data && child.data.summary?.toLowerCase().includes(query))
+            );
+
+            // Include folder if it matches or has matching children
+            if (folderMatches || filteredChildren.length > 0) {
+                return {
+                    ...folder,
+                    children: filteredChildren,
+                    expanded: filteredChildren.length > 0 ? true : folder.expanded // Auto-expand if has matching children
+                };
+            }
+            return null;
+        }).filter(item => item !== null) as LocalTreeItem[];
+
+        return { 
+            folders: filteredFolders, 
+            llamacloudKBs: filteredCloudKBs 
+        };
+    }, [treeData, llamacloudKBs, searchQuery]);
 
     // DND Sensors
     const sensors = useSensors(
@@ -317,23 +448,25 @@ export function KnowledgeBasePage() {
     // Build tree structure
     React.useEffect(() => {
         const buildTree = () => {
-            const tree: TreeItem[] = folders.map(folder => {
+            const tree: LocalTreeItem[] = folders.map(folder => {
                 // Preserve existing expanded state
                 const existingFolder = treeData.find(item => item.id === folder.folder_id);
                 const isExpanded = existingFolder?.expanded || false;
+
+                const children = (folderEntries[folder.folder_id]?.map(entry => ({
+                    id: entry.entry_id,
+                    type: 'file' as const,
+                    name: entry.filename,
+                    parentId: folder.folder_id,
+                    data: entry,
+                })) || []) as LocalTreeItem[];
 
                 return {
                     id: folder.folder_id,
                     type: 'folder' as const,
                     name: folder.name,
                     data: folder,
-                    children: folderEntries[folder.folder_id]?.map(entry => ({
-                        id: entry.entry_id,
-                        type: 'file' as const,
-                        name: entry.filename,
-                        parentId: folder.folder_id,
-                        data: entry,
-                    })) || [],
+                    children,
                     expanded: isExpanded,
                 };
             });
@@ -445,10 +578,10 @@ export function KnowledgeBasePage() {
     };
 
     const handleFileSelect = (item: TreeItem) => {
-        if (item.type === 'file' && item.data && 'entry_id' in item.data) {
+        if (item.type === 'file' && item.data && 'entry_id' in item.data && 'filename' in item.data && item.data.filename) {
             setFilePreviewModal({
                 isOpen: true,
-                file: item.data,
+                file: item.data as Entry | FileEntry,
             });
         } else {
             setSelectedItem(item);
@@ -565,7 +698,17 @@ export function KnowledgeBasePage() {
 
             if (response.ok) {
                 const data = await response.json();
-                setFolderEntries(prev => ({ ...prev, [folderId]: data }));
+                console.log('Download response status:', response.status);
+                console.log('Download result:', data);
+                
+                // Extract the entries array from the response
+                const entries = data.entries || data;
+                if (!Array.isArray(entries)) {
+                    console.error('Expected entries to be an array, got:', typeof entries, entries);
+                }
+                setFolderEntries(prev => ({ ...prev, [folderId]: Array.isArray(entries) ? entries : [] }));
+            } else {
+                console.error('Failed to fetch folder entries:', response.status, response.statusText);
             }
         } catch (error) {
             console.error('Failed to fetch entries:', error);
@@ -874,6 +1017,25 @@ export function KnowledgeBasePage() {
         const activeItemId = active.id.toString();
         const overItemId = over.id.toString().replace('droppable-', ''); // Remove droppable prefix if present
 
+        // Check if active item is a cloud knowledge base (from root level)
+        if (isCloudKBId(activeItemId)) {
+            const kbId = extractCloudKBId(activeItemId);
+            const cloudKBItem = llamacloudKBs.find(kb => kb.entry_id === kbId);
+            
+            if (cloudKBItem) {
+                // Moving cloud knowledge base to folder
+                const overItem = treeData.find(item => item.id === overItemId);
+                if (overItem && overItem.type === 'folder') {
+                    handleMoveCloudKB(cloudKBItem.entry_id, overItem.id);
+                } else {
+                    // Invalid drop target
+                    toast.error('Cloud knowledge bases can only be dropped on folders');
+                }
+            }
+            setActiveId(null);
+            return;
+        }
+
         const activeItem = treeData.flatMap(folder => [folder, ...(folder.children || [])]).find(item => item.id === activeItemId);
         const overItem = treeData.flatMap(folder => [folder, ...(folder.children || [])]).find(item => item.id === overItemId);
 
@@ -885,12 +1047,21 @@ export function KnowledgeBasePage() {
         // File to folder: Move file to different folder
         if (activeItem.type === 'file' && overItem.type === 'folder') {
             handleMoveFile(activeItem.id, overItem.id);
+        } else {
+            // Invalid combination
+            toast.error('Files can only be moved to folders');
         }
 
         setActiveId(null);
     };
 
     const handleMoveFile = async (fileId: string, targetFolderId: string) => {
+        // Prevent concurrent operations
+        if (isOperationInProgress.current) {
+            return;
+        }
+        
+        isOperationInProgress.current = true;
         setMovingFiles(prev => ({ ...prev, [fileId]: true }));
 
         try {
@@ -898,7 +1069,10 @@ export function KnowledgeBasePage() {
             const { data: { session } } = await supabase.auth.getSession();
 
             if (!session?.access_token) {
-                throw new Error('No session found');
+                toast.error('Authentication required. Please log in again.');
+                isOperationInProgress.current = false;
+                setMovingFiles(prev => ({ ...prev, [fileId]: false }));
+                return;
             }
 
             const response = await fetch(`${API_URL}/knowledge-base/entries/${fileId}/move`, {
@@ -915,19 +1089,95 @@ export function KnowledgeBasePage() {
             if (response.ok) {
                 toast.success('File moved successfully');
                 refetchFolders();
+                
                 // Refresh folder entries for both source and target folders
                 const movedItem = treeData.flatMap(folder => folder.children || []).find(file => file.id === fileId);
-                if (movedItem) {
-                    await fetchFolderEntries(movedItem.parentId!);
+                if (movedItem?.parentId) {
+                    try {
+                        await fetchFolderEntries(movedItem.parentId);
+                    } catch (fetchError) {
+                        console.error('Failed to refresh source folder:', fetchError);
+                    }
+                }
+                
+                try {
                     await fetchFolderEntries(targetFolderId);
+                } catch (fetchError) {
+                    console.error('Failed to refresh target folder:', fetchError);
                 }
             } else {
-                toast.error('Failed to move file');
+                const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                const errorMessage = errorData.detail || errorData.message || 'Failed to move file';
+                toast.error(errorMessage);
             }
         } catch (error) {
-            toast.error('Failed to move file');
+            console.error('Move file error:', error);
+            const message = error instanceof Error ? error.message : 'Failed to move file';
+            toast.error(message);
         } finally {
             setMovingFiles(prev => ({ ...prev, [fileId]: false }));
+            isOperationInProgress.current = false;
+        }
+    };
+
+    const handleMoveCloudKB = async (kbId: string, targetFolderId: string) => {
+        // Prevent concurrent operations
+        if (isOperationInProgress.current) {
+            return;
+        }
+        
+        isOperationInProgress.current = true;
+        const movingKey = getCloudKBId(kbId);
+        setMovingFiles(prev => ({ ...prev, [movingKey]: true }));
+
+        try {
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session?.access_token) {
+                toast.error('Authentication required. Please log in again.');
+                isOperationInProgress.current = false;
+                setMovingFiles(prev => ({ ...prev, [movingKey]: false }));
+                return;
+            }
+
+            const response = await fetch(`${API_URL}/knowledge-base/llamacloud/${kbId}/move`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    folder_id: targetFolderId
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                toast.success('Cloud knowledge base moved successfully');
+                
+                // Refresh data
+                refetchFolders(); // This will refresh both folders and root-level cloud KBs
+                
+                // Refresh target folder entries to show the moved cloud KB
+                try {
+                    await fetchFolderEntries(targetFolderId);
+                } catch (fetchError) {
+                    console.error('Failed to refresh folder entries:', fetchError);
+                    // Non-critical error, don't show to user
+                }
+            } else {
+                const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                const errorMessage = errorData.detail || errorData.message || 'Failed to move cloud knowledge base';
+                toast.error(errorMessage);
+            }
+        } catch (error) {
+            console.error('Move cloud KB error:', error);
+            const message = error instanceof Error ? error.message : 'Failed to move cloud knowledge base';
+            toast.error(message);
+        } finally {
+            setMovingFiles(prev => ({ ...prev, [movingKey]: false }));
+            isOperationInProgress.current = false;
         }
     };
 
@@ -976,11 +1226,23 @@ export function KnowledgeBasePage() {
                     <div className="w-full min-h-[calc(100vh-300px)]">
                         {/* Header Section */}
                         <div className="flex justify-between items-start mb-8">
-                            <div className="space-y-1">
-                                <h2 className="text-xl font-semibold text-foreground">Knowledge Base</h2>
-                                <p className="text-sm text-muted-foreground">
-                                    Organize documents and files for AI agents to search and reference
-                                </p>
+                            <div className="space-y-3">
+                                <div>
+                                    <h2 className="text-xl font-semibold text-foreground">Knowledge Base</h2>
+                                    <p className="text-sm text-muted-foreground">
+                                        Organize documents and files for AI agents to search and reference
+                                    </p>
+                                </div>
+                                {/* Search Input */}
+                                <div className="relative w-96">
+                                    <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Search folders, files, and cloud knowledge bases..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="pl-10"
+                                    />
+                                </div>
                             </div>
                             <div className="flex gap-3">
                                 <Button variant="outline" onClick={handleAddCloudKB}>
@@ -1049,33 +1311,14 @@ export function KnowledgeBasePage() {
                                             );
                                         })}
 
-                                        {/* LlamaCloud Knowledge Bases as File-like Items */}
-                                        {llamacloudKBs.slice(0, 2).map((kb) => (
-                                            <div
-                                                key={`cloud-${kb.kb_id}`}
-                                                className="group cursor-pointer"
-                                                onClick={() => console.log('View LlamaCloud KB:', kb.name)}
-                                            >
-                                                <div className="p-4 border border-blue-200 bg-blue-50/30 dark:border-blue-800 dark:bg-blue-900/10 rounded-lg hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200">
-                                                    <div className="space-y-3">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
-                                                                <Database className="h-3 w-3 mr-1" />
-                                                                CLOUD
-                                                            </div>
-                                                        </div>
-                                                        
-                                                        <div className="space-y-1">
-                                                            <p className="text-xs font-medium text-foreground truncate" title={kb.name}>
-                                                                {kb.name}
-                                                            </p>
-                                                            <p className="text-xs text-blue-600 dark:text-blue-400">
-                                                                {formatDate(kb.created_at)}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                        {/* LlamaCloud Knowledge Bases as Draggable Items */}
+                                        {filteredData.llamacloudKBs.map((kb) => (
+                                            <DraggableCloudKB
+                                                key={getCloudKBId(kb.entry_id)}
+                                                kb={kb}
+                                                isMoving={movingFiles[getCloudKBId(kb.entry_id)] || false}
+                                                onSelect={setSelectedItem}
+                                            />
                                         ))}
                                     </div>
                                 </div>
@@ -1100,8 +1343,17 @@ export function KnowledgeBasePage() {
                                             items={[]} // No sorting - only drag files to folders
                                             strategy={verticalListSortingStrategy}
                                         >
-                                            <div className="space-y-3">
-                                                {treeData.map((item) => (
+                                            {searchQuery.trim() && filteredData.folders.length === 0 && filteredData.llamacloudKBs.length === 0 ? (
+                                                <div className="text-center py-12">
+                                                    <SearchIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                                                    <h3 className="text-lg font-medium text-foreground mb-2">No results found</h3>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        No folders, files, or cloud knowledge bases match "{searchQuery}"
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {filteredData.folders.map((item) => (
                                                     <SharedTreeItem
                                                         key={item.id}
                                                         item={item}
@@ -1126,11 +1378,35 @@ export function KnowledgeBasePage() {
                                                         movingFiles={movingFiles}
                                                     />
                                                 ))}
-                                            </div>
+                                                </div>
+                                            )}
                                         </SortableContext>
 
                                         <DragOverlay>
                                             {activeId ? (() => {
+                                                const activeIdStr = activeId.toString();
+                                                
+                                                // Check if it's a cloud knowledge base being dragged
+                                                if (isCloudKBId(activeIdStr)) {
+                                                    const kbId = extractCloudKBId(activeIdStr);
+                                                    const cloudKB = llamacloudKBs.find(kb => kb.entry_id === kbId);
+                                                    if (cloudKB) {
+                                                        return (
+                                                            <div className="bg-background border rounded-lg p-3 shadow-lg">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Database className="h-4 w-4 text-blue-500" />
+                                                                    <span className="font-medium text-sm">
+                                                                        {cloudKB.name}
+                                                                    </span>
+                                                                    <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border bg-blue-100 text-blue-700 border-blue-200">
+                                                                        CLOUD
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+                                                }
+
                                                 // Find the active item in the tree data
                                                 const findActiveItem = (items: any[]): any => {
                                                     for (const item of items) {
@@ -1206,19 +1482,19 @@ export function KnowledgeBasePage() {
                     currentSummary={editSummaryModal.currentSummary}
                 />
 
-                {filePreviewModal.file && (
+                {filePreviewModal.file && filePreviewModal.file.filename && (
                     <KBFilePreviewModal
                         isOpen={filePreviewModal.isOpen}
                         onClose={() => setFilePreviewModal({ isOpen: false, file: null })}
-                        file={filePreviewModal.file}
-                    onEditSummary={handleEditSummary}
-                />
-            )}
+                        file={filePreviewModal.file as { entry_id: string; filename: string; summary?: string; file_size?: number; created_at: string }}
+                        onEditSummary={handleEditSummary}
+                    />
+                )}
 
 
             {/* Cloud Knowledge Base Dialog */}
             <Dialog open={cloudKBDialog.isOpen} onOpenChange={(open) => setCloudKBDialog(prev => ({ ...prev, isOpen: open }))}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <Database className="h-5 w-5" />

@@ -89,10 +89,10 @@ class ModelRegistry:
                 input_cost_per_million_tokens=1.25,
                 output_cost_per_million_tokens=10.00
             ),
-            tier_availability=["free", "paid"],
-            priority=99,
-            enabled=True,
-            recommended=True
+            tier_availability=["paid", "free"],
+            priority=85,
+            enabled=False,
+            recommended=False
         ))
         
         self.register(Model(
@@ -112,7 +112,7 @@ class ModelRegistry:
             ),
             tier_availability=["free", "paid"],
             priority=96,
-            enabled=True
+            enabled=False
         ))
         
         # self.register(Model(

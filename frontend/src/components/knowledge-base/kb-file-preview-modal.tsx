@@ -21,8 +21,8 @@ interface KBFilePreviewModalProps {
     file: {
         entry_id: string;
         filename: string;
-        summary: string;
-        file_size: number;
+        summary?: string;
+        file_size?: number;
         created_at: string;
     };
     onEditSummary: (fileId: string, fileName: string, summary: string) => void;

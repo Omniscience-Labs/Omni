@@ -58,29 +58,38 @@ export const useModelSelection = () => {
       models = [
         { 
           id: 'claude-sonnet-4', 
-          label: 'Claude Sonnet 4', 
+          label: 'Omni 4', 
           requiresSubscription: false,
           priority: 100,
           recommended: true
         },
-        { 
-          id: 'openai/gpt-5', 
-          label: 'GPT-5', 
-          requiresSubscription: false, 
-          priority: 99,
-          recommended: true
-        },
       ];
     } else {
-      models = modelsData.models.map(model => ({
-        id: model.short_name || model.id,
-        label: model.display_name || model.short_name || model.id,
-        requiresSubscription: model.requires_subscription || false,
-        priority: model.priority || 0,
-        recommended: model.recommended || false,
-        capabilities: model.capabilities || [],
-        contextWindow: model.context_window || 128000,
-      }));
+      models = modelsData.models
+        .filter(model => {
+          // Hide GPT-5 models entirely
+          const modelName = model.display_name || model.short_name || model.id;
+          return !modelName.toLowerCase().includes('gpt-5');
+        })
+        .map(model => {
+          let label = model.display_name || model.short_name || model.id;
+          
+          // Transform Claude Sonnet 4 to Omni 4
+          if (label === 'Claude Sonnet 4' || label === 'claude-sonnet-4' || 
+              (model.short_name || model.id) === 'anthropic/claude-sonnet-4-20250514') {
+            label = 'Omni 4';
+          }
+          
+          return {
+            id: model.short_name || model.id,
+            label: label,
+            requiresSubscription: model.requires_subscription || false,
+            priority: model.priority || 0,
+            recommended: model.recommended || false,
+            capabilities: model.capabilities || [],
+            contextWindow: model.context_window || 128000,
+          };
+        });
     }
     
     return models.sort((a, b) => {
