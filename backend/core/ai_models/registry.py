@@ -91,7 +91,7 @@ class ModelRegistry:
             ),
             tier_availability=["paid", "free"],
             priority=85,
-            enabled=True,
+            enabled=False,
             recommended=False
         ))
         
@@ -112,7 +112,7 @@ class ModelRegistry:
             ),
             tier_availability=["free", "paid"],
             priority=96,
-            enabled=True
+            enabled=False
         ))
         
         # self.register(Model(
