@@ -1,8 +1,12 @@
 -- Fix get_unified_root_entries and get_unified_folder_entries to include account_id and folder_id
 -- These fields are required by the TypeScript CloudKBEntry interface
 
--- Fix folder entries function
-CREATE OR REPLACE FUNCTION get_unified_folder_entries(
+-- Drop existing functions first (must drop to change return type)
+DROP FUNCTION IF EXISTS get_unified_folder_entries(UUID, UUID, BOOLEAN);
+DROP FUNCTION IF EXISTS get_unified_root_entries(UUID, BOOLEAN);
+
+-- Recreate folder entries function with account_id and folder_id
+CREATE FUNCTION get_unified_folder_entries(
     p_folder_id UUID,
     p_account_id UUID,
     p_include_inactive BOOLEAN DEFAULT FALSE
@@ -87,8 +91,8 @@ BEGIN
 END;
 $$;
 
--- Fix root entries function
-CREATE OR REPLACE FUNCTION get_unified_root_entries(
+-- Recreate root entries function with account_id and folder_id
+CREATE FUNCTION get_unified_root_entries(
     p_account_id UUID,
     p_include_inactive BOOLEAN DEFAULT FALSE
 )
