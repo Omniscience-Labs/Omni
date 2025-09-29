@@ -49,30 +49,54 @@ export const useModelSelection = () => {
   const { data: subscriptionData } = useSubscriptionData();
   const { selectedModel, setSelectedModel } = useModelStore();
 
-  // Transform API data to ModelOption format
+  // Transform API data to ModelOption format with fallback models (like PRODUCTION)
   const availableModels = useMemo<ModelOption[]>(() => {
-    if (!modelsData?.models) return [];
+    let models: ModelOption[] = [];
     
-    return modelsData.models.map(model => ({
-      id: model.short_name || model.id,
-      label: model.display_name || model.short_name || model.id,
-      requiresSubscription: model.requires_subscription || false,
-      priority: model.priority || 0,
-      recommended: model.recommended || false,
-      capabilities: model.capabilities || [],
-      contextWindow: model.context_window || 128000,
-    })).sort((a, b) => {
+    if (!modelsData?.models || isLoading) {
+      // Fallback models when API fails (matching PRODUCTION pattern)
+      models = [
+        { 
+          id: 'claude-sonnet-4', 
+          label: 'Claude Sonnet 4', 
+          requiresSubscription: false,
+          priority: 100,
+          recommended: true
+        },
+        { 
+          id: 'openai/gpt-5', 
+          label: 'GPT-5', 
+          requiresSubscription: false, 
+          priority: 99,
+          recommended: true
+        },
+      ];
+    } else {
+      models = modelsData.models.map(model => ({
+        id: model.short_name || model.id,
+        label: model.display_name || model.short_name || model.id,
+        requiresSubscription: model.requires_subscription || false,
+        priority: model.priority || 0,
+        recommended: model.recommended || false,
+        capabilities: model.capabilities || [],
+        contextWindow: model.context_window || 128000,
+      }));
+    }
+    
+    return models.sort((a, b) => {
       // Sort by recommended first, then priority, then name
       if (a.recommended !== b.recommended) return a.recommended ? -1 : 1;
       if (a.priority !== b.priority) return b.priority - a.priority;
       return a.label.localeCompare(b.label);
     });
-  }, [modelsData]);
+  }, [modelsData, isLoading]);
 
-  // Get accessible models based on subscription
+  // Get accessible models based on subscription (matching PRODUCTION pattern)
   const accessibleModels = useMemo(() => {
-    // In enterprise mode, all models should be accessible (backend sets requires_subscription: false)
-    const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+    // Check enterprise mode safely to avoid hydration mismatches
+    const isEnterpriseMode = typeof window !== 'undefined' && 
+      process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+    
     if (isEnterpriseMode) {
       return availableModels; // All models accessible in enterprise mode
     }
