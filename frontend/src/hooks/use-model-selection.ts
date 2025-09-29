@@ -71,10 +71,8 @@ export const useModelSelection = () => {
 
   // Get accessible models based on subscription
   const accessibleModels = useMemo(() => {
-    // Check enterprise mode safely to avoid hydration mismatches
-    const isEnterpriseMode = typeof window !== 'undefined' && 
-      process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
-    
+    // In enterprise mode, all models should be accessible (backend sets requires_subscription: false)
+    const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
     if (isEnterpriseMode) {
       return availableModels; // All models accessible in enterprise mode
     }
