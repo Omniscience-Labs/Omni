@@ -33,6 +33,7 @@ from core.services import email_api
 from core.services import memory_api
 from core.triggers import api as triggers_api
 from core.services import api_keys_api
+from core.services import enterprise_billing_api
 
 
 if sys.platform == "win32":
@@ -130,7 +131,7 @@ async def log_requests_middleware(request: Request, call_next):
         raise
 
 # Define allowed origins based on environment
-allowed_origins = ["https://www.suna.so", "https://suna.so", "https://operator.becomeomni.net", "https://coldchain.becomeomni.ai", "https://sundar-dev.operator.becomeomni.net","https://varnica.operator.becomeomni.net","https://mssc.becomeomni.net", "https://mssc.becomeomni.ai","https://coppermoon.becomeomni.ai","https://huston.becomeomni.ai","https://huston.staging.becomeomni.net"]
+allowed_origins = ["https://www.suna.so", "https://suna.so", "https://operator.becomeomni.net", "https://coldchain.becomeomni.ai", "https://sundar-dev.operator.becomeomni.net","https://varnica.operator.becomeomni.net","https://mssc.becomeomni.net", "https://mssc.becomeomni.ai","https://coppermoon.becomeomni.ai","https://huston.becomeomni.ai","https://huston.staging.becomeomni.net", "https://becomeomni.com"]
 allow_origin_regex = None
 
 # Add staging-specific origins
