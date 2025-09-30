@@ -29,7 +29,7 @@ import { useAuth } from '@/components/AuthProvider';
 import posthog from 'posthog-js';
 
 // Constants
-const DEFAULT_SELECTED_PLAN = '6 hours';
+const DEFAULT_SELECTED_PLAN = 'pro';
 export const SUBSCRIPTION_PLANS = {
   FREE: 'free',
   PRO: 'base',
@@ -765,12 +765,14 @@ function PricingTierButton({
 // Helper function to get yearly commitment pricing
 const getYearlyCommitmentPrice = (tierName: string): string => {
   switch (tierName) {
-    case 'Plus':
-      return '$17';
-    case 'Pro':
-      return '$42.50';
-    case 'Ultra':
-      return '$170';
+    case 'Totally Free':
+      return '$0';
+    case 'Ridiculously Cheap':
+      return '$17'; // $20/month tier with yearly commitment
+    case 'Ridiculously Pro':
+      return '$43'; // $50/month tier with yearly commitment  
+    case 'Serious Business':
+      return '$170'; // $200/month tier with yearly commitment
     default:
       return '$0';
   }
