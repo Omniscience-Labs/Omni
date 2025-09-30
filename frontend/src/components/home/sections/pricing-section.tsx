@@ -778,6 +778,21 @@ const getYearlyCommitmentPrice = (tierName: string): string => {
   }
 };
 
+const getYearlyCommitmentTotal = (tierName: string): string => {
+  switch (tierName) {
+    case 'Totally Free':
+      return '$0';
+    case 'Ridiculously Cheap':
+      return '$204'; // $17 × 12 months
+    case 'Ridiculously Pro':
+      return '$516'; // $43 × 12 months  
+    case 'Serious Business':
+      return '$2040'; // $170 × 12 months
+    default:
+      return '$0';
+  }
+};
+
 export function PricingSection({
   returnUrl = typeof window !== 'undefined' ? window.location.href : '/',
   showTitleAndTabs = true,
@@ -949,11 +964,23 @@ export function PricingSection({
                           ? getYearlyCommitmentPrice(tier.name)
                           : tier.price}
                       </span>
-                      <span className="text-muted-foreground ml-1">/month</span>
+                      {tier.price !== '$0' && (
+                        <span className="text-muted-foreground ml-1">/month</span>
+                      )}
                     </div>
                     {billingPeriod === 'yearly_commitment' && (
                       <div className="text-sm text-muted-foreground mt-1">
                         <span className="line-through">{tier.price}</span>
+                      </div>
+                    )}
+                    {(billingPeriod === 'yearly' && tier.yearlyPrice && tier.price !== '$0') && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        ({tier.yearlyPrice}/year)
+                      </div>
+                    )}
+                    {(billingPeriod === 'yearly_commitment' && tier.price !== '$0') && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        ({getYearlyCommitmentTotal(tier.name)}/year)
                       </div>
                     )}
                   </div>
