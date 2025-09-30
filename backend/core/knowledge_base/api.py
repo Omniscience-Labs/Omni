@@ -497,6 +497,7 @@ async def get_folder_entries(
         
         entries = result.data if result.data else []
         
+        # FastAPI should handle JSON serialization automatically
         return {"entries": entries}
         
     except HTTPException:
@@ -514,35 +515,66 @@ async def get_root_cloud_knowledge_bases(
     """Get cloud knowledge bases at root level (not in any folder)"""
     account_id = None
     try:
+        logger.info(f"Starting fetch of root cloud KBs for user {user_id}")
         client = await db.client
         
         # Get current account_id from user
         account_id = await get_user_account_id(client, user_id)
+        logger.info(f"Got account_id: {account_id}")
         
-        # Use the SQL function to get root-level unified entries
-        result = await client.rpc(
-            'get_unified_root_entries',
-            {
-                'p_account_id': account_id,
-                'p_include_inactive': include_inactive
-            }
-        ).execute()
+        # Query llamacloud_knowledge_bases table directly for root-level entries
+        query = client.table('llamacloud_knowledge_bases').select('*').eq('account_id', account_id).is_('folder_id', 'null')
+        
+        if not include_inactive:
+            query = query.eq('is_active', True)
+        
+        result = await query.order('created_at', desc=True).execute()
+        
+        logger.info(f"Query result: error={result.error}, count={len(result.data) if result.data else 0}")
         
         if result.error:
-            logger.error(f"RPC error getting root cloud KBs: {result.error}")
+            logger.error(f"Query error getting root cloud KBs: {result.error}")
             raise HTTPException(status_code=500, detail=str(result.error))
         
-        entries = result.data if result.data else []
+        cloud_kbs = result.data if result.data else []
         
-        logger.info(f"Fetched {len(entries)} root cloud knowledge bases for account {account_id}")
+        # Transform to match the unified entry format expected by frontend
+        entries = []
+        for kb in cloud_kbs:
+            entry = {
+                'entry_id': kb['kb_id'],
+                'entry_type': 'cloud_kb',
+                'name': kb['name'],
+                'summary': kb.get('summary') or kb.get('description'),
+                'description': kb.get('description'),
+                'usage_context': kb.get('usage_context', 'always'),
+                'is_active': kb.get('is_active', True),
+                'created_at': kb['created_at'],
+                'updated_at': kb['updated_at'],
+                'filename': None,
+                'file_size': None,
+                'mime_type': None,
+                'index_name': kb['index_name'],
+                'account_id': kb['account_id'],
+                'folder_id': kb.get('folder_id'),
+            }
+            entries.append(entry)
+        
+        logger.info(f"Successfully returning {len(entries)} cloud knowledge bases for account {account_id}")
         
         return {"entries": entries}
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting root cloud knowledge bases for account {account_id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to retrieve root cloud knowledge bases")
+        # Use safe logging without exc_info to avoid structlog serialization issues
+        error_msg = f"Error getting root cloud knowledge bases: {str(e)}"
+        if account_id:
+            error_msg = f"Error getting root cloud knowledge bases for account {account_id}: {str(e)}"
+        logger.error(error_msg)
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve root cloud knowledge bases: {str(e)}")
 
 class KnowledgeBaseEntry(BaseModel):
     entry_id: Optional[str] = None
@@ -1237,53 +1269,6 @@ async def update_agent_unified_assignments(
     except Exception as e:
         logger.error(f"Error updating unified assignments for agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to update unified agent assignments")
-
-# =============================================================================
-# LLAMACLOUD KNOWLEDGE BASE ENDPOINTS (LEGACY/ENTERPRISE SUPPORT)
-# =============================================================================
-
-@router.get("/llamacloud/agents/{agent_id}", response_model=LlamaCloudKnowledgeBaseListResponse)
-async def get_agent_llamacloud_knowledge_bases(
-    agent_id: str,
-    include_inactive: bool = False,
-    user_id: str = Depends(verify_and_get_user_id_from_jwt)
-):
-    """Get all LlamaCloud knowledge bases for an agent"""
-    try:
-        client = await db.client
-
-        # Verify agent access
-        await verify_and_get_agent_authorization(client, agent_id, user_id)
-
-        result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
-            'p_agent_id': agent_id,
-            'p_include_inactive': include_inactive
-        }).execute()
-        
-        knowledge_bases = []
-        
-        for kb_data in result.data or []:
-            kb = LlamaCloudKnowledgeBaseResponse(
-                id=kb_data['id'],
-                name=kb_data['name'],
-                index_name=kb_data['index_name'],
-                description=kb_data['description'],
-                is_active=kb_data['is_active'],
-                created_at=kb_data['created_at'],
-                updated_at=kb_data['updated_at']
-            )
-            knowledge_bases.append(kb)
-        
-        return LlamaCloudKnowledgeBaseListResponse(
-            knowledge_bases=knowledge_bases,
-            total_count=len(knowledge_bases)
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting LlamaCloud knowledge bases for agent {agent_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve agent LlamaCloud knowledge bases")
 
 @router.post("/agents/{agent_id}/assignments")
 async def update_agent_assignments(
