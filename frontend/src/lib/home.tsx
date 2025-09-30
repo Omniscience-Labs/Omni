@@ -163,7 +163,7 @@ export const siteConfig = {
     {
       name: 'Ridiculously Pro',
       price: '$50',
-      yearlyPrice: '$510',
+      yearlyPrice: '$516',
       originalYearlyPrice: '$600',
       discountPercentage: 15,
       description: 'Ideal for growing businesses',
