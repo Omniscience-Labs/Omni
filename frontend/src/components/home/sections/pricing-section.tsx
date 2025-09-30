@@ -932,7 +932,7 @@ export function PricingSection({
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {siteConfig.cloudPricingItems
-              .filter((tier) => (!hideFree || tier.price !== '$0'))
+              .filter((tier) => tier.name !== 'Totally Free' && (!hideFree || tier.price !== '$0'))
               .map((tier, index) => (
                 <motion.div
                   key={tier.name}
