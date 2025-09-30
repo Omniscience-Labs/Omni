@@ -45,7 +45,7 @@ export interface PricingTier {
   buttonColor: string;
   isPopular: boolean;
   /** @deprecated */
-  hours: string;
+  hours?: string;
   features: string[];
   stripePriceId: string;
   yearlyStripePriceId?: string; // Add yearly price ID support
