@@ -567,7 +567,13 @@ async def get_root_cloud_knowledge_bases(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting root cloud knowledge bases for account {account_id}: {str(e)}", exc_info=True)
+        # Use safe logging without exc_info to avoid structlog serialization issues
+        error_msg = f"Error getting root cloud knowledge bases: {str(e)}"
+        if account_id:
+            error_msg = f"Error getting root cloud knowledge bases for account {account_id}: {str(e)}"
+        logger.error(error_msg)
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Failed to retrieve root cloud knowledge bases: {str(e)}")
 
 class KnowledgeBaseEntry(BaseModel):
