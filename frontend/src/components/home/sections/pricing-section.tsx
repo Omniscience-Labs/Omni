@@ -785,7 +785,7 @@ const getYearlyCommitmentTotal = (tierName: string): string => {
     case 'Ridiculously Cheap':
       return '$204'; // $17 × 12 months
     case 'Ridiculously Pro':
-      return '$516'; // $43 × 12 months  
+      return '$510'; // $43 × 12 months (adjusted to match desired pricing)
     case 'Serious Business':
       return '$2040'; // $170 × 12 months
     default:
@@ -958,30 +958,32 @@ export function PricingSection({
                   {/* Plan Header */}
                   <div className="text-center mb-6">
                     <h3 className="text-xl font-semibold mb-2">{tier.name}</h3>
-                    <div className="flex items-baseline justify-center">
-                      <span className="text-3xl font-bold">
-                        {billingPeriod === 'yearly_commitment' && tier.monthlyCommitmentStripePriceId 
-                          ? getYearlyCommitmentPrice(tier.name)
-                          : tier.price}
-                      </span>
-                      {tier.price !== '$0' && (
-                        <span className="text-muted-foreground ml-1">/month</span>
-                      )}
-                    </div>
-                    {billingPeriod === 'yearly_commitment' && (
-                      <div className="text-sm text-muted-foreground mt-1">
-                        <span className="line-through">{tier.price}</span>
-                      </div>
-                    )}
-                    {(billingPeriod === 'yearly' && tier.yearlyPrice && tier.price !== '$0') && (
-                      <div className="text-xs text-muted-foreground mt-1">
-                        ({tier.yearlyPrice}/year)
-                      </div>
-                    )}
-                    {(billingPeriod === 'yearly_commitment' && tier.price !== '$0') && (
-                      <div className="text-xs text-muted-foreground mt-1">
-                        ({getYearlyCommitmentTotal(tier.name)}/year)
-                      </div>
+                    {tier.price !== '$0' && (
+                      <>
+                        <div className="flex items-baseline justify-center">
+                          <span className="text-3xl font-bold">
+                            {billingPeriod === 'yearly_commitment' && tier.monthlyCommitmentStripePriceId 
+                              ? getYearlyCommitmentPrice(tier.name)
+                              : tier.price}
+                          </span>
+                          <span className="text-muted-foreground ml-1">/month</span>
+                        </div>
+                        {billingPeriod === 'yearly_commitment' && (
+                          <div className="text-sm text-muted-foreground mt-1">
+                            <span className="line-through">{tier.price}</span>
+                          </div>
+                        )}
+                        {(billingPeriod === 'yearly' && tier.yearlyPrice) && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            ({tier.yearlyPrice}/year)
+                          </div>
+                        )}
+                        {billingPeriod === 'yearly_commitment' && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            ({getYearlyCommitmentTotal(tier.name)}/year)
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
 
