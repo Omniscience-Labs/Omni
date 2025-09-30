@@ -45,7 +45,7 @@ export interface PricingTier {
   buttonColor: string;
   isPopular: boolean;
   /** @deprecated */
-  hours: string;
+  hours?: string;
   features: string[];
   stripePriceId: string;
   yearlyStripePriceId?: string; // Add yearly price ID support
@@ -126,8 +126,6 @@ export const siteConfig = {
       buttonText: 'Current Plan',
       buttonColor: 'bg-gray-200 text-gray-500',
       isPopular: false,
-      /** @deprecated */
-      hours: 'unlimited',
       features: [
         '20k tool calls/mo',
         'Community support',
@@ -140,20 +138,46 @@ export const siteConfig = {
     },
     {
       name: 'Ridiculously Cheap',
-      price: '$29',
-      yearlyPrice: '$295',
-      originalYearlyPrice: '$348',
+      price: '$20',
+      yearlyPrice: '$204',
+      originalYearlyPrice: '$240',
       discountPercentage: 15,
       description: 'No need to talk to humans',
       buttonText: 'Get Started',
       buttonColor: 'bg-primary text-white dark:text-black',
       isPopular: false,
-      /** @deprecated */
-      hours: '6 hours',
       features: [
-        '200k tool calls/mo',
-        'Email support',
-        '$0.39/1k additional calls',
+        '$20 AI token credits/m',
+        '5 custom agents',
+        'Private projects',
+        'Custom abilities',
+        '100+ integrations',
+        'Premium AI Models',
+        'Advanced AI Capabilities',
+      ],
+      stripePriceId: config.SUBSCRIPTION_TIERS.TIER_2_20.priceId,
+      yearlyStripePriceId: config.SUBSCRIPTION_TIERS.TIER_2_20_YEARLY.priceId,
+      monthlyCommitmentStripePriceId: config.SUBSCRIPTION_TIERS.TIER_2_17_YEARLY_COMMITMENT.priceId,
+      upgradePlans: [],
+    },
+    {
+      name: 'Ridiculously Pro',
+      price: '$50',
+      yearlyPrice: '$510',
+      originalYearlyPrice: '$600',
+      discountPercentage: 15,
+      description: 'Ideal for growing businesses',
+      buttonText: 'Get Started',
+      buttonColor: 'bg-primary text-white dark:text-black',
+      isPopular: false,
+      features: [
+        '$50 AI token credits/m',
+        '20 custom agents',
+        'Private projects',
+        'Custom abilities',
+        '100+ integrations',
+        'Premium AI Models',
+        'Advanced AI Capabilities',
       ],
       stripePriceId: config.SUBSCRIPTION_TIERS.TIER_6_50.priceId,
       yearlyStripePriceId: config.SUBSCRIPTION_TIERS.TIER_6_50_YEARLY.priceId,
@@ -162,19 +186,23 @@ export const siteConfig = {
     },
     {
       name: 'Serious Business',
-      price: '$229',
-      yearlyPrice: '$2330',
-      originalYearlyPrice: '$2748',
+      price: '$200',
+      yearlyPrice: '$2040',
+      originalYearlyPrice: '$2400',
       discountPercentage: 15,
       description: 'Maybe talk to humans?',
       buttonText: 'Get Started',
       buttonColor: 'bg-secondary text-white',
       isPopular: true,
-      hours: '25 hours',
       features: [
-        '2M tool calls/mo',
-        'Slack support (1x/month)',
-        '$0.34/1k additional calls',
+        '$200 AI token credits/m',
+        '100 custom agents',
+        'Private projects',
+        'Custom abilities',
+        '100+ integrations',
+        'Premium AI Models',
+        'Priority Support',
+        'Advanced AI Capabilities',
       ],
       stripePriceId: config.SUBSCRIPTION_TIERS.TIER_25_200.priceId,
       yearlyStripePriceId: config.SUBSCRIPTION_TIERS.TIER_25_200_YEARLY.priceId,

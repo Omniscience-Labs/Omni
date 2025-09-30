@@ -29,7 +29,7 @@ import { useAuth } from '@/components/AuthProvider';
 import posthog from 'posthog-js';
 
 // Constants
-const DEFAULT_SELECTED_PLAN = '6 hours';
+const DEFAULT_SELECTED_PLAN = 'pro';
 export const SUBSCRIPTION_PLANS = {
   FREE: 'free',
   PRO: 'base',
@@ -765,12 +765,29 @@ function PricingTierButton({
 // Helper function to get yearly commitment pricing
 const getYearlyCommitmentPrice = (tierName: string): string => {
   switch (tierName) {
-    case 'Plus':
-      return '$17';
-    case 'Pro':
-      return '$42.50';
-    case 'Ultra':
-      return '$170';
+    case 'Totally Free':
+      return '$0';
+    case 'Ridiculously Cheap':
+      return '$17'; // $20/month tier with yearly commitment
+    case 'Ridiculously Pro':
+      return '$43'; // $50/month tier with yearly commitment  
+    case 'Serious Business':
+      return '$170'; // $200/month tier with yearly commitment
+    default:
+      return '$0';
+  }
+};
+
+const getYearlyCommitmentTotal = (tierName: string): string => {
+  switch (tierName) {
+    case 'Totally Free':
+      return '$0';
+    case 'Ridiculously Cheap':
+      return '$204'; // $17 × 12 months
+    case 'Ridiculously Pro':
+      return '$510'; // $43 × 12 months (adjusted to match desired pricing)
+    case 'Serious Business':
+      return '$2040'; // $170 × 12 months
     default:
       return '$0';
   }
@@ -915,7 +932,7 @@ export function PricingSection({
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {siteConfig.cloudPricingItems
-              .filter((tier) => (!hideFree || tier.price !== '$0'))
+              .filter((tier) => tier.name !== 'Totally Free' && (!hideFree || tier.price !== '$0'))
               .map((tier, index) => (
                 <motion.div
                   key={tier.name}
@@ -941,18 +958,32 @@ export function PricingSection({
                   {/* Plan Header */}
                   <div className="text-center mb-6">
                     <h3 className="text-xl font-semibold mb-2">{tier.name}</h3>
-                    <div className="flex items-baseline justify-center">
-                      <span className="text-3xl font-bold">
-                        {billingPeriod === 'yearly_commitment' && tier.monthlyCommitmentStripePriceId 
-                          ? getYearlyCommitmentPrice(tier.name)
-                          : tier.price}
-                      </span>
-                      <span className="text-muted-foreground ml-1">/month</span>
-                    </div>
-                    {billingPeriod === 'yearly_commitment' && (
-                      <div className="text-sm text-muted-foreground mt-1">
-                        <span className="line-through">{tier.price}</span>
-                      </div>
+                    {tier.price !== '$0' && (
+                      <>
+                        <div className="flex items-baseline justify-center">
+                          <span className="text-3xl font-bold">
+                            {billingPeriod === 'yearly_commitment' && tier.monthlyCommitmentStripePriceId 
+                              ? getYearlyCommitmentPrice(tier.name)
+                              : tier.price}
+                          </span>
+                          <span className="text-muted-foreground ml-1">/month</span>
+                        </div>
+                        {billingPeriod === 'yearly_commitment' && (
+                          <div className="text-sm text-muted-foreground mt-1">
+                            <span className="line-through">{tier.price}</span>
+                          </div>
+                        )}
+                        {(billingPeriod === 'yearly' && tier.yearlyPrice) && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            ({tier.yearlyPrice}/year)
+                          </div>
+                        )}
+                        {billingPeriod === 'yearly_commitment' && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            ({getYearlyCommitmentTotal(tier.name)}/year)
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
 
