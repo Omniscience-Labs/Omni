@@ -273,7 +273,7 @@ export const siteConfig = {
         name: 'Cold Chain',
         logo: (
           <img
-            src="/company-logos/cold-chain.png"
+            src="/company-logos/Cold-chain svg.svg"
             alt="Cold Chain"
             className="h-16 w-auto object-contain"
           />
