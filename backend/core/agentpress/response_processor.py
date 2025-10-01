@@ -509,7 +509,6 @@ class ResponseProcessor:
                                 tool_index += 1
 
                 if finish_reason == "xml_tool_limit_reached":
-                    logger.info("XML tool call limit reached, but continuing to collect usage data")
                     self.trace.event(name="xml_tool_call_limit_reached_continuing_for_usage", level="DEFAULT", status_message=(f"XML tool call limit reached, continuing to collect usage data"))
                     
                     # If we already have usage data, we can safely break now
