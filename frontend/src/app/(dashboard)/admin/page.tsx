@@ -189,14 +189,14 @@ function UserRow({ user }: { user: any }) {
     const userSummary: UserSummary = {
       id: user.account_id,
       email: user.account_info?.email || 'Unknown',
-      name: user.account_info?.name || 'Unnamed Account',
       tier: user.tier || 'free',
       credit_balance: user.credit_balance || 0,
       created_at: user.created_at || new Date().toISOString(),
-      last_active: user.last_active || null,
-      total_agent_runs: user.total_agent_runs || 0,
-      monthly_usage: user.current_month_usage || 0,
-      monthly_limit: user.monthly_limit || 0,
+      total_purchased: user.total_purchased || 0,
+      total_used: user.total_used || 0,
+      subscription_status: user.subscription_status,
+      last_activity: user.last_active,
+      trial_status: user.trial_status,
     };
     
     setSelectedUser(userSummary);
