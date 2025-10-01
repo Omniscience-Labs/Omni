@@ -26,6 +26,21 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   User,
   CreditCard,
   History,
@@ -37,10 +52,15 @@ import {
   RefreshCw,
   Clock,
   Infinity,
+  Plus,
+  Minus,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useAdminUserDetails } from '@/hooks/react-query/admin/use-admin-users';
 import {
   useUserBillingSummary,
+  useUserTransactions,
   useAdjustCredits,
   useProcessRefund,
 } from '@/hooks/react-query/admin/use-admin-billing';
@@ -65,14 +85,25 @@ export function AdminUserDetailsDialog({
   const [refundReason, setRefundReason] = useState('');
   const [adjustIsExpiring, setAdjustIsExpiring] = useState(true);
   const [refundIsExpiring, setRefundIsExpiring] = useState(false);
+  
+  // Transaction pagination and filtering state
+  const [transactionsOffset, setTransactionsOffset] = useState(0);
+  const [transactionsTypeFilter, setTransactionsTypeFilter] = useState<string | undefined>(undefined);
+  const transactionsLimit = 20;
 
   const { data: userDetails, isLoading } = useAdminUserDetails(user?.id || null);
   const { data: billingSummary, refetch: refetchBilling } = useUserBillingSummary(user?.id || null);
+  const { data: transactionsData, isLoading: transactionsLoading } = useUserTransactions(
+    user?.id || null, 
+    transactionsLimit, 
+    transactionsOffset,
+    transactionsTypeFilter
+  );
   const adjustCreditsMutation = useAdjustCredits();
   const processRefundMutation = useProcessRefund();
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -187,6 +218,47 @@ export function AdminUserDetailsDialog({
     }
   };
 
+  const getTransactionBadge = (type: string) => {
+    const badges: Record<string, { label: string; variant: any }> = {
+      'tier_grant': { label: 'Tier Grant', variant: 'default' },
+      'purchase': { label: 'Purchase', variant: 'default' },
+      'admin_grant': { label: 'Admin Grant', variant: 'secondary' },
+      'promotional': { label: 'Promotional', variant: 'secondary' },
+      'usage': { label: 'Usage', variant: 'outline' },
+      'refund': { label: 'Refund', variant: 'secondary' },
+      'adjustment': { label: 'Adjustment', variant: 'outline' },
+      'expired': { label: 'Expired', variant: 'destructive' },
+      'tier_upgrade': { label: 'Tier Upgrade', variant: 'default' },
+      'expiration': { label: 'Expiration', variant: 'destructive' },
+    };
+
+    const badge = badges[type] || { label: type, variant: 'outline' };
+    return <Badge variant={badge.variant as any}>{badge.label}</Badge>;
+  };
+
+  const getTransactionIcon = (type: string, amount: number) => {
+    if (amount > 0) {
+      return <Plus className="h-4 w-4 text-green-500" />;
+    }
+    if (type === 'usage') {
+      return <Minus className="h-4 w-4 text-orange-500" />;
+    }
+    if (type === 'expired' || type === 'expiration') {
+      return <Clock className="h-4 w-4 text-red-500" />;
+    }
+    return <Minus className="h-4 w-4 text-red-500" />;
+  };
+
+  const handlePrevTransactionsPage = () => {
+    setTransactionsOffset(Math.max(0, transactionsOffset - transactionsLimit));
+  };
+
+  const handleNextTransactionsPage = () => {
+    if (transactionsData && transactionsData.transactions.length === transactionsLimit) {
+      setTransactionsOffset(transactionsOffset + transactionsLimit);
+    }
+  };
+
   if (!user) return null;
 
   return (
@@ -209,7 +281,7 @@ export function AdminUserDetailsDialog({
               <Skeleton className="h-64 w-full" />
             </div>
           ) : (
-            <Tabs defaultValue="overview" className="w-full">
+            <Tabs defaultValue="transactions" className="w-full">
               <TabsList className="grid w-full grid-cols-4 sticky top-0 z-10">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="transactions">Transactions</TabsTrigger>
@@ -287,40 +359,167 @@ export function AdminUserDetailsDialog({
             </TabsContent>
 
             <TabsContent value="transactions" className="space-y-4">
+              {/* Balance Summary */}
               {billingSummary && (
-                <Card className='border-0 shadow-none bg-transparent'>
-                  <CardContent className='p-0'>
-                    <div className="space-y-2">
-                      {billingSummary.recent_transactions?.length > 0 ? (
-                        billingSummary.recent_transactions.map((transaction: any) => (
-                          <div
-                            key={transaction.id}
-                            className="flex items-center justify-between p-3 border rounded-lg"
-                          >
-                            <div>
-                              <p className="text-sm font-medium">{transaction.description}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDate(transaction.created_at)}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className={`font-semibold ${getTransactionColor(transaction.type)}`}>
-                                {transaction.amount > 0 ? '+' : ''}
-                                {formatCurrency(Math.abs(transaction.amount))}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Balance: {formatCurrency(transaction.balance_after)}
-                              </p>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-muted-foreground">No recent transactions</p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-2xl font-bold">
+                        {formatCurrency(billingSummary.current_balance || 0)}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Total Balance</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-orange-500" />
+                        <span className="text-lg font-semibold">
+                          {formatCurrency(billingSummary.expiring_credits || 0)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Expiring Credits</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2">
+                        <Infinity className="h-4 w-4 text-blue-500" />
+                        <span className="text-lg font-semibold">
+                          {formatCurrency(billingSummary.non_expiring_credits || 0)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Non-Expiring Credits</p>
+                    </CardContent>
+                  </Card>
+                </div>
               )}
+
+              {/* Transaction Filter */}
+              <div className="flex items-center gap-4">
+                <Label htmlFor="transaction-filter" className="text-sm font-medium">
+                  Filter by type:
+                </Label>
+                <Select
+                  value={transactionsTypeFilter || 'all'}
+                  onValueChange={(value) => {
+                    setTransactionsTypeFilter(value === 'all' ? undefined : value);
+                    setTransactionsOffset(0);
+                  }}
+                >
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="All Transactions" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Transactions</SelectItem>
+                    <SelectItem value="usage">Usage</SelectItem>
+                    <SelectItem value="purchase">Purchase</SelectItem>
+                    <SelectItem value="tier_grant">Tier Grant</SelectItem>
+                    <SelectItem value="admin_grant">Admin Grant</SelectItem>
+                    <SelectItem value="refund">Refund</SelectItem>
+                    <SelectItem value="adjustment">Adjustment</SelectItem>
+                    <SelectItem value="expired">Expired</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Transactions Table */}
+              <Card>
+                <CardContent className="p-0">
+                  {transactionsLoading ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                      <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2" />
+                      Loading transactions...
+                    </div>
+                  ) : !transactionsData || transactionsData.transactions?.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                      No transactions found
+                    </div>
+                  ) : (
+                    <>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead className="text-right">Balance After</TableHead>
+                            <TableHead className="text-center">Credits Type</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {transactionsData.transactions.map((transaction: any) => (
+                            <TableRow key={transaction.id}>
+                              <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                                {formatDate(transaction.created_at)}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  {getTransactionIcon(transaction.type, transaction.amount)}
+                                  {getTransactionBadge(transaction.type)}
+                                </div>
+                              </TableCell>
+                              <TableCell className="max-w-xs truncate">
+                                {transaction.description || 'No description'}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className={`font-semibold ${getTransactionColor(transaction.type)}`}>
+                                  {transaction.amount > 0 ? '+' : ''}
+                                  {formatCurrency(Math.abs(transaction.amount))}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right font-medium">
+                                {formatCurrency(transaction.balance_after)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {transaction.is_expiring ? (
+                                  <Badge variant="outline" className="gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    Expiring
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="gap-1">
+                                    <Infinity className="h-3 w-3" />
+                                    Non-Expiring
+                                  </Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+
+                      {/* Pagination */}
+                      <div className="flex items-center justify-between border-t p-4">
+                        <div className="text-sm text-muted-foreground">
+                          Showing {transactionsOffset + 1} - {transactionsOffset + transactionsData.transactions.length} transactions
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handlePrevTransactionsPage}
+                            disabled={transactionsOffset === 0}
+                          >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleNextTransactionsPage}
+                            disabled={!transactionsData || transactionsData.transactions.length < transactionsLimit}
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="activity" className="space-y-4">
@@ -453,4 +652,4 @@ export function AdminUserDetailsDialog({
       </DialogContent>
     </Dialog>
   );
-} 
+}
