@@ -65,6 +65,7 @@ import {
   useProcessRefund,
 } from '@/hooks/react-query/admin/use-admin-billing';
 import type { UserSummary } from '@/hooks/react-query/admin/use-admin-users';
+import { useAdminCheck } from '@/hooks/use-admin-check';
 
 interface AdminUserDetailsDialogProps {
   user: UserSummary | null;
@@ -90,6 +91,9 @@ export function AdminUserDetailsDialog({
   const [transactionsOffset, setTransactionsOffset] = useState(0);
   const [transactionsTypeFilter, setTransactionsTypeFilter] = useState<string | undefined>(undefined);
   const transactionsLimit = 20;
+
+  // Admin access check with proper TypeScript typing
+  const { data: adminCheck } = useAdminCheck();
 
   const { data: userDetails, isLoading } = useAdminUserDetails(user?.id || null);
   const { data: billingSummary, refetch: refetchBilling } = useUserBillingSummary(user?.id || null);
@@ -268,6 +272,11 @@ export function AdminUserDetailsDialog({
           <DialogTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
             User Details - {user.email}
+            {(adminCheck?.isAdmin || adminCheck?.isOmniAdmin) && (
+              <Badge variant="destructive" className="text-xs">
+                Admin Only
+              </Badge>
+            )}
           </DialogTitle>
           <DialogDescription>
             Manage user account, billing, and perform admin actions
@@ -359,7 +368,31 @@ export function AdminUserDetailsDialog({
             </TabsContent>
 
             <TabsContent value="transactions" className="space-y-4">
-              {/* Balance Summary */}
+              {/* Admin Access Control */}
+              {!(adminCheck?.isAdmin || adminCheck?.isOmniAdmin) ? (
+                <div className="p-8 text-center">
+                  <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Admin Access Required</h3>
+                  <p className="text-muted-foreground">
+                    You need admin privileges to view user transaction details.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Admin-Only Warning Banner */}
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/50 p-4">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      <h4 className="text-sm font-semibold text-orange-800 dark:text-orange-200">
+                        Confidential - Admin Access Only
+                      </h4>
+                    </div>
+                    <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
+                      You are viewing sensitive financial information for this user. This data is only visible to {adminCheck?.isOmniAdmin ? 'Omni Admins' : 'Admins'}.
+                    </p>
+                  </div>
+
+                  {/* Balance Summary */}
               {billingSummary && (
                 <div className="grid gap-4 md:grid-cols-3">
                   <Card>
@@ -520,6 +553,8 @@ export function AdminUserDetailsDialog({
                   )}
                 </CardContent>
               </Card>
+                </>
+              )}
             </TabsContent>
 
             <TabsContent value="activity" className="space-y-4">
