@@ -1,11 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel
 from core.auth import require_admin, require_super_admin
 from core.services.supabase import DBConnection
 from core.utils.logger import logger
 from core.utils.pagination import PaginationService, PaginationParams, PaginatedResponse
+from collections import defaultdict
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 
@@ -661,4 +662,115 @@ async def adjust_user_credits(
         raise
     except Exception as e:
         logger.error(f"Failed to adjust credits: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to adjust user credits") 
+        raise HTTPException(status_code=500, detail="Failed to adjust user credits")
+
+@router.get("/{user_id}/usage-logs")
+async def get_user_usage_logs(
+    user_id: str,
+    days: int = Query(default=30, ge=1, le=365),
+    page: int = Query(default=0, ge=0),
+    items_per_page: int = Query(default=1000, ge=1, le=5000),
+    admin: dict = Depends(require_admin)
+):
+    """
+    Get usage logs for a specific user (Admin only).
+    Works without ENTERPRISE_MODE by querying llm_usage_logs directly.
+    Returns hierarchical data: Date → Thread → Usage Details
+    """
+    try:
+        db = DBConnection()
+        client = await db.client
+        
+        # Calculate date range
+        since_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        
+        # Query llm_usage_logs directly
+        query = client.from_('llm_usage_logs').select(
+            'id, account_id, thread_id, message_id, model_name, prompt_tokens, completion_tokens, '
+            'total_tokens, estimated_cost, created_at, metadata'
+        )
+        query = query.eq('account_id', user_id)
+        query = query.gte('created_at', since_date)
+        query = query.order('created_at', desc=True)
+        query = query.limit(items_per_page)
+        query = query.offset(page * items_per_page)
+        
+        result = await query.execute()
+        
+        if not result.data:
+            logger.info(f"No usage logs found for user {user_id}")
+            return {
+                "hierarchical_usage": {},
+                "total_cost_period": 0,
+                "page": page,
+                "items_per_page": items_per_page,
+                "days": days,
+                "is_hierarchical": True
+            }
+        
+        # Group data hierarchically: Date → Thread → Usage Details
+        hierarchical_data = defaultdict(lambda: {
+            'total_cost': 0,
+            'projects': {}
+        })
+        
+        total_cost_period = 0
+        
+        for log in result.data:
+            # Extract date (YYYY-MM-DD)
+            created_at = datetime.fromisoformat(log['created_at'].replace('Z', '+00:00'))
+            date_key = created_at.date().isoformat()
+            
+            thread_id = log.get('thread_id', 'unknown')
+            estimated_cost = float(log.get('estimated_cost', 0))
+            
+            # Get or create thread data
+            if thread_id not in hierarchical_data[date_key]['projects']:
+                hierarchical_data[date_key]['projects'][thread_id] = {
+                    'thread_id': thread_id,
+                    'project_id': thread_id,  # Use thread_id as project_id for now
+                    'project_title': f"Thread {thread_id[:8]}",
+                    'thread_cost': 0,
+                    'usage_details': []
+                }
+            
+            # Add usage detail
+            usage_detail = {
+                'id': log['id'],
+                'message_id': log.get('message_id'),
+                'created_at': log['created_at'],
+                'model': log.get('model_name', 'unknown'),
+                'prompt_tokens': log.get('prompt_tokens', 0),
+                'completion_tokens': log.get('completion_tokens', 0),
+                'total_tokens': log.get('total_tokens', 0),
+                'tool_tokens': 0,  # Not tracked in llm_usage_logs
+                'estimated_cost': estimated_cost
+            }
+            
+            hierarchical_data[date_key]['projects'][thread_id]['usage_details'].append(usage_detail)
+            hierarchical_data[date_key]['projects'][thread_id]['thread_cost'] += estimated_cost
+            hierarchical_data[date_key]['total_cost'] += estimated_cost
+            total_cost_period += estimated_cost
+        
+        # Convert defaultdict to regular dict for JSON serialization
+        formatted_data = {}
+        for date_key, date_data in hierarchical_data.items():
+            formatted_data[date_key] = {
+                'total_cost': date_data['total_cost'],
+                'projects': date_data['projects']
+            }
+        
+        logger.info(f"Retrieved {len(result.data)} usage logs for user {user_id}")
+        
+        return {
+            "hierarchical_usage": formatted_data,
+            "total_cost_period": total_cost_period,
+            "page": page,
+            "items_per_page": items_per_page,
+            "days": days,
+            "is_hierarchical": True
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting usage logs for user {user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) 
