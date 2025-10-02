@@ -40,7 +40,7 @@ export const useAdminUserUsageLogs = (accountId: string, page: number = 0, items
   createQueryHook(
     ['admin-user-usage', accountId, page, itemsPerPage, days],
     async () => {
-      const response = await fetch(`/api/enterprise/admin/users/${accountId}?page=${page}&items_per_page=${itemsPerPage}&days=${days}`, {
+      const response = await fetch(`/api/enterprise/users/${accountId}?page=${page}&items_per_page=${itemsPerPage}&days=${days}`, {
         credentials: 'include',
       });
       
