@@ -61,6 +61,7 @@ import {
 import type { UserSummary } from '@/hooks/react-query/admin/use-admin-users';
 import { useAdminCheck } from '@/hooks/use-admin-check';
 import { useQueryClient } from '@tanstack/react-query';
+import UsageLogs from '@/components/billing/usage-logs';
 
 interface AdminUserDetailsDialogProps {
   user: UserSummary | null;
@@ -215,9 +216,10 @@ export function AdminUserDetailsDialog({
             </div>
           ) : (
             <Tabs defaultValue="transactions" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 sticky top-0 z-10">
+              <TabsList className="grid w-full grid-cols-4 sticky top-0 z-10">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="transactions">Transactions</TabsTrigger>
+                <TabsTrigger value="usage">Usage Logs</TabsTrigger>
                 <TabsTrigger value="activity">Activity</TabsTrigger>
               </TabsList>
 
@@ -442,6 +444,41 @@ export function AdminUserDetailsDialog({
                   )}
                 </CardContent>
               </Card>
+                </>
+              )}
+            </TabsContent>
+
+            <TabsContent value="usage" className="space-y-4">
+              {/* Admin Access Control */}
+              {!(adminCheck?.isAdmin || adminCheck?.isOmniAdmin) ? (
+                <div className="p-8 text-center">
+                  <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Admin Access Required</h3>
+                  <p className="text-muted-foreground">
+                    You need admin privileges to view user usage logs.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Admin-Only Warning Banner */}
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/50 p-4">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      <h4 className="text-sm font-semibold text-orange-800 dark:text-orange-200">
+                        Confidential - Admin Access Only
+                      </h4>
+                    </div>
+                    <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
+                      Detailed usage logs showing tokens, costs, and models used. This data is only visible to {adminCheck?.isOmniAdmin ? 'Omni Admins' : 'Admins'}.
+                    </p>
+                  </div>
+
+                  {/* Usage Logs Component */}
+                  <Card>
+                    <CardContent className="p-6">
+                      <UsageLogs accountId={user.id} isAdminView={true} />
+                    </CardContent>
+                  </Card>
                 </>
               )}
             </TabsContent>
