@@ -217,12 +217,7 @@ export function AdminUserDetailsDialog({
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
-            User Details - {user.email}
-            {(adminCheck?.isAdmin || adminCheck?.isOmniAdmin) && (
-              <Badge variant="destructive" className="text-xs">
-                Admin Only
-              </Badge>
-            )}
+            User Details - {userDetails?.user?.billing_customers?.[0]?.email || user.email || 'Loading...'}
           </DialogTitle>
           <DialogDescription>
             Manage user account, billing, and perform admin actions
