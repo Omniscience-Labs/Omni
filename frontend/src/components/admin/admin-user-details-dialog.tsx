@@ -56,9 +56,7 @@ import {
 } from 'lucide-react';
 import { useAdminUserDetails, useRefreshUserData } from '@/hooks/react-query/admin/use-admin-users';
 import {
-  useUserBillingSummary,
   useUserTransactions,
-  useAdjustCredits,
 } from '@/hooks/react-query/admin/use-admin-billing';
 import type { UserSummary } from '@/hooks/react-query/admin/use-admin-users';
 import { useAdminCheck } from '@/hooks/use-admin-check';
@@ -87,7 +85,6 @@ export function AdminUserDetailsDialog({
   const queryClient = useQueryClient();
 
   const { data: userDetails, isLoading } = useAdminUserDetails(user?.id || null);
-  const { data: billingSummary } = useUserBillingSummary(user?.id || null);
   const { data: transactionsData, isLoading: transactionsLoading } = useUserTransactions(
     user?.id || null, 
     transactionsLimit, 
@@ -115,14 +112,10 @@ export function AdminUserDetailsDialog({
     // Invalidate and refetch all queries related to this user
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['admin', 'users', 'details', user.id] }),
-      queryClient.invalidateQueries({ queryKey: ['admin', 'billing', 'user', user.id] }),
       queryClient.invalidateQueries({ queryKey: ['admin', 'billing', 'transactions', user.id] }),
-      queryClient.invalidateQueries({ queryKey: ['admin', 'users', 'list'] }),
-      queryClient.invalidateQueries({ queryKey: ['admin', 'users', 'stats'] }),
+      queryClient.invalidateQueries({ queryKey: ['enterprise-users'] }),
+      queryClient.invalidateQueries({ queryKey: ['enterprise-status'] }),
     ]);
-    
-    // Force refetch immediately
-    await queryClient.refetchQueries({ queryKey: ['admin', 'billing', 'user', user.id] });
     
     onRefresh?.();
     toast.success('All data refreshed');
@@ -264,22 +257,22 @@ export function AdminUserDetailsDialog({
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Credit Balance</p>
-                      <p className="text-2xl font-bold text-green-600">
-                        {formatCurrency(billingSummary?.credit_account?.total || user.credit_balance)}
+                      <p className="text-sm font-medium text-muted-foreground">Monthly Limit</p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {formatCurrency(user.credit_balance)}
                       </p>
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <p className="text-muted-foreground">Total Purchased</p>
-                        <p className="font-medium text-green-600">
-                          {formatCurrency(user.total_purchased || 0)}
+                        <p className="text-muted-foreground">Used This Month</p>
+                        <p className="font-medium text-orange-600">
+                          {formatCurrency(user.total_used || 0)}
                         </p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Total Used</p>
-                        <p className="font-medium text-orange-600">
-                          {formatCurrency(user.total_used || 0)}
+                        <p className="text-muted-foreground">Remaining</p>
+                        <p className="font-medium text-green-600">
+                          {formatCurrency((user.credit_balance || 0) - (user.total_used || 0))}
                         </p>
                       </div>
                     </div>
@@ -324,43 +317,7 @@ export function AdminUserDetailsDialog({
                     </p>
                   </div>
 
-                  {/* Balance Summary */}
-              {billingSummary && (
-                <div className="grid gap-4 md:grid-cols-3">
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="text-2xl font-bold">
-                        {formatCurrency(billingSummary.credit_account?.total || 0)}
-                      </div>
-                      <p className="text-xs text-muted-foreground">Total Balance</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-orange-500" />
-                        <span className="text-lg font-semibold">
-                          {formatCurrency(billingSummary.credit_account?.expiring || 0)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Expiring Credits</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="flex items-center gap-2">
-                        <Infinity className="h-4 w-4 text-blue-500" />
-                        <span className="text-lg font-semibold">
-                          {formatCurrency(billingSummary.credit_account?.non_expiring || 0)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Non-Expiring Credits</p>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
-              {/* Transaction Filter */}
+                  {/* Transaction Filter */}
               <div className="flex items-center gap-4">
                 <Label htmlFor="transaction-filter" className="text-sm font-medium">
                   Filter by type:

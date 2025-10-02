@@ -186,15 +186,15 @@ function UserRow({ user }: { user: any }) {
   const usagePercent = (user.current_month_usage / user.monthly_limit) * 100;
   
   const handleViewDetails = () => {
-    // Convert the user data to UserSummary format for the dialog
+    // Convert the enterprise user data to UserSummary format for the dialog
     const userSummary: UserSummary = {
       id: user.account_id,
       email: user.account_info?.name || 'Loading...',  // Use name as placeholder, dialog will fetch real email
       tier: user.tier || 'free',
-      credit_balance: user.credit_balance || 0,
+      credit_balance: user.monthly_limit || 0,  // Show monthly limit as balance
       created_at: user.created_at || new Date().toISOString(),
-      total_purchased: user.lifetime_purchased || 0,
-      total_used: user.lifetime_used || 0,
+      total_purchased: user.monthly_limit || 0,  // Monthly limit
+      total_used: user.current_month_usage || 0,  // Current month spending
       subscription_status: user.subscription_status,
       last_activity: user.last_active,
       trial_status: user.trial_status,
