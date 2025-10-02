@@ -119,17 +119,23 @@ export function AdminUserDetailsDialog({
     return `$${amount.toFixed(2)}`;
   };
 
-  const handleRefreshData = () => {
+  const handleRefreshData = async () => {
     if (!user?.id) return;
     
-    // Invalidate all queries related to this user
-    queryClient.invalidateQueries({ queryKey: ['admin', 'users', 'details', user.id] });
-    queryClient.invalidateQueries({ queryKey: ['admin', 'billing', 'user', user.id] });
-    queryClient.invalidateQueries({ queryKey: ['admin', 'billing', 'transactions', user.id] });
-    queryClient.invalidateQueries({ queryKey: ['admin', 'users', 'list'] });
+    // Invalidate and refetch all queries related to this user
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users', 'details', user.id] }),
+      queryClient.invalidateQueries({ queryKey: ['admin', 'billing', 'user', user.id] }),
+      queryClient.invalidateQueries({ queryKey: ['admin', 'billing', 'transactions', user.id] }),
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users', 'list'] }),
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users', 'stats'] }),
+    ]);
+    
+    // Force refetch immediately
+    await queryClient.refetchQueries({ queryKey: ['admin', 'billing', 'user', user.id] });
     
     onRefresh?.();
-    toast.success('Data refreshed successfully');
+    toast.success('All data refreshed');
   };
 
   const getSubscriptionBadgeVariant = (status?: string) => {
@@ -275,17 +281,21 @@ export function AdminUserDetailsDialog({
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Current Balance</p>
                       <p className="text-2xl font-bold text-green-600">
-                        {formatCurrency(user.credit_balance)}
+                        {formatCurrency(billingSummary?.credit_account?.total || user.credit_balance)}
                       </p>
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <p className="text-muted-foreground">Purchased</p>
-                        <p className="font-medium">{formatCurrency(user.total_purchased)}</p>
+                        <p className="text-muted-foreground">Expiring</p>
+                        <p className="font-medium text-orange-600">
+                          {formatCurrency(billingSummary?.credit_account?.expiring || 0)}
+                        </p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Used</p>
-                        <p className="font-medium">{formatCurrency(user.total_used)}</p>
+                        <p className="text-muted-foreground">Non-Expiring</p>
+                        <p className="font-medium text-blue-600">
+                          {formatCurrency(billingSummary?.credit_account?.non_expiring || 0)}
+                        </p>
                       </div>
                     </div>
                     <div>
