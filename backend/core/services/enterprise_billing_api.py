@@ -283,3 +283,41 @@ async def cancel_subscription(
         "error": "Your enterprise account cannot be cancelled by users",
         "success": False
     }
+
+@router.get("/subscription-commitment/{subscription_id}")
+async def get_subscription_commitment(
+    subscription_id: str,
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
+) -> Dict:
+    """Get subscription commitment status - enterprise version.
+    
+    Enterprise users don't have commitments in the traditional sense,
+    so this returns a stub response indicating no commitment.
+    """
+    if not config.ENTERPRISE_MODE:
+        raise HTTPException(status_code=400, detail="Enterprise mode not enabled")
+    
+    try:
+        logger.debug(f"Checking commitment status for enterprise user {current_user_id}")
+        
+        # Enterprise users don't have traditional commitments
+        # They're always on the enterprise plan with no cancellation option
+        return {
+            'has_commitment': False,
+            'can_cancel': False,  # Enterprise users cannot self-cancel
+            'commitment_type': 'enterprise',
+            'months_remaining': None,
+            'commitment_end_date': None,
+            'message': 'Your enterprise account is managed by your administrator'
+        }
+        
+    except Exception as e:
+        logger.error(f"Error checking commitment status for enterprise user {current_user_id}: {e}")
+        # Return safe defaults on error
+        return {
+            'has_commitment': False,
+            'can_cancel': False,
+            'commitment_type': None,
+            'months_remaining': None,
+            'commitment_end_date': None
+        }
