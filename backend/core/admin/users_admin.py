@@ -684,6 +684,13 @@ async def get_user_usage_logs(
         # Calculate date range
         since_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
         
+        # First, check if we have ANY logs for this user (debug)
+        count_query = client.from_('llm_usage_logs').select('id', count='exact').eq('account_id', user_id)
+        count_result = await count_query.execute()
+        total_logs = count_result.count if count_result and hasattr(count_result, 'count') else 0
+        
+        logger.info(f"Total logs in llm_usage_logs for user {user_id}: {total_logs}")
+        
         # Query llm_usage_logs directly
         query = client.from_('llm_usage_logs').select(
             'id, account_id, thread_id, message_id, model_name, prompt_tokens, completion_tokens, '
@@ -697,15 +704,23 @@ async def get_user_usage_logs(
         
         result = await query.execute()
         
+        logger.info(f"Query returned {len(result.data) if result.data else 0} logs for user {user_id} in last {days} days")
+        
         if not result.data:
-            logger.info(f"No usage logs found for user {user_id}")
+            logger.warning(f"No usage logs found for user {user_id} in last {days} days (total logs: {total_logs})")
             return {
                 "hierarchical_usage": {},
                 "total_cost_period": 0,
                 "page": page,
                 "items_per_page": items_per_page,
                 "days": days,
-                "is_hierarchical": True
+                "is_hierarchical": True,
+                "debug_info": {
+                    "user_id": user_id,
+                    "total_logs_all_time": total_logs,
+                    "logs_in_period": 0,
+                    "since_date": since_date
+                }
             }
         
         # Group data hierarchically: Date → Thread → Usage Details
@@ -760,7 +775,7 @@ async def get_user_usage_logs(
                 'projects': date_data['projects']
             }
         
-        logger.info(f"Retrieved {len(result.data)} usage logs for user {user_id}")
+        logger.info(f"Successfully retrieved {len(result.data)} usage logs for user {user_id}, grouped into {len(formatted_data)} dates")
         
         return {
             "hierarchical_usage": formatted_data,
@@ -768,9 +783,15 @@ async def get_user_usage_logs(
             "page": page,
             "items_per_page": items_per_page,
             "days": days,
-            "is_hierarchical": True
+            "is_hierarchical": True,
+            "debug_info": {
+                "user_id": user_id,
+                "total_logs_all_time": total_logs,
+                "logs_in_period": len(result.data),
+                "dates_returned": len(formatted_data)
+            }
         }
         
     except Exception as e:
         logger.error(f"Error getting usage logs for user {user_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=f"Failed to get usage logs: {str(e)}") 
