@@ -55,6 +55,8 @@ export function useUserBillingSummary(userId: string | null) {
       return response.data;
     },
     enabled: !!userId,
+    staleTime: 0, // Always consider data stale to refetch on mount
+    refetchOnMount: 'always', // Always refetch when component mounts
   });
 }
 
@@ -76,6 +78,8 @@ export function useUserTransactions(userId: string | null, limit = 100, offset =
       return response.data;
     },
     enabled: !!userId,
+    staleTime: 0, // Always consider data stale to refetch on mount
+    refetchOnMount: 'always', // Always refetch when component mounts
   });
 }
 
