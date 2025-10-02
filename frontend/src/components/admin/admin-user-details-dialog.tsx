@@ -19,11 +19,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   Table,
@@ -39,7 +35,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import {
   User,
   CreditCard,
@@ -57,15 +54,15 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { useAdminUserDetails } from '@/hooks/react-query/admin/use-admin-users';
+import { useAdminUserDetails, useRefreshUserData } from '@/hooks/react-query/admin/use-admin-users';
 import {
   useUserBillingSummary,
   useUserTransactions,
   useAdjustCredits,
-  useProcessRefund,
 } from '@/hooks/react-query/admin/use-admin-billing';
 import type { UserSummary } from '@/hooks/react-query/admin/use-admin-users';
 import { useAdminCheck } from '@/hooks/use-admin-check';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface AdminUserDetailsDialogProps {
   user: UserSummary | null;
@@ -80,13 +77,6 @@ export function AdminUserDetailsDialog({
   onClose,
   onRefresh,
 }: AdminUserDetailsDialogProps) {
-  const [adjustAmount, setAdjustAmount] = useState('');
-  const [adjustReason, setAdjustReason] = useState('');
-  const [refundAmount, setRefundAmount] = useState('');
-  const [refundReason, setRefundReason] = useState('');
-  const [adjustIsExpiring, setAdjustIsExpiring] = useState(true);
-  const [refundIsExpiring, setRefundIsExpiring] = useState(false);
-  
   // Transaction pagination and filtering state
   const [transactionsOffset, setTransactionsOffset] = useState(0);
   const [transactionsTypeFilter, setTransactionsTypeFilter] = useState<string | undefined>(undefined);
@@ -94,17 +84,16 @@ export function AdminUserDetailsDialog({
 
   // Admin access check with proper TypeScript typing
   const { data: adminCheck } = useAdminCheck();
+  const queryClient = useQueryClient();
 
   const { data: userDetails, isLoading } = useAdminUserDetails(user?.id || null);
-  const { data: billingSummary, refetch: refetchBilling } = useUserBillingSummary(user?.id || null);
+  const { data: billingSummary } = useUserBillingSummary(user?.id || null);
   const { data: transactionsData, isLoading: transactionsLoading } = useUserTransactions(
     user?.id || null, 
     transactionsLimit, 
     transactionsOffset,
     transactionsTypeFilter
   );
-  const adjustCreditsMutation = useAdjustCredits();
-  const processRefundMutation = useProcessRefund();
 
   // Debug logging to see what data is actually being returned
   if (billingSummary) {
@@ -130,76 +119,17 @@ export function AdminUserDetailsDialog({
     return `$${amount.toFixed(2)}`;
   };
 
-  const handleAdjustCredits = async () => {
-    if (!user || !adjustAmount || !adjustReason) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-
-    try {
-      const result = await adjustCreditsMutation.mutateAsync({
-        account_id: user.id,
-        amount: parseFloat(adjustAmount),
-        reason: adjustReason,
-        notify_user: true,
-        is_expiring: adjustIsExpiring,
-      });
-
-      toast.success(
-        `Credits adjusted successfully. New balance: ${formatCurrency(result.new_balance)}`
-      );
-
-      refetchBilling();
-      onRefresh?.();
-      setAdjustAmount('');
-      setAdjustReason('');
-      setAdjustIsExpiring(true);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to adjust credits');
-    }
-  };
-
-  const handleProcessRefund = async () => {
-    if (!user || !refundAmount || !refundReason) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-
-    try {
-      const result = await processRefundMutation.mutateAsync({
-        account_id: user.id,
-        amount: parseFloat(refundAmount),
-        reason: refundReason,
-        stripe_refund: false,
-        is_expiring: refundIsExpiring,
-      });
-
-      toast.success(
-        `Refund processed. New balance: ${formatCurrency(result.new_balance)}`
-      );
-
-      refetchBilling();
-      onRefresh?.();
-
-      setRefundAmount('');
-      setRefundReason('');
-      setRefundIsExpiring(false);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to process refund');
-    }
-  };
-
-  const getTierBadgeVariant = (tier: string) => {
-    switch (tier.toLowerCase()) {
-      case 'pro':
-        return 'default';
-      case 'premium':
-        return 'secondary';
-      case 'free':
-        return 'outline';
-      default:
-        return 'outline';
-    }
+  const handleRefreshData = () => {
+    if (!user?.id) return;
+    
+    // Invalidate all queries related to this user
+    queryClient.invalidateQueries({ queryKey: ['admin', 'users', 'details', user.id] });
+    queryClient.invalidateQueries({ queryKey: ['admin', 'billing', 'user', user.id] });
+    queryClient.invalidateQueries({ queryKey: ['admin', 'billing', 'transactions', user.id] });
+    queryClient.invalidateQueries({ queryKey: ['admin', 'users', 'list'] });
+    
+    onRefresh?.();
+    toast.success('Data refreshed successfully');
   };
 
   const getSubscriptionBadgeVariant = (status?: string) => {
@@ -301,11 +231,10 @@ export function AdminUserDetailsDialog({
             </div>
           ) : (
             <Tabs defaultValue="transactions" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 sticky top-0 z-10">
+              <TabsList className="grid w-full grid-cols-3 sticky top-0 z-10">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="transactions">Transactions</TabsTrigger>
                 <TabsTrigger value="activity">Activity</TabsTrigger>
-                <TabsTrigger value="actions">Admin Actions</TabsTrigger>
               </TabsList>
 
             <TabsContent value="overview" className="space-y-4">
@@ -320,21 +249,17 @@ export function AdminUserDetailsDialog({
                   <CardContent className="space-y-3">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Email</p>
-                      <p className="font-mono text-sm">{user.email}</p>
+                      <p className="font-mono text-sm break-all">
+                        {userDetails?.user?.billing_customers?.[0]?.email || user.email}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">User ID</p>
-                      <p className="font-mono text-xs">{user.id}</p>
+                      <p className="text-sm font-medium text-muted-foreground">Account ID</p>
+                      <p className="font-mono text-xs break-all">{user.id}</p>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Joined</p>
                       <p className="text-sm">{formatDate(user.created_at)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Tier</p>
-                      <Badge variant={getTierBadgeVariant(user.tier)} className="capitalize">
-                        {user.tier}
-                      </Badge>
                     </div>
                   </CardContent>
                 </Card>
@@ -401,7 +326,7 @@ export function AdminUserDetailsDialog({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => refetchBilling()}
+                        onClick={handleRefreshData}
                         className="gap-2"
                       >
                         <RefreshCw className="h-3 w-3" />
@@ -613,88 +538,6 @@ export function AdminUserDetailsDialog({
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
-            <TabsContent value="actions" className="space-y-4">
-              <div className="grid grid-cols-1 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4" />
-                      Process Refund
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="p-3 border border-red-200 dark:border-red-950 bg-red-50 dark:bg-red-950/20 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
-                        <p className="text-sm text-red-700">
-                          Refunds assigns credits back to the user's account.
-                        </p>
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="refund-amount">Refund Amount (USD)</Label>
-                      <Input
-                        id="refund-amount"
-                        type="number"
-                        step="0.01"
-                        placeholder="50.00"
-                        value={refundAmount}
-                        onChange={(e) => setRefundAmount(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="refund-reason mb-2">Refund Reason</Label>
-                      <Textarea
-                        id="refund-reason"
-                        placeholder="Service outage compensation"
-                        value={refundReason}
-                        onChange={(e) => setRefundReason(e.target.value)}
-                        rows={3}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="refund-expiring" className="cursor-pointer flex items-center gap-2">
-                          {refundIsExpiring ? (
-                            <Clock className="h-4 w-4 text-orange-500" />
-                          ) : (
-                            <Infinity className="h-4 w-4 text-blue-500" />
-                          )}
-                          <span className="font-medium">
-                            {refundIsExpiring ? 'Expiring Credits' : 'Non-Expiring Credits'}
-                          </span>
-                        </Label>
-                      </div>
-                      <Switch
-                        id="refund-expiring"
-                        checked={!refundIsExpiring}
-                        onCheckedChange={(checked) => setRefundIsExpiring(!checked)}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground -mt-2">
-                      {refundIsExpiring 
-                        ? 'Credits will expire at the end of the billing cycle'
-                        : 'Refunds typically use non-expiring credits (recommended)'}
-                    </p>
-                    <Button
-                      onClick={handleProcessRefund}
-                      disabled={processRefundMutation.isPending}
-                      variant="destructive"
-                      className="w-full"
-                    >
-                      {processRefundMutation.isPending ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        'Process Refund'
-                      )}
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
             </TabsContent>
           </Tabs>
           )}
