@@ -95,16 +95,6 @@ export function AdminUserDetailsDialog({
     transactionsTypeFilter
   );
 
-  // Debug logging to see what data is actually being returned
-  if (billingSummary) {
-    console.log('🔍 [Admin Debug] Billing Summary:', billingSummary);
-    console.log('🔍 [Admin Debug] Credit Account:', billingSummary.credit_account);
-  }
-  if (transactionsData) {
-    console.log('🔍 [Admin Debug] Transactions Data:', transactionsData);
-    console.log('🔍 [Admin Debug] Transaction Count:', transactionsData.transactions?.length || 0);
-  }
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('en-US', {
       month: 'short',
@@ -269,38 +259,29 @@ export function AdminUserDetailsDialog({
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <CreditCard className="h-4 w-4" />
-                      Credit Summary
+                      Usage Summary
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Current Balance</p>
+                      <p className="text-sm font-medium text-muted-foreground">Credit Balance</p>
                       <p className="text-2xl font-bold text-green-600">
                         {formatCurrency(billingSummary?.credit_account?.total || user.credit_balance)}
                       </p>
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <p className="text-muted-foreground">Expiring</p>
-                        <p className="font-medium text-orange-600">
-                          {formatCurrency(billingSummary?.credit_account?.expiring || 0)}
+                        <p className="text-muted-foreground">Total Purchased</p>
+                        <p className="font-medium text-green-600">
+                          {formatCurrency(user.total_purchased || 0)}
                         </p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Non-Expiring</p>
-                        <p className="font-medium text-blue-600">
-                          {formatCurrency(billingSummary?.credit_account?.non_expiring || 0)}
+                        <p className="text-muted-foreground">Total Used</p>
+                        <p className="font-medium text-orange-600">
+                          {formatCurrency(user.total_used || 0)}
                         </p>
                       </div>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Subscription</p>
-                      <Badge
-                        variant={getSubscriptionBadgeVariant(user.subscription_status)}
-                        className="capitalize"
-                      >
-                        {user.subscription_status || 'None'}
-                      </Badge>
                     </div>
                   </CardContent>
                 </Card>

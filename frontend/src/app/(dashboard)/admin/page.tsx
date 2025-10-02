@@ -179,6 +179,7 @@ export default function AdminPage() {
 }
 
 function UserRow({ user }: { user: any }) {
+  const queryClient = useQueryClient();
   const [selectedUser, setSelectedUser] = useState<UserSummary | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const remaining = user.monthly_limit - user.current_month_usage;
@@ -188,12 +189,12 @@ function UserRow({ user }: { user: any }) {
     // Convert the user data to UserSummary format for the dialog
     const userSummary: UserSummary = {
       id: user.account_id,
-      email: user.account_info?.email || 'Unknown',
+      email: user.account_info?.name || 'Loading...',  // Use name as placeholder, dialog will fetch real email
       tier: user.tier || 'free',
       credit_balance: user.credit_balance || 0,
       created_at: user.created_at || new Date().toISOString(),
-      total_purchased: user.total_purchased || 0,
-      total_used: user.total_used || 0,
+      total_purchased: user.lifetime_purchased || 0,
+      total_used: user.lifetime_used || 0,
       subscription_status: user.subscription_status,
       last_activity: user.last_active,
       trial_status: user.trial_status,
@@ -252,8 +253,9 @@ function UserRow({ user }: { user: any }) {
         isOpen={detailsOpen}
         onClose={handleCloseDialog}
         onRefresh={() => {
-          // Refresh the users list when dialog requests refresh
-          window.location.reload(); // Simple refresh for now
+          // Refresh the enterprise users list
+          queryClient.invalidateQueries({ queryKey: ['enterprise-users'] });
+          queryClient.invalidateQueries({ queryKey: ['enterprise-status'] });
         }}
       />
     </>
