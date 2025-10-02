@@ -244,7 +244,7 @@ async def get_user_details(
     account_id: str,
     days: int = Query(default=30, ge=1, le=365),
     page: int = Query(default=0, ge=0),
-    items_per_page: int = Query(default=100, ge=1, le=500),
+    items_per_page: int = Query(default=100, ge=1, le=5000),
     admin_user_id: str = Depends(verify_simple_admin)
 ):
     """Get detailed usage for a specific user."""
