@@ -106,6 +106,16 @@ export function AdminUserDetailsDialog({
   const adjustCreditsMutation = useAdjustCredits();
   const processRefundMutation = useProcessRefund();
 
+  // Debug logging to see what data is actually being returned
+  if (billingSummary) {
+    console.log('🔍 [Admin Debug] Billing Summary:', billingSummary);
+    console.log('🔍 [Admin Debug] Credit Account:', billingSummary.credit_account);
+  }
+  if (transactionsData) {
+    console.log('🔍 [Admin Debug] Transactions Data:', transactionsData);
+    console.log('🔍 [Admin Debug] Transaction Count:', transactionsData.transactions?.length || 0);
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('en-US', {
       month: 'short',
@@ -381,11 +391,22 @@ export function AdminUserDetailsDialog({
                 <>
                   {/* Admin-Only Warning Banner */}
                   <div className="rounded-lg border border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/50 p-4">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                      <h4 className="text-sm font-semibold text-orange-800 dark:text-orange-200">
-                        Confidential - Admin Access Only
-                      </h4>
+                    <div className="flex items-center gap-2 justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                        <h4 className="text-sm font-semibold text-orange-800 dark:text-orange-200">
+                          Confidential - Admin Access Only
+                        </h4>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => refetchBilling()}
+                        className="gap-2"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        Refresh Data
+                      </Button>
                     </div>
                     <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
                       You are viewing sensitive financial information for this user. This data is only visible to {adminCheck?.isOmniAdmin ? 'Omni Admins' : 'Admins'}.
@@ -398,7 +419,7 @@ export function AdminUserDetailsDialog({
                   <Card>
                     <CardContent className="pt-6">
                       <div className="text-2xl font-bold">
-                        {formatCurrency(billingSummary.current_balance || 0)}
+                        {formatCurrency(billingSummary.credit_account?.total || 0)}
                       </div>
                       <p className="text-xs text-muted-foreground">Total Balance</p>
                     </CardContent>
@@ -408,7 +429,7 @@ export function AdminUserDetailsDialog({
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-orange-500" />
                         <span className="text-lg font-semibold">
-                          {formatCurrency(billingSummary.expiring_credits || 0)}
+                          {formatCurrency(billingSummary.credit_account?.expiring || 0)}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">Expiring Credits</p>
@@ -419,7 +440,7 @@ export function AdminUserDetailsDialog({
                       <div className="flex items-center gap-2">
                         <Infinity className="h-4 w-4 text-blue-500" />
                         <span className="text-lg font-semibold">
-                          {formatCurrency(billingSummary.non_expiring_credits || 0)}
+                          {formatCurrency(billingSummary.credit_account?.non_expiring || 0)}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">Non-Expiring Credits</p>
