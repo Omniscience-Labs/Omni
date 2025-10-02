@@ -307,25 +307,6 @@ export function NavUserWithTeams({
 
               {/* User Settings Section */}
               <DropdownMenuGroup>
-                {user.isAdmin && (
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <Shield className="h-4 w-4 mr-2" />
-                      <span>Admin</span>
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                      <DropdownMenuSubContent>
-                        <DropdownMenuItem asChild>
-                          <Link href="/admin/billing">
-                            <DollarSign className="h-4 w-4" />
-                            Billing Management
-                          </Link>
-                        </DropdownMenuItem>
-                      </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                  </DropdownMenuSub>
-                )}
-                
                 {!isEnterpriseMode && (
                   <>
                     <DropdownMenuItem onClick={() => setShowBillingModal(true)}>
