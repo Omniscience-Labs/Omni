@@ -734,40 +734,21 @@ async def get_user_usage_logs(
 ):
     """
     Get usage logs for a specific user (Admin only).
-    Works without ENTERPRISE_MODE by querying llm_usage_logs directly.
+    Uses the enterprise_billing service for hierarchical usage data.
     Returns hierarchical data: Date → Thread → Usage Details
     """
     try:
-        db = DBConnection()
-        client = await db.client
+        from core.services.enterprise_billing import enterprise_billing
         
-        # Calculate date range
-        since_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
-        
-        # First, check if we have ANY logs for this user (debug)
-        count_query = client.from_('llm_usage_logs').select('id', count='exact').eq('account_id', user_id)
-        count_result = await count_query.execute()
-        total_logs = count_result.count if count_result and hasattr(count_result, 'count') else 0
-        
-        logger.info(f"Total logs in llm_usage_logs for user {user_id}: {total_logs}")
-        
-        # Query llm_usage_logs directly
-        query = client.from_('llm_usage_logs').select(
-            'id, account_id, thread_id, message_id, model_name, prompt_tokens, completion_tokens, '
-            'total_tokens, estimated_cost, created_at, metadata'
+        # Use the enterprise billing service to get hierarchical usage
+        hierarchical_data = await enterprise_billing.get_user_hierarchical_usage(
+            account_id=user_id,
+            days=days,
+            page=page,
+            items_per_page=items_per_page
         )
-        query = query.eq('account_id', user_id)
-        query = query.gte('created_at', since_date)
-        query = query.order('created_at', desc=True)
-        query = query.limit(items_per_page)
-        query = query.offset(page * items_per_page)
         
-        result = await query.execute()
-        
-        logger.info(f"Query returned {len(result.data) if result.data else 0} logs for user {user_id} in last {days} days")
-        
-        if not result.data:
-            logger.warning(f"No usage logs found for user {user_id} in last {days} days (total logs: {total_logs})")
+        if not hierarchical_data:
             return {
                 "hierarchical_usage": {},
                 "total_cost_period": 0,
@@ -777,99 +758,27 @@ async def get_user_usage_logs(
                 "is_hierarchical": True,
                 "debug_info": {
                     "user_id": user_id,
-                    "total_logs_all_time": total_logs,
-                    "logs_in_period": 0,
-                    "since_date": since_date
+                    "message": "No usage data found"
                 }
             }
-        
-        # Group data hierarchically: Date → Thread → Usage Details
-        hierarchical_data = defaultdict(lambda: {
-            'total_cost': 0,
-            'projects': {}
-        })
-        
-        total_cost_period = 0
-        
-        for log in result.data:
-            # Extract date (YYYY-MM-DD) with error handling
-            try:
-                created_at_str = log.get('created_at')
-                if not created_at_str:
-                    logger.warning(f"Log {log.get('id')} has no created_at, skipping")
-                    continue
-                created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
-                date_key = created_at.date().isoformat()
-            except (ValueError, AttributeError) as e:
-                logger.warning(f"Invalid created_at format in log {log.get('id')}: {created_at_str}, skipping")
-                continue
-            
-            thread_id = log.get('thread_id') or 'unknown'
-            
-            # Safely convert estimated_cost to float
-            try:
-                estimated_cost = float(log.get('estimated_cost', 0) or 0)
-            except (ValueError, TypeError):
-                logger.warning(f"Invalid estimated_cost in log {log.get('id')}, using 0")
-                estimated_cost = 0.0
-            
-            # Get or create thread data
-            if thread_id not in hierarchical_data[date_key]['projects']:
-                # Safely format thread title
-                thread_display = thread_id[:8] if thread_id and len(thread_id) >= 8 else (thread_id or 'unknown')
-                hierarchical_data[date_key]['projects'][thread_id] = {
-                    'thread_id': thread_id,
-                    'project_id': thread_id,  # Use thread_id as project_id for now
-                    'project_title': f"Thread {thread_display}",
-                    'thread_cost': 0,
-                    'usage_details': []
-                }
-            
-            # Add usage detail with safe defaults
-            usage_detail = {
-                'id': log.get('id'),
-                'message_id': log.get('message_id'),
-                'created_at': created_at_str,
-                'model': log.get('model_name') or 'unknown',
-                'prompt_tokens': int(log.get('prompt_tokens') or 0),
-                'completion_tokens': int(log.get('completion_tokens') or 0),
-                'total_tokens': int(log.get('total_tokens') or 0),
-                'tool_tokens': 0,  # Not tracked in llm_usage_logs
-                'estimated_cost': estimated_cost
-            }
-            
-            hierarchical_data[date_key]['projects'][thread_id]['usage_details'].append(usage_detail)
-            hierarchical_data[date_key]['projects'][thread_id]['thread_cost'] += estimated_cost
-            hierarchical_data[date_key]['total_cost'] += estimated_cost
-            total_cost_period += estimated_cost
-        
-        # Convert defaultdict to regular dict for JSON serialization
-        formatted_data = {}
-        for date_key, date_data in hierarchical_data.items():
-            formatted_data[date_key] = {
-                'total_cost': date_data['total_cost'],
-                'projects': date_data['projects']
-            }
-        
-        logger.info(f"Successfully retrieved {len(result.data)} usage logs for user {user_id}, grouped into {len(formatted_data)} dates")
         
         return {
-            "hierarchical_usage": formatted_data,
-            "total_cost_period": total_cost_period,
+            "hierarchical_usage": hierarchical_data.get('hierarchical_usage', {}),
+            "total_cost_period": hierarchical_data.get('total_cost_period', 0),
             "page": page,
             "items_per_page": items_per_page,
             "days": days,
             "is_hierarchical": True,
             "debug_info": {
                 "user_id": user_id,
-                "total_logs_all_time": total_logs,
-                "logs_in_period": len(result.data),
-                "dates_returned": len(formatted_data)
+                "monthly_limit": hierarchical_data.get('monthly_limit'),
+                "current_usage": hierarchical_data.get('current_month_usage'),
+                "remaining": hierarchical_data.get('remaining_monthly')
             }
         }
         
     except Exception as e:
         logger.error(f"Error getting usage logs for user {user_id}: {str(e)}")
         import traceback
-        traceback.print_exc()  # Print to console for debugging
-        raise HTTPException(status_code=500, detail=f"Failed to get usage logs: {str(e)}") 
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to get usage logs: {str(e)}")
