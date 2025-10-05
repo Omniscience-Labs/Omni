@@ -1,0 +1,338 @@
+---
+title: HubSpot Integration
+description: Automate marketing, sales, and CRM workflows with HubSpot
+icon: "hubspot"
+---
+
+## Capabilities
+
+Connect HubSpot to automate your entire go-to-market operations.
+
+<CardGroup cols={2}>
+  <Card title="CRM Management" icon="address-book">
+    Create, update, and manage contacts, companies, deals
+  </Card>
+  <Card title="Marketing Automation" icon="bullhorn">
+    Manage campaigns, emails, forms, and workflows
+  </Card>
+  <Card title="Sales Pipeline" icon="chart-line">
+    Track deals, create tasks, log activities
+  </Card>
+  <Card title="Content Management" icon="file-lines">
+    Manage blog posts, landing pages, and website content
+  </Card>
+</CardGroup>
+
+---
+
+## Setup
+
+<Steps>
+  <Step title="Connect HubSpot">
+    Navigate to **Integrations** and click **Connect HubSpot**.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: HubSpot Connection
+      - HubSpot integration card with Connect button
+      - Capabilities overview
+      - OAuth flow preview
+      - Size: 1200x800px
+    */}
+  </Step>
+
+  <Step title="HubSpot OAuth">
+    Authorize Omni access:
+    - Select HubSpot account (or portal)
+    - Review requested scopes
+    - Click **Grant Access**
+
+    <Info>
+      Permissions include: Contacts, Companies, Deals, Marketing Emails, Forms, Workflows, and Analytics access.
+    </Info>
+  </Step>
+
+  <Step title="Configure Sync Settings">
+    **Optional Configuration**:
+    - Default pipeline for deal creation
+    - Contact owner assignment rules
+    - Custom property mappings
+    - Notification preferences
+
+    Defaults work for most teams.
+  </Step>
+
+  <Step title="Test Integration">
+    Verify connection:
+    ```
+    "Show me my recent HubSpot contacts"
+    "What deals are in the pipeline?"
+    ```
+
+    <Check>
+      HubSpot connected! Ready for marketing and sales automation.
+    </Check>
+  </Step>
+</Steps>
+
+---
+
+## Marketing Automation
+
+<Tabs>
+  <Tab title="Email Campaigns">
+    **Automated Email Marketing**:
+    ```
+    "Create email campaign:
+    - Subject: {{subject_line}}
+    - Audience: {{contact_list}}
+    - Template: Use 'Product Launch' template
+    - Schedule: {{send_date}}
+    - Track: Opens, clicks, conversions"
+    ```
+
+    Full campaign management through conversation.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Email Campaign
+      - HubSpot email editor interface
+      - Campaign settings visible
+      - Audience selector
+      - Schedule calendar
+      - Size: 1600x900px
+    */}
+  </Tab>
+
+  <Tab title="Lead Management">
+    **Automated Lead Nurture**:
+    ```
+    "When new contact added:
+    1. Assign to {{owner}} based on territory
+    2. Add to nurture workflow
+    3. Send welcome email
+    4. Create follow-up task for 3 days
+    5. Log activity in CRM"
+    ```
+
+    Never miss a new lead.
+  </Tab>
+
+  <Tab title="Form Processing">
+    **Auto-Process Submissions**:
+    ```
+    "Monitor form: {{form_name}}
+    
+    For each submission:
+    - Create contact in HubSpot
+    - Enrich with company data
+    - Score lead based on criteria
+    - Route to appropriate sales rep
+    - Send notification to Slack"
+    ```
+
+    Instant lead routing.
+  </Tab>
+
+  <Tab title="Content Publishing">
+    **Blog Management**:
+    ```
+    "Publish blog post to HubSpot:
+    - Title: {{title}}
+    - Content: {{draft_content}}
+    - Categories: {{categories}}
+    - Author: {{author_name}}
+    - SEO optimize automatically
+    - Schedule for {{publish_date}}"
+    ```
+
+    Streamlined content publishing.
+  </Tab>
+</Tabs>
+
+---
+
+## Sales Workflows
+
+<AccordionGroup>
+  <Accordion title="Deal Pipeline Management" icon="funnel">
+    **Track Opportunities**:
+    ```
+    "Create deal in HubSpot:
+    - Deal Name: {{company_name}} - {{product}}
+    - Amount: {{deal_value}}
+    - Stage: Qualified Lead
+    - Owner: {{sales_rep}}
+    - Close Date: {{expected_close}}
+    
+    Add activity:
+    - Type: Meeting scheduled
+    - Notes: {{meeting_notes}}"
+    ```
+
+    Complete deal tracking automation.
+  </Accordion>
+
+  <Accordion title="Contact Enrichment" icon="user-plus">
+    **Automated Data Enhancement**:
+    ```
+    "For each new contact:
+    - Look up company information
+    - Find social media profiles
+    - Determine job seniority
+    - Calculate lead score
+    - Add to appropriate lists
+    - Assign territory-based owner"
+    ```
+
+    Richer contact data automatically.
+  </Accordion>
+
+  <Accordion title="Activity Logging" icon="clock">
+    **Comprehensive History**:
+    ```
+    "Log sales activity:
+    - Emails sent/received
+    - Meetings held
+    - Calls made
+    - Documents shared
+    - Next steps planned
+    
+    Automatically sync to contact timeline"
+    ```
+
+    Complete visibility into sales activities.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Reporting & Analytics
+
+<Steps>
+  <Step title="Pull HubSpot Data">
+    ```
+    "Extract from HubSpot:
+    - All contacts created this month
+    - Deal pipeline by stage
+    - Email campaign performance
+    - Website visitor analytics"
+    ```
+  </Step>
+
+  <Step title="Analyze Performance">
+    Agent processes data:
+    - Calculate conversion rates
+    - Identify trends
+    - Compare to benchmarks
+    - Find bottlenecks
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: HubSpot Analytics
+      - Dashboard showing key metrics
+      - Conversion funnel visualization
+      - Deal pipeline chart
+      - Email performance stats
+      - Size: 1800x1000px
+    */}
+  </Step>
+
+  <Step title="Generate Report">
+    ```
+    "Create executive report:
+    - Marketing performance summary
+    - Sales pipeline health
+    - Top performing campaigns
+    - Recommendations for improvement
+    
+    Format as PDF, send to leadership"
+    ```
+
+    <Check>
+      Automated HubSpot reporting!
+    </Check>
+  </Step>
+</Steps>
+
+---
+
+## Example Workflows
+
+<AccordionGroup>
+  <Accordion title="Lead Capture to Deal" icon="arrow-right">
+    **Complete Lead Flow**:
+    ```
+    Trigger: Form submitted on website
+    
+    Workflow:
+    1. Create contact in HubSpot
+    2. Enrich with company data
+    3. Calculate lead score
+    4. If score > 70:
+       - Create deal automatically
+       - Assign to sales rep
+       - Send notification to rep
+    5. If score < 70:
+       - Add to nurture workflow
+       - Schedule follow-up email sequence
+    6. Log all activities
+    7. Notify team in Slack
+    ```
+  </Accordion>
+
+  <Accordion title="Monthly Marketing Report" icon="chart-mixed">
+    **Automated Reporting**:
+    ```
+    Schedule: Last day of month at 5 PM
+    
+    Task: "Generate marketing report:
+    - Email campaign performance
+    - Form conversion rates
+    - Blog post analytics
+    - Social media engagement
+    - Lead generation metrics
+    - Pipeline contribution
+    
+    Compare to previous month
+    Send to marketing team"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Clean Data" icon="broom">
+    Maintain data quality with deduplication and validation rules
+  </Card>
+  <Card title="Score Leads" icon="ranking-star">
+    Implement consistent lead scoring for better prioritization
+  </Card>
+  <Card title="Automate Routing" icon="route">
+    Set up automatic assignment based on territory or criteria
+  </Card>
+  <Card title="Track Everything" icon="list-check">
+    Log all customer interactions for complete visibility
+  </Card>
+</CardGroup>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Salesforce Integration"
+    icon="cloud"
+    href="/guides/integrations/overview"
+  >
+    Enterprise CRM automation
+  </Card>
+  <Card
+    title="Marketing Use Cases"
+    icon="bullhorn"
+    href="/use-cases/marketing"
+  >
+    Complete marketing automation examples
+  </Card>
+</CardGroup>
