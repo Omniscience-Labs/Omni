@@ -1,0 +1,413 @@
+---
+title: Managing Threads
+description: Organize and navigate conversations effectively within projects
+icon: "comments"
+---
+
+## Thread Basics
+
+Threads are individual conversations with agents that live within projects. Each thread maintains its own context and history while sharing project-level resources.
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Thread List View
+  - Sidebar showing thread list
+  - Each thread with name, timestamp, preview
+  - Active thread highlighted
+  - New thread button visible
+  - Size: 1600x1000px
+*/}
+
+---
+
+## Creating Threads
+
+<Steps>
+  <Step title="Start New Thread">
+    Within any project:
+    - Click **New Thread** button
+    - Use keyboard shortcut `Cmd/Ctrl + N`
+    - Or click agent name to start fresh conversation
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: New Thread Options
+      - Multiple entry points highlighted
+      - Quick action menu visible
+      - Agent selector shown
+      - Size: 1200x800px
+    */}
+  </Step>
+
+  <Step title="Name Your Thread">
+    Give it a descriptive name:
+    ```
+    Good: "Email Campaign Copy - Version 1"
+    Better: "Launch Email Sequence - A/B Test Variants"
+    ```
+
+    <Tip>
+      Name threads immediately while context is fresh. You can always rename later.
+    </Tip>
+  </Step>
+
+  <Step title="Select Agent (Optional)">
+    Choose which agent to use:
+    - Project default
+    - Specific agent for this task
+    - Multiple agents in sequence
+
+    Different threads can use different agents.
+  </Step>
+</Steps>
+
+---
+
+## Thread Organization
+
+### By Purpose
+
+<Tabs>
+  <Tab title="Exploratory" icon="compass">
+    **Use For**:
+    - Initial research
+    - Brainstorming
+    - Testing ideas
+    - Learning phase
+
+    **Naming Pattern**: "Exploration - [Topic]"
+
+    Keep these threads casual and fluid.
+  </Tab>
+
+  <Tab title="Production" icon="industry">
+    **Use For**:
+    - Final deliverables
+    - Client-facing work
+    - Critical outputs
+    - Published content
+
+    **Naming Pattern**: "[Deliverable] - [Status]"
+
+    Maintain high quality and clear results.
+  </Tab>
+
+  <Tab title="Iterative" icon="rotate">
+    **Use For**:
+    - Refining outputs
+    - Version control
+    - A/B testing
+    - Progressive improvement
+
+    **Naming Pattern**: "[Item] - v[Number]"
+
+    Number sequentially for easy tracking.
+  </Tab>
+</Tabs>
+
+### By Workflow Stage
+
+<Steps>
+  <Step title="Research & Discovery">
+    Early-stage threads:
+    - Market research
+    - Competitive analysis
+    - Requirements gathering
+    - Stakeholder interviews
+  </Step>
+
+  <Step title="Planning & Strategy">
+    Strategic threads:
+    - Project planning
+    - Strategy development
+    - Resource allocation
+    - Timeline creation
+  </Step>
+
+  <Step title="Execution & Creation">
+    Production threads:
+    - Content creation
+    - Design work
+    - Development tasks
+    - Implementation
+  </Step>
+
+  <Step title="Review & Refinement">
+    Quality threads:
+    - Editing and revision
+    - Testing and QA
+    - Feedback incorporation
+    - Final polish
+  </Step>
+</Steps>
+
+---
+
+## Thread Navigation
+
+### Quick Access
+
+<CardGroup cols={2}>
+  <Card title="Recent Threads" icon="clock">
+    `Cmd/Ctrl + R` shows recently accessed threads across all projects
+  </Card>
+  <Card title="Search Threads" icon="magnifying-glass">
+    `Cmd/Ctrl + K` to find specific threads by name or content
+  </Card>
+  <Card title="Thread History" icon="list">
+    Navigate chronologically through project threads
+  </Card>
+  <Card title="Starred Threads" icon="star">
+    Pin important threads to the top of your list
+  </Card>
+</CardGroup>
+
+### Sidebar Controls
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Thread Sidebar Features
+  - Filter and sort options
+  - Search bar
+  - Status indicators
+  - Context menu actions
+  - Size: 400x1000px
+*/}
+
+<AccordionGroup>
+  <Accordion title="Filter Options" icon="filter">
+    Show threads by:
+    - **Status**: Active, completed, archived
+    - **Agent**: Filter by which agent was used
+    - **Date**: Today, this week, custom range
+    - **Has Files**: Threads with attachments only
+  </Accordion>
+
+  <Accordion title="Sort Options" icon="arrow-down-a-z">
+    Order threads by:
+    - **Last Activity**: Most recent first (default)
+    - **Created Date**: Newest or oldest
+    - **Name**: Alphabetical
+    - **Custom**: Drag to reorder manually
+  </Accordion>
+
+  <Accordion title="Bulk Actions" icon="check-double">
+    Select multiple threads to:
+    - Archive in batch
+    - Export conversations
+    - Change status
+    - Move to different project
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Thread Lifecycle
+
+<Steps>
+  <Step title="Active">
+    Currently in use:
+    - Ongoing conversation
+    - Work in progress
+    - Regular updates
+
+    Visible in main thread list.
+  </Step>
+
+  <Step title="Completed">
+    Work finished:
+    - Deliverable created
+    - Goal achieved
+    - No further action needed
+
+    Can still access and reference.
+  </Step>
+
+  <Step title="Archived">
+    Long-term storage:
+    - Project finished
+    - Historical reference
+    - Inactive but preserved
+
+    Hidden from main view, searchable.
+  </Step>
+</Steps>
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="One Focus Per Thread" icon="bullseye">
+    Keep each thread focused on a single deliverable or goal:
+    
+    **Good**:
+    ```
+    Thread 1: "Blog Post - AI Trends 2024"
+    Thread 2: "Social Posts - AI Trends Promotion"
+    Thread 3: "Newsletter - AI Trends Feature"
+    ```
+
+    **Avoid**:
+    ```
+    Thread 1: "All AI Trends Content"
+    (blog + social + newsletter + graphics)
+    ```
+
+    Focused threads are easier to navigate and reference later.
+  </Accordion>
+
+  <Accordion title="Descriptive Names" icon="tag">
+    Include key information in thread names:
+
+    **Template**: `[Type] - [Topic] - [Version/Status]`
+
+    Examples:
+    - "Report - Q3 Sales Analysis - Draft"
+    - "Email - Product Launch - Final"
+    - "Presentation - Investor Deck - v3"
+  </Accordion>
+
+  <Accordion title="Regular Cleanup" icon="broom">
+    Weekly maintenance:
+    - ✓ Mark completed threads as done
+    - ✓ Archive old threads
+    - ✓ Rename unclear threads
+    - ✓ Export important conversations
+
+    Keeps workspace manageable.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Thread Actions
+
+### Individual Thread
+
+<Tabs>
+  <Tab title="Rename">
+    Click thread name or use context menu:
+    - Update to reflect current focus
+    - Add status indicators
+    - Include version numbers
+
+    Changes reflected immediately.
+  </Tab>
+
+  <Tab title="Duplicate">
+    Create copy of thread:
+    - Preserves conversation history
+    - Creates independent copy
+    - Useful for variations or versions
+
+    Original remains unchanged.
+  </Tab>
+
+  <Tab title="Export">
+    Download thread contents:
+    - **Markdown**: Full conversation
+    - **PDF**: Formatted document
+    - **JSON**: Machine-readable data
+
+    Includes all messages and files.
+  </Tab>
+
+  <Tab title="Share">
+    Share with team or externally:
+    - Generate shareable link
+    - Set expiration time
+    - Control access level
+
+    Recipients see read-only view.
+  </Tab>
+</Tabs>
+
+---
+
+## Thread Templates
+
+Create reusable thread structures for common tasks.
+
+<AccordionGroup>
+  <Accordion title="What Are Templates?" icon="file-lines">
+    Pre-configured thread setups with:
+    - Initial instructions for agent
+    - Required file attachments
+    - Checklist of deliverables
+    - Workflow steps
+
+    Save time on recurring tasks.
+  </Accordion>
+
+  <Accordion title="Creating Templates" icon="plus">
+    From any thread:
+    1. Click **Save as Template**
+    2. Name your template
+    3. Choose what to include
+    4. Set as project or personal template
+
+    Templates appear in New Thread menu.
+  </Accordion>
+
+  <Accordion title="Using Templates" icon="wand-magic-sparkles">
+    When creating new thread:
+    1. Select **From Template**
+    2. Choose template
+    3. Customize if needed
+    4. Start working
+
+    Instant setup for common workflows.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Can't Find a Thread" icon="question">
+    **Try**:
+    - Use search (Cmd/Ctrl + K)
+    - Check archived threads
+    - Look in other projects
+    - Search by agent used
+    - Filter by date range
+  </Accordion>
+
+  <Accordion title="Too Many Threads" icon="layer-group">
+    **Solutions**:
+    - Archive completed work
+    - Consolidate related threads
+    - Use better naming
+    - Create project sub-structure
+    - Set auto-archive rules
+  </Accordion>
+
+  <Accordion title="Lost Context" icon="exclamation">
+    **Recovery**:
+    - Check thread history
+    - Review attached files
+    - Search conversation
+    - Ask agent to summarize
+    - Export for reference
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Share Projects"
+    icon="share"
+    href="/guides/projects/sharing"
+  >
+    Collaborate with team members on threads
+  </Card>
+  <Card
+    title="Chat Interface"
+    icon="messages"
+    href="/guides/agents/chat-interface"
+  >
+    Master effective communication in threads
+  </Card>
+</CardGroup>
