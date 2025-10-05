@@ -792,32 +792,48 @@ async def get_user_usage_logs(
         total_cost_period = 0
         
         for log in result.data:
-            # Extract date (YYYY-MM-DD)
-            created_at = datetime.fromisoformat(log['created_at'].replace('Z', '+00:00'))
-            date_key = created_at.date().isoformat()
+            # Extract date (YYYY-MM-DD) with error handling
+            try:
+                created_at_str = log.get('created_at')
+                if not created_at_str:
+                    logger.warning(f"Log {log.get('id')} has no created_at, skipping")
+                    continue
+                created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                date_key = created_at.date().isoformat()
+            except (ValueError, AttributeError) as e:
+                logger.warning(f"Invalid created_at format in log {log.get('id')}: {created_at_str}, skipping")
+                continue
             
-            thread_id = log.get('thread_id', 'unknown')
-            estimated_cost = float(log.get('estimated_cost', 0))
+            thread_id = log.get('thread_id') or 'unknown'
+            
+            # Safely convert estimated_cost to float
+            try:
+                estimated_cost = float(log.get('estimated_cost', 0) or 0)
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid estimated_cost in log {log.get('id')}, using 0")
+                estimated_cost = 0.0
             
             # Get or create thread data
             if thread_id not in hierarchical_data[date_key]['projects']:
+                # Safely format thread title
+                thread_display = thread_id[:8] if thread_id and len(thread_id) >= 8 else (thread_id or 'unknown')
                 hierarchical_data[date_key]['projects'][thread_id] = {
                     'thread_id': thread_id,
                     'project_id': thread_id,  # Use thread_id as project_id for now
-                    'project_title': f"Thread {thread_id[:8]}",
+                    'project_title': f"Thread {thread_display}",
                     'thread_cost': 0,
                     'usage_details': []
                 }
             
-            # Add usage detail
+            # Add usage detail with safe defaults
             usage_detail = {
-                'id': log['id'],
+                'id': log.get('id'),
                 'message_id': log.get('message_id'),
-                'created_at': log['created_at'],
-                'model': log.get('model_name', 'unknown'),
-                'prompt_tokens': log.get('prompt_tokens', 0),
-                'completion_tokens': log.get('completion_tokens', 0),
-                'total_tokens': log.get('total_tokens', 0),
+                'created_at': created_at_str,
+                'model': log.get('model_name') or 'unknown',
+                'prompt_tokens': int(log.get('prompt_tokens') or 0),
+                'completion_tokens': int(log.get('completion_tokens') or 0),
+                'total_tokens': int(log.get('total_tokens') or 0),
                 'tool_tokens': 0,  # Not tracked in llm_usage_logs
                 'estimated_cost': estimated_cost
             }
@@ -853,5 +869,7 @@ async def get_user_usage_logs(
         }
         
     except Exception as e:
-        logger.error(f"Error getting usage logs for user {user_id}: {e}", exc_info=True)
+        logger.error(f"Error getting usage logs for user {user_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()  # Print to console for debugging
         raise HTTPException(status_code=500, detail=f"Failed to get usage logs: {str(e)}") 
