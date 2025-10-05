@@ -37,11 +37,7 @@
   "navigation": [
     {
       "group": "Getting Started",
-      "pages": [
-        "introduction",
-        "quickstart",
-        "core-concepts"
-      ]
+      "pages": ["introduction", "quickstart", "core-concepts"]
     },
     {
       "group": "Agent Management",
