@@ -1,0 +1,455 @@
+---
+title: Data Processing Use Cases
+description: Real-world scenarios for data analysis and transformation with AI
+icon: "database"
+---
+
+## Overview
+
+Agents excel at processing, analyzing, and visualizing data from CSV files, spreadsheets, APIs, and databases.
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Data Processing Dashboard
+  - Before/after views of raw vs processed data
+  - Visualizations generated
+  - Insights highlighted
+  - Size: 2000x1200px
+*/}
+
+<CardGroup cols={2}>
+  <Card title="Clean & Validate" icon="broom">
+    Remove errors, standardize formats, ensure quality
+  </Card>
+  <Card title="Analyze & Model" icon="calculator">
+    Statistics, predictions, pattern recognition
+  </Card>
+  <Card title="Visualize & Report" icon="chart-mixed">
+    Interactive dashboards and executive summaries
+  </Card>
+  <Card title="Automate & Schedule" icon="clock">
+    Recurring data pipelines
+  </Card>
+</CardGroup>
+
+---
+
+## Common Scenarios
+
+<Tabs>
+  <Tab title="Sales Analytics">
+    **Complete Sales Analysis**:
+    ```
+    Upload: sales-data-q4.csv
+    
+    Request: "Analyze this sales data:
+    
+    1. Data Quality:
+       - Validate all required fields present
+       - Check for duplicate transactions
+       - Flag anomalies or outliers
+    
+    2. Performance Metrics:
+       - Total revenue by month
+       - Average deal size
+       - Win rate percentage
+       - Sales cycle length
+    
+    3. Segmentation:
+       - By sales rep (top performers)
+       - By region (geographic insights)
+       - By product (best sellers)
+       - By customer segment
+    
+    4. Trends:
+       - Month-over-month growth
+       - Pipeline velocity
+       - Deal size trends
+    
+    5. Visualizations:
+       - Revenue trend line chart
+       - Regional performance map
+       - Product mix pie chart
+       - Rep leaderboard bar chart
+    
+    6. Deliverable:
+       - Executive summary (key findings)
+       - Detailed report with all charts
+       - Recommendations for improvement
+       - Export as interactive dashboard"
+    ```
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Sales Dashboard
+      - Professional dashboard layout
+      - Multiple chart types
+      - KPI cards at top
+      - Filter controls
+      - Size: 2000x1200px
+    */}
+  </Tab>
+
+  <Tab title="Customer Analytics">
+    **Cohort & Retention Analysis**:
+    ```
+    Upload: customer-events.csv
+    
+    Request: "Perform cohort analysis:
+    
+    1. Cohort Definition:
+       - Group by signup month
+       - Track for 12 months
+    
+    2. Metrics per Cohort:
+       - Retention rate (monthly)
+       - Revenue per user
+       - Feature adoption
+       - Churn rate
+    
+    3. Insights:
+       - Best performing cohorts
+       - Drop-off patterns
+       - Retention drivers
+    
+    4. Visualizations:
+       - Cohort retention heatmap
+       - Revenue trends by cohort
+       - Feature adoption funnel
+    
+    5. Recommendations:
+       - Retention improvement strategies
+       - At-risk customer identification
+       - Expansion opportunities"
+    ```
+
+    Understand customer lifecycle.
+  </Tab>
+
+  <Tab title="Financial Reporting">
+    **Automated Financial Analysis**:
+    ```
+    Upload: transactions-2024.csv
+    
+    Request: "Create monthly financial report:
+    
+    1. Income Statement:
+       - Revenue by category
+       - Expenses by department
+       - Net profit/loss
+    
+    2. Trends:
+       - YoY comparisons
+       - Budget vs actual
+       - Forecast accuracy
+    
+    3. Visualizations:
+       - Revenue waterfall chart
+       - Expense breakdown pie chart
+       - Trend analysis line charts
+    
+    4. Alerts:
+       - Budget overruns
+       - Anomalous transactions
+       - Missing categorizations
+    
+    Format: PDF report + Excel workbook"
+    ```
+
+    CFO-ready financial reporting.
+  </Tab>
+
+  <Tab title="Operations Dashboard">
+    **Real-Time Monitoring**:
+    ```
+    Schedule: Every hour
+    
+    Task: "Process latest operational data:
+    
+    1. Collect:
+       - API call logs
+       - Error rates
+       - Response times
+       - User activity
+    
+    2. Calculate:
+       - Uptime percentage
+       - Average response time
+       - Error rate by endpoint
+       - Active user count
+    
+    3. Visualize:
+       - Real-time metrics dashboard
+       - Alert on anomalies
+       - Compare to baselines
+    
+    4. Alert:
+       - If error rate > 5%, notify #ops
+       - If response time > 2s, investigate
+       - If uptime < 99.9%, escalate"
+    ```
+
+    Live operational intelligence.
+  </Tab>
+</Tabs>
+
+---
+
+## Data Cleaning
+
+<Steps>
+  <Step title="Upload Messy Data">
+    ```
+    "I have a CSV with customer data that needs cleaning"
+    ```
+
+    Agent inspects and reports issues found.
+  </Step>
+
+  <Step title="Agent Identifies Problems">
+    Automatic quality check:
+    - ❌ 150 duplicate rows
+    - ❌ 45 missing email addresses
+    - ❌ Inconsistent date formats
+    - ❌ Invalid phone numbers (23)
+    - ⚠️ Outliers in revenue column
+
+    Comprehensive assessment.
+  </Step>
+
+  <Step title="Apply Cleaning Rules">
+    ```
+    "Clean this data:
+    - Remove exact duplicates
+    - Fill missing emails with 'N/A'
+    - Standardize all dates to YYYY-MM-DD
+    - Format phone numbers to (XXX) XXX-XXXX
+    - Cap revenue outliers at 99th percentile
+    
+    Save cleaned version as customer-data-clean.csv"
+    ```
+
+    Explicit transformation rules.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Cleaning Report
+      - Before/after data quality scores
+      - Changes quantified
+      - Preview of cleaned data
+      - Size: 1600x900px
+    */}
+  </Step>
+
+  <Step title="Validate Results">
+    ```
+    "Verify the cleaned data:
+    - No duplicates remain
+    - All dates parse correctly
+    - Phone numbers valid
+    - No unexpected changes"
+    ```
+
+    Quality assurance step.
+
+    <Check>
+      Data cleaned and validated! Ready for analysis.
+    </Check>
+  </Step>
+</Steps>
+
+---
+
+## Visualization Examples
+
+<Tabs>
+  <Tab title="Executive Dashboard">
+    ```
+    "Create executive dashboard:
+    
+    Layout:
+    - Top: 4 KPI cards (Revenue, Growth, Customers, NPS)
+    - Middle Left: Revenue trend (12 months)
+    - Middle Right: Top products table
+    - Bottom: Regional breakdown map
+    
+    Interactive features:
+    - Date range selector
+    - Drill-down on click
+    - Export to PDF button
+    
+    Style: Professional, clean, brand colors"
+    ```
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Executive Dashboard
+      - Complete dashboard as described
+      - Professional design
+      - Clear data hierarchy
+      - Interactive elements visible
+      - Size: 2400x1400px
+    */}
+  </Tab>
+
+  <Tab title="Comparison Charts">
+    ```
+    "Compare Q3 vs Q4 performance:
+    - Side-by-side bar charts
+    - Percentage change annotations
+    - Highlight improvements in green
+    - Highlight declines in red
+    - Include summary statistics table"
+    ```
+
+    Clear before/after visualizations.
+  </Tab>
+
+  <Tab title="Trend Analysis">
+    ```
+    "Show website traffic trends:
+    - Daily visitors (line chart, 90 days)
+    - Add moving average (7-day)
+    - Mark significant events
+    - Show confidence intervals
+    - Forecast next 30 days"
+    ```
+
+    Predictive visualizations.
+  </Tab>
+</Tabs>
+
+---
+
+## Automated Reporting
+
+**Weekly Sales Report Workflow**:
+
+<Steps>
+  <Step title="Schedule">
+    ```
+    Trigger: Every Monday at 8 AM
+    ```
+  </Step>
+
+  <Step title="Data Collection">
+    ```
+    Pull data from:
+    - CRM API (sales closed last week)
+    - Google Sheets (pipeline data)
+    - Analytics platform (website metrics)
+    ```
+  </Step>
+
+  <Step title="Processing">
+    ```
+    Calculate:
+    - Week-over-week changes
+    - Top performers
+    - Pipeline value
+    - Conversion rates
+    ```
+  </Step>
+
+  <Step title="Visualization">
+    ```
+    Create:
+    - Summary slide deck
+    - Detailed charts
+    - Comparison tables
+    ```
+  </Step>
+
+  <Step title="Distribution">
+    ```
+    Send:
+    - PDF to sales-leadership@company.com
+    - Post summary to #sales Slack channel
+    - Save to Reports folder in Drive
+    ```
+
+    <Check>
+      Automated end-to-end reporting!
+    </Check>
+  </Step>
+</Steps>
+
+---
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Explore First" icon="compass">
+    Always do exploratory analysis before deep dives
+  </Card>
+  <Card title="Document Assumptions" icon="book">
+    Note any assumptions made during processing
+  </Card>
+  <Card title="Verify Calculations" icon="check-double">
+    Spot-check results against source data
+  </Card>
+  <Card title="Version Control" icon="code-branch">
+    Save dated versions of processed datasets
+  </Card>
+  <Card title="Clear Visualizations" icon="eye">
+    Label axes, add legends, include units
+  </Card>
+  <Card title="Actionable Insights" icon="lightbulb">
+    Always include "so what?" and recommendations
+  </Card>
+</CardGroup>
+
+---
+
+## Agent Configuration
+
+**Data Analyst Agent Setup**:
+
+<AccordionGroup>
+  <Accordion title="Required Tools">
+    ✅ File Operations
+    ✅ Code Execution (for Python/pandas)
+    ✅ Data Processing
+    ⚠️ Web Search (for context)
+    ❌ Browser (usually not needed)
+  </Accordion>
+
+  <Accordion title="System Prompt">
+    ```
+    You are a data analyst expert in statistical analysis 
+    and business intelligence.
+
+    Analysis Standards:
+    - Start with exploratory data analysis
+    - Validate data quality first
+    - Use appropriate statistical methods
+    - Create clear, labeled visualizations
+    - Provide actionable insights
+
+    Deliverable Format:
+    - Executive summary (non-technical)
+    - Detailed findings with charts
+    - Methodology notes
+    - Recommendations with confidence levels
+
+    Always explain statistical choices and assumptions.
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Advanced Data Processing"
+    icon="chart-line"
+    href="/guides/advanced/data-processing"
+  >
+    Deep dive into analysis techniques
+  </Card>
+  <Card
+    title="Automation"
+    icon="bolt"
+    href="/guides/automation/workflows"
+  >
+    Schedule recurring data pipelines
+  </Card>
+</CardGroup>
