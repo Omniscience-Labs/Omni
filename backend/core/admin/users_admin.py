@@ -7,8 +7,64 @@ from core.services.supabase import DBConnection
 from core.utils.logger import logger
 from core.utils.pagination import PaginationService, PaginationParams, PaginatedResponse
 from collections import defaultdict
+from core.utils.config import config
+from core.utils.auth_utils import verify_and_get_user_id_from_jwt
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
+
+# Unified admin check that works with both standard and enterprise admin systems
+async def require_any_admin(user_id: str = Depends(verify_and_get_user_id_from_jwt)):
+    """
+    Flexible admin check that works with both:
+    1. Enterprise admin (ADMIN_EMAILS / OMNI_ADMIN env vars) when ENTERPRISE_MODE is enabled
+    2. Standard admin (user_roles table) as fallback
+    """
+    db = DBConnection()
+    client = await db.client
+    
+    # First, try enterprise admin check if in enterprise mode
+    if config.ENTERPRISE_MODE and (config.ADMIN_EMAILS or config.OMNI_ADMIN):
+        try:
+            user_result = await client.auth.admin.get_user_by_id(user_id)
+            if user_result.user and user_result.user.email:
+                user_email = user_result.user.email.lower()
+                
+                # Check OMNI_ADMIN emails
+                omni_admin_emails = []
+                if config.OMNI_ADMIN:
+                    omni_admin_emails = [email.strip().lower() for email in config.OMNI_ADMIN.split(',') if email.strip()]
+                
+                # Check regular ADMIN_EMAILS
+                admin_emails = []
+                if config.ADMIN_EMAILS:
+                    admin_emails = [email.strip().lower() for email in config.ADMIN_EMAILS.split(',') if email.strip()]
+                
+                # If user is in either admin list, grant access
+                if user_email in omni_admin_emails or user_email in admin_emails:
+                    logger.info(f"Enterprise admin access granted for {user_email}")
+                    return {"user_id": user_id, "role": "enterprise_admin"}
+        except Exception as e:
+            logger.warning(f"Enterprise admin check failed: {e}")
+    
+    # Fall back to standard user_roles table check
+    try:
+        result = await client.table('user_roles').select('role').eq('user_id', user_id).execute()
+        
+        if result.data and len(result.data) > 0:
+            user_role = result.data[0]['role']
+            role_hierarchy = {'user': 0, 'admin': 1, 'super_admin': 2}
+            
+            if role_hierarchy.get(user_role, -1) >= role_hierarchy.get('admin', 999):
+                logger.info(f"Standard admin access granted for user {user_id} with role {user_role}")
+                return {"user_id": user_id, "role": user_role}
+    except Exception as e:
+        logger.error(f"Standard admin check failed: {e}")
+    
+    # If we get here, user is not an admin in either system
+    raise HTTPException(
+        status_code=403, 
+        detail="Admin access required. You must be either an enterprise admin (email in ADMIN_EMAILS) or have admin role in user_roles table."
+    )
 
 class UserListRequest(BaseModel):
     search_email: Optional[str] = None
@@ -47,7 +103,7 @@ async def advanced_user_search(
     request: AdvancedSearchRequest,
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    admin: dict = Depends(require_admin)
+    admin: dict = Depends(require_any_admin)
 ) -> PaginatedResponse[UserSummary]:
     try:
         db = DBConnection()
@@ -214,7 +270,7 @@ async def list_users(
     tier_filter: Optional[str] = Query(None, description="Filter by tier"),
     sort_by: str = Query("created_at", description="Sort field"),
     sort_order: str = Query("desc", description="Sort order: asc, desc"),
-    admin: dict = Depends(require_admin)
+    admin: dict = Depends(require_any_admin)
 ) -> PaginatedResponse[UserSummary]:
     try:
         db = DBConnection()
@@ -358,7 +414,7 @@ async def list_users(
 @router.get("/{user_id}")
 async def get_user_details(
     user_id: str,
-    admin: dict = Depends(require_admin)
+    admin: dict = Depends(require_any_admin)
 ):
     try:
         db = DBConnection()
@@ -427,7 +483,7 @@ async def search_users_by_email(
     email: str = Query(..., description="Email to search for"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=50, description="Items per page"),
-    admin: dict = Depends(require_admin)
+    admin: dict = Depends(require_any_admin)
 ) -> PaginatedResponse[Dict[str, Any]]:
     try:
         db = DBConnection()
@@ -495,7 +551,7 @@ async def search_users_by_email(
 
 @router.get("/stats/overview")
 async def get_user_stats_overview(
-    admin: dict = Depends(require_admin)
+    admin: dict = Depends(require_any_admin)
 ):
     try:
         db = DBConnection()
@@ -549,7 +605,7 @@ class UserActivityRequest(BaseModel):
 @router.post("/activity/summary")
 async def get_user_activity_summary(
     request: UserActivityRequest,
-    admin: dict = Depends(require_admin)
+    admin: dict = Depends(require_any_admin)
 ):
     try:
         db = DBConnection()
@@ -670,7 +726,7 @@ async def get_user_usage_logs(
     days: int = Query(default=30, ge=1, le=365),
     page: int = Query(default=0, ge=0),
     items_per_page: int = Query(default=1000, ge=1, le=5000),
-    admin: dict = Depends(require_admin)
+    admin: dict = Depends(require_any_admin)
 ):
     """
     Get usage logs for a specific user (Admin only).
