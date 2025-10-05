@@ -6,7 +6,7 @@ icon: "puzzle-piece"
 
 ## Available Integrations
 
-Extend agent capabilities by connecting to 50+ popular services across communication, productivity, and development tools.
+Extend agent capabilities by connecting to 150+ popular services powered by Composio MCP across communication, productivity, development, and business tools.
 
 {/* 
   📸 MEDIA PLACEHOLDER: Integrations Gallery
@@ -17,26 +17,48 @@ Extend agent capabilities by connecting to 50+ popular services across communica
   - Size: 2000x1200px
 */}
 
-<CardGroup cols={3}>
+<CardGroup cols={4}>
   <Card title="Communication" icon="comments">
-    Gmail, Slack, Teams, Discord
+    Gmail, Slack, Teams, Discord, Telegram, WhatsApp
   </Card>
   <Card title="Productivity" icon="calendar-check">
-    Calendar, Drive, Notion, Airtable
+    Google Workspace, Notion, Airtable, Asana, ClickUp
   </Card>
   <Card title="Development" icon="code">
-    GitHub, GitLab, Linear, Jira
+    GitHub, GitLab, Linear, Jira, Bitbucket, Azure DevOps
   </Card>
   <Card title="Marketing" icon="bullhorn">
-    HubSpot, Mailchimp, Twitter/X
+    HubSpot, Mailchimp, SendGrid, Twitter/X, LinkedIn
+  </Card>
+  <Card title="CRM & Sales" icon="user-tie">
+    Salesforce, HubSpot CRM, Pipedrive, Zoho CRM, Close
+  </Card>
+  <Card title="Project Management" icon="list-check">
+    Asana, Monday.com, Trello, ClickUp, Basecamp
   </Card>
   <Card title="Data & Analytics" icon="chart-line">
-    Google Analytics, Mixpanel, Amplitude
+    Google Analytics, Mixpanel, Amplitude, Segment
+  </Card>
+  <Card title="Scheduling" icon="calendar">
+    Google Calendar, Calendly, Cal.com, Outlook Calendar
   </Card>
   <Card title="E-commerce" icon="cart-shopping">
-    Shopify, Stripe, WooCommerce
+    Shopify, Stripe, WooCommerce, Square
+  </Card>
+  <Card title="Accounting" icon="calculator">
+    QuickBooks, Xero, FreshBooks, Wave
+  </Card>
+  <Card title="Support" icon="headset">
+    Zendesk, Intercom, Freshdesk, Help Scout
+  </Card>
+  <Card title="Cloud Storage" icon="cloud">
+    Google Drive, Dropbox, OneDrive, Box
   </Card>
 </CardGroup>
+
+<Info>
+  **Powered by Composio**: All integrations use secure OAuth 2.0 authentication and are managed through the Composio MCP platform, providing consistent security and reliability.
+</Info>
 
 ---
 
@@ -111,70 +133,334 @@ Extend agent capabilities by connecting to 50+ popular services across communica
 
 ---
 
-## Integration Categories
+## Complete Integration Catalog
+
+Omni supports 150+ integrations through Composio MCP. Browse by category to find the tools you need.
 
 <Tabs>
-  <Tab title="Communication" icon="envelope">
-    **Connect Your Inbox**:
+  <Tab title="Popular" icon="fire">
+    **Most Used Integrations**:
 
-    <CardGroup cols={2}>
+    <CardGroup cols={3}>
       <Card title="Gmail" icon="envelope">
-        Read, send, organize emails
-        [Setup guide →](/guides/integrations/gmail)
+        Email automation and management
       </Card>
       <Card title="Slack" icon="slack">
-        Message, notify, read channels
-        [Setup guide →](/guides/integrations/slack)
+        Team communication and notifications
       </Card>
-      <Card title="Microsoft Teams" icon="microsoft">
-        Post updates, reply to threads
+      <Card title="GitHub" icon="github">
+        Code repository and issue management
       </Card>
-      <Card title="Discord" icon="discord">
-        Moderate, respond, manage servers
+      <Card title="Google Calendar" icon="calendar">
+        Scheduling and availability
+      </Card>
+      <Card title="Notion" icon="book-open">
+        Documentation and knowledge management
+      </Card>
+      <Card title="Linear" icon="chart-network">
+        Issue tracking and project planning
+      </Card>
+      <Card title="Google Drive" icon="google-drive">
+        File storage and collaboration
+      </Card>
+      <Card title="HubSpot" icon="hubspot">
+        Marketing automation and CRM
+      </Card>
+      <Card title="Salesforce" icon="cloud">
+        Enterprise CRM and sales
       </Card>
     </CardGroup>
+  </Tab>
+
+  <Tab title="Communication" icon="comments">
+    **Messaging & Email Platforms**:
+
+    - **Gmail** - Email automation, inbox management
+    - **Slack** - Team messaging, channel notifications
+    - **Microsoft Teams** - Enterprise communication
+    - **Discord** - Community and team chat
+    - **Telegram** - Messaging and bot integration
+    - **WhatsApp Business** - Customer messaging
+    - **Twilio** - SMS and voice communication
+    - **SendGrid** - Transactional email
+    - **Mailgun** - Email delivery service
+    - **Postmark** - Email API
+    - **Intercom** - Customer messaging platform
+    - **Zendesk Chat** - Live chat support
   </Tab>
 
   <Tab title="Productivity" icon="list-check">
-    **Streamline Workflows**:
+    **Workspace & Collaboration Tools**:
 
-    <CardGroup cols={2}>
-      <Card title="Google Calendar" icon="calendar">
-        Schedule, check availability, send invites
-        [Setup guide →](/guides/integrations/calendar)
-      </Card>
-      <Card title="Notion" icon="book-open">
-        Create pages, databases, sync content
-      </Card>
-      <Card title="Google Drive" icon="google-drive">
-        Access, create, organize documents
-      </Card>
-      <Card title="Airtable" icon="table">
-        Query, update, create records
-      </Card>
-    </CardGroup>
+    - **Google Workspace** - Suite of productivity apps
+    - **Microsoft 365** - Office suite and collaboration
+    - **Notion** - All-in-one workspace
+    - **Airtable** - Spreadsheet-database hybrid
+    - **Coda** - Collaborative documents
+    - **ClickUp** - Project and task management
+    - **Asana** - Work management platform
+    - **Monday.com** - Visual workflow tool
+    - **Trello** - Kanban board management
+    - **Todoist** - Task management
+    - **Evernote** - Note-taking and organization
+    - **OneNote** - Digital notebook
+    - **Bear** - Writing and notes app
+    - **Obsidian** - Knowledge base tool
+    - **Roam Research** - Networked thought
   </Tab>
 
   <Tab title="Development" icon="code">
-    **Automate Dev Workflows**:
+    **Developer Tools & Platforms**:
 
-    <CardGroup cols={2}>
-      <Card title="GitHub" icon="github">
-        Repos, issues, PRs, actions
-        [Setup guide →](/guides/integrations/github)
-      </Card>
-      <Card title="GitLab" icon="gitlab">
-        Projects, merge requests, CI/CD
-      </Card>
-      <Card title="Linear" icon="chart-network">
-        Issue tracking, project management
-      </Card>
-      <Card title="Jira" icon="j">
-        Ticket management, workflows
-      </Card>
-    </CardGroup>
+    - **GitHub** - Code hosting and collaboration
+    - **GitLab** - DevOps platform
+    - **Bitbucket** - Git repository management
+    - **Azure DevOps** - End-to-end DevOps
+    - **Linear** - Issue tracking and project management
+    - **Jira** - Agile project management
+    - **Shortcut (Clubhouse)** - Project management for software teams
+    - **YouTrack** - Issue tracker
+    - **Sentry** - Error tracking and monitoring
+    - **Datadog** - Monitoring and analytics
+    - **PagerDuty** - Incident management
+    - **Vercel** - Deployment platform
+    - **Netlify** - Web hosting and deployment
+    - **Heroku** - Cloud platform
+    - **Docker Hub** - Container registry
+    - **npm** - Package registry
+    - **PyPI** - Python package index
+  </Tab>
+
+  <Tab title="CRM & Sales" icon="user-tie">
+    **Customer Relationship Management**:
+
+    - **Salesforce** - Enterprise CRM platform
+    - **HubSpot CRM** - All-in-one CRM
+    - **Pipedrive** - Sales-focused CRM
+    - **Zoho CRM** - Cloud-based CRM
+    - **Close** - Inside sales CRM
+    - **Copper** - CRM for Google Workspace
+    - **Freshsales** - Sales CRM by Freshworks
+    - **ActiveCampaign** - Email marketing + CRM
+    - **Keap** - CRM and automation
+    - **SugarCRM** - Flexible CRM platform
+    - **Microsoft Dynamics 365** - Enterprise CRM
+    - **Oracle CX** - Cloud customer experience
+  </Tab>
+
+  <Tab title="Project Management" icon="diagram-project">
+    **Work Planning & Tracking**:
+
+    - **Asana** - Work management
+    - **Monday.com** - Visual workflow platform
+    - **Trello** - Kanban boards
+    - **ClickUp** - All-in-one productivity
+    - **Basecamp** - Project management
+    - **Wrike** - Collaborative work management
+    - **Smartsheet** - Enterprise work management
+    - **Teamwork** - Project management software
+    - **Workfront** - Adobe's work management
+    - **Planview** - Portfolio management
+    - **Microsoft Project** - Project planning
+    - **Height** - Autonomous project management
+  </Tab>
+
+  <Tab title="Marketing" icon="megaphone">
+    **Marketing Automation & Tools**:
+
+    - **HubSpot Marketing** - Inbound marketing
+    - **Mailchimp** - Email marketing
+    - **SendGrid** - Email delivery
+    - **Marketo** - Marketing automation
+    - **Pardot** - B2B marketing by Salesforce
+    - **ActiveCampaign** - Email automation
+    - **Constant Contact** - Email marketing
+    - **ConvertKit** - Creator marketing
+    - **GetResponse** - Marketing platform
+    - **AWeber** - Email marketing
+    - **Drip** - E-commerce CRM
+    - **Twitter/X** - Social media posting
+    - **LinkedIn** - Professional networking
+    - **Facebook Pages** - Social media management
+    - **Instagram Business** - Social content
+    - **Buffer** - Social media scheduling
+    - **Hootsuite** - Social media management
+    - **Sprout Social** - Social management
+  </Tab>
+
+  <Tab title="Scheduling" icon="clock">
+    **Calendar & Appointment Tools**:
+
+    - **Google Calendar** - Event management
+    - **Outlook Calendar** - Microsoft calendar
+    - **Apple Calendar** - macOS/iOS calendar
+    - **Calendly** - Meeting scheduling
+    - **Cal.com** - Open source scheduling
+    - **Acuity Scheduling** - Appointment booking
+    - **Doodle** - Meeting polls
+    - **YouCanBookMe** - Online scheduling
+    - **Setmore** - Appointment software
+    - **SimplyBook.me** - Booking system
+    - **10to8** - Appointment scheduling
+  </Tab>
+
+  <Tab title="Data & Analytics" icon="chart-pie">
+    **Analytics & Business Intelligence**:
+
+    - **Google Analytics** - Web analytics
+    - **Mixpanel** - Product analytics
+    - **Amplitude** - Digital analytics
+    - **Segment** - Customer data platform
+    - **Heap** - Digital insights
+    - **Pendo** - Product experience
+    - **FullStory** - Digital experience
+    - **Hotjar** - Behavior analytics
+    - **Tableau** - Business intelligence
+    - **Power BI** - Microsoft analytics
+    - **Looker** - Data platform
+    - **Metabase** - Open source BI
+    - **Snowflake** - Data warehouse
+    - **BigQuery** - Data analytics
+  </Tab>
+
+  <Tab title="E-commerce" icon="shopping-cart">
+    **Online Store & Payments**:
+
+    - **Shopify** - E-commerce platform
+    - **WooCommerce** - WordPress e-commerce
+    - **Stripe** - Payment processing
+    - **Square** - POS and payments
+    - **PayPal** - Payment gateway
+    - **BigCommerce** - E-commerce platform
+    - **Magento** - Enterprise e-commerce
+    - **PrestaShop** - Open source e-commerce
+    - **Wix Stores** - Website e-commerce
+    - **Squarespace Commerce** - Store builder
+  </Tab>
+
+  <Tab title="Accounting & Finance" icon="coins">
+    **Financial Management**:
+
+    - **QuickBooks** - Accounting software
+    - **Xero** - Cloud accounting
+    - **FreshBooks** - Invoicing and accounting
+    - **Wave** - Free accounting software
+    - **Sage** - Business management
+    - **Zoho Books** - Online accounting
+    - **Kashoo** - Cloud accounting
+    - **Bill.com** - Payment automation
+    - **Expensify** - Expense management
+    - **Ramp** - Corporate card and spend
+    - **Brex** - Financial platform
+  </Tab>
+
+  <Tab title="Support & Help Desk" icon="life-ring">
+    **Customer Support Platforms**:
+
+    - **Zendesk** - Support ticket system
+    - **Intercom** - Customer messaging
+    - **Freshdesk** - Help desk software
+    - **Help Scout** - Customer support
+    - **Gorgias** - E-commerce help desk
+    - **Front** - Team inbox management
+    - **Kustomer** - CRM platform
+    - **Gladly** - Customer service
+    - **Re:amaze** - Support and live chat
+    - **LiveChat** - Chat software
+  </Tab>
+
+  <Tab title="Design & Creative" icon="palette">
+    **Design Tools**:
+
+    - **Figma** - Design and prototyping
+    - **Canva** - Graphic design
+    - **Adobe Creative Cloud** - Design suite
+    - **Sketch** - Digital design
+    - **InVision** - Product design platform
+    - **Miro** - Online whiteboard
+    - **Mural** - Visual collaboration
+    - **Lucidchart** - Diagramming tool
+  </Tab>
+
+  <Tab title="Cloud Platforms" icon="server">
+    **Infrastructure & Cloud**:
+
+    - **AWS** - Amazon Web Services
+    - **Google Cloud Platform** - GCP services
+    - **Microsoft Azure** - Cloud computing
+    - **DigitalOcean** - Cloud infrastructure
+    - **Linode** - Cloud hosting
+    - **Cloudflare** - CDN and security
+    - **Heroku** - Platform as a service
+    - **Vercel** - Frontend deployment
+    - **Netlify** - Web hosting
+  </Tab>
+
+  <Tab title="HR & Recruiting" icon="user-plus">
+    **Human Resources Tools**:
+
+    - **BambooHR** - HR software
+    - **Workday** - Enterprise HR
+    - **ADP** - Payroll and HR
+    - **Gusto** - Payroll and benefits
+    - **Rippling** - Workforce management
+    - **Greenhouse** - Recruiting software
+    - **Lever** - Talent acquisition
+    - **Ashby** - Recruiting platform
+    - **LinkedIn Recruiter** - Hiring tool
+    - **Indeed** - Job posting
+  </Tab>
+
+  <Tab title="Forms & Surveys" icon="clipboard-question">
+    **Data Collection**:
+
+    - **Google Forms** - Survey creation
+    - **Typeform** - Interactive forms
+    - **JotForm** - Online forms
+    - **SurveyMonkey** - Survey platform
+    - **Formstack** - Form builder
+    - **Wufoo** - HTML forms
+    - **Cognito Forms** - Online forms
+    - **123FormBuilder** - Form software
+  </Tab>
+
+  <Tab title="Video & Meetings" icon="video">
+    **Video Conferencing**:
+
+    - **Zoom** - Video meetings
+    - **Google Meet** - Video calls
+    - **Microsoft Teams** - Meetings and chat
+    - **Webex** - Video conferencing
+    - **Loom** - Video messaging
+    - **Whereby** - Browser-based video
+    - **Around** - Collaborative video
   </Tab>
 </Tabs>
+
+---
+
+## Popular Integration Guides
+
+Detailed setup guides for the most commonly used integrations:
+
+<CardGroup cols={2}>
+  <Card title="Gmail" icon="envelope" href="/guides/integrations/gmail">
+    Complete email automation guide with workflows and examples
+  </Card>
+  <Card title="Slack" icon="slack" href="/guides/integrations/slack">
+    Team communication automation and notification setup
+  </Card>
+  <Card title="GitHub" icon="github" href="/guides/integrations/github">
+    Repository management and development automation
+  </Card>
+  <Card title="Google Calendar" icon="calendar" href="/guides/integrations/calendar">
+    Scheduling automation and availability management
+  </Card>
+</CardGroup>
+
+<Note>
+  **Can't find your tool?** Search for any integration directly in the Omni integrations page. With 150+ apps available through Composio, chances are your tool is supported. If not, request it through our [community Discord](https://discord.gg/omni).
+</Note>
 
 ---
 

@@ -118,6 +118,22 @@
           "support/troubleshooting",
           "support/best-practices"
         ]
+      },
+      {
+        "group": "🔧 Secret Stuff for Devs",
+        "pages": [
+          "development",
+          "essentials/markdown",
+          "essentials/code",
+          "essentials/images",
+          "essentials/settings",
+          "essentials/navigation",
+          "essentials/reusable-snippets",
+          "ai-tools/cursor",
+          "ai-tools/claude-code",
+          "ai-tools/windsurf",
+          "api-reference/introduction"
+        ]
       }
     ]
   },
