@@ -1,0 +1,380 @@
+---
+title: Integrations Overview
+description: Connect Omni agents to your existing tools and workflows
+icon: "puzzle-piece"
+---
+
+## Available Integrations
+
+Extend agent capabilities by connecting to 50+ popular services across communication, productivity, and development tools.
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Integrations Gallery
+  - Grid of integration cards with logos
+  - Categories visible (Communication, Productivity, Development)
+  - Connection status indicators
+  - Popular vs all integrations tabs
+  - Size: 2000x1200px
+*/}
+
+<CardGroup cols={3}>
+  <Card title="Communication" icon="comments">
+    Gmail, Slack, Teams, Discord
+  </Card>
+  <Card title="Productivity" icon="calendar-check">
+    Calendar, Drive, Notion, Airtable
+  </Card>
+  <Card title="Development" icon="code">
+    GitHub, GitLab, Linear, Jira
+  </Card>
+  <Card title="Marketing" icon="bullhorn">
+    HubSpot, Mailchimp, Twitter/X
+  </Card>
+  <Card title="Data & Analytics" icon="chart-line">
+    Google Analytics, Mixpanel, Amplitude
+  </Card>
+  <Card title="E-commerce" icon="cart-shopping">
+    Shopify, Stripe, WooCommerce
+  </Card>
+</CardGroup>
+
+---
+
+## How Integrations Work
+
+<Steps>
+  <Step title="Connect Service">
+    Authenticate once using secure OAuth:
+    - Click integration in Omni
+    - Log in to the service
+    - Authorize permissions
+    - Connection established
+
+    {/* 
+      🎥 VIDEO PLACEHOLDER: Integration Flow (25 seconds)
+      - Click "Connect Gmail" button
+      - OAuth popup appears
+      - User logs in (blur credentials)
+      - Permission request shown
+      - Success and redirect back
+    */}
+
+    <Info>
+      Your credentials are encrypted and never stored in plain text.
+    </Info>
+  </Step>
+
+  <Step title="Enable for Agents">
+    Choose which agents can use the integration:
+    - All agents (default)
+    - Specific agents only
+    - Custom per-agent permissions
+
+    Different agents can have different access levels.
+  </Step>
+
+  <Step title="Agents Gain Tools">
+    Integrated services provide new capabilities:
+    
+    **Gmail Connected** → Agents can:
+    - Read emails
+    - Send emails
+    - Manage labels
+    - Search inbox
+    - Filter by criteria
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Agent Tools Post-Integration
+      - Agent configuration showing new tools
+      - Gmail tools section expanded
+      - Each tool with description
+      - Toggle switches for granular control
+      - Size: 1600x900px
+    */}
+  </Step>
+
+  <Step title="Use in Conversations">
+    Simply ask agents to use connected services:
+    ```
+    "Check my unread Gmail messages"
+    "Send a Slack message to #engineering"
+    "Create a GitHub issue for this bug"
+    ```
+
+    Agents handle authentication and API calls automatically.
+
+    <Check>
+      No API keys, no coding - just natural conversation!
+    </Check>
+  </Step>
+</Steps>
+
+---
+
+## Integration Categories
+
+<Tabs>
+  <Tab title="Communication" icon="envelope">
+    **Connect Your Inbox**:
+
+    <CardGroup cols={2}>
+      <Card title="Gmail" icon="envelope">
+        Read, send, organize emails
+        [Setup guide →](/guides/integrations/gmail)
+      </Card>
+      <Card title="Slack" icon="slack">
+        Message, notify, read channels
+        [Setup guide →](/guides/integrations/slack)
+      </Card>
+      <Card title="Microsoft Teams" icon="microsoft">
+        Post updates, reply to threads
+      </Card>
+      <Card title="Discord" icon="discord">
+        Moderate, respond, manage servers
+      </Card>
+    </CardGroup>
+  </Tab>
+
+  <Tab title="Productivity" icon="list-check">
+    **Streamline Workflows**:
+
+    <CardGroup cols={2}>
+      <Card title="Google Calendar" icon="calendar">
+        Schedule, check availability, send invites
+        [Setup guide →](/guides/integrations/calendar)
+      </Card>
+      <Card title="Notion" icon="book-open">
+        Create pages, databases, sync content
+      </Card>
+      <Card title="Google Drive" icon="google-drive">
+        Access, create, organize documents
+      </Card>
+      <Card title="Airtable" icon="table">
+        Query, update, create records
+      </Card>
+    </CardGroup>
+  </Tab>
+
+  <Tab title="Development" icon="code">
+    **Automate Dev Workflows**:
+
+    <CardGroup cols={2}>
+      <Card title="GitHub" icon="github">
+        Repos, issues, PRs, actions
+        [Setup guide →](/guides/integrations/github)
+      </Card>
+      <Card title="GitLab" icon="gitlab">
+        Projects, merge requests, CI/CD
+      </Card>
+      <Card title="Linear" icon="chart-network">
+        Issue tracking, project management
+      </Card>
+      <Card title="Jira" icon="j">
+        Ticket management, workflows
+      </Card>
+    </CardGroup>
+  </Tab>
+</Tabs>
+
+---
+
+## Security & Permissions
+
+<AccordionGroup>
+  <Accordion title="OAuth Authentication" icon="shield-check">
+    **Secure Connection Process**:
+    - Industry-standard OAuth 2.0
+    - No password sharing
+    - Granular permission scopes
+    - Revocable access tokens
+
+    You control what Omni can do with each service.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: OAuth Permission Screen
+      - Example Google OAuth permission request
+      - Checkboxes showing requested permissions
+      - "Allow" and "Deny" buttons
+      - Security information
+      - Size: 1200x900px
+    */}
+  </Accordion>
+
+  <Accordion title="Permission Scopes" icon="key">
+    **Control Access Level**:
+
+    Example for Gmail:
+    - ✓ Read emails (view only)
+    - ✓ Send emails (compose and send)
+    - ✗ Delete emails (not granted)
+    - ✗ Modify labels (not granted)
+
+    Grant only what your agents need.
+  </Accordion>
+
+  <Accordion title="Credential Management" icon="lock">
+    **How Credentials Are Stored**:
+    - Encrypted in database
+    - Separate per user
+    - Automatic token refresh
+    - Revocable instantly
+
+    **You Can**:
+    - View connection status
+    - Revoke access anytime
+    - Re-authenticate if expired
+    - Audit usage logs
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  **Team vs Personal Integrations**: Some integrations are shared across your organization (e.g., company Slack), while others are personal (e.g., your Gmail). Check integration settings for details.
+</Warning>
+
+---
+
+## Integration Limits
+
+<Tabs>
+  <Tab title="Rate Limits">
+    **Service-Imposed Limits**:
+
+    | Service | Limit | Period |
+    |---------|-------|--------|
+    | Gmail | 500 emails | per day |
+    | Slack | 100 messages | per minute |
+    | GitHub | 5,000 requests | per hour |
+    | Calendar | 1,000,000 events | per day |
+
+    Omni automatically handles rate limiting.
+  </Tab>
+
+  <Tab title="Plan Limits">
+    **Omni Plan Restrictions**:
+
+    | Plan | Max Integrations | Team Integrations |
+    |------|------------------|-------------------|
+    | Starter | 3 | No |
+    | Professional | Unlimited | Yes |
+    | Enterprise | Unlimited | Yes + SSO |
+
+    Upgrade for more connections.
+  </Tab>
+</Tabs>
+
+---
+
+## Common Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Email Management" icon="inbox">
+    **Gmail + Slack**
+    
+    Auto-respond to inquiries, summarize inbox, send notifications
+  </Card>
+  <Card title="Content Publishing" icon="rss">
+    **Notion + Twitter/X**
+    
+    Draft in Notion, publish to social media automatically
+  </Card>
+  <Card title="Dev Automation" icon="robot">
+    **GitHub + Slack**
+    
+    Create issues, track PRs, notify team of updates
+  </Card>
+  <Card title="Meeting Coordination" icon="calendar-days">
+    **Calendar + Gmail**
+    
+    Schedule meetings, send invites, manage availability
+  </Card>
+  <Card title="Customer Support" icon="headset">
+    **Gmail + Notion**
+    
+    Track tickets, log resolutions, update knowledge base
+  </Card>
+  <Card title="Project Tracking" icon="list-check">
+    **Linear + GitHub**
+    
+    Link issues to code, update status, track progress
+  </Card>
+</CardGroup>
+
+---
+
+## Integration Health
+
+Monitor and maintain your connections.
+
+<Steps>
+  <Step title="Check Status">
+    View integration dashboard:
+    - ✅ **Active**: Connected and working
+    - ⚠️ **Warning**: Possible issues
+    - ❌ **Error**: Connection failed
+    - ⏸️ **Disabled**: Manually paused
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Integration Dashboard
+      - List of all integrations with status
+      - Health indicators (green/yellow/red)
+      - Last successful sync time
+      - Quick action buttons
+      - Size: 1800x1000px
+    */}
+  </Step>
+
+  <Step title="Review Usage">
+    Track API calls and activity:
+    - Requests per day
+    - Most used endpoints
+    - Error rates
+    - Response times
+
+    Identify issues early.
+  </Step>
+
+  <Step title="Resolve Issues">
+    Common fixes:
+    - Re-authenticate expired connections
+    - Update permissions
+    - Check service status
+    - Review error logs
+
+    Most issues resolve with re-authentication.
+  </Step>
+</Steps>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Connect Your First Service"
+    icon="plug"
+    href="/guides/integrations/connecting-services"
+  >
+    Step-by-step guide to adding integrations
+  </Card>
+  <Card
+    title="Gmail Integration"
+    icon="envelope"
+    href="/guides/integrations/gmail"
+  >
+    Set up email automation with Gmail
+  </Card>
+  <Card
+    title="Slack Integration"
+    icon="slack"
+    href="/guides/integrations/slack"
+  >
+    Connect Slack for team notifications
+  </Card>
+  <Card
+    title="GitHub Integration"
+    icon="github"
+    href="/guides/integrations/github"
+  >
+    Automate development workflows
+  </Card>
+</CardGroup>
