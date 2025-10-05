@@ -1,10 +1,9 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
   "name": "Omni",
   "theme": "mint",
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
   },
   "favicon": "/favicon.svg",
   "colors": {
@@ -37,7 +36,11 @@
   "navigation": [
     {
       "group": "Getting Started",
-      "pages": ["introduction", "quickstart", "core-concepts"]
+      "pages": [
+        "introduction",
+        "quickstart",
+        "core-concepts"
+      ]
     },
     {
       "group": "Agent Management",
