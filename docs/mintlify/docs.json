@@ -73,6 +73,21 @@
         ]
       },
       {
+        "group": "Integrations",
+        "pages": [
+          "guides/integrations/overview",
+          "guides/integrations/connecting-services",
+          "guides/integrations/gmail",
+          "guides/integrations/slack",
+          "guides/integrations/outlook",
+          "guides/integrations/github",
+          "guides/integrations/calendar",
+          "guides/integrations/hubspot",
+          "guides/integrations/dropbox",
+          "guides/integrations/google-analytics"
+        ]
+      },
+      {
         "group": "Automation",
         "pages": [
           "guides/automation/workflows",
