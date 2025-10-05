@@ -23,7 +23,11 @@ async def require_any_admin(user_id: str = Depends(verify_and_get_user_id_from_j
     client = await db.client
     
     # First, try enterprise admin check if in enterprise mode
-    if config.ENTERPRISE_MODE and (config.ADMIN_EMAILS or config.OMNI_ADMIN):
+    enterprise_mode = getattr(config, 'ENTERPRISE_MODE', False)
+    admin_emails = getattr(config, 'ADMIN_EMAILS', None)
+    omni_admin = getattr(config, 'OMNI_ADMIN', None)
+    
+    if enterprise_mode and (admin_emails or omni_admin):
         try:
             user_result = await client.auth.admin.get_user_by_id(user_id)
             if user_result.user and user_result.user.email:
@@ -31,16 +35,16 @@ async def require_any_admin(user_id: str = Depends(verify_and_get_user_id_from_j
                 
                 # Check OMNI_ADMIN emails
                 omni_admin_emails = []
-                if config.OMNI_ADMIN:
-                    omni_admin_emails = [email.strip().lower() for email in config.OMNI_ADMIN.split(',') if email.strip()]
+                if omni_admin:
+                    omni_admin_emails = [email.strip().lower() for email in omni_admin.split(',') if email.strip()]
                 
                 # Check regular ADMIN_EMAILS
-                admin_emails = []
-                if config.ADMIN_EMAILS:
-                    admin_emails = [email.strip().lower() for email in config.ADMIN_EMAILS.split(',') if email.strip()]
+                admin_emails_list = []
+                if admin_emails:
+                    admin_emails_list = [email.strip().lower() for email in admin_emails.split(',') if email.strip()]
                 
                 # If user is in either admin list, grant access
-                if user_email in omni_admin_emails or user_email in admin_emails:
+                if user_email in omni_admin_emails or user_email in admin_emails_list:
                     logger.info(f"Enterprise admin access granted for {user_email}")
                     return {"user_id": user_id, "role": "enterprise_admin"}
         except Exception as e:
