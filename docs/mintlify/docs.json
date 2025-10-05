@@ -34,91 +34,93 @@
       "url": "https://github.com/kortix-ai/suna"
     }
   ],
-  "navigation": [
-    {
-      "group": "Getting Started",
-      "pages": [
-        "introduction",
-        "quickstart",
-        "core-concepts"
-      ]
-    },
-    {
-      "group": "Agent Management",
-      "pages": [
-        "guides/agents/overview",
-        "guides/agents/creating-agents",
-        "guides/agents/configuring-agents",
-        "guides/agents/marketplace",
-        "guides/agents/chat-interface"
-      ]
-    },
-    {
-      "group": "Projects & Threads",
-      "pages": [
-        "guides/projects/overview",
-        "guides/projects/creating-projects",
-        "guides/projects/managing-threads",
-        "guides/projects/sharing"
-      ]
-    },
-    {
-      "group": "Knowledge Base",
-      "pages": [
-        "guides/knowledge/overview",
-        "guides/knowledge/uploading-files",
-        "guides/knowledge/organizing-folders",
-        "guides/knowledge/search"
-      ]
-    },
-    {
-      "group": "Integrations",
-      "pages": [
-        "guides/integrations/overview",
-        "guides/integrations/connecting-services",
-        "guides/integrations/gmail",
-        "guides/integrations/slack",
-        "guides/integrations/github",
-        "guides/integrations/calendar"
-      ]
-    },
-    {
-      "group": "Automation",
-      "pages": [
-        "guides/automation/workflows",
-        "guides/automation/triggers",
-        "guides/automation/scheduling"
-      ]
-    },
-    {
-      "group": "Advanced Features",
-      "pages": [
-        "guides/advanced/browser-automation",
-        "guides/advanced/file-operations",
-        "guides/advanced/data-processing",
-        "guides/advanced/web-scraping"
-      ]
-    },
-    {
-      "group": "Use Cases",
-      "pages": [
-        "use-cases/research-analysis",
-        "use-cases/content-creation",
-        "use-cases/data-processing",
-        "use-cases/customer-support",
-        "use-cases/marketing",
-        "use-cases/development"
-      ]
-    },
-    {
-      "group": "Help & Support",
-      "pages": [
-        "support/faq",
-        "support/troubleshooting",
-        "support/best-practices"
-      ]
-    }
-  ],
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "introduction",
+          "quickstart",
+          "core-concepts"
+        ]
+      },
+      {
+        "group": "Agent Management",
+        "pages": [
+          "guides/agents/overview",
+          "guides/agents/creating-agents",
+          "guides/agents/configuring-agents",
+          "guides/agents/marketplace",
+          "guides/agents/chat-interface"
+        ]
+      },
+      {
+        "group": "Projects & Threads",
+        "pages": [
+          "guides/projects/overview",
+          "guides/projects/creating-projects",
+          "guides/projects/managing-threads",
+          "guides/projects/sharing"
+        ]
+      },
+      {
+        "group": "Knowledge Base",
+        "pages": [
+          "guides/knowledge/overview",
+          "guides/knowledge/uploading-files",
+          "guides/knowledge/organizing-folders",
+          "guides/knowledge/search"
+        ]
+      },
+      {
+        "group": "Integrations",
+        "pages": [
+          "guides/integrations/overview",
+          "guides/integrations/connecting-services",
+          "guides/integrations/gmail",
+          "guides/integrations/slack",
+          "guides/integrations/github",
+          "guides/integrations/calendar"
+        ]
+      },
+      {
+        "group": "Automation",
+        "pages": [
+          "guides/automation/workflows",
+          "guides/automation/triggers",
+          "guides/automation/scheduling"
+        ]
+      },
+      {
+        "group": "Advanced Features",
+        "pages": [
+          "guides/advanced/browser-automation",
+          "guides/advanced/file-operations",
+          "guides/advanced/data-processing",
+          "guides/advanced/web-scraping"
+        ]
+      },
+      {
+        "group": "Use Cases",
+        "pages": [
+          "use-cases/research-analysis",
+          "use-cases/content-creation",
+          "use-cases/data-processing",
+          "use-cases/customer-support",
+          "use-cases/marketing",
+          "use-cases/development"
+        ]
+      },
+      {
+        "group": "Help & Support",
+        "pages": [
+          "support/faq",
+          "support/troubleshooting",
+          "support/best-practices"
+        ]
+      }
+    ]
+  },
   "footerSocials": {
     "x": "https://x.com/becomeomni",
     "github": "https://github.com/kortix-ai/suna",
