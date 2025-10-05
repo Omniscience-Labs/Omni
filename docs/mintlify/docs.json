@@ -73,17 +73,6 @@
         ]
       },
       {
-        "group": "Integrations",
-        "pages": [
-          "guides/integrations/overview",
-          "guides/integrations/connecting-services",
-          "guides/integrations/gmail",
-          "guides/integrations/slack",
-          "guides/integrations/github",
-          "guides/integrations/calendar"
-        ]
-      },
-      {
         "group": "Automation",
         "pages": [
           "guides/automation/workflows",
@@ -133,6 +122,30 @@
           "ai-tools/claude-code",
           "ai-tools/windsurf",
           "api-reference/introduction"
+        ]
+      }
+    ],
+    "dropdowns": [
+      {
+        "dropdown": "Integrations",
+        "icon": "plug",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "guides/integrations/overview",
+              "guides/integrations/connecting-services"
+            ]
+          },
+          {
+            "group": "Popular Integrations",
+            "pages": [
+              "guides/integrations/gmail",
+              "guides/integrations/slack",
+              "guides/integrations/github",
+              "guides/integrations/calendar"
+            ]
+          }
         ]
       }
     ]
