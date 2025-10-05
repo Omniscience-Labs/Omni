@@ -1,0 +1,436 @@
+---
+title: Troubleshooting
+description: Solve common issues and get unblocked quickly
+icon: "wrench"
+---
+
+## Quick Diagnostics
+
+Start here for fast problem identification.
+
+<Steps>
+  <Step title="Check System Status">
+    Visit [status.becomeomni.com](https://status.becomeomni.com) for:
+    - Current system health
+    - Ongoing incidents
+    - Scheduled maintenance
+    - Historical uptime
+
+    <Info>
+      Subscribe for status notifications via email or Slack.
+    </Info>
+  </Step>
+
+  <Step title="Clear Browser Cache">
+    Often resolves display issues:
+    - **Chrome/Edge**: `Cmd/Ctrl + Shift + Delete`
+    - **Safari**: `Cmd + Option + E`
+    - **Firefox**: `Cmd/Ctrl + Shift + Delete`
+
+    Clear last 24 hours of cache and cookies.
+  </Step>
+
+  <Step title="Try Incognito/Private Mode">
+    Rules out extension conflicts:
+    - `Cmd/Ctrl + Shift + N` (Chrome/Edge)
+    - `Cmd + Shift + N` (Safari)
+    - `Cmd/Ctrl + Shift + P` (Firefox)
+
+    If it works here, disable extensions one by one.
+  </Step>
+
+  <Step title="Check Browser Support">
+    **Supported Browsers**:
+    - Chrome 90+
+    - Edge 90+
+    - Safari 14+
+    - Firefox 88+
+
+    Update to latest version for best experience.
+  </Step>
+</Steps>
+
+---
+
+## Common Issues
+
+<Tabs>
+  <Tab title="Login & Authentication">
+    <AccordionGroup>
+      <Accordion title="Can't log in" icon="right-to-bracket">
+        **Try These Steps**:
+        1. Verify email address spelling
+        2. Check password (case-sensitive)
+        3. Use "Forgot Password" to reset
+        4. Clear browser cache and cookies
+        5. Try different browser
+        6. Check if account is active
+
+        **Still Blocked?** Contact admin - account may be deactivated.
+      </Accordion>
+
+      <Accordion title="Email verification not received" icon="envelope">
+        **Checklist**:
+        - ✓ Check spam/junk folder
+        - ✓ Add noreply@becomeomni.com to contacts
+        - ✓ Wait 10 minutes (can be delayed)
+        - ✓ Try resending from login page
+
+        **Still Nothing?** Email support@becomeomni.com with your email address.
+      </Accordion>
+
+      <Accordion title="Session expired frequently" icon="clock-rotate-left">
+        **Causes**:
+        - Security setting (30-day max)
+        - Clearing cookies
+        - Using multiple devices
+        - VPN switching
+
+        **Solution**: Enable "Keep me logged in" checkbox.
+      </Accordion>
+    </AccordionGroup>
+  </Tab>
+
+  <Tab title="Agents">
+    <AccordionGroup>
+      <Accordion title="Agent not responding" icon="robot">
+        **Diagnostic Steps**:
+        1. Check agent status (active, not paused)
+        2. Verify internet connection
+        3. Refresh page
+        4. Try different agent
+        5. Create new thread
+
+        **Error Messages**: Screenshot and send to support.
+      </Accordion>
+
+      <Accordion title="Agent gives wrong answers" icon="circle-exclamation">
+        **Improvements**:
+        - Be more specific in requests
+        - Provide more context
+        - Update agent's system prompt
+        - Add relevant knowledge base documents
+        - Give examples of desired output
+
+        **Feedback Loop**: Rate responses to improve over time.
+      </Accordion>
+
+      <Accordion title="Tools not working" icon="toolbox">
+        **Check**:
+        - Tool enabled in agent settings
+        - Integration connected (if required)
+        - Permissions granted
+        - No rate limits exceeded
+
+        **Test Tool**: Ask agent to use tool explicitly.
+      </Accordion>
+
+      <Accordion title="Responses too slow" icon="hourglass">
+        **Speed Optimization**:
+        - Switch to faster model
+        - Disable unused tools
+        - Reduce knowledge base size
+        - Simplify system prompt
+        - Break complex tasks into smaller requests
+
+        Complex tasks naturally take longer.
+      </Accordion>
+    </AccordionGroup>
+  </Tab>
+
+  <Tab title="Integrations">
+    <AccordionGroup>
+      <Accordion title="Integration connection failed" icon="plug-circle-xmark">
+        **Common Fixes**:
+        1. Allow popups (OAuth window blocked)
+        2. Try different browser
+        3. Verify you're using correct account
+        4. Check service is operational
+        5. Review and accept all permissions
+
+        **Re-authenticate**: Click "Reconnect" in integration settings.
+      </Accordion>
+
+      <Accordion title="Integration expired" icon="clock">
+        **Why Tokens Expire**:
+        - Service security policy (30-90 days)
+        - Password changed on service
+        - Permissions modified
+        - Manually revoked
+
+        **Fix**: Click **Reconnect** and complete OAuth again.
+
+        <Tip>
+          Enable expiration reminders in notification settings.
+        </Tip>
+      </Accordion>
+
+      <Accordion title="Missing permissions" icon="key">
+        **Add Permissions**:
+        1. Go to integration settings
+        2. Click "Update Permissions"
+        3. Select additional scopes needed
+        4. Re-authorize
+
+        May require re-authentication.
+      </Accordion>
+
+      <Accordion title="Rate limit errors" icon="gauge-high">
+        **Service Limits Exceeded**:
+        - Gmail: 500 emails/day
+        - Slack: 100 messages/minute
+        - GitHub: 5000 requests/hour
+
+        **Solutions**:
+        - Spread operations over time
+        - Use batch operations
+        - Wait for limit reset
+        - Request limit increase from service
+      </Accordion>
+    </AccordionGroup>
+  </Tab>
+
+  <Tab title="Files & Knowledge">
+    <AccordionGroup>
+      <Accordion title="File upload failing" icon="upload">
+        **Troubleshooting**:
+        - Check file size (varies by plan)
+        - Verify format is supported
+        - Ensure storage quota available
+        - Try smaller file or different format
+        - Check network connection
+
+        **Large Files**: Break into smaller parts.
+      </Accordion>
+
+      <Accordion title="Knowledge base search not finding content" icon="magnifying-glass-minus">
+        **Improve Results**:
+        - Rephrase query (try synonyms)
+        - Remove filters
+        - Check file was processed successfully
+        - Verify agent has access to folder
+        - Wait if file just uploaded (processing time)
+
+        Processing takes 10-60 seconds per file.
+      </Accordion>
+
+      <Accordion title="File preview not working" icon="file-slash">
+        **Causes**:
+        - Unsupported format for preview
+        - File corrupted
+        - File too large
+        - Browser limitation
+
+        **Workaround**: Download file instead.
+      </Accordion>
+    </AccordionGroup>
+  </Tab>
+</Tabs>
+
+---
+
+## Error Messages
+
+<AccordionGroup>
+  <Accordion title="'Unauthorized' or 401 Error" icon="ban">
+    **Meaning**: Authentication issue
+
+    **Solutions**:
+    - Log out and log back in
+    - Clear browser cache
+    - Check session hasn't expired
+    - Verify account has necessary permissions
+
+    Contact admin if account access needed.
+  </Accordion>
+
+  <Accordion title="'Forbidden' or 403 Error" icon="shield-halved">
+    **Meaning**: Permission denied
+
+    **Causes**:
+    - Trying to access resource you don't own
+    - Insufficient plan features
+    - Admin-only operation
+    - IP address blocked
+
+    Verify you should have access.
+  </Accordion>
+
+  <Accordion title="'Not Found' or 404 Error" icon="magnifying-glass-minus">
+    **Meaning**: Resource doesn't exist
+
+    **Check**:
+    - URL spelling
+    - Resource wasn't deleted
+    - Have permission to view
+    - Logged into correct account
+  </Accordion>
+
+  <Accordion title="'Too Many Requests' or 429 Error" icon="gauge">
+    **Meaning**: Rate limit exceeded
+
+    **Wait**: Limits reset hourly or daily
+
+    **Reduce Usage**:
+    - Batch operations
+    - Add delays between requests
+    - Optimize workflows
+
+    Enterprise customers can request limit increases.
+  </Accordion>
+
+  <Accordion title="'Service Unavailable' or 503 Error" icon="triangle-exclamation">
+    **Meaning**: Temporary server issue
+
+    **Actions**:
+    - Wait a few minutes
+    - Refresh page
+    - Check status page
+    - Try again later
+
+    If persists >30 minutes, report to support.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Performance Issues
+
+<AccordionGroup>
+  <Accordion title="Slow page loading" icon="turtle">
+    **Optimization Steps**:
+    - Clear browser cache
+    - Close unnecessary tabs
+    - Check internet speed (need 5+ Mbps)
+    - Disable browser extensions
+    - Try different time of day
+
+    **Still Slow?**: May be network or device issue.
+  </Accordion>
+
+  <Accordion title="Agent takes too long" icon="hourglass-half">
+    **Expected Times**:
+    - Simple questions: 5-15 seconds
+    - Research tasks: 1-5 minutes
+    - Data analysis: 2-10 minutes
+    - Complex workflows: 5-30 minutes
+
+    **If Unusually Slow**:
+    - Complex task (normal)
+    - Tool issues (check logs)
+    - Rate limits (wait)
+    - High load time (try later)
+  </Accordion>
+
+  <Accordion title="File processing stuck" icon="spinner">
+    **If Processing Takes >5 Minutes**:
+    - Refresh page
+    - Check file isn't corrupted
+    - Verify file format supported
+    - Try smaller file
+
+    Contact support after 10 minutes.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Browser-Specific Issues
+
+<Tabs>
+  <Tab title="Safari">
+    **Known Issues**:
+    - Cookie settings may block authentication
+    - Some file types don't preview
+
+    **Fixes**:
+    - Enable cross-site tracking for omni.com
+    - Use download instead of preview
+    - Update to latest Safari version
+  </Tab>
+
+  <Tab title="Firefox">
+    **Known Issues**:
+    - Enhanced tracking protection may interfere
+    - File uploads occasionally timeout
+
+    **Fixes**:
+    - Add omni.com to exceptions
+    - Disable Enhanced Tracking Protection temporarily
+    - Use smaller file batches
+  </Tab>
+
+  <Tab title="Chrome/Edge">
+    **Generally Recommended**:
+    - Fewest known issues
+    - Best performance
+    - Full feature support
+
+    Keep updated to latest version.
+  </Tab>
+</Tabs>
+
+---
+
+## Getting Additional Help
+
+<Steps>
+  <Step title="Search Documentation">
+    Use search (`Cmd/Ctrl + K`) to find answers in docs.
+
+    Most questions answered in guides.
+  </Step>
+
+  <Step title="Check Community Forum">
+    [Discord community](https://discord.gg/omni):
+    - Ask questions
+    - See common solutions
+    - Connect with other users
+    - Share tips and tricks
+
+    Active community with fast responses.
+  </Step>
+
+  <Step title="Contact Support">
+    **Email**: support@becomeomni.com
+
+    **Include**:
+    - Detailed description of issue
+    - Steps to reproduce
+    - Screenshots or recordings
+    - Browser and OS version
+    - Account email address
+    - Any error messages
+
+    Better details = faster resolution.
+  </Step>
+
+  <Step title="Report Bugs">
+    **GitHub Issues**: For open source users
+
+    [github.com/kortix-ai/suna/issues](https://github.com/kortix-ai/suna/issues)
+
+    Include reproduction steps and environment details.
+  </Step>
+</Steps>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Best Practices"
+    icon="star"
+    href="/support/best-practices"
+  >
+    Optimize your Omni experience
+  </Card>
+  <Card
+    title="FAQ"
+    icon="circle-question"
+    href="/support/faq"
+  >
+    Quick answers to common questions
+  </Card>
+</CardGroup>
