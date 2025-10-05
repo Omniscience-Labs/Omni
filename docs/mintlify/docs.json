@@ -139,49 +139,6 @@
           "api-reference/introduction"
         ]
       }
-    ],
-    "dropdowns": [
-      {
-        "dropdown": "Integrations",
-        "icon": "plug",
-        "groups": [
-          {
-            "group": "Getting Started",
-            "pages": [
-              "guides/integrations/overview",
-              "guides/integrations/connecting-services"
-            ]
-          },
-          {
-            "group": "Communication",
-            "pages": [
-              "guides/integrations/gmail",
-              "guides/integrations/slack",
-              "guides/integrations/outlook"
-            ]
-          },
-          {
-            "group": "Productivity",
-            "pages": [
-              "guides/integrations/calendar",
-              "guides/integrations/dropbox"
-            ]
-          },
-          {
-            "group": "Development",
-            "pages": [
-              "guides/integrations/github"
-            ]
-          },
-          {
-            "group": "Marketing & Analytics",
-            "pages": [
-              "guides/integrations/hubspot",
-              "guides/integrations/google-analytics"
-            ]
-          }
-        ]
-      }
     ]
   },
   "footerSocials": {
