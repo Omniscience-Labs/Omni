@@ -1,0 +1,376 @@
+---
+title: Gmail Integration
+description: Automate email workflows with AI agents
+icon: "envelope"
+---
+
+## What You Can Do
+
+Once connected, agents can manage your Gmail account through natural conversation.
+
+<CardGroup cols={2}>
+  <Card title="Read Emails" icon="envelope-open">
+    Check inbox, search messages, read threads
+  </Card>
+  <Card title="Send Messages" icon="paper-plane">
+    Compose and send emails with attachments
+  </Card>
+  <Card title="Organize" icon="folder">
+    Apply labels, mark as read, archive, star
+  </Card>
+  <Card title="Filter & Search" icon="filter">
+    Find emails by sender, subject, date, labels
+  </Card>
+</CardGroup>
+
+---
+
+## Setup
+
+<Steps>
+  <Step title="Connect Gmail">
+    Navigate to **Integrations** and click **Connect Gmail**.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Gmail Connect Button
+      - Gmail card with Connect button highlighted
+      - Shows icon, description, capabilities
+      - Size: 1000x600px
+    */}
+  </Step>
+
+  <Step title="Google OAuth">
+    Log in and authorize:
+    - Choose Google account
+    - Review requested permissions
+    - Click **Allow**
+
+    <Info>
+      Omni requests these permissions:
+      - Read emails
+      - Send emails
+      - Manage labels
+      - Modify messages (mark read, archive)
+    </Info>
+  </Step>
+
+  <Step title="Configure Settings">
+    **Optional Configuration**:
+    - Enable/disable attachment access
+    - Set default label handling
+    - Configure notification preferences
+    - Set up filters
+
+    Defaults work for most users.
+  </Step>
+
+  <Step title="Assign to Agents">
+    Choose which agents can access Gmail:
+    - All agents
+    - Specific agents only
+    - Different permissions per agent
+
+    <Check>
+      Gmail connected! Test with: "What are my unread emails?"
+    </Check>
+  </Step>
+</Steps>
+
+---
+
+## Common Use Cases
+
+<Tabs>
+  <Tab title="Inbox Management">
+    **Automated Email Triage**:
+    ```
+    "Check my inbox and:
+    - Summarize unread messages
+    - Flag urgent items
+    - Draft responses for routine inquiries
+    - Create tasks from action items"
+    ```
+
+    Agent processes your inbox intelligently.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Email Summary
+      - Agent's response showing categorized emails
+      - Priority indicators
+      - Quick actions for each email
+      - Size: 1600x900px
+    */}
+  </Tab>
+
+  <Tab title="Email Composition">
+    **Assisted Writing**:
+    ```
+    "Draft an email to john@example.com:
+    - Subject: Q4 Partnership Proposal
+    - Thank them for meeting last week
+    - Attach our proposal deck
+    - Suggest next steps
+    - Professional and warm tone"
+    ```
+
+    Agent composes, you review before sending.
+  </Tab>
+
+  <Tab title="Follow-Up Automation">
+    **Never Miss Follow-Ups**:
+    ```
+    "Check for emails I sent last week that haven't 
+    received a response. Draft polite follow-ups for each."
+    ```
+
+    Maintain communication without manual tracking.
+  </Tab>
+
+  <Tab title="Data Extraction">
+    **Extract Information**:
+    ```
+    "Find all emails from clients containing invoices.
+    Extract invoice numbers, amounts, and due dates.
+    Create a spreadsheet with this data."
+    ```
+
+    Turn emails into structured data.
+  </Tab>
+</Tabs>
+
+---
+
+## Features
+
+<AccordionGroup>
+  <Accordion title="Intelligent Reading" icon="glasses">
+    **What Agents Can Do**:
+    - Read email body and headers
+    - Extract attachment content
+    - Understand thread context
+    - Identify action items
+    - Detect sentiment and urgency
+
+    Agents understand email meaning, not just text.
+  </Accordion>
+
+  <Accordion title="Smart Composition" icon="pen-fancy">
+    **Email Generation**:
+    - Match your writing style
+    - Maintain conversation context
+    - Include proper formatting
+    - Add signatures automatically
+    - Handle CC/BCC appropriately
+
+    Review before sending - agents draft, you approve.
+  </Accordion>
+
+  <Accordion title="Advanced Filtering" icon="filter">
+    **Search Capabilities**:
+    ```
+    "Find emails from sarah@example.com about the project 
+    from last month"
+    
+    "Show me all unread messages with attachments from 
+    clients"
+    
+    "Filter emails labeled 'urgent' that I haven't 
+    replied to"
+    ```
+
+    Natural language filters work better than Gmail syntax.
+  </Accordion>
+
+  <Accordion title="Label Management" icon="tags">
+    **Organization**:
+    - Apply labels automatically
+    - Create new labels as needed
+    - Archive by category
+    - Bulk label operations
+
+    Keep inbox organized effortlessly.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Security & Privacy
+
+<CardGroup cols={2}>
+  <Card title="OAuth Security" icon="shield">
+    No password sharing - secure token-based authentication
+  </Card>
+  <Card title="Revocable Access" icon="rotate-left">
+    Disconnect anytime from Google account settings
+  </Card>
+  <Card title="Encrypted Storage" icon="lock">
+    All credentials encrypted at rest with AES-256
+  </Card>
+  <Card title="Audit Logs" icon="list-check">
+    Track every email action for compliance
+  </Card>
+</CardGroup>
+
+<Warning>
+  **Permissions Explained**: Omni can only access Gmail - not other Google services unless explicitly connected.
+</Warning>
+
+---
+
+## Example Workflows
+
+<Tabs>
+  <Tab title="Daily Digest">
+    **Morning Email Summary**:
+    ```
+    Schedule: Every weekday at 8 AM
+    
+    Task: "Review my inbox from the last 24 hours:
+    - Prioritize by importance
+    - Flag time-sensitive items
+    - Summarize key updates
+    - Draft quick responses for routine emails
+    - Create a morning briefing"
+    ```
+
+    [Learn about scheduling →](/guides/automation/scheduling)
+  </Tab>
+
+  <Tab title="Auto-Responder">
+    **Intelligent Replies**:
+    ```
+    Trigger: New email in "Support" label
+    
+    Task: "Read the email and:
+    - If it's a common question, send help doc link
+    - If it's a bug report, create GitHub issue
+    - If it needs human review, forward to team
+    - Otherwise, acknowledge and say we'll respond soon"
+    ```
+
+    Handles routine inquiries automatically.
+  </Tab>
+
+  <Tab title="Newsletter Creator">
+    **Weekly Updates**:
+    ```
+    Schedule: Every Friday at 3 PM
+    
+    Task: "Compile a weekly newsletter:
+    - Find important emails from this week
+    - Summarize team accomplishments
+    - Extract action items for next week
+    - Format as HTML email
+    - Send to team@company.com"
+    ```
+
+    Automated team communication.
+  </Tab>
+</Tabs>
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Review Before Sending" icon="eye">
+    **Always Review Drafts**:
+    - Have agent draft, you send
+    - Check tone and accuracy
+    - Verify recipients
+    - Confirm attachments
+
+    Agents draft, humans approve.
+  </Accordion>
+
+  <Accordion title="Use Labels Effectively" icon="tags">
+    **Organizational Strategy**:
+    - Create labels for agent-processed emails
+    - Use "Omni-Draft" for composed emails
+    - Label "Omni-Reviewed" after agent analysis
+    - Archive systematically
+
+    Track what agents have handled.
+  </Accordion>
+
+  <Accordion title="Set Boundaries" icon="shield-halved">
+    **What to Automate**:
+    ✅ Routine inquiries
+    ✅ Data extraction
+    ✅ Summarization
+    ✅ Draft composition
+
+    **Keep Human**:
+    ❌ Sensitive communications
+    ❌ Legal matters
+    ❌ Conflict resolution
+    ❌ Final approval on important emails
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Can't Send Emails" icon="ban">
+    **Check**:
+    - Send permission granted in OAuth
+    - Gmail account has sending enabled
+    - Not exceeding daily send limit (500/day)
+    - Email format is correct
+
+    Re-authenticate if needed.
+  </Accordion>
+
+  <Accordion title="Emails Not Found" icon="question">
+    **Possible Issues**:
+    - Search query too specific
+    - Emails in different folder
+    - Date filter too restrictive
+    - Agent searching wrong account
+
+    Try broader search terms.
+  </Accordion>
+
+  <Accordion title="Authentication Expired" icon="clock">
+    **When Tokens Expire**:
+    - Every 30-90 days (Google policy)
+    - After password change
+    - After permission modifications
+
+    **Fix**: Click **Reconnect** in integrations page
+
+    <Tip>
+      Enable notifications for expiring connections.
+    </Tip>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Slack Integration"
+    icon="slack"
+    href="/guides/integrations/slack"
+  >
+    Add team messaging capabilities
+  </Card>
+  <Card
+    title="Calendar Integration"
+    icon="calendar"
+    href="/guides/integrations/calendar"
+  >
+    Automate scheduling and availability checks
+  </Card>
+  <Card
+    title="Automation Workflows"
+    icon="diagram-project"
+    href="/guides/automation/workflows"
+  >
+    Create automated email workflows
+  </Card>
+</CardGroup>
