@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/schema.json",
-  "name": "Omni",
+  "name": "Omni Documentation",
   "theme": "mint",
   "logo": {
     "dark": "/logo/dark.svg",
@@ -124,6 +124,15 @@
         ]
       },
       {
+        "group": "AI Tools & Models",
+        "pages": [
+          "ai-tools/overview",
+          "ai-tools/cursor",
+          "ai-tools/claude-code",
+          "ai-tools/windsurf"
+        ]
+      },
+      {
         "group": "🔧 Secret Stuff for Devs",
         "pages": [
           "development",
@@ -133,9 +142,6 @@
           "essentials/settings",
           "essentials/navigation",
           "essentials/reusable-snippets",
-          "ai-tools/cursor",
-          "ai-tools/claude-code",
-          "ai-tools/windsurf",
           "api-reference/introduction"
         ]
       }
