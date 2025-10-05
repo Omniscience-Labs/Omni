@@ -1,0 +1,358 @@
+---
+title: Agent Overview
+description: Understanding AI agents in Omni
+icon: "robot"
+---
+
+## What Are Agents?
+
+Agents are autonomous AI workers that can perform complex tasks on your behalf. Each agent is configured with specific capabilities, knowledge, and integrations tailored to its purpose.
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Agents Dashboard Overview
+  - Full screenshot of the Agents page
+  - Show grid of different agent cards with variety of icons/colors
+  - Include sidebar navigation with "Agents" highlighted
+  - Display "Create Agent" and "Marketplace" buttons
+  - Show agent stats (total agents, active, last used)
+  - Resolution: 2400x1400px
+*/}
+
+<CardGroup cols={2}>
+  <Card title="Autonomous Execution" icon="brain">
+    Agents break down tasks, plan approaches, and execute multi-step workflows independently
+  </Card>
+  <Card title="Customizable" icon="sliders">
+    Configure tools, integrations, knowledge access, and behavior for each agent
+  </Card>
+  <Card title="Shareable" icon="share">
+    Save agents as templates and share with your team or the marketplace
+  </Card>
+  <Card title="Always Available" icon="clock">
+    Agents work 24/7, can be scheduled, and handle multiple tasks concurrently
+  </Card>
+</CardGroup>
+
+---
+
+## Agent Components
+
+Every agent consists of four key elements:
+
+### 1. Configuration
+
+The agent's identity and behavior settings:
+
+- **Name & Description**: What the agent is called and its purpose
+- **System Prompt**: Core instructions that guide the agent's behavior
+- **Icon & Color**: Visual identity for easy recognition
+- **Model Selection**: Which AI model powers the agent
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Agent Configuration Panel
+  - Screenshot of agent settings/configuration view
+  - Show all fields: name, description, system prompt textarea
+  - Display icon selector with grid of icons
+  - Include color picker showing brand colors
+  - Show model dropdown with options
+  - Size: 1600x1200px
+*/}
+
+<Tip>
+  **Pro Tip**: Write clear, specific system prompts. Example: "You are a research assistant specialized in competitive analysis. Always cite sources and provide data-backed insights."
+</Tip>
+
+### 2. Tools & Capabilities
+
+The actions your agent can perform:
+
+<Tabs>
+  <Tab title="Core Tools">
+    **Always Available:**
+    - Text generation and analysis
+    - Structured reasoning and planning
+    - Task decomposition
+    - Context management
+    
+    **Configurable:**
+    - Web search and research
+    - File creation and editing
+    - Browser automation
+    - Code execution
+    - Data analysis
+    - Image generation
+  </Tab>
+  
+  <Tab title="Integration Tools">
+    **Communication:**
+    - Gmail (read/send emails)
+    - Slack (messages, notifications)
+    - Teams (posts, replies)
+    
+    **Productivity:**
+    - Calendar (scheduling, availability)
+    - Drive (file management)
+    - Notion (page creation)
+    
+    **Development:**
+    - GitHub (repos, issues, PRs)
+    - Linear (issue management)
+    - Jira (ticket tracking)
+  </Tab>
+</Tabs>
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Tools Configuration Screen
+  - Screenshot showing tool toggles in agent settings
+  - Display categorized sections (Core, Communication, Productivity, Dev)
+  - Show toggle switches with enabled/disabled states
+  - Include helpful descriptions for each tool
+  - Highlight premium or integration-required tools
+  - Size: 1800x1000px
+*/}
+
+### 3. Knowledge Base Access
+
+What information the agent can reference:
+
+- **Global Knowledge**: Shared company documents available to all agents
+- **Agent-Specific**: Files and folders designated for this agent only
+- **Semantic Search**: AI-powered search finds relevant info automatically
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Knowledge Base Assignment
+  - Screenshot of knowledge base selection interface
+  - Show folder tree with checkboxes
+  - Display file count and total size per folder
+  - Include "Sync Now" and "Auto-sync" options
+  - Size: 1400x900px
+*/}
+
+### 4. Integrations
+
+Connected external services:
+
+Each integration requires authentication and can be enabled/disabled per agent. When enabled, the agent gains access to integration-specific tools.
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Integration Status View
+  - Screenshot showing connected integrations
+  - Display integration cards with connection status
+  - Show "Connected" badges with green checkmarks
+  - Include "Configure" and "Disconnect" buttons
+  - Display last sync time and health status
+  - Size: 1600x800px
+*/}
+
+---
+
+## Types of Agents
+
+Omni supports different agent configurations for various use cases:
+
+### General Purpose Agents
+
+Versatile agents configured with broad capabilities.
+
+**Best for:**
+- Ad-hoc tasks and requests
+- Exploratory work
+- Teams that need flexibility
+- When you're not sure what you'll need
+
+{/* 
+  📸 MEDIA PLACEHOLDER: General Purpose Agent Card
+  - Screenshot of a general agent card
+  - Show enabled tool badges (search, files, browser, code)
+  - Display "All-purpose Assistant" or similar description
+  - Include usage stats (tasks completed, hours saved)
+  - Size: 800x500px
+*/}
+
+### Specialized Agents
+
+Focused agents optimized for specific domains or tasks.
+
+**Examples:**
+- **Research Assistant**: Web search, data analysis, report generation
+- **Content Creator**: Writing, editing, SEO optimization
+- **Data Analyst**: CSV processing, visualization, statistical analysis
+- **Customer Support**: Email management, ticket responses, FAQ lookup
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Specialized Agent Examples
+  - Grid showing 4 specialized agent cards
+  - Each with unique icon, color scheme, and purpose
+  - Display specific tools enabled for each
+  - Show sample tasks or outputs
+  - Size: 1800x1000px
+*/}
+
+### Workflow Agents
+
+Agents configured to execute specific, repeatable processes.
+
+**Perfect for:**
+- Daily/weekly reports
+- Data sync operations
+- Monitoring and alerts
+- Scheduled tasks
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Workflow Agent Configuration
+  - Screenshot of workflow agent with trigger
+  - Show workflow steps listed
+  - Display schedule configuration (cron-style)
+  - Include execution history with timestamps
+  - Size: 1600x900px
+*/}
+
+---
+
+## Agent States
+
+Agents can be in different states:
+
+<Steps>
+  <Step title="Active">
+    Ready to receive tasks and execute work. This is the normal operating state.
+    
+    {/* 
+      📸 MEDIA PLACEHOLDER: Active Agent Indicator
+      - Close-up of agent card with green "Active" badge
+      - Show pulsing animation indicator (or static green dot)
+      - Size: 400x300px
+    */}
+  </Step>
+  
+  <Step title="Working">
+    Currently executing a task. You'll see real-time progress updates.
+    
+    {/* 
+      🎥 VIDEO PLACEHOLDER: Agent Working (15-20 seconds)
+      - Show agent card transitioning to "Working" state
+      - Display progress bar or activity indicator
+      - Show tool usage badges appearing
+      - Include live status updates
+    */}
+  </Step>
+  
+  <Step title="Paused">
+    Temporarily disabled. No new tasks will be accepted until unpaused.
+  </Step>
+  
+  <Step title="Error">
+    Something went wrong. Check the logs or contact support.
+    
+    <Warning>
+      If an agent enters error state, check for missing integrations, expired credentials, or configuration issues.
+    </Warning>
+  </Step>
+</Steps>
+
+---
+
+## Agent Capabilities by Plan
+
+Different plans unlock different agent features:
+
+| Capability | Starter | Professional | Enterprise |
+|------------|---------|--------------|------------|
+| Max Agents | 3 | 10 | Unlimited |
+| Basic Tools | ✓ | ✓ | ✓ |
+| Advanced Tools | Limited | ✓ | ✓ |
+| Integrations | 3 | Unlimited | Unlimited |
+| Knowledge Base | 100MB | 1GB | Custom |
+| Scheduled Triggers | - | 5 per agent | Unlimited |
+| Team Sharing | - | ✓ | ✓ |
+| Priority Support | - | - | ✓ |
+
+<Note>
+  Contact your administrator to upgrade your plan or request additional capabilities.
+</Note>
+
+---
+
+## Managing Your Agents
+
+### Agent Dashboard
+
+The Agents page shows all your agents at a glance:
+
+<CardGroup cols={2}>
+  <Card title="My Agents" icon="user">
+    Agents you've created or own
+  </Card>
+  <Card title="Shared Agents" icon="users">
+    Agents shared with you by teammates
+  </Card>
+  <Card title="Marketplace" icon="store">
+    Pre-built agents available to install
+  </Card>
+  <Card title="Templates" icon="layer-group">
+    Your saved agent templates
+  </Card>
+</CardGroup>
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Agent Dashboard Tabs
+  - Screenshot showing tabbed interface
+  - Display "My Agents", "Shared", "Marketplace" tabs
+  - Show active tab with content
+  - Include filter and sort options
+  - Size: 1800x1000px
+*/}
+
+### Quick Actions
+
+Every agent card provides quick access to common actions:
+
+- **Chat**: Start a new conversation
+- **Configure**: Edit agent settings
+- **Duplicate**: Create a copy
+- **Share**: Add team members
+- **Archive**: Hide from main view
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Agent Card Context Menu
+  - Screenshot of agent card with dropdown menu open
+  - Show all quick actions listed
+  - Include icons for each action
+  - Display hover state or active selection
+  - Size: 600x500px
+*/}
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Create Your First Agent"
+    icon="plus"
+    href="/guides/agents/creating-agents"
+  >
+    Step-by-step guide to building an agent from scratch
+  </Card>
+  <Card
+    title="Browse Marketplace"
+    icon="store"
+    href="/guides/agents/marketplace"
+  >
+    Install pre-built agents for common tasks
+  </Card>
+  <Card
+    title="Configure Agent Tools"
+    icon="wrench"
+    href="/guides/agents/configuring-agents"
+  >
+    Learn how to customize agent capabilities
+  </Card>
+  <Card
+    title="Start Chatting"
+    icon="comments"
+    href="/guides/agents/chat-interface"
+  >
+    Master the chat interface and get the most from your agents
+  </Card>
+</CardGroup>

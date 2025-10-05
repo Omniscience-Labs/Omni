@@ -10,10 +10,7 @@
   "colors": {
     "primary": "#6366f1",
     "light": "#818cf8",
-    "dark": "#4f46e5",
-    "background": {
-      "dark": "#0a0a0a"
-    }
+    "dark": "#4f46e5"
   },
   "topbarLinks": [
     {
@@ -57,59 +54,64 @@
       ]
     },
     {
-      "group": "Agent Management",
+      "group": "Guides",
       "pages": [
-        "guides/agents/overview",
-        "guides/agents/creating-agents",
-        "guides/agents/configuring-agents",
-        "guides/agents/marketplace",
-        "guides/agents/chat-interface"
-      ]
-    },
-    {
-      "group": "Projects & Threads",
-      "pages": [
-        "guides/projects/overview",
-        "guides/projects/creating-projects",
-        "guides/projects/managing-threads",
-        "guides/projects/sharing"
-      ]
-    },
-    {
-      "group": "Knowledge Base",
-      "pages": [
-        "guides/knowledge/overview",
-        "guides/knowledge/uploading-files",
-        "guides/knowledge/organizing-folders",
-        "guides/knowledge/search"
-      ]
-    },
-    {
-      "group": "Integrations",
-      "pages": [
-        "guides/integrations/overview",
-        "guides/integrations/connecting-services",
-        "guides/integrations/gmail",
-        "guides/integrations/slack",
-        "guides/integrations/github",
-        "guides/integrations/calendar"
-      ]
-    },
-    {
-      "group": "Automation",
-      "pages": [
-        "guides/automation/workflows",
-        "guides/automation/triggers",
-        "guides/automation/scheduling"
-      ]
-    },
-    {
-      "group": "Advanced Features",
-      "pages": [
-        "guides/advanced/browser-automation",
-        "guides/advanced/file-operations",
-        "guides/advanced/data-processing",
-        "guides/advanced/web-scraping"
+        {
+          "group": "Agent Management",
+          "pages": [
+            "guides/agents/overview",
+            "guides/agents/creating-agents",
+            "guides/agents/configuring-agents",
+            "guides/agents/marketplace",
+            "guides/agents/chat-interface"
+          ]
+        },
+        {
+          "group": "Projects & Threads",
+          "pages": [
+            "guides/projects/overview",
+            "guides/projects/creating-projects",
+            "guides/projects/managing-threads",
+            "guides/projects/sharing"
+          ]
+        },
+        {
+          "group": "Knowledge Base",
+          "pages": [
+            "guides/knowledge/overview",
+            "guides/knowledge/uploading-files",
+            "guides/knowledge/organizing-folders",
+            "guides/knowledge/search"
+          ]
+        },
+        {
+          "group": "Integrations",
+          "pages": [
+            "guides/integrations/overview",
+            "guides/integrations/connecting-services",
+            "guides/integrations/gmail",
+            "guides/integrations/slack",
+            "guides/integrations/github",
+            "guides/integrations/calendar"
+          ]
+        },
+        {
+          "group": "Automation",
+          "pages": [
+            "guides/automation/workflows",
+            "guides/automation/triggers",
+            "guides/automation/scheduling"
+          ]
+        },
+        {
+          "group": "Advanced Features",
+          "pages": [
+            "guides/advanced/browser-automation",
+            "guides/advanced/file-operations",
+            "guides/advanced/data-processing",
+            "guides/advanced/web-scraping"
+          ]
+        }
       ]
     },
     {
