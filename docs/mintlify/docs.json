@@ -138,12 +138,31 @@
             ]
           },
           {
-            "group": "Popular Integrations",
+            "group": "Communication",
             "pages": [
               "guides/integrations/gmail",
               "guides/integrations/slack",
-              "guides/integrations/github",
-              "guides/integrations/calendar"
+              "guides/integrations/outlook"
+            ]
+          },
+          {
+            "group": "Productivity",
+            "pages": [
+              "guides/integrations/calendar",
+              "guides/integrations/dropbox"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "guides/integrations/github"
+            ]
+          },
+          {
+            "group": "Marketing & Analytics",
+            "pages": [
+              "guides/integrations/hubspot",
+              "guides/integrations/google-analytics"
             ]
           }
         ]
