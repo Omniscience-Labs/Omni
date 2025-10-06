@@ -20,6 +20,7 @@ import {
 import { useInitiateAgentMutation } from '@/hooks/react-query/dashboard/use-initiate-agent';
 import { BillingModal } from '@/components/billing/billing-modal';
 import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog';
+import { ProjectLimitDialog } from '@/components/billing/project-limit-dialog';
 import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
 import { generateThreadName } from '@/lib/actions/threads';
 import GoogleSignIn from '@/components/GoogleSignIn';
@@ -143,6 +144,8 @@ export function HeroSection() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showAgentLimitDialog, setShowAgentLimitDialog] = useState(false);
   const [agentLimitData, setAgentLimitData] = useState<{runningCount: number; runningThreadIds: string[]} | null>(null);
+  const [showProjectLimitDialog, setShowProjectLimitDialog] = useState(false);
+  const [projectLimitData, setProjectLimitData] = useState<{currentCount: number; limit: number; tierName: string} | null>(null);
 
   // FlipWords arrays for value proposition
   const moreWords = ["research", "analysis", "automation", "productivity", "insights", "results", "growth", "efficiency"];
@@ -419,7 +422,12 @@ export function HeroSection() {
         });
         setShowAgentLimitDialog(true);
       } else if (error instanceof ProjectLimitError) {
-        setShowPaymentModal(true);
+        setProjectLimitData({
+          currentCount: error.detail.current_count,
+          limit: error.detail.limit,
+          tierName: error.detail.tier_name,
+        });
+        setShowProjectLimitDialog(true);
       } else {
         const errorMessage = error?.message || 'An unexpected error occurred';
         toast.error(errorMessage);
@@ -1351,6 +1359,18 @@ export function HeroSection() {
           runningCount={agentLimitData.runningCount}
           runningThreadIds={agentLimitData.runningThreadIds}
           projectId={undefined}
+        />
+      )}
+
+      {/* Project Limit Dialog */}
+      {projectLimitData && (
+        <ProjectLimitDialog
+          open={showProjectLimitDialog}
+          onOpenChange={setShowProjectLimitDialog}
+          currentCount={projectLimitData.currentCount}
+          limit={projectLimitData.limit}
+          tierName={projectLimitData.tierName}
+          onUpgrade={() => setShowPaymentModal(true)}
         />
       )}
     </section>
