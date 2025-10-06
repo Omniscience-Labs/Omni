@@ -1,0 +1,429 @@
+---
+title: Creating Your First Agent
+description: Step-by-step guide to building custom AI agents in Omni
+icon: "plus"
+---
+
+## Choose Your Starting Point
+
+You have two paths to create an agent, each suited for different needs.
+
+<CardGroup cols={2}>
+  <Card title="Marketplace Template" icon="store" href="#from-marketplace">
+    Install pre-configured agents and customize them to your needs
+  </Card>
+  <Card title="Build from Scratch" icon="hammer" href="#from-scratch">
+    Create a fully custom agent with complete control over every aspect
+  </Card>
+</CardGroup>
+
+---
+
+## From Marketplace
+
+The fastest way to get started with specialized agents.
+
+<Steps>
+  <Step title="Browse the Marketplace">
+    Navigate to **Agents** → **Marketplace** in the sidebar to explore available templates.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Marketplace Browse
+      - Screenshot of marketplace page with filter options
+      - Show categories: Research, Content, Data, Support, Development
+      - Display agent cards with ratings and install counts
+      - Include search bar with example query
+      - Size: 1800x1000px
+    */}
+
+    <Tip>
+      Use filters to find agents by category, tools, or integrations. Popular categories include Research, Content Creation, Data Analysis, and Customer Support.
+    </Tip>
+  </Step>
+
+  <Step title="Preview Agent Details">
+    Click any agent to view its full configuration:
+    - **Capabilities**: What tools and integrations it includes
+    - **Use Cases**: Example tasks it handles well
+    - **Configuration**: System prompt and default settings
+    - **Reviews**: Feedback from other users
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Agent Detail View
+      - Modal showing complete agent information
+      - Display capabilities section with tool badges
+      - Show sample conversation examples
+      - Include install button and customization preview
+      - Size: 1400x900px
+    */}
+  </Step>
+
+  <Step title="Install and Customize">
+    Click **Install Agent** and customize:
+    
+    ```
+    Agent Name: [Your Custom Name]
+    Description: [Optional - describe your use case]
+    Icon & Color: [Choose visual identity]
+    ```
+
+    <Check>
+      The agent is instantly available in your workspace with all pre-configured tools enabled.
+    </Check>
+  </Step>
+
+  <Step title="Test Your Agent">
+    Start a conversation to verify it meets your needs:
+    - Ask it to perform a typical task
+    - Check if it has the right tools enabled
+    - Adjust configuration if needed
+
+    {/* 
+      🎥 VIDEO PLACEHOLDER: First Agent Conversation (30 seconds)
+      - Show user starting first conversation
+      - Display agent responding with tool usage
+      - Show successful task completion
+      - Include UI highlighting active tools
+    */}
+  </Step>
+</Steps>
+
+---
+
+## From Scratch
+
+Build a completely custom agent tailored to your exact requirements.
+
+<Steps>
+  <Step title="Initiate Agent Creation">
+    Click **Create Agent** button in the Agents page to open the configuration form.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Agent Creation Form
+      - Clean modal with all configuration options
+      - Show name, description, icon selector
+      - Display color picker with brand colors
+      - Include system prompt textarea
+      - Size: 1600x1000px
+    */}
+  </Step>
+
+  <Step title="Configure Basic Identity">
+    <Tabs>
+      <Tab title="Name & Description">
+        **Name**: Clear, descriptive name that indicates purpose
+        ```
+        ✅ Good: "Marketing Content Creator"
+        ❌ Avoid: "Agent 1" or "My Bot"
+        ```
+
+        **Description**: Brief summary of what it does
+        ```
+        Example: "Creates engaging social media posts, blog content, 
+        and marketing copy with SEO optimization"
+        ```
+      </Tab>
+
+      <Tab title="Visual Identity">
+        **Icon**: Choose from 100+ icons
+        - `robot` - General purpose
+        - `brain` - Research/Analysis
+        - `pen` - Content creation
+        - `chart-line` - Data/Analytics
+        - `headset` - Customer support
+
+        **Colors**: 
+        - Primary: Main icon color
+        - Background: Card background shade
+        
+        <Tip>
+          Pick colors that help you quickly identify agents at a glance. Use consistent color schemes for related agents.
+        </Tip>
+      </Tab>
+
+      <Tab title="System Prompt">
+        The system prompt defines your agent's personality, expertise, and behavior.
+
+        **Template Structure**:
+        ```
+        You are a [role] specialized in [domain].
+
+        Your expertise includes:
+        - [capability 1]
+        - [capability 2]
+        - [capability 3]
+
+        When working on tasks:
+        - [behavior guideline 1]
+        - [behavior guideline 2]
+        - [output format preference]
+
+        Always [important instruction].
+        ```
+
+        **Example - Research Assistant**:
+        ```
+        You are a research assistant specialized in competitive 
+        analysis and market intelligence.
+
+        Your expertise includes:
+        - Web research across multiple sources
+        - Data synthesis and trend analysis
+        - Creating comprehensive reports with citations
+
+        When working on tasks:
+        - Always cite sources with URLs
+        - Present data in tables when appropriate
+        - Provide both summary and detailed findings
+        - Flag contradictory information
+
+        Always prioritize recent, credible sources over outdated 
+        information.
+        ```
+
+        <Warning>
+          Be specific in your system prompt. Vague prompts like "You are a helpful assistant" don't provide enough guidance for consistent behavior.
+        </Warning>
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Select Tools & Capabilities">
+    Enable the tools your agent needs to perform its tasks.
+
+    <AccordionGroup>
+      <Accordion title="Core Tools" icon="toolbox">
+        **Always Available**:
+        - ✓ Text generation and analysis
+        - ✓ Task decomposition and planning
+        - ✓ Context management
+
+        **Optional Tools**:
+        - `Web Search`: Real-time information retrieval
+        - `File Operations`: Create, edit, and manage files
+        - `Browser Automation`: Navigate websites and extract data
+        - `Code Execution`: Run Python, JavaScript, shell commands
+        - `Data Processing`: Analyze CSV, Excel, JSON files
+        - `Image Generation`: Create visuals and designs
+
+        {/* 
+          📸 MEDIA PLACEHOLDER: Core Tools Configuration
+          - Screenshot of tools section with toggle switches
+          - Show each tool with helpful description
+          - Display "Learn More" links for complex tools
+          - Include recommended combinations
+          - Size: 1600x800px
+        */}
+      </Accordion>
+
+      <Accordion title="Integration Tools" icon="plug">
+        Connect external services to expand capabilities:
+
+        **Communication**:
+        - Gmail, Slack, Microsoft Teams
+
+        **Productivity**:
+        - Google Calendar, Drive, Notion
+
+        **Development**:
+        - GitHub, Linear, Jira
+
+        <Info>
+          Integrations require authentication. You'll be prompted to connect services when enabling them.
+        </Info>
+      </Accordion>
+
+      <Accordion title="Advanced Tools" icon="wand-magic-sparkles">
+        **Specialized Capabilities**:
+        - `Data Providers`: Access LinkedIn, Twitter, Zillow, Yahoo Finance APIs
+        - `Knowledge Search`: Query your knowledge base with semantic search
+        - `Deployment`: Publish web projects to production
+        - `Port Exposure`: Share running services with public URLs
+
+        <Note>
+          Advanced tools are perfect for specialized workflows but may require additional configuration.
+        </Note>
+      </Accordion>
+    </AccordionGroup>
+
+    <Tip>
+      **Tool Selection Strategy**: Start minimal - enable only essential tools initially. You can always add more later based on actual needs.
+    </Tip>
+  </Step>
+
+  <Step title="Configure Knowledge Base Access">
+    Give your agent access to relevant documents and data.
+
+    <Tabs>
+      <Tab title="Global Knowledge">
+        **Shared Across All Agents**:
+        - Company documentation
+        - Product information
+        - Brand guidelines
+        - Standard procedures
+
+        Enable access if your agent needs company-wide context.
+      </Tab>
+
+      <Tab title="Agent-Specific">
+        **Dedicated to This Agent**:
+        - Specialized research materials
+        - Domain-specific data
+        - Custom templates
+        - Reference documents
+
+        Upload files specifically for this agent's use case.
+
+        {/* 
+          📸 MEDIA PLACEHOLDER: Knowledge Base Selection
+          - Interface showing folder tree with checkboxes
+          - Display file counts and total size
+          - Show preview of selected items
+          - Include "Upload Files" button
+          - Size: 1400x800px
+        */}
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Review and Create">
+    Preview your configuration:
+
+    ```yaml
+    Agent Summary:
+    Name: [Your Agent Name]
+    Tools Enabled: [X tools]
+    Integrations: [Y services]
+    Knowledge Base: [Z MB]
+    ```
+
+    Click **Create Agent** to finish.
+
+    <Check>
+      **Success!** Your agent is ready to use. You'll be taken to a new conversation to start your first task.
+    </Check>
+  </Step>
+</Steps>
+
+---
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Clear Purpose" icon="bullseye">
+    Give each agent a specific, well-defined role rather than making it do everything
+  </Card>
+  <Card title="Descriptive Names" icon="tag">
+    Use names that immediately tell you what the agent does
+  </Card>
+  <Card title="Specific Prompts" icon="message">
+    Write detailed system prompts with examples of desired behavior
+  </Card>
+  <Card title="Right Tools Only" icon="filter">
+    Enable only the tools needed for the agent's specific tasks
+  </Card>
+</CardGroup>
+
+<Warning>
+  **Avoid Creating Too Many Similar Agents**: Instead of 10 variations of a content agent, create one well-configured agent and adjust your requests based on context.
+</Warning>
+
+---
+
+## Common Agent Templates
+
+Get inspired by these popular agent configurations:
+
+<AccordionGroup>
+  <Accordion title="Research Assistant" icon="magnifying-glass">
+    **Tools**: Web Search, File Operations, Data Processing
+    
+    **System Prompt Template**:
+    ```
+    You are a research assistant specialized in [domain]. 
+    Conduct thorough research using multiple sources, 
+    synthesize findings, and create detailed reports with 
+    proper citations.
+    ```
+
+    **Best For**: Competitive analysis, market research, literature reviews
+  </Accordion>
+
+  <Accordion title="Content Creator" icon="pen">
+    **Tools**: Web Search, File Operations, Image Generation
+    
+    **System Prompt Template**:
+    ```
+    You are a content creator specializing in [type of content]. 
+    Create engaging, well-structured content optimized for 
+    [platform/audience] with [tone/style].
+    ```
+
+    **Best For**: Blog posts, social media, marketing copy, newsletters
+  </Accordion>
+
+  <Accordion title="Data Analyst" icon="chart-line">
+    **Tools**: File Operations, Code Execution, Data Processing
+    
+    **System Prompt Template**:
+    ```
+    You are a data analyst expert in statistical analysis and 
+    visualization. Clean datasets, perform analysis, and create 
+    clear visualizations with insights.
+    ```
+
+    **Best For**: CSV analysis, report generation, trend identification
+  </Accordion>
+
+  <Accordion title="DevOps Engineer" icon="server">
+    **Tools**: Code Execution, Browser Automation, GitHub Integration
+    
+    **System Prompt Template**:
+    ```
+    You are a DevOps engineer specializing in automation and 
+    deployment. Write scripts, configure systems, and automate 
+    workflows following best practices.
+    ```
+
+    **Best For**: Deployment automation, monitoring setup, script creation
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Configure Your Agent"
+    icon="sliders"
+    href="/guides/agents/configuring-agents"
+  >
+    Fine-tune settings, adjust tools, and optimize for your workflow
+  </Card>
+  <Card
+    title="Start a Conversation"
+    icon="comments"
+    href="/guides/agents/chat-interface"
+  >
+    Learn how to effectively communicate with your agent
+  </Card>
+  <Card
+    title="Add Integrations"
+    icon="plug"
+    href="/guides/integrations/connecting-services"
+  >
+    Connect Gmail, Slack, GitHub, and other services
+  </Card>
+  <Card
+    title="Upload Knowledge"
+    icon="book"
+    href="/guides/knowledge/uploading-files"
+  >
+    Give your agent access to company documents and data
+  </Card>
+</CardGroup>
+
+<Note>
+  **Pro Tip**: Test your agent with simple tasks first, then gradually increase complexity. This helps you understand its capabilities and identify any needed adjustments.
+</Note>

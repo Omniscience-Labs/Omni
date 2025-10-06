@@ -21,6 +21,24 @@ logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
+@router.get("/debug-enterprise-routes")
+async def debug_enterprise_routes():
+    """Debug endpoint to verify enterprise billing routes are loaded."""
+    return {
+        "status": "ok",
+        "message": "Enterprise Billing API is loaded",
+        "enterprise_mode": config.ENTERPRISE_MODE,
+        "routes_available": [
+            "/billing/subscription",
+            "/billing/check-status", 
+            "/billing/usage-logs",
+            "/billing/subscription-commitment/{subscription_id}",
+            "/billing/available-models",
+            "/billing/tool-usage-analytics"
+        ],
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
 @router.get("/subscription")
 async def get_subscription(
     current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
@@ -283,3 +301,47 @@ async def cancel_subscription(
         "error": "Your enterprise account cannot be cancelled by users",
         "success": False
     }
+
+@router.get("/subscription-commitment/{subscription_id}")
+async def get_subscription_commitment(
+    subscription_id: str,
+    current_user_id: str = Depends(verify_and_get_user_id_from_jwt)
+) -> Dict:
+    """Get subscription commitment status - enterprise version.
+    
+    Enterprise users don't have commitments in the traditional sense,
+    so this returns a stub response indicating no commitment.
+    """
+    logger.info(f"[ENTERPRISE] Subscription commitment check - user: {current_user_id}, subscription_id: {subscription_id}, ENTERPRISE_MODE: {config.ENTERPRISE_MODE}")
+    
+    if not config.ENTERPRISE_MODE:
+        logger.error(f"[ENTERPRISE] Enterprise mode not enabled but enterprise billing API was called")
+        raise HTTPException(status_code=400, detail="Enterprise mode not enabled")
+    
+    try:
+        logger.info(f"[ENTERPRISE] Returning enterprise commitment status for user {current_user_id}")
+        
+        # Enterprise users don't have traditional commitments
+        # They're always on the enterprise plan with no cancellation option
+        response = {
+            'has_commitment': False,
+            'can_cancel': False,  # Enterprise users cannot self-cancel
+            'commitment_type': 'enterprise',
+            'months_remaining': None,
+            'commitment_end_date': None,
+            'message': 'Your enterprise account is managed by your administrator'
+        }
+        
+        logger.info(f"[ENTERPRISE] Successfully returned commitment status: {response}")
+        return response
+        
+    except Exception as e:
+        logger.error(f"[ENTERPRISE] Error checking commitment status for user {current_user_id}: {e}", exc_info=True)
+        # Return safe defaults on error
+        return {
+            'has_commitment': False,
+            'can_cancel': False,
+            'commitment_type': None,
+            'months_remaining': None,
+            'commitment_end_date': None
+        }

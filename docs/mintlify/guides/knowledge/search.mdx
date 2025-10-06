@@ -1,0 +1,442 @@
+---
+title: Searching Knowledge
+description: Master semantic search to find information instantly
+icon: "magnifying-glass"
+---
+
+## Search Interface
+
+Access powerful search from anywhere in Omni.
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Search Interface
+  - Global search bar with keyboard shortcut hint
+  - Recent searches dropdown
+  - Advanced filters panel
+  - Results preview pane
+  - Size: 1800x1000px
+*/}
+
+<CardGroup cols={2}>
+  <Card title="Global Search" icon="globe">
+    `Cmd/Ctrl + K` searches across all content
+  </Card>
+  <Card title="Scoped Search" icon="filter">
+    Search within specific folders or projects
+  </Card>
+  <Card title="Natural Language" icon="comments">
+    Ask questions, don't just use keywords
+  </Card>
+  <Card title="Source Attribution" icon="quote-left">
+    Every result links to source document
+  </Card>
+</CardGroup>
+
+---
+
+## How Semantic Search Works
+
+Unlike traditional keyword search, semantic search understands meaning and context.
+
+<Tabs>
+  <Tab title="Keyword Search" icon="key">
+    **Traditional Method**:
+    - Matches exact words
+    - Requires correct terminology
+    - Misses synonyms and related concepts
+    - No context understanding
+
+    **Example**:
+    Search for "refund policy" only finds documents with those exact words.
+  </Tab>
+
+  <Tab title="Semantic Search" icon="brain">
+    **AI-Powered Method**:
+    - Understands meaning and intent
+    - Finds synonyms automatically
+    - Connects related concepts
+    - Considers context
+
+    **Example**:
+    Search for "refund policy" also finds:
+    - Return procedures
+    - Money-back guarantees
+    - Customer satisfaction policies
+    - Cancellation terms
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Semantic vs Keyword Comparison
+      - Side-by-side comparison
+      - Same query, different results
+      - Highlight missed results in keyword search
+      - Show relevance scores
+      - Size: 1600x800px
+    */}
+  </Tab>
+</Tabs>
+
+---
+
+## Search Techniques
+
+<Steps>
+  <Step title="Ask Natural Questions">
+    Write queries as if talking to a person:
+
+    **Good Queries**:
+    ```
+    "What is our remote work policy?"
+    "How do I submit an expense report?"
+    "What are the API rate limits for premium users?"
+    "Show me the latest product roadmap"
+    ```
+
+    **Less Effective**:
+    ```
+    "remote work"
+    "expense"
+    "API limits"
+    "roadmap"
+    ```
+
+    Complete questions get better results.
+  </Step>
+
+  <Step title="Be Specific When Needed">
+    Add context for precision:
+
+    **Generic**:
+    ```
+    "security policy"
+    ```
+
+    **Specific**:
+    ```
+    "What does our security policy say about password requirements?"
+    ```
+
+    More specific = more relevant results.
+  </Step>
+
+  <Step title="Use Filters">
+    Narrow results by:
+    - **File Type**: PDF, Word, Spreadsheet
+    - **Date**: Last week, month, year, custom
+    - **Folder**: Specific directories
+    - **Tags**: Custom categorization
+    - **Author**: Who uploaded
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Search Filters
+      - Filter panel expanded
+      - Multiple active filters
+      - Clear individual filter option
+      - Results updating live
+      - Size: 1400x900px
+    */}
+  </Step>
+
+  <Step title="Review Results">
+    Each result shows:
+    - **Relevance Score**: How well it matches
+    - **Preview**: Excerpt with highlighted terms
+    - **Source**: Document name and location
+    - **Date**: When uploaded/modified
+    - **Quick Actions**: View, download, share
+
+    <Tip>
+      Results are sorted by relevance, but you can re-sort by date or name.
+    </Tip>
+  </Step>
+</Steps>
+
+---
+
+## Advanced Search Features
+
+<AccordionGroup>
+  <Accordion title="Exact Phrase Search" icon="quotes">
+    Use quotes for exact matches:
+    ```
+    "artificial intelligence strategy"
+    ```
+
+    Finds only documents with that exact phrase.
+  </Accordion>
+
+  <Accordion title="Exclude Terms" icon="minus">
+    Use minus to exclude words:
+    ```
+    product documentation -archived
+    ```
+
+    Finds product documentation but excludes archived files.
+  </Accordion>
+
+  <Accordion title="Boolean Operators" icon="code-branch">
+    Combine searches logically:
+    ```
+    (marketing OR sales) AND strategy
+    user guide NOT deprecated
+    ```
+
+    More control over results.
+  </Accordion>
+
+  <Accordion title="Field-Specific Search" icon="bullseye">
+    Search specific fields:
+    ```
+    title:"employee handbook"
+    author:john@company.com
+    type:pdf
+    date:2024
+    ```
+
+    Precise targeting of metadata.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Search Scenarios
+
+<Tabs>
+  <Tab title="Policy Questions">
+    **Scenario**: Need to know company policy
+
+    **Query**:
+    ```
+    "What is our policy on working from home?"
+    "Can employees work remotely full-time?"
+    "What are the requirements for remote work?"
+    ```
+
+    **Tips**:
+    - Use question format
+    - Include key terms (policy, requirements)
+    - Be specific about topic
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Policy Search Results
+      - Search results showing relevant policies
+      - Preview highlighting answer text
+      - Quick links to full documents
+      - Related policies section
+      - Size: 1600x900px
+    */}
+  </Tab>
+
+  <Tab title="Technical Information">
+    **Scenario**: Finding API or technical details
+
+    **Query**:
+    ```
+    "What are the authentication methods for the API?"
+    "How do I handle rate limiting errors?"
+    "Show me examples of webhook payloads"
+    ```
+
+    **Tips**:
+    - Use technical terms
+    - Ask for examples
+    - Specify version if applicable
+  </Tab>
+
+  <Tab title="Process Documentation">
+    **Scenario**: Need step-by-step instructions
+
+    **Query**:
+    ```
+    "How do I submit a purchase order?"
+    "What is the process for onboarding new clients?"
+    "Steps to deploy to production"
+    ```
+
+    **Tips**:
+    - Use "how do I" or "what is the process"
+    - Include outcome or goal
+    - Specify department if relevant
+  </Tab>
+
+  <Tab title="Data and Reports">
+    **Scenario**: Looking for specific data or reports
+
+    **Query**:
+    ```
+    "Q3 2024 sales report"
+    "Latest customer satisfaction survey results"
+    "Product usage statistics from last month"
+    ```
+
+    **Tips**:
+    - Include time period
+    - Specify report type
+    - Add department or product name
+  </Tab>
+</Tabs>
+
+---
+
+## Agent-Assisted Search
+
+Agents use knowledge base search automatically during conversations.
+
+<Steps>
+  <Step title="Ask Agent Naturally">
+    During any conversation:
+    ```
+    "What does our employee handbook say about vacation days?"
+    ```
+
+    Agent searches knowledge base automatically.
+
+    {/* 
+      🎥 VIDEO PLACEHOLDER: Agent Search (30 seconds)
+      - User asks question
+      - Agent searches knowledge base (visual indicator)
+      - Results found and synthesized
+      - Agent responds with citations
+      - User clicks citation to see source
+    */}
+  </Step>
+
+  <Step title="Review Sources">
+    Agent provides:
+    - Direct answer
+    - Source document names
+    - Relevant page numbers
+    - Confidence scores
+    - Links to full documents
+
+    Click any source to view original.
+  </Step>
+
+  <Step title="Refine if Needed">
+    If answer isn't quite right:
+    ```
+    "Can you be more specific about the accrual process?"
+    "What about special circumstances?"
+    "Does this apply to contractors too?"
+    ```
+
+    Agent searches again with refined context.
+  </Step>
+</Steps>
+
+---
+
+## Search Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Start Broad" icon="expand">
+    Begin with general query, then narrow if needed
+  </Card>
+  <Card title="Check Filters" icon="filter">
+    Clear old filters that might hide results
+  </Card>
+  <Card title="Try Synonyms" icon="language">
+    Use different terms if first attempt fails
+  </Card>
+  <Card title="Use Dates" icon="calendar">
+    Filter by date to find latest versions
+  </Card>
+  <Card title="Review Metadata" icon="tags">
+    Check tags and descriptions for context
+  </Card>
+  <Card title="Ask Agents" icon="robot">
+    Let agents do the searching for you
+  </Card>
+</CardGroup>
+
+---
+
+## Search Analytics
+
+Monitor what people are searching for to improve your Knowledge Base.
+
+<AccordionGroup>
+  <Accordion title="Popular Searches" icon="fire">
+    See most common queries:
+    - Identifies gaps in documentation
+    - Shows what information is most needed
+    - Highlights confusing areas
+    - Guides content creation priorities
+  </Accordion>
+
+  <Accordion title="No Results Queries" icon="circle-question">
+    Queries that found nothing:
+    - Missing documentation
+    - Wrong terminology
+    - Needed content
+    - Training opportunities
+
+    Use to improve Knowledge Base coverage.
+  </Accordion>
+
+  <Accordion title="Click Patterns" icon="hand-pointer">
+    Which results people click:
+    - Validates relevance
+    - Shows user preferences
+    - Identifies best content
+    - Improves ranking algorithm
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="No Results Found" icon="magnifying-glass-minus">
+    **Try**:
+    - Remove filters
+    - Use broader terms
+    - Check spelling
+    - Try synonyms
+    - Ask agent to search instead
+
+    File might not be uploaded yet.
+  </Accordion>
+
+  <Accordion title="Too Many Results" icon="layer-group">
+    **Refine**:
+    - Add more specific terms
+    - Use exact phrases in quotes
+    - Apply filters (date, type, folder)
+    - Exclude irrelevant terms with minus
+
+    Be more specific in your query.
+  </Accordion>
+
+  <Accordion title="Wrong Results" icon="circle-xmark">
+    **Improve**:
+    - Rephrase query
+    - Add context
+    - Use field-specific search
+    - Check document metadata
+    - Update tags on files
+
+    Report if results seem consistently off.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Configure Agents"
+    icon="sliders"
+    href="/guides/agents/configuring-agents"
+  >
+    Set up agent access to Knowledge Base
+  </Card>
+  <Card
+    title="Upload More Files"
+    icon="upload"
+    href="/guides/knowledge/uploading-files"
+  >
+    Add more content to search
+  </Card>
+</CardGroup>

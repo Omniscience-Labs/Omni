@@ -1,0 +1,515 @@
+---
+title: Web Scraping
+description: Extract data from websites efficiently and ethically
+icon: "spider"
+---
+
+## Web Scraping Methods
+
+Agents offer multiple approaches for extracting web data, from simple to advanced.
+
+<CardGroup cols={3}>
+  <Card title="Web Search" icon="magnifying-glass">
+    Get answers and links directly
+  </Card>
+  <Card title="Page Scraping" icon="file-code">
+    Extract text and data from URLs
+  </Card>
+  <Card title="Browser Automation" icon="browser">
+    Handle complex, interactive sites
+  </Card>
+</CardGroup>
+
+---
+
+## Method Selection
+
+Choose the right tool for your needs:
+
+<Steps>
+  <Step title="Start with Web Search">
+    **For**: Quick facts, recent information, multiple sources
+
+    ```
+    "Search for: latest pricing for competing products"
+    ```
+
+    **Returns**:
+    - Direct answer
+    - Top search results
+    - Relevant URLs
+    - Images if applicable
+
+    Fastest method - try this first.
+  </Step>
+
+  <Step title="Use Page Scraper">
+    **For**: Specific webpage content, text extraction
+
+    ```
+    "Scrape https://example.com/article and extract:
+    - Article title and author
+    - Publication date
+    - Main content text
+    - Metadata"
+    ```
+
+    **Best For**:
+    - Static content
+    - Simple HTML pages
+    - Public data
+    - No authentication needed
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Scraping Result
+      - Original webpage screenshot
+      - Extracted data structured
+      - Confidence scores
+      - Size: 1600x900px
+    */}
+  </Step>
+
+  <Step title="Use Browser for Complex Sites">
+    **For**: Dynamic content, authentication, interaction
+
+    ```
+    "Navigate to dashboard.example.com:
+    - Log in with credentials
+    - Wait for data table to load
+    - Scroll through all pages
+    - Extract all rows
+    - Save to CSV"
+    ```
+
+    **When Needed**:
+    - JavaScript-rendered content
+    - Login required
+    - Multiple steps
+    - Visual verification needed
+
+    Most powerful but slowest method.
+
+    <Warning>
+      Browser automation is resource-intensive. Use only when simpler methods fail.
+    </Warning>
+  </Step>
+</Steps>
+
+---
+
+## Scraping Techniques
+
+<Tabs>
+  <Tab title="Single Page">
+    **Extract from One URL**:
+    ```
+    "Visit https://company.com/pricing and extract:
+    - All plan names
+    - Features for each plan
+    - Prices (monthly and annual)
+    - Format as comparison table"
+    ```
+
+    Simple and fast.
+  </Tab>
+
+  <Tab title="Multiple Pages">
+    **Batch Scraping**:
+    ```
+    "Scrape product details from these URLs:
+    {{url_list}}
+    
+    For each page extract:
+    - Product name
+    - Price
+    - Rating
+    - Reviews count
+    
+    Combine into single CSV"
+    ```
+
+    Parallel processing available.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Batch Scraping Progress
+      - List of URLs with status
+      - Progress bars
+      - Success/failure indicators
+      - Estimated time remaining
+      - Size: 1400x800px
+    */}
+  </Tab>
+
+  <Tab title="Site Crawling">
+    **Discover and Scrape**:
+    ```
+    "Starting from https://blog.example.com:
+    - Find all article links
+    - Visit each article
+    - Extract title, date, author, content
+    - Limit to last 50 articles
+    - Save as JSON"
+    ```
+
+    Automated site mapping and extraction.
+
+    <Warning>
+      Set reasonable limits to avoid overwhelming sites. Respect robots.txt and rate limits.
+    </Warning>
+  </Tab>
+
+  <Tab title="Monitoring">
+    **Track Changes**:
+    ```
+    Schedule: Every day at 6 AM
+    
+    Task: "Scrape competitor pricing page:
+    - Extract current prices
+    - Compare to yesterday's prices
+    - If changes detected, notify team
+    - Log history in spreadsheet"
+    ```
+
+    Automated competitive monitoring.
+  </Tab>
+</Tabs>
+
+---
+
+## Data Extraction
+
+<AccordionGroup>
+  <Accordion title="Structured Extraction" icon="table-list">
+    **Identify Patterns**:
+    ```
+    "From https://example.com/products, extract:
+    
+    Pattern: Each product card has:
+    - .product-name class for name
+    - .price class for price
+    - .rating class for rating
+    
+    Create structured JSON output"
+    ```
+
+    Agent finds repeated patterns.
+  </Accordion>
+
+  <Accordion title="Text Mining" icon="text">
+    **Extract Specific Information**:
+    ```
+    "From this article:
+    - Extract all mentioned company names
+    - Find financial figures
+    - Identify key dates
+    - List all email addresses
+    - Pull out URLs"
+    ```
+
+    Named entity recognition.
+  </Accordion>
+
+  <Accordion title="Visual Data" icon="image">
+    **Images and Media**:
+    ```
+    "From the product page:
+    - Download all product images
+    - Extract image URLs
+    - Save with descriptive filenames
+    - Create image inventory CSV"
+    ```
+
+    Media extraction and organization.
+  </Accordion>
+
+  <Accordion title="Tabular Data" icon="table-cells">
+    **HTML Tables**:
+    ```
+    "Extract all tables from the research page and 
+    convert to Excel spreadsheet"
+    ```
+
+    Preserves structure and formatting.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Ethical Scraping
+
+<CardGroup cols={2}>
+  <Card title="Respect robots.txt" icon="robot">
+    Always check and honor site's robots.txt rules
+  </Card>
+  <Card title="Rate Limiting" icon="gauge">
+    Space requests appropriately, don't overwhelm servers
+  </Card>
+  <Card title="Terms of Service" icon="file-contract">
+    Review and comply with site's ToS before scraping
+  </Card>
+  <Card title="Public Data Only" icon="unlock">
+    Don't scrape private, paywalled, or copyrighted content
+  </Card>
+  <Card title="Identify Yourself" icon="id-card">
+    Use appropriate User-Agent, don't disguise identity
+  </Card>
+  <Card title="Give Credit" icon="award">
+    Cite sources when using scraped data
+  </Card>
+</CardGroup>
+
+<Warning>
+  **Legal Considerations**: Web scraping legality varies by jurisdiction and use case. Consult legal counsel for commercial scraping. Omni is not liable for users' scraping activities.
+</Warning>
+
+---
+
+## Handling Common Challenges
+
+<AccordionGroup>
+  <Accordion title="Dynamic Content" icon="spinner">
+    **JavaScript-Rendered Pages**:
+    ```
+    Problem: Content not in initial HTML
+    Solution: Use browser automation instead of scraper
+    
+    "Use browser to navigate to page, wait for content 
+    to load, then extract"
+    ```
+
+    Browser executes JavaScript before extracting.
+  </Accordion>
+
+  <Accordion title="Pagination" icon="ellipsis">
+    **Multi-Page Results**:
+    ```
+    "Scrape all pages of search results:
+    - Start at page 1
+    - Extract items
+    - Click 'Next' until no more pages
+    - Combine all results"
+    ```
+
+    Agent handles pagination automatically.
+  </Accordion>
+
+  <Accordion title="Authentication" icon="lock">
+    **Login Required**:
+    ```
+    "Use browser to:
+    1. Navigate to login page
+    2. Enter credentials from secure storage
+    3. Wait for dashboard
+    4. Navigate to data page
+    5. Extract protected content"
+    ```
+
+    Secure credential handling.
+  </Accordion>
+
+  <Accordion title="Rate Limits & Blocking" icon="ban">
+    **If Site Blocks Requests**:
+    - Add delays between requests
+    - Use rotating proxies (Enterprise)
+    - Scrape during off-peak hours
+    - Request API access instead
+
+    **CAPTCHA Encountered**:
+    ```
+    "If CAPTCHA appears, notify me to solve manually"
+    ```
+
+    Agent requests human assistance.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Output Formats
+
+<Tabs>
+  <Tab title="Structured Data">
+    **CSV/Excel**:
+    ```
+    "Save scraped data as CSV with columns:
+    Product Name, Price, Rating, URL"
+    ```
+
+    Perfect for analysis in spreadsheets.
+  </Tab>
+
+  <Tab title="JSON">
+    **Nested Structures**:
+    ```json
+    {
+      "products": [
+        {
+          "name": "Product A",
+          "price": 99.99,
+          "features": ["Feature 1", "Feature 2"],
+          "reviews": { "count": 150, "average": 4.5 }
+        }
+      ]
+    }
+    ```
+
+    Great for APIs and programming.
+  </Tab>
+
+  <Tab title="Documents">
+    **Reports**:
+    ```
+    "Create a markdown report with:
+    - Executive summary
+    - Scraped data tables
+    - Key findings
+    - Sources cited"
+    ```
+
+    Human-readable output.
+  </Tab>
+</Tabs>
+
+---
+
+## Example Projects
+
+<AccordionGroup>
+  <Accordion title="Competitive Intelligence" icon="chess">
+    ```
+    "Monitor competitor websites weekly:
+    
+    For each competitor:
+    1. Scrape pricing page
+    2. Extract feature list
+    3. Check job postings
+    4. Review blog for announcements
+    5. Track social media mentions
+    
+    Deliverables:
+    - Competitor comparison spreadsheet
+    - Change log (what's new)
+    - Strategic recommendations
+    - Send to #strategy channel"
+    ```
+  </Accordion>
+
+  <Accordion title="Market Research" icon="magnifying-glass-chart">
+    ```
+    "Research industry trends:
+    
+    1. Search for recent articles about {{industry}}
+    2. Scrape top 20 results
+    3. Extract key statistics and quotes
+    4. Identify common themes
+    5. Create trend analysis report
+    6. Include all sources with URLs"
+    ```
+  </Accordion>
+
+  <Accordion title="Lead Generation" icon="user-plus">
+    ```
+    "Find companies in {{industry}} that match profile:
+    
+    1. Search for companies
+    2. Visit each company website
+    3. Extract: name, description, size, location
+    4. Find contact information
+    5. Score fit based on criteria
+    6. Create qualified leads spreadsheet"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Start Small" icon="seedling">
+    Test on a few pages before scaling to hundreds
+  </Card>
+  <Card title="Verify Early" icon="check-double">
+    Review first few results for accuracy
+  </Card>
+  <Card title="Cache Results" icon="database">
+    Save scraped data to avoid re-scraping
+  </Card>
+  <Card title="Error Handling" icon="life-ring">
+    Plan for failed requests and missing data
+  </Card>
+  <Card title="Structured Output" icon="table">
+    Save in formats easy to process later
+  </Card>
+  <Card title="Schedule Wisely" icon="clock">
+    Scrape during off-peak hours when possible
+  </Card>
+</CardGroup>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Scraping Failed" icon="xmark">
+    **Common Issues**:
+    - Site structure changed
+    - Authentication required
+    - Rate limit hit
+    - Site blocking bots
+
+    **Try**:
+    - Update selectors
+    - Use browser automation
+    - Add delays
+    - Contact site for API access
+  </Accordion>
+
+  <Accordion title="Incomplete Data" icon="puzzle-piece">
+    **Missing Information**:
+    - Check page loaded completely
+    - Verify selectors are correct
+    - Look for pagination
+    - Try different approach
+
+    Review screenshots for debugging.
+  </Accordion>
+
+  <Accordion title="Data Quality Issues" icon="circle-exclamation">
+    **Extracted Data Incorrect**:
+    - Validate against source
+    - Check parsing logic
+    - Review data types
+    - Clean and normalize
+
+    Always validate scraped data.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Browser Automation"
+    icon="browser"
+    href="/guides/advanced/browser-automation"
+  >
+    Advanced web interaction techniques
+  </Card>
+  <Card
+    title="Data Processing"
+    icon="chart-line"
+    href="/guides/advanced/data-processing"
+  >
+    Analyze your scraped data
+  </Card>
+  <Card
+    title="Research Use Case"
+    icon="flask"
+    href="/use-cases/research-analysis"
+  >
+    See web scraping in real research workflows
+  </Card>
+</CardGroup>

@@ -260,6 +260,7 @@ export const siteConfig = {
         id: 5,
         name: 'Copper Moon',
         logo: (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src="/company-logos/Maroon CM Logo.svg"
             alt="Copper Moon"
@@ -272,6 +273,7 @@ export const siteConfig = {
         id: 6,
         name: 'Cold Chain',
         logo: (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src="/company-logos/Cold-chain svg.svg"
             alt="Cold Chain"

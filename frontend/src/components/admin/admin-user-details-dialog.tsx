@@ -19,32 +19,20 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   User,
   CreditCard,
-  History,
-  DollarSign,
-  Calendar,
   Activity,
   AlertCircle,
-  CheckCircle,
   RefreshCw,
-  Clock,
-  Infinity,
 } from 'lucide-react';
 import { useAdminUserDetails } from '@/hooks/react-query/admin/use-admin-users';
-import {
-  useUserBillingSummary,
-  useAdjustCredits,
-  useProcessRefund,
-} from '@/hooks/react-query/admin/use-admin-billing';
 import type { UserSummary } from '@/hooks/react-query/admin/use-admin-users';
+import { useAdminCheck } from '@/hooks/use-admin-check';
+import { useQueryClient } from '@tanstack/react-query';
+import UsageLogs from '@/components/billing/usage-logs';
 
 interface AdminUserDetailsDialogProps {
   user: UserSummary | null;
@@ -59,20 +47,14 @@ export function AdminUserDetailsDialog({
   onClose,
   onRefresh,
 }: AdminUserDetailsDialogProps) {
-  const [adjustAmount, setAdjustAmount] = useState('');
-  const [adjustReason, setAdjustReason] = useState('');
-  const [refundAmount, setRefundAmount] = useState('');
-  const [refundReason, setRefundReason] = useState('');
-  const [adjustIsExpiring, setAdjustIsExpiring] = useState(true);
-  const [refundIsExpiring, setRefundIsExpiring] = useState(false);
+  // Admin access check with proper TypeScript typing
+  const { data: adminCheck } = useAdminCheck();
+  const queryClient = useQueryClient();
 
   const { data: userDetails, isLoading } = useAdminUserDetails(user?.id || null);
-  const { data: billingSummary, refetch: refetchBilling } = useUserBillingSummary(user?.id || null);
-  const adjustCreditsMutation = useAdjustCredits();
-  const processRefundMutation = useProcessRefund();
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -85,106 +67,19 @@ export function AdminUserDetailsDialog({
     return `$${amount.toFixed(2)}`;
   };
 
-  const handleAdjustCredits = async () => {
-    if (!user || !adjustAmount || !adjustReason) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-
-    try {
-      const result = await adjustCreditsMutation.mutateAsync({
-        account_id: user.id,
-        amount: parseFloat(adjustAmount),
-        reason: adjustReason,
-        notify_user: true,
-        is_expiring: adjustIsExpiring,
-      });
-
-      toast.success(
-        `Credits adjusted successfully. New balance: ${formatCurrency(result.new_balance)}`
-      );
-
-      refetchBilling();
-      onRefresh?.();
-      setAdjustAmount('');
-      setAdjustReason('');
-      setAdjustIsExpiring(true);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to adjust credits');
-    }
-  };
-
-  const handleProcessRefund = async () => {
-    if (!user || !refundAmount || !refundReason) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-
-    try {
-      const result = await processRefundMutation.mutateAsync({
-        account_id: user.id,
-        amount: parseFloat(refundAmount),
-        reason: refundReason,
-        stripe_refund: false,
-        is_expiring: refundIsExpiring,
-      });
-
-      toast.success(
-        `Refund processed. New balance: ${formatCurrency(result.new_balance)}`
-      );
-
-      refetchBilling();
-      onRefresh?.();
-
-      setRefundAmount('');
-      setRefundReason('');
-      setRefundIsExpiring(false);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to process refund');
-    }
-  };
-
-  const getTierBadgeVariant = (tier: string) => {
-    switch (tier.toLowerCase()) {
-      case 'pro':
-        return 'default';
-      case 'premium':
-        return 'secondary';
-      case 'free':
-        return 'outline';
-      default:
-        return 'outline';
-    }
-  };
-
-  const getSubscriptionBadgeVariant = (status?: string) => {
-    switch (status) {
-      case 'active':
-        return 'default';
-      case 'cancelled':
-        return 'destructive';
-      case 'past_due':
-        return 'destructive';
-      default:
-        return 'secondary';
-    }
-  };
-
-  const getTransactionColor = (type: string) => {
-    switch (type) {
-      case 'usage':
-        return 'text-red-600';
-      case 'admin_grant':
-        return 'text-green-600';
-      case 'tier_grant':
-        return 'text-blue-600';
-      case 'purchase':
-        return 'text-purple-600';
-      case 'refund':
-        return 'text-orange-600';
-      default:
-        return 'text-muted-foreground';
-    }
+  const handleRefreshData = async () => {
+    if (!user?.id) return;
+    
+    // Invalidate and refetch all queries related to this user
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users', 'details', user.id] }),
+      queryClient.invalidateQueries({ queryKey: ['admin-user-usage', user.id] }),
+      queryClient.invalidateQueries({ queryKey: ['enterprise-users'] }),
+      queryClient.invalidateQueries({ queryKey: ['enterprise-status'] }),
+    ]);
+    
+    onRefresh?.();
+    toast.success('All data refreshed');
   };
 
   if (!user) return null;
@@ -195,7 +90,7 @@ export function AdminUserDetailsDialog({
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
-            User Details - {user.email}
+            User Details - {userDetails?.user?.billing_customers?.[0]?.email || user.email || 'Loading...'}
           </DialogTitle>
           <DialogDescription>
             Manage user account, billing, and perform admin actions
@@ -209,12 +104,11 @@ export function AdminUserDetailsDialog({
               <Skeleton className="h-64 w-full" />
             </div>
           ) : (
-            <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 sticky top-0 z-10">
+            <Tabs defaultValue="usage" className="w-full">
+              <TabsList className="grid w-full grid-cols-3 sticky top-0 z-10">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="transactions">Transactions</TabsTrigger>
+                <TabsTrigger value="usage">Usage Logs</TabsTrigger>
                 <TabsTrigger value="activity">Activity</TabsTrigger>
-                <TabsTrigger value="actions">Admin Actions</TabsTrigger>
               </TabsList>
 
             <TabsContent value="overview" className="space-y-4">
@@ -229,21 +123,17 @@ export function AdminUserDetailsDialog({
                   <CardContent className="space-y-3">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Email</p>
-                      <p className="font-mono text-sm">{user.email}</p>
+                      <p className="font-mono text-sm break-all">
+                        {userDetails?.user?.billing_customers?.[0]?.email || user.email}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">User ID</p>
-                      <p className="font-mono text-xs">{user.id}</p>
+                      <p className="text-sm font-medium text-muted-foreground">Account ID</p>
+                      <p className="font-mono text-xs break-all">{user.id}</p>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Joined</p>
                       <p className="text-sm">{formatDate(user.created_at)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Tier</p>
-                      <Badge variant={getTierBadgeVariant(user.tier)} className="capitalize">
-                        {user.tier}
-                      </Badge>
                     </div>
                   </CardContent>
                 </Card>
@@ -252,74 +142,78 @@ export function AdminUserDetailsDialog({
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <CreditCard className="h-4 w-4" />
-                      Credit Summary
+                      Usage Summary
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Current Balance</p>
-                      <p className="text-2xl font-bold text-green-600">
+                      <p className="text-sm font-medium text-muted-foreground">Monthly Limit</p>
+                      <p className="text-2xl font-bold text-blue-600">
                         {formatCurrency(user.credit_balance)}
                       </p>
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <p className="text-muted-foreground">Purchased</p>
-                        <p className="font-medium">{formatCurrency(user.total_purchased)}</p>
+                        <p className="text-muted-foreground">Used This Month</p>
+                        <p className="font-medium text-orange-600">
+                          {formatCurrency(user.total_used || 0)}
+                        </p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Used</p>
-                        <p className="font-medium">{formatCurrency(user.total_used)}</p>
+                        <p className="text-muted-foreground">Remaining</p>
+                        <p className="font-medium text-green-600">
+                          {formatCurrency((user.credit_balance || 0) - (user.total_used || 0))}
+                        </p>
                       </div>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Subscription</p>
-                      <Badge
-                        variant={getSubscriptionBadgeVariant(user.subscription_status)}
-                        className="capitalize"
-                      >
-                        {user.subscription_status || 'None'}
-                      </Badge>
                     </div>
                   </CardContent>
                 </Card>
               </div>
             </TabsContent>
 
-            <TabsContent value="transactions" className="space-y-4">
-              {billingSummary && (
-                <Card className='border-0 shadow-none bg-transparent'>
-                  <CardContent className='p-0'>
-                    <div className="space-y-2">
-                      {billingSummary.recent_transactions?.length > 0 ? (
-                        billingSummary.recent_transactions.map((transaction: any) => (
-                          <div
-                            key={transaction.id}
-                            className="flex items-center justify-between p-3 border rounded-lg"
-                          >
-                            <div>
-                              <p className="text-sm font-medium">{transaction.description}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDate(transaction.created_at)}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className={`font-semibold ${getTransactionColor(transaction.type)}`}>
-                                {transaction.amount > 0 ? '+' : ''}
-                                {formatCurrency(Math.abs(transaction.amount))}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Balance: {formatCurrency(transaction.balance_after)}
-                              </p>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-muted-foreground">No recent transactions</p>
-                      )}
+            <TabsContent value="usage" className="space-y-4">
+              {/* Admin Access Control */}
+              {!(adminCheck?.isAdmin || adminCheck?.isOmniAdmin) ? (
+                <div className="p-8 text-center">
+                  <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Admin Access Required</h3>
+                  <p className="text-muted-foreground">
+                    You need admin privileges to view user usage logs.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Admin-Only Warning Banner */}
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/50 p-4">
+                    <div className="flex items-center gap-2 justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                        <h4 className="text-sm font-semibold text-orange-800 dark:text-orange-200">
+                          Confidential - Admin Access Only
+                        </h4>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRefreshData}
+                        className="gap-2"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        Refresh Data
+                      </Button>
                     </div>
-                  </CardContent>
-                </Card>
+                    <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
+                      Detailed usage logs showing tokens, costs, and models used. This data is only visible to {adminCheck?.isOmniAdmin ? 'Omni Admins' : 'Admins'}.
+                    </p>
+                  </div>
+
+                  {/* Usage Logs Component */}
+                  <Card>
+                    <CardContent className="p-6">
+                      <UsageLogs accountId={user.id} isAdminView={true} />
+                    </CardContent>
+                  </Card>
+                </>
               )}
             </TabsContent>
 
@@ -359,88 +253,6 @@ export function AdminUserDetailsDialog({
                 </CardContent>
               </Card>
             </TabsContent>
-            <TabsContent value="actions" className="space-y-4">
-              <div className="grid grid-cols-1 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4" />
-                      Process Refund
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="p-3 border border-red-200 dark:border-red-950 bg-red-50 dark:bg-red-950/20 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
-                        <p className="text-sm text-red-700">
-                          Refunds assigns credits back to the user's account.
-                        </p>
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="refund-amount">Refund Amount (USD)</Label>
-                      <Input
-                        id="refund-amount"
-                        type="number"
-                        step="0.01"
-                        placeholder="50.00"
-                        value={refundAmount}
-                        onChange={(e) => setRefundAmount(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="refund-reason mb-2">Refund Reason</Label>
-                      <Textarea
-                        id="refund-reason"
-                        placeholder="Service outage compensation"
-                        value={refundReason}
-                        onChange={(e) => setRefundReason(e.target.value)}
-                        rows={3}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="refund-expiring" className="cursor-pointer flex items-center gap-2">
-                          {refundIsExpiring ? (
-                            <Clock className="h-4 w-4 text-orange-500" />
-                          ) : (
-                            <Infinity className="h-4 w-4 text-blue-500" />
-                          )}
-                          <span className="font-medium">
-                            {refundIsExpiring ? 'Expiring Credits' : 'Non-Expiring Credits'}
-                          </span>
-                        </Label>
-                      </div>
-                      <Switch
-                        id="refund-expiring"
-                        checked={!refundIsExpiring}
-                        onCheckedChange={(checked) => setRefundIsExpiring(!checked)}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground -mt-2">
-                      {refundIsExpiring 
-                        ? 'Credits will expire at the end of the billing cycle'
-                        : 'Refunds typically use non-expiring credits (recommended)'}
-                    </p>
-                    <Button
-                      onClick={handleProcessRefund}
-                      disabled={processRefundMutation.isPending}
-                      variant="destructive"
-                      className="w-full"
-                    >
-                      {processRefundMutation.isPending ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        'Process Refund'
-                      )}
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
           </Tabs>
           )}
         </div>
@@ -453,4 +265,4 @@ export function AdminUserDetailsDialog({
       </DialogContent>
     </Dialog>
   );
-} 
+}

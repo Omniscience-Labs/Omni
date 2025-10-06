@@ -20,6 +20,8 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useAdminCheck } from '@/hooks/use-admin-check';
+import { AdminUserDetailsDialog } from '@/components/admin/admin-user-details-dialog';
+import type { UserSummary } from '@/hooks/react-query/admin/use-admin-users';
 // UsageLogs component was removed by upstream
 
 export default function AdminPage() {
@@ -177,9 +179,35 @@ export default function AdminPage() {
 }
 
 function UserRow({ user }: { user: any }) {
+  const queryClient = useQueryClient();
+  const [selectedUser, setSelectedUser] = useState<UserSummary | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const remaining = user.monthly_limit - user.current_month_usage;
   const usagePercent = (user.current_month_usage / user.monthly_limit) * 100;
+  
+  const handleViewDetails = () => {
+    // Convert the enterprise user data to UserSummary format for the dialog
+    const userSummary: UserSummary = {
+      id: user.account_id,
+      email: user.account_info?.name || 'Loading...',  // Use name as placeholder, dialog will fetch real email
+      tier: user.tier || 'free',
+      credit_balance: user.monthly_limit || 0,  // Show monthly limit as balance
+      created_at: user.created_at || new Date().toISOString(),
+      total_purchased: user.monthly_limit || 0,  // Monthly limit
+      total_used: user.current_month_usage || 0,  // Current month spending
+      subscription_status: user.subscription_status,
+      last_activity: user.last_active,
+      trial_status: user.trial_status,
+    };
+    
+    setSelectedUser(userSummary);
+    setDetailsOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setDetailsOpen(false);
+    setSelectedUser(null);
+  };
   
   return (
     <>
@@ -211,7 +239,7 @@ function UserRow({ user }: { user: any }) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setDetailsOpen(true)}
+            onClick={handleViewDetails}
           >
             View Details
           </Button>
@@ -219,72 +247,21 @@ function UserRow({ user }: { user: any }) {
         </div>
       </div>
       
-      {/* User Details Dialog */}
-      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{user.account_info?.name || 'User'} - Usage Details</DialogTitle>
-          </DialogHeader>
-          <UserDetails accountId={user.account_id} />
-        </DialogContent>
-      </Dialog>
+      {/* Comprehensive Admin User Details Dialog */}
+      <AdminUserDetailsDialog
+        user={selectedUser}
+        isOpen={detailsOpen}
+        onClose={handleCloseDialog}
+        onRefresh={() => {
+          // Refresh the enterprise users list
+          queryClient.invalidateQueries({ queryKey: ['enterprise-users'] });
+          queryClient.invalidateQueries({ queryKey: ['enterprise-status'] });
+        }}
+      />
     </>
   );
 }
 
-function UserDetails({ accountId }: { accountId: string }) {
-  const { data: details, isLoading } = useQuery({
-    queryKey: ['user-details', accountId],
-    queryFn: async () => {
-      const response = await apiClient.request(`/enterprise/users/${accountId}`);
-      return response.data;
-    }
-  });
-  
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin" />
-      </div>
-    );
-  }
-  
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Monthly Limit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold">${details?.monthly_limit?.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Used This Month</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold">${details?.current_month_usage?.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Remaining</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold">${details?.remaining_monthly?.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-      </div>
-      
-      {/* UsageLogs component was removed by upstream - functionality moved to billing system */}
-      <div className="text-muted-foreground text-sm">
-        Usage logs functionality has been integrated into the main billing system.
-      </div>
-    </div>
-  );
-}
 
 function LoadCreditsButton() {
   const [open, setOpen] = useState(false);

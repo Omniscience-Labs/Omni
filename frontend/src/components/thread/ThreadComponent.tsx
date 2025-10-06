@@ -44,6 +44,8 @@ import {
   useAgents,
 } from '@/hooks/react-query/agents/use-agents';
 import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog';
+import { ProjectLimitDialog } from '@/components/billing/project-limit-dialog';
+import { CreditsLimitDialog } from '@/components/billing/credits-limit-dialog';
 import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 import { useQueryClient } from '@tanstack/react-query';
 import { threadKeys } from '@/hooks/react-query/threads/keys';
@@ -93,6 +95,10 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
     runningCount: number;
     runningThreadIds: string[];
   } | null>(null);
+  const [showProjectLimitDialog, setShowProjectLimitDialog] = useState(false);
+  const [projectLimitData, setProjectLimitData] = useState<{currentCount: number; limit: number; tierName: string} | null>(null);
+  const [showCreditsLimitDialog, setShowCreditsLimitDialog] = useState(false);
+  const [creditsLimitData, setCreditsLimitData] = useState<{message: string; currentUsage?: number; limit?: number; creditBalance?: number} | null>(null);
 
   // Refs - simplified for flex-column-reverse
   const latestMessageRef = useRef<HTMLDivElement>(null);
@@ -456,15 +462,13 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
           console.error('Failed to start agent:', error);
 
           if (error instanceof BillingError) {
-            setBillingData({
-              currentUsage: error.detail.currentUsage as number | undefined,
-              limit: error.detail.limit as number | undefined,
-              message:
-                error.detail.message ||
-                'Monthly usage limit reached. Please upgrade.',
-              accountId: null,
+            setCreditsLimitData({
+              message: error.detail.message || "You've exhausted your available credits.",
+              currentUsage: error.detail.currentUsage,
+              limit: error.detail.limit,
+              creditBalance: error.detail.creditBalance,
             });
-            setShowBillingAlert(true);
+            setShowCreditsLimitDialog(true);
 
             setMessages((prev) =>
               prev.filter(
@@ -492,15 +496,12 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
           }
 
           if (error instanceof ProjectLimitError) {
-            setBillingData({
-              currentUsage: error.detail.current_count as number,
-              limit: error.detail.limit as number,
-              message:
-                error.detail.message ||
-                `You've reached your project limit (${error.detail.current_count}/${error.detail.limit}). Please upgrade to create more projects.`,
-              accountId: null,
+            setProjectLimitData({
+              currentCount: error.detail.current_count,
+              limit: error.detail.limit,
+              tierName: error.detail.tier_name,
             });
-            setShowBillingAlert(true);
+            setShowProjectLimitDialog(true);
 
             setMessages((prev) =>
               prev.filter(
@@ -985,6 +986,29 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
             projectId={projectId}
           />
         )}
+
+        {projectLimitData && (
+          <ProjectLimitDialog
+            open={showProjectLimitDialog}
+            onOpenChange={setShowProjectLimitDialog}
+            currentCount={projectLimitData.currentCount}
+            limit={projectLimitData.limit}
+            tierName={projectLimitData.tierName}
+            onUpgrade={() => setShowUpgradeDialog(true)}
+          />
+        )}
+
+        {creditsLimitData && (
+          <CreditsLimitDialog
+            open={showCreditsLimitDialog}
+            onOpenChange={setShowCreditsLimitDialog}
+            message={creditsLimitData.message}
+            currentUsage={creditsLimitData.currentUsage}
+            limit={creditsLimitData.limit}
+            creditBalance={creditsLimitData.creditBalance}
+            onUpgrade={() => setShowUpgradeDialog(true)}
+          />
+        )}
       </>
     );
   }
@@ -1116,6 +1140,29 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
           runningCount={agentLimitData.runningCount}
           runningThreadIds={agentLimitData.runningThreadIds}
           projectId={projectId}
+        />
+      )}
+
+      {projectLimitData && (
+        <ProjectLimitDialog
+          open={showProjectLimitDialog}
+          onOpenChange={setShowProjectLimitDialog}
+          currentCount={projectLimitData.currentCount}
+          limit={projectLimitData.limit}
+          tierName={projectLimitData.tierName}
+          onUpgrade={() => setShowUpgradeDialog(true)}
+        />
+      )}
+
+      {creditsLimitData && (
+        <CreditsLimitDialog
+          open={showCreditsLimitDialog}
+          onOpenChange={setShowCreditsLimitDialog}
+          message={creditsLimitData.message}
+          currentUsage={creditsLimitData.currentUsage}
+          limit={creditsLimitData.limit}
+          creditBalance={creditsLimitData.creditBalance}
+          onUpgrade={() => setShowUpgradeDialog(true)}
         />
       )}
     </>
