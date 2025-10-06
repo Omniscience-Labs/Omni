@@ -24,6 +24,7 @@ import { useInitiateAgentWithInvalidation } from '@/hooks/react-query/dashboard/
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { cn } from '@/lib/utils';
 import { BillingModal } from '@/components/billing/billing-modal';
+import { ProjectLimitDialog } from '@/components/billing/project-limit-dialog';
 import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 import { Examples } from './examples';
 import { AgentExamples } from './examples/agent-examples';
@@ -87,6 +88,8 @@ export function DashboardContent() {
     runningCount: number;
     runningThreadIds: string[];
   } | null>(null);
+  const [showProjectLimitDialog, setShowProjectLimitDialog] = useState(false);
+  const [projectLimitData, setProjectLimitData] = useState<{currentCount: number; limit: number; tierName: string} | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isMobile = useIsMobile();
@@ -231,7 +234,12 @@ export function DashboardContent() {
         });
         setShowAgentLimitDialog(true);
       } else if (error instanceof ProjectLimitError) {
-        setShowPaymentModal(true);
+        setProjectLimitData({
+          currentCount: error.detail.current_count,
+          limit: error.detail.limit,
+          tierName: error.detail.tier_name,
+        });
+        setShowProjectLimitDialog(true);
       } else {
         const errorMessage = error instanceof Error ? error.message : 'Operation failed';
         toast.error(errorMessage);
@@ -346,6 +354,17 @@ export function DashboardContent() {
         onOpenChange={setShowPaymentModal}
         showUsageLimitAlert={true}
       />
+
+      {projectLimitData && (
+        <ProjectLimitDialog
+          open={showProjectLimitDialog}
+          onOpenChange={setShowProjectLimitDialog}
+          currentCount={projectLimitData.currentCount}
+          limit={projectLimitData.limit}
+          tierName={projectLimitData.tierName}
+          onUpgrade={() => setShowPaymentModal(true)}
+        />
+      )}
       
       <div className="flex flex-col h-screen w-full overflow-hidden">
         <div className="flex-1 overflow-y-auto">
