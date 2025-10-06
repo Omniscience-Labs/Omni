@@ -24,10 +24,17 @@ async def get_user_threads(
     logger.debug(f"Fetching threads with project data for user: {user_id} (page={page}, limit={limit})")
     client = await utils.db.client
     try:
+        from core.utils.config import config
+        
         offset = (page - 1) * limit
         
-        # First, get threads for the user
-        threads_result = await client.table('threads').select('*').eq('account_id', user_id).order('created_at', desc=True).execute()
+        # Apply max fetch limit (default 500 for all environments)
+        # Can be overridden via MAX_THREADS_FETCH environment variable
+        max_fetch_limit = config.MAX_THREADS_FETCH
+        logger.debug(f"Fetching threads with max_fetch_limit={max_fetch_limit}")
+        
+        # First, get threads for the user with the configured limit
+        threads_result = await client.table('threads').select('*').eq('account_id', user_id).order('created_at', desc=True).limit(max_fetch_limit).execute()
         
         if not threads_result.data:
             logger.debug(f"No threads found for user: {user_id}")
