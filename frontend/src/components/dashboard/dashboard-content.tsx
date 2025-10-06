@@ -25,6 +25,7 @@ import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { cn } from '@/lib/utils';
 import { BillingModal } from '@/components/billing/billing-modal';
 import { ProjectLimitDialog } from '@/components/billing/project-limit-dialog';
+import { CreditsLimitDialog } from '@/components/billing/credits-limit-dialog';
 import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 import { Examples } from './examples';
 import { AgentExamples } from './examples/agent-examples';
@@ -90,6 +91,8 @@ export function DashboardContent() {
   } | null>(null);
   const [showProjectLimitDialog, setShowProjectLimitDialog] = useState(false);
   const [projectLimitData, setProjectLimitData] = useState<{currentCount: number; limit: number; tierName: string} | null>(null);
+  const [showCreditsLimitDialog, setShowCreditsLimitDialog] = useState(false);
+  const [creditsLimitData, setCreditsLimitData] = useState<{message: string; currentUsage?: number; limit?: number; creditBalance?: number} | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isMobile = useIsMobile();
@@ -225,7 +228,13 @@ export function DashboardContent() {
     } catch (error: any) {
       console.error('Error during submission process:', error);
       if (error instanceof BillingError) {
-        setShowPaymentModal(true);
+        setCreditsLimitData({
+          message: error.detail.message || "You've exhausted your available credits.",
+          currentUsage: error.detail.currentUsage,
+          limit: error.detail.limit,
+          creditBalance: error.detail.creditBalance,
+        });
+        setShowCreditsLimitDialog(true);
       } else if (error instanceof AgentRunLimitError) {
         const { running_thread_ids, running_count } = error.detail;
         setAgentLimitData({
@@ -362,6 +371,18 @@ export function DashboardContent() {
           currentCount={projectLimitData.currentCount}
           limit={projectLimitData.limit}
           tierName={projectLimitData.tierName}
+          onUpgrade={() => setShowPaymentModal(true)}
+        />
+      )}
+
+      {creditsLimitData && (
+        <CreditsLimitDialog
+          open={showCreditsLimitDialog}
+          onOpenChange={setShowCreditsLimitDialog}
+          message={creditsLimitData.message}
+          currentUsage={creditsLimitData.currentUsage}
+          limit={creditsLimitData.limit}
+          creditBalance={creditsLimitData.creditBalance}
           onUpgrade={() => setShowPaymentModal(true)}
         />
       )}
