@@ -1,0 +1,642 @@
+---
+title: Chat Interface Guide
+description: Master effective communication and interaction with your AI agents
+icon: "comments"
+---
+
+## Interface Overview
+
+The chat interface is your primary workspace for collaborating with agents.
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Complete Chat Interface
+  - Full-width screenshot showing all interface elements
+  - Left: Thread history sidebar
+  - Center: Conversation area with messages
+  - Right: File browser and tool status
+  - Bottom: Input field with attachments
+  - Size: 2400x1400px
+*/}
+
+<CardGroup cols={3}>
+  <Card title="Thread Management" icon="list">
+    Organize conversations by topic or project
+  </Card>
+  <Card title="Real-Time Updates" icon="bolt">
+    Watch agents work with live progress indicators
+  </Card>
+  <Card title="Rich Output" icon="image">
+    View files, visualizations, and formatted results
+  </Card>
+</CardGroup>
+
+---
+
+## Starting a Conversation
+
+<Tabs>
+  <Tab title="New Thread" icon="plus">
+    Create a fresh conversation:
+    1. Select an agent from your workspace
+    2. Click **New Thread** or use keyboard shortcut `Cmd/Ctrl + N`
+    3. Start with your request
+
+    <Tip>
+      Give your thread a descriptive name for easy reference later.
+    </Tip>
+  </Tab>
+
+  <Tab title="Continue Existing" icon="arrow-right">
+    Pick up where you left off:
+    - Browse thread history in left sidebar
+    - Click any thread to resume
+    - Context is maintained automatically
+    - All previous files remain accessible
+  </Tab>
+
+  <Tab title="From Template" icon="file-lines">
+    Use saved workflows:
+    - Select a workflow template
+    - Fill in required variables
+    - Agent follows predefined steps
+    - Consistent results every time
+  </Tab>
+</Tabs>
+
+---
+
+## Crafting Effective Requests
+
+The quality of your request directly impacts results.
+
+### Request Structure
+
+<Steps>
+  <Step title="Be Specific">
+    **Less Effective**:
+    ```
+    "Write a blog post"
+    ```
+
+    **More Effective**:
+    ```
+    "Write a 1200-word blog post about sustainable manufacturing 
+    for B2B decision-makers. Include:
+    - Current industry challenges
+    - 3 innovative solutions with case studies
+    - Implementation roadmap
+    - ROI considerations
+    Target tone: Professional yet accessible"
+    ```
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Request Comparison
+      - Side-by-side showing vague vs specific requests
+      - Highlight the differences in detail
+      - Show resulting outputs side by side
+      - Size: 1600x800px
+    */}
+  </Step>
+
+  <Step title="Provide Context">
+    Help the agent understand background:
+    ```
+    "Context: We're launching a new API for developers.
+    
+    Task: Create comprehensive API documentation including:
+    - Authentication guide
+    - 5 common use case examples with code
+    - Error handling best practices
+    
+    Audience: JavaScript developers, intermediate level
+    Format: Markdown with code blocks"
+    ```
+
+    <Info>
+      More context = better results. Include relevant background information upfront.
+    </Info>
+  </Step>
+
+  <Step title="Specify Desired Format">
+    Tell the agent how to structure output:
+    - "Create a table comparing..."
+    - "Generate a bulleted list of..."
+    - "Write in Q&A format..."
+    - "Produce a step-by-step guide..."
+    - "Format as JSON with..."
+
+    Formats the agent understands:
+    - Tables, lists, outlines
+    - Code blocks with language
+    - Markdown, HTML, JSON
+    - Charts and visualizations
+  </Step>
+
+  <Step title="Include Examples">
+    Show what "good" looks like:
+    ```
+    "Write product descriptions similar to this example:
+    
+    [paste example]
+    
+    Maintain the same tone, structure, and level of detail
+    for these products: [list]"
+    ```
+  </Step>
+</Steps>
+
+### Request Patterns
+
+<Tabs>
+  <Tab title="Research Tasks">
+    ```
+    "Research [topic] focusing on:
+    - [aspect 1]
+    - [aspect 2]
+    - [aspect 3]
+    
+    Sources: [specify if needed]
+    Depth: [summary vs comprehensive]
+    Format: [report, presentation, brief]
+    Deadline context: [if time-sensitive]"
+    ```
+  </Tab>
+
+  <Tab title="Content Creation">
+    ```
+    "Create [content type] about [topic]
+    
+    Specifications:
+    - Length: [word count / pages]
+    - Tone: [professional, casual, technical]
+    - Audience: [who will read this]
+    - Key messages: [main points to convey]
+    - SEO keywords: [if applicable]
+    - Call to action: [desired reader action]"
+    ```
+  </Tab>
+
+  <Tab title="Data Analysis">
+    ```
+    "Analyze [dataset/file] to:
+    - Identify [specific patterns]
+    - Calculate [specific metrics]
+    - Compare [dimensions]
+    - Visualize [specific charts]
+    
+    Output: [report format, dashboard, summary]
+    Focus areas: [what matters most]"
+    ```
+  </Tab>
+
+  <Tab title="Problem Solving">
+    ```
+    "Problem: [describe issue]
+    
+    Context: [relevant background]
+    Constraints: [limitations to consider]
+    Success criteria: [what "solved" means]
+    
+    Please provide:
+    - Root cause analysis
+    - 3 potential solutions with pros/cons
+    - Recommended approach with rationale"
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Understanding Agent Responses
+
+Agents communicate progress and results clearly.
+
+### Response Types
+
+<AccordionGroup>
+  <Accordion title="Planning Phase" icon="list-check">
+    Agent outlines its approach:
+    ```
+    📋 Task Plan:
+    1. Research current market data
+    2. Analyze competitor strategies
+    3. Identify gaps and opportunities
+    4. Synthesize findings into report
+    5. Create visualization charts
+    ```
+
+    You can adjust the plan before execution begins.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Planning Phase UI
+      - Agent message showing task breakdown
+      - Edit/Approve buttons visible
+      - Estimated time indicator
+      - Tool requirements listed
+      - Size: 1400x600px
+    */}
+  </Accordion>
+
+  <Accordion title="Progress Updates" icon="spinner">
+    Real-time status as agent works:
+    - ⚡ **Tool Usage**: "Using web search..."
+    - 📁 **File Operations**: "Creating report.md..."
+    - 🌐 **Browser Activity**: "Navigating to example.com..."
+    - 💻 **Code Execution**: "Running analysis script..."
+
+    {/* 
+      🎥 VIDEO PLACEHOLDER: Progress Indicators (20 seconds)
+      - Show agent working through multiple steps
+      - Tool badges appearing and completing
+      - Status text updating in real-time
+      - Final completion checkmark
+    */}
+  </Accordion>
+
+  <Accordion title="Intermediate Results" icon="chart-line">
+    Agent shares findings during work:
+    - Key data points discovered
+    - Preliminary analysis
+    - Clarifying questions
+    - Progress checkpoints
+
+    You can provide feedback mid-task.
+  </Accordion>
+
+  <Accordion title="Final Deliverables" icon="check">
+    Completed work with all outputs:
+    - Text responses with formatting
+    - Generated files (attached)
+    - Data visualizations
+    - Links to created resources
+    - Summary of actions taken
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Completed Task View
+      - Agent's final message with summary
+      - Attached files clearly displayed
+      - Download/view buttons visible
+      - Continue conversation prompt
+      - Size: 1600x900px
+    */}
+  </Accordion>
+</AccordionGroup>
+
+### Tool Usage Indicators
+
+Watch what the agent is doing:
+
+<CardGroup cols={3}>
+  <Card title="🔍 Searching" icon="magnifying-glass">
+    Web search active
+  </Card>
+  <Card title="🌐 Browsing" icon="browser">
+    Automated web navigation
+  </Card>
+  <Card title="📁 Files" icon="file">
+    Creating or editing files
+  </Card>
+  <Card title="💻 Code" icon="code">
+    Executing programs
+  </Card>
+  <Card title="📊 Data" icon="chart-simple">
+    Processing datasets
+  </Card>
+  <Card title="🎨 Design" icon="palette">
+    Generating images
+  </Card>
+</CardGroup>
+
+---
+
+## File Management
+
+Handle documents and data within conversations.
+
+### Attaching Files
+
+<Steps>
+  <Step title="Upload from Computer">
+    Click the attachment icon (📎) or drag files into the chat:
+    - Documents (PDF, Word, Text)
+    - Spreadsheets (Excel, CSV)
+    - Images (JPG, PNG)
+    - Code files (any language)
+
+    Maximum size: 100MB per file
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: File Upload Interface
+      - Drag-and-drop zone highlighted
+      - File type indicators
+      - Upload progress bars
+      - Preview thumbnails
+      - Size: 1400x700px
+    */}
+  </Step>
+
+  <Step title="Reference Existing Files">
+    Access files from:
+    - **Knowledge Base**: Agent's accessible documents
+    - **Project Files**: Files from current project
+    - **Previous Threads**: Files from past conversations
+    
+    Use @ mentions: `@filename.pdf`
+  </Step>
+
+  <Step title="Specify Usage">
+    Tell the agent what to do:
+    ```
+    "Analyze @sales-data.csv and:
+    - Calculate quarterly growth
+    - Identify top performing regions
+    - Create comparison charts"
+    ```
+  </Step>
+</Steps>
+
+### Working with Generated Files
+
+<Tabs>
+  <Tab title="Preview" icon="eye">
+    View files directly in the interface:
+    - Text files: Rendered with syntax highlighting
+    - Spreadsheets: Table view with sorting
+    - Images: Full preview with zoom
+    - PDFs: Embedded viewer
+
+    No download required for quick review.
+  </Tab>
+
+  <Tab title="Download" icon="download">
+    Save to your computer:
+    - Single file: Click download icon
+    - Multiple files: Batch download as ZIP
+    - Entire project: Export all files
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: File Actions Menu
+      - Context menu showing Preview/Download/Share options
+      - File metadata displayed
+      - Quick actions visible
+      - Size: 600x400px
+    */}
+  </Tab>
+
+  <Tab title="Edit & Iterate" icon="pen">
+    Request modifications:
+    ```
+    "The report looks good, but please:
+    - Expand the methodology section
+    - Add a comparison table
+    - Update the conclusion with recommendations"
+    ```
+
+    Agent updates the same file.
+  </Tab>
+
+  <Tab title="Share" icon="share">
+    Get shareable links:
+    - Secure 24-hour links
+    - Team member access
+    - External sharing options
+
+    Perfect for deliverables.
+  </Tab>
+</Tabs>
+
+---
+
+## Interactive Features
+
+### Interrupting or Redirecting
+
+<AccordionGroup>
+  <Accordion title="Stop Current Task" icon="stop">
+    Click **Stop** button if:
+    - Task is taking wrong direction
+    - You need to add information
+    - Requirements changed
+    - Results not as expected
+
+    Agent stops immediately and awaits new instructions.
+  </Accordion>
+
+  <Accordion title="Provide Mid-Task Feedback" icon="comments">
+    Send messages while agent works:
+    ```
+    "Actually, focus more on the competitive analysis 
+    section and skip the historical background."
+    ```
+
+    Agent adjusts approach in real-time.
+  </Accordion>
+
+  <Accordion title="Ask Clarifying Questions" icon="circle-question">
+    Agent may ask for guidance:
+    ```
+    Agent: "I found multiple interpretations of [term]. 
+    Which meaning should I use:
+    1. [Option A]
+    2. [Option B]"
+    ```
+
+    Your choice guides the rest of the task.
+  </Accordion>
+</AccordionGroup>
+
+### Follow-Up Requests
+
+Continue the conversation naturally:
+
+```
+You: "Great! Now create a presentation based on this report"
+
+You: "Can you make the charts more colorful?"
+
+You: "Export this as a PDF and send me a shareable link"
+```
+
+<Tip>
+  **Context is Maintained**: Agent remembers all previous work in the thread. No need to repeat information.
+</Tip>
+
+---
+
+## Keyboard Shortcuts
+
+Boost your productivity with keyboard commands:
+
+<Tabs>
+  <Tab title="Navigation">
+    | Shortcut | Action |
+    |----------|--------|
+    | `Cmd/Ctrl + K` | Quick search threads |
+    | `Cmd/Ctrl + N` | New thread |
+    | `↑` `↓` | Navigate thread history |
+    | `Cmd/Ctrl + [` | Previous thread |
+    | `Cmd/Ctrl + ]` | Next thread |
+  </Tab>
+
+  <Tab title="Input">
+    | Shortcut | Action |
+    |----------|--------|
+    | `Enter` | Send message |
+    | `Shift + Enter` | New line in message |
+    | `Cmd/Ctrl + U` | Upload file |
+    | `@` | Mention file |
+    | `Esc` | Cancel current input |
+  </Tab>
+
+  <Tab title="Actions">
+    | Shortcut | Action |
+    |----------|--------|
+    | `Cmd/Ctrl + C` | Copy last response |
+    | `Cmd/Ctrl + D` | Download last file |
+    | `Cmd/Ctrl + R` | Regenerate response |
+    | `Cmd/Ctrl + E` | Edit last message |
+    | `Cmd/Ctrl + .` | Stop current task |
+  </Tab>
+</Tabs>
+
+---
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="One Task Per Thread" icon="list-check">
+    Keep conversations focused on a single project or goal
+  </Card>
+  <Card title="Descriptive Thread Names" icon="tag">
+    Name threads clearly: "Q4 Marketing Plan" not "Chat 1"
+  </Card>
+  <Card title="Iterative Refinement" icon="rotate">
+    Start simple, then refine based on initial results
+  </Card>
+  <Card title="Save Good Prompts" icon="bookmark">
+    Reuse effective request patterns for consistency
+  </Card>
+  <Card title="Review Before Download" icon="eye">
+    Preview outputs in the interface before downloading
+  </Card>
+  <Card title="Ask for Explanations" icon="graduation-cap">
+    Request reasoning: "Why did you choose this approach?"
+  </Card>
+</CardGroup>
+
+---
+
+## Common Scenarios
+
+<AccordionGroup>
+  <Accordion title="Agent Isn't Understanding" icon="triangle-exclamation">
+    **If results miss the mark**:
+    1. Provide more specific details
+    2. Include an example of what you want
+    3. Break complex tasks into smaller steps
+    4. Ask the agent to explain its plan first
+
+    ```
+    "Let me clarify what I need. I want [specific outcome] 
+    formatted like [example]. The key difference from what 
+    you provided is [specific change needed]."
+    ```
+  </Accordion>
+
+  <Accordion title="Task Taking Too Long" icon="clock">
+    **For lengthy operations**:
+    - Agent shows progress updates
+    - You can continue other work
+    - Return to check status anytime
+    - Receive notification when complete
+
+    Normal for: Large datasets, extensive research, complex analysis
+  </Accordion>
+
+  <Accordion title="Unexpected Results" icon="exclamation">
+    **When output isn't what you expected**:
+    ```
+    "This isn't quite right. I was expecting [describe]
+    but got [what you received]. Can you revise to 
+    focus on [specific aspects]?"
+    ```
+
+    Agent will adjust based on your feedback.
+  </Accordion>
+
+  <Accordion title="Want to Start Over" icon="rotate-left">
+    **To reset a task**:
+    1. Click **New Thread** for fresh start
+    2. Or say: "Let's start over with a different approach"
+    3. Previous work remains in original thread
+
+    Original files and context preserved.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Advanced Tips
+
+<Tabs>
+  <Tab title="Chain Tasks">
+    Build on previous work:
+    ```
+    1. "Analyze this dataset"
+    2. "Now create visualizations from your findings"
+    3. "Use those charts in a presentation"
+    4. "Export as PDF and prepare an email summary"
+    ```
+
+    Each step uses results from the previous one.
+  </Tab>
+
+  <Tab title="Template Requests">
+    Create reusable patterns:
+    ```
+    "For all future product descriptions:
+    - Start with key benefit
+    - List 3 main features
+    - Include use case example
+    - End with clear CTA
+    
+    Format as HTML with specific classes..."
+    ```
+
+    Agent maintains consistency.
+  </Tab>
+
+  <Tab title="Quality Controls">
+    Set expectations:
+    ```
+    "Before finalizing:
+    - Verify all statistics are current
+    - Check that code examples run
+    - Ensure citations include URLs
+    - Confirm formatting is consistent"
+    ```
+
+    Agent performs self-checks.
+  </Tab>
+</Tabs>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Automation & Workflows"
+    icon="diagram-project"
+    href="/guides/automation/workflows"
+  >
+    Set up recurring tasks and scheduled execution
+  </Card>
+  <Card
+    title="Knowledge Base"
+    icon="book"
+    href="/guides/knowledge/uploading-files"
+  >
+    Enhance agent capabilities with custom data
+  </Card>
+</CardGroup>

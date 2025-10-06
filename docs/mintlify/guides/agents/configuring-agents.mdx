@@ -1,0 +1,703 @@
+---
+title: Configuring Agents
+description: Customize agent settings, tools, and behavior for optimal performance
+icon: "sliders"
+---
+
+## Accessing Agent Settings
+
+Navigate to any agent and click the **Configure** button (gear icon) to access its settings.
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Agent Settings Entry
+  - Screenshot of agent card with configure button highlighted
+  - Show the dropdown menu with options
+  - Include "Configure", "Duplicate", "Share", "Archive" options
+  - Size: 800x600px
+*/}
+
+---
+
+## Configuration Tabs
+
+Agent settings are organized into focused sections for easy management.
+
+<Tabs>
+  <Tab title="General" icon="gear">
+    **Basic Information**:
+    - Name and description
+    - Icon and color scheme
+    - Default project assignment
+    - Status (active/paused)
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: General Settings Tab
+      - Form showing name, description fields
+      - Icon selector grid
+      - Color picker interface
+      - Status toggle with explanation
+      - Size: 1600x900px
+    */}
+  </Tab>
+
+  <Tab title="System Prompt" icon="message">
+    **Behavior Configuration**:
+    - Core system instructions
+    - Personality and tone
+    - Task-specific guidelines
+    - Output format preferences
+
+    <Tip>
+      Changes to the system prompt affect all future conversations. Existing conversations maintain their original prompt.
+    </Tip>
+  </Tab>
+
+  <Tab title="Tools" icon="toolbox">
+    **Capability Management**:
+    - Enable/disable core tools
+    - Configure tool-specific settings
+    - Set usage limits
+    - View tool documentation
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Tools Configuration Panel
+      - Organized tool categories with toggles
+      - Each tool shows description and status
+      - Include "Advanced Settings" for complex tools
+      - Display usage statistics per tool
+      - Size: 1800x1000px
+    */}
+  </Tab>
+
+  <Tab title="Integrations" icon="plug">
+    **Connected Services**:
+    - OAuth connections
+    - API key management
+    - Integration health status
+    - Service-specific permissions
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Integrations Panel
+      - Cards showing connected services with status
+      - Green checkmarks for active connections
+      - "Connect" buttons for available services
+      - Last sync time and error indicators
+      - Size: 1600x800px
+    */}
+  </Tab>
+
+  <Tab title="Knowledge Base" icon="book">
+    **Information Access**:
+    - Global knowledge toggle
+    - Agent-specific folders
+    - File upload interface
+    - Search configuration
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Knowledge Base Settings
+      - Folder tree with checkboxes for selection
+      - File upload drag-and-drop area
+      - Storage usage meter
+      - Sync schedule options
+      - Size: 1600x900px
+    */}
+  </Tab>
+</Tabs>
+
+---
+
+## Tool Management
+
+Configure what your agent can do by enabling and fine-tuning tools.
+
+### Core Tool Configuration
+
+<Accordion title="Web Search" icon="magnifying-glass">
+  **Settings**:
+  - Search provider preference
+  - Result count (default: 10)
+  - Freshness filter (any time, past year, past month)
+  - Safe search level
+
+  **Best For**:
+  - Real-time information needs
+  - News and current events
+  - Research tasks
+  - Fact verification
+</Accordion>
+
+<Accordion title="File Operations" icon="file">
+  **Settings**:
+  - Maximum file size
+  - Allowed file types
+  - Auto-save preferences
+  - Version control
+
+  **Capabilities**:
+  - Create and edit text files
+  - Process spreadsheets
+  - Generate reports
+  - Organize file structures
+</Accordion>
+
+<Accordion title="Browser Automation" icon="browser">
+  **Settings**:
+  - Timeout duration
+  - Screenshot quality
+  - JavaScript execution
+  - Cookie persistence
+
+  **Use Cases**:
+  - Web scraping
+  - Form automation
+  - Data extraction
+  - Visual verification
+
+  <Warning>
+    Browser automation can be resource-intensive. Enable only if your agent needs to interact with web pages programmatically.
+  </Warning>
+</Accordion>
+
+<Accordion title="Code Execution" icon="code">
+  **Settings**:
+  - Allowed languages (Python, JavaScript, Shell)
+  - Execution timeout
+  - Memory limits
+  - Package installation permissions
+
+  **Safety Features**:
+  - Sandboxed environment
+  - Resource monitoring
+  - Automatic cleanup
+  - Audit logging
+</Accordion>
+
+### Tool Usage Patterns
+
+<CardGroup cols={2}>
+  <Card title="Research Agent" icon="magnifying-glass">
+    ✓ Web Search
+    ✓ File Operations
+    ✓ Data Processing
+    ✗ Browser (optional)
+    ✗ Deployment
+  </Card>
+  <Card title="Content Creator" icon="pen">
+    ✓ Web Search
+    ✓ File Operations
+    ✓ Image Generation
+    ✗ Code Execution
+    ✗ Browser
+  </Card>
+  <Card title="Data Analyst" icon="chart-line">
+    ✓ File Operations
+    ✓ Code Execution
+    ✓ Data Processing
+    ✗ Browser
+    ✗ Image Generation
+  </Card>
+  <Card title="DevOps Engineer" icon="server">
+    ✓ Code Execution
+    ✓ File Operations
+    ✓ Browser (for testing)
+    ✓ Deployment
+    ✗ Image Generation
+  </Card>
+</CardGroup>
+
+---
+
+## System Prompt Engineering
+
+Craft effective prompts that shape your agent's behavior.
+
+### Prompt Structure
+
+<Steps>
+  <Step title="Define Role & Expertise">
+    Start with a clear role definition:
+
+    ```
+    You are a [specific role] specializing in [domain/expertise].
+    ```
+
+    Example:
+    ```
+    You are a senior content strategist specializing in B2B SaaS 
+    marketing with expertise in SEO and conversion optimization.
+    ```
+  </Step>
+
+  <Step title="List Core Competencies">
+    Enumerate specific capabilities:
+
+    ```
+    Your core competencies include:
+    - [specific skill 1]
+    - [specific skill 2]
+    - [specific skill 3]
+    ```
+
+    <Tip>
+      Be specific rather than general. "Analyze customer feedback data using sentiment analysis" is better than "analyze data".
+    </Tip>
+  </Step>
+
+  <Step title="Define Behavior Guidelines">
+    Specify how the agent should approach tasks:
+
+    ```
+    When working on tasks:
+    - [guideline about process]
+    - [guideline about quality]
+    - [guideline about format]
+    ```
+
+    Example:
+    ```
+    When creating content:
+    - Research target audience pain points first
+    - Use clear, jargon-free language
+    - Include actionable takeaways
+    - Optimize for SEO with natural keyword integration
+    ```
+  </Step>
+
+  <Step title="Set Constraints & Rules">
+    Add important limitations or requirements:
+
+    ```
+    Always [critical requirement].
+    Never [prohibited action].
+    If [condition], then [action].
+    ```
+
+    Example:
+    ```
+    Always cite sources when presenting statistics or research.
+    Never use discriminatory or biased language.
+    If creating technical content, include code examples.
+    ```
+  </Step>
+</Steps>
+
+### Prompt Examples
+
+<Tabs>
+  <Tab title="Customer Support">
+    ```
+    You are a customer support specialist focused on providing 
+    exceptional service with empathy and efficiency.
+
+    Your expertise includes:
+    - Troubleshooting common product issues
+    - Explaining features clearly to non-technical users
+    - Escalation procedures for complex problems
+    - Creating help documentation
+
+    When assisting customers:
+    - Begin by acknowledging their concern with empathy
+    - Ask clarifying questions before providing solutions
+    - Provide step-by-step instructions with verification
+    - Follow up to ensure the issue is resolved
+
+    Always maintain a friendly, professional tone. Never make 
+    promises about features or timelines without confirmation.
+    ```
+  </Tab>
+
+  <Tab title="Code Reviewer">
+    ```
+    You are a senior software engineer specializing in code 
+    review with expertise in clean code principles, security, 
+    and performance optimization.
+
+    Your review process includes:
+    - Code quality and maintainability assessment
+    - Security vulnerability identification
+    - Performance bottleneck detection
+    - Best practice verification
+
+    When reviewing code:
+    - Provide specific, actionable feedback with examples
+    - Explain *why* changes improve the code
+    - Suggest alternative approaches when applicable
+    - Highlight positive patterns worth preserving
+
+    Always prioritize security and data integrity. If you 
+    identify critical security issues, flag them immediately.
+    ```
+  </Tab>
+
+  <Tab title="Marketing Analyst">
+    ```
+    You are a marketing data analyst specializing in campaign 
+    performance analysis and strategic recommendations.
+
+    Your analytical framework covers:
+    - Multi-channel attribution modeling
+    - ROI and conversion rate optimization
+    - Audience segmentation analysis
+    - Competitive benchmarking
+
+    When analyzing campaigns:
+    - Identify trends and patterns in the data
+    - Segment performance by channel and audience
+    - Calculate key metrics (CAC, LTV, ROAS)
+    - Provide actionable optimization recommendations
+
+    Always present findings with clear visualizations. Support 
+    recommendations with data-driven reasoning and include 
+    expected impact estimates.
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Integration Configuration
+
+Connect external services to extend agent capabilities.
+
+### Adding Integrations
+
+<Steps>
+  <Step title="Select Service">
+    Navigate to the **Integrations** tab and browse available services.
+
+    <CardGroup cols={3}>
+      <Card title="Gmail" icon="envelope">
+        Read, send, manage emails
+      </Card>
+      <Card title="Slack" icon="slack">
+        Send messages, read channels
+      </Card>
+      <Card title="GitHub" icon="github">
+        Manage repos, issues, PRs
+      </Card>
+    </CardGroup>
+  </Step>
+
+  <Step title="Authenticate">
+    Click **Connect** and complete OAuth flow:
+    1. Log in to the service
+    2. Review permissions
+    3. Authorize access
+
+    <Info>
+      You'll be redirected back to Omni after successful authentication.
+    </Info>
+  </Step>
+
+  <Step title="Configure Permissions">
+    Select which actions the agent can perform:
+    - Read-only access
+    - Create/modify content
+    - Delete permissions (optional)
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Permission Configuration
+      - Checklist showing available permissions
+      - Each permission with explanation
+      - Recommended vs advanced options highlighted
+      - Test connection button
+      - Size: 1400x800px
+    */}
+  </Step>
+
+  <Step title="Test Connection">
+    Verify the integration works correctly:
+
+    ```
+    Test Task: "Check my unread Gmail messages"
+    Expected: Agent retrieves and summarizes emails
+    ```
+
+    <Check>
+      Integration is active and ready to use!
+    </Check>
+  </Step>
+</Steps>
+
+### Managing Integrations
+
+<AccordionGroup>
+  <Accordion title="Health Monitoring" icon="heart-pulse">
+    Track integration status:
+    - **Active**: Connected and functioning
+    - **Warning**: Potential issues detected
+    - **Error**: Connection failed or expired
+    - **Disabled**: Manually turned off
+
+    View detailed logs to troubleshoot problems.
+  </Accordion>
+
+  <Accordion title="Permission Updates" icon="key">
+    Modify access as needs change:
+    - Expand permissions for new use cases
+    - Restrict access for security
+    - Rotate credentials periodically
+    - Revoke access when no longer needed
+  </Accordion>
+
+  <Accordion title="Usage Analytics" icon="chart-simple">
+    Monitor integration activity:
+    - API calls per day/week/month
+    - Most used endpoints
+    - Error rates
+    - Response times
+
+    Optimize usage based on patterns.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Knowledge Base Configuration
+
+Control what information your agent can access.
+
+### Access Levels
+
+<Tabs>
+  <Tab title="Global Knowledge">
+    **Company-Wide Information**:
+    - Accessible to all agents
+    - Centrally managed
+    - Automatically updated
+    - Version controlled
+
+    Enable for agents that need general company context.
+  </Tab>
+
+  <Tab title="Agent-Specific">
+    **Dedicated Resources**:
+    - Exclusive to this agent
+    - Customized content
+    - Specialized documentation
+    - Domain-specific data
+
+    Upload files directly in agent settings.
+  </Tab>
+
+  <Tab title="Project-Based">
+    **Contextual Access**:
+    - Scoped to specific projects
+    - Temporary or permanent
+    - Shareable across team agents
+    - Auto-archived when project completes
+  </Tab>
+</Tabs>
+
+### File Management
+
+<Steps>
+  <Step title="Upload Files">
+    Drag and drop or browse to upload:
+    - Documents (PDF, Word, Text)
+    - Spreadsheets (Excel, CSV)
+    - Code files
+    - Images and diagrams
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: File Upload Interface
+      - Drag-and-drop zone
+      - File type indicators
+      - Upload progress bars
+      - File preview thumbnails
+      - Size: 1600x800px
+    */}
+  </Step>
+
+  <Step title="Organize into Folders">
+    Create a logical structure:
+    ```
+    /Documentation
+      /Product Guides
+      /API Reference
+      /FAQs
+    /Templates
+      /Email Templates
+      /Report Templates
+    /Data
+      /Customer Data
+      /Market Research
+    ```
+  </Step>
+
+  <Step title="Enable Semantic Search">
+    Configure search behavior:
+    - **Auto**: Agent searches when needed
+    - **Manual**: Agent asks before searching
+    - **Always**: Include in every task context
+
+    <Tip>
+      Use "Auto" for research agents, "Manual" for precise control, "Always" for small, critical datasets.
+    </Tip>
+  </Step>
+</Steps>
+
+---
+
+## Performance Optimization
+
+Fine-tune settings for speed and quality.
+
+<CardGroup cols={2}>
+  <Card title="Response Speed" icon="gauge-high">
+    **Optimize For**:
+    - Faster model selection
+    - Reduced tool usage
+    - Cached knowledge access
+    - Streamlined prompts
+
+    Best for: Quick tasks, simple queries
+  </Card>
+  <Card title="Response Quality" icon="star">
+    **Optimize For**:
+    - Advanced model selection
+    - Comprehensive tool usage
+    - Deep knowledge search
+    - Detailed reasoning
+
+    Best for: Complex analysis, critical tasks
+  </Card>
+</CardGroup>
+
+### Model Selection
+
+Different tasks benefit from different AI models:
+
+<Accordion title="Fast Models" icon="bolt">
+  **Best For**:
+  - Simple questions
+  - Data formatting
+  - Quick summarization
+  - Routine tasks
+
+  **Tradeoffs**:
+  - Lower cost
+  - Faster response
+  - Less nuanced understanding
+</Accordion>
+
+<Accordion title="Balanced Models" icon="scale-balanced">
+  **Best For** (Default):
+  - General tasks
+  - Mixed complexity
+  - Most workflows
+  - Cost-performance balance
+
+  **Characteristics**:
+  - Moderate cost
+  - Good speed
+  - Reliable quality
+</Accordion>
+
+<Accordion title="Advanced Models" icon="brain">
+  **Best For**:
+  - Complex reasoning
+  - Creative tasks
+  - Technical analysis
+  - Critical decisions
+
+  **Tradeoffs**:
+  - Higher cost
+  - Slower response
+  - Superior understanding
+</Accordion>
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Regular Audits" icon="clipboard-check">
+    Review agent configuration monthly:
+    - Remove unused tools
+    - Update system prompts
+    - Clean up knowledge base
+    - Verify integration health
+  </Accordion>
+
+  <Accordion title="Version Control" icon="code-branch">
+    Track configuration changes:
+    - Document major prompt updates
+    - Test changes before deploying
+    - Keep backups of working configs
+    - Use duplicate feature for testing
+  </Accordion>
+
+  <Accordion title="Security Hygiene" icon="shield-halved">
+    Maintain secure practices:
+    - Rotate integration credentials
+    - Review permissions quarterly
+    - Remove unnecessary access
+    - Monitor usage logs
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Agent Not Responding as Expected" icon="triangle-exclamation">
+    **Potential Causes**:
+    - Unclear system prompt
+    - Wrong tools enabled
+    - Knowledge base not accessible
+    - Model selection mismatch
+
+    **Solutions**:
+    1. Refine system prompt with specific examples
+    2. Verify required tools are enabled
+    3. Check knowledge base permissions
+    4. Try a more capable model
+  </Accordion>
+
+  <Accordion title="Integration Errors" icon="plug-circle-xmark">
+    **Common Issues**:
+    - **401 Unauthorized**: Credentials expired
+    - **403 Forbidden**: Insufficient permissions
+    - **429 Rate Limit**: Too many requests
+    - **500 Server Error**: Service unavailable
+
+    **Resolution Steps**:
+    1. Reauth enticate the connection
+    2. Update permission settings
+    3. Wait and retry later
+    4. Check service status page
+  </Accordion>
+
+  <Accordion title="Knowledge Base Not Found" icon="circle-question">
+    **Checklist**:
+    - ✓ Files uploaded successfully
+    - ✓ Agent has access permissions
+    - ✓ Search is enabled in settings
+    - ✓ File formats are supported
+
+    Try re-uploading files or contacting support.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Chat Interface Guide"
+    icon="comments"
+    href="/guides/agents/chat-interface"
+  >
+    Master effective communication with your configured agent
+  </Card>
+  <Card
+    title="Automation Workflows"
+    icon="diagram-project"
+    href="/guides/automation/workflows"
+  >
+    Set up recurring tasks and scheduled execution
+  </Card>
+</CardGroup>

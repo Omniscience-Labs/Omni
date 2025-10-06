@@ -113,7 +113,8 @@ export function useAdminUserDetails(userId: string | null) {
       return response.data;
     },
     enabled: !!userId,
-    staleTime: 60000,
+    staleTime: 0, // Always consider data stale to refetch on mount
+    refetchOnMount: 'always', // Always refetch when component mounts
   });
 }
 

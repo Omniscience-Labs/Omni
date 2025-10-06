@@ -6,6 +6,7 @@ import {
   checkBillingStatus,
   CreateCheckoutSessionRequest
 } from '@/lib/api';
+import { backendApi } from '@/lib/api-client';
 
 // useAvailableModels has been moved to use-model-selection.ts for better consolidation
 
@@ -40,15 +41,13 @@ export const useAdminUserUsageLogs = (accountId: string, page: number = 0, items
   createQueryHook(
     ['admin-user-usage', accountId, page, itemsPerPage, days],
     async () => {
-      const response = await fetch(`/api/enterprise/admin/users/${accountId}?page=${page}&items_per_page=${itemsPerPage}&days=${days}`, {
-        credentials: 'include',
-      });
+      const response = await backendApi.get(`/admin/users/${accountId}/usage-logs?page=${page}&items_per_page=${itemsPerPage}&days=${days}`);
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch user usage: ${response.statusText}`);
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to fetch user usage logs');
       }
       
-      return response.json();
+      return response.data;
     },
     {
       staleTime: 30 * 1000, // 30 seconds

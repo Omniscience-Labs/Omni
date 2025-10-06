@@ -1,0 +1,407 @@
+---
+title: Browser Automation
+description: Automate web interactions with headless browser control
+icon: "browser"
+---
+
+## Capabilities
+
+Agents can control a full Chromium browser to interact with websites like a human would.
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Browser Automation Demo
+  - Screenshot of browser with automation overlay
+  - Element highlighting
+  - Action buttons visible
+  - Console showing commands
+  - Size: 1800x1000px
+*/}
+
+<CardGroup cols={2}>
+  <Card title="Navigate Pages" icon="compass">
+    Visit URLs, click links, use browser controls
+  </Card>
+  <Card title="Fill Forms" icon="file-signature">
+    Input text, select options, submit forms
+  </Card>
+  <Card title="Extract Data" icon="table">
+    Scrape content, capture screenshots, save HTML
+  </Card>
+  <Card title="Verify Visually" icon="eye">
+    Confirm actions with screenshots at each step
+  </Card>
+</CardGroup>
+
+---
+
+## When to Use Browser Automation
+
+<Tabs>
+  <Tab title="Use Browser For">
+    ✅ **Dynamic Content**:
+    - JavaScript-heavy sites
+    - Single Page Applications (SPAs)
+    - Content loaded on scroll
+    - Interactive elements
+
+    ✅ **Authentication Required**:
+    - Login-protected pages
+    - Session-based access
+    - Cookie requirements
+
+    ✅ **Complex Interactions**:
+    - Multi-step forms
+    - Drag and drop interfaces
+    - File uploads through browser
+    - CAPTCHA solving (with human assistance)
+  </Tab>
+
+  <Tab title="Simpler Alternatives">
+    ⚠️ **Don't Use Browser If**:
+    - Simple webpage scraping (use web_scrape instead)
+    - API available (use direct API)
+    - Static content only
+    - Public data (use data providers)
+
+    Browser automation is powerful but resource-intensive.
+
+    <Tip>
+      Try simpler methods first. Use browser only when necessary.
+    </Tip>
+  </Tab>
+</Tabs>
+
+---
+
+## Basic Browser Actions
+
+<Steps>
+  <Step title="Navigate to URL">
+    ```
+    "Go to https://example.com"
+    ```
+
+    Agent opens URL in browser and waits for page load.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Browser Navigation
+      - Browser window showing loaded page
+      - URL bar highlighted
+      - Page load indicator
+      - Screenshot confirmation
+      - Size: 1600x900px
+    */}
+  </Step>
+
+  <Step title="Interact with Elements">
+    Click, type, select:
+    ```
+    "Click the 'Sign In' button"
+    "Type 'search query' in the search box"
+    "Select 'Premium' from the plan dropdown"
+    ```
+
+    Agent finds elements intelligently.
+  </Step>
+
+  <Step title="Extract Information">
+    Pull data from page:
+    ```
+    "Extract all product names and prices from the page"
+    "Save the article text to a file"
+    "Get all links from the navigation menu"
+    ```
+
+    Structured data from unstructured pages.
+  </Step>
+
+  <Step title="Verify with Screenshots">
+    Agent automatically captures screenshots after each action:
+    - Visual confirmation
+    - Debugging reference
+    - Documentation evidence
+
+    {/* 
+      🎥 VIDEO PLACEHOLDER: Browser Automation Flow (45 seconds)
+      - Navigate to site
+      - Click through multi-step process
+      - Fill form fields
+      - Screenshots captured at each step
+      - Final success state
+    */}
+
+    <Check>
+      Every action is visually verified!
+    </Check>
+  </Step>
+</Steps>
+
+---
+
+## Advanced Techniques
+
+<AccordionGroup>
+  <Accordion title="Handling Dynamic Content" icon="rotate">
+    **Wait for Elements**:
+    ```
+    "Navigate to dashboard and wait for the sales chart 
+    to load before extracting data"
+    ```
+
+    Agent waits intelligently for content to appear.
+
+    **Scroll Loading**:
+    ```
+    "Scroll to bottom of page until all products are loaded, 
+    then extract the full list"
+    ```
+
+    Handles infinite scroll automatically.
+  </Accordion>
+
+  <Accordion title="Form Automation" icon="file-lines">
+    **Multi-Step Forms**:
+    ```
+    "Fill out the registration form:
+    - Name: {{customer_name}}
+    - Email: {{customer_email}}
+    - Plan: Premium
+    - Payment: Use saved card
+    Then click Submit and verify confirmation page"
+    ```
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Form Filling
+      - Form with fields being filled
+      - Dropdown selections
+      - Submit button
+      - Confirmation screenshot
+      - Size: 1600x900px
+    */}
+
+    Agent handles complex forms step-by-step.
+  </Accordion>
+
+  <Accordion title="Authentication" icon="key">
+    **Login Flows**:
+    ```
+    "Log in to https://app.example.com:
+    - Username: stored in credentials
+    - Password: from secure storage
+    - Wait for dashboard to load
+    - Confirm successful login"
+    ```
+
+    <Warning>
+      Store credentials securely. Never include passwords in plain text.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="Session Management" icon="clock-rotate-left">
+    **Persistent Sessions**:
+    - Cookies maintained across requests
+    - Sessions survive between steps
+    - Re-authentication when needed
+    - Clean session start available
+
+    Stay logged in throughout workflow.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Example Workflows
+
+<Tabs>
+  <Tab title="Data Extraction">
+    **Scrape Product Catalog**:
+    ```
+    Task: "Go to https://example.com/products:
+    1. Wait for page to fully load
+    2. Scroll to load all products
+    3. Extract: product name, price, rating, URL
+    4. Save to CSV with proper formatting
+    5. Include timestamp and source URL"
+    ```
+
+    Automated competitive intelligence.
+  </Tab>
+
+  <Tab title="Form Submission">
+    **Batch Registration**:
+    ```
+    For each {{user}} in {{user_list}}:
+      1. Navigate to registration page
+      2. Fill form with user details
+      3. Upload user's document
+      4. Submit form
+      5. Capture confirmation number
+      6. Save screenshot as proof
+    ```
+
+    Bulk operations without manual work.
+  </Tab>
+
+  <Tab title="Testing">
+    **Automated QA**:
+    ```
+    Test Scenario: Checkout Flow
+    1. Navigate to product page
+    2. Add item to cart
+    3. Proceed to checkout
+    4. Fill shipping information
+    5. Enter test payment details
+    6. Complete purchase
+    7. Verify confirmation page
+    8. Screenshot each step
+    9. Log any errors found
+    ```
+
+    Continuous testing without QA team.
+  </Tab>
+
+  <Tab title="Monitoring">
+    **Website Monitoring**:
+    ```
+    Every hour:
+    1. Visit https://mysite.com
+    2. Check page loads successfully
+    3. Verify key elements present
+    4. Test critical user flows
+    5. If issues found, alert team
+    ```
+
+    Uptime and functionality monitoring.
+  </Tab>
+</Tabs>
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Explicit Waits" icon="hourglass">
+    **Always Wait for Elements**:
+    ```
+    ❌ "Click submit button"  (may click before loaded)
+    
+    ✅ "Wait for submit button to appear, then click it"
+    ```
+
+    Prevents timing failures.
+  </Accordion>
+
+  <Accordion title="Visual Verification" icon="camera">
+    **Review Screenshots**:
+    - Agent captures after each action
+    - Verify expected behavior
+    - Catch unexpected changes
+    - Document successful flows
+
+    Screenshots are automatic - use them.
+  </Accordion>
+
+  <Accordion title="Error Recovery" icon="life-ring">
+    **Handle Failures Gracefully**:
+    ```
+    "If CAPTCHA appears, notify me for manual solving"
+    "If page doesn't load, retry twice then report error"
+    "If element not found, wait 5 seconds and try again"
+    ```
+
+    Build resilient automation.
+  </Accordion>
+
+  <Accordion title="Respect Rate Limits" icon="gauge">
+    **Polite Scraping**:
+    - Add delays between requests
+    - Don't overwhelm servers
+    - Check robots.txt
+    - Honor rate limits
+
+    Ethical automation matters.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Limitations
+
+<Warning>
+  **What Browser Automation Can't Do**:
+  - Solve CAPTCHAs (requires human)
+  - Bypass bot detection on protected sites
+  - Access content behind paywalls (without credentials)
+  - Execute faster than human speed (deliberately throttled)
+</Warning>
+
+<Info>
+  **Performance Note**: Browser automation is slower than API calls. Use for visual verification and interaction, not bulk data processing.
+</Info>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Element Not Found" icon="magnifying-glass-minus">
+    **Causes**:
+    - Page still loading
+    - Element description unclear
+    - Element hidden or removed
+    - Wrong page loaded
+
+    **Solutions**:
+    - Add explicit wait time
+    - Describe element more specifically
+    - Check screenshot for actual page state
+    - Verify navigation succeeded
+  </Accordion>
+
+  <Accordion title="Timeout Errors" icon="clock">
+    **When Pages Take Too Long**:
+    - Increase wait time
+    - Check internet connection
+    - Verify site is accessible
+    - Try different time of day
+
+    Some sites are slow - adjust timeout accordingly.
+  </Accordion>
+
+  <Accordion title="Action Failed" icon="triangle-exclamation">
+    **Debug Steps**:
+    1. Review screenshot from failed step
+    2. Check browser console logs
+    3. Verify element selector
+    4. Test action manually
+    5. Adjust approach based on findings
+
+    Screenshots are your best debugging tool.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Web Scraping"
+    icon="spider">
+    Learn efficient data extraction techniques
+  </Card>
+  <Card
+    title="File Operations"
+    icon="file"
+    href="/guides/advanced/file-operations"
+  >
+    Manage files and data from browser automation
+  </Card>
+  <Card
+    title="Data Processing"
+    icon="chart-line"
+    href="/guides/advanced/data-processing"
+  >
+    Process scraped data into insights
+  </Card>
+</CardGroup>

@@ -1,0 +1,424 @@
+---
+title: Triggers
+description: Activate agents automatically based on events and conditions
+icon: "bolt"
+---
+
+## Trigger Types
+
+Triggers start agent workflows automatically when specific conditions are met.
+
+<CardGroup cols={2}>
+  <Card title="Event-Based" icon="bell">
+    React to real-time events from connected services
+  </Card>
+  <Card title="Schedule-Based" icon="clock">
+    Run at specific times or intervals
+  </Card>
+  <Card title="Webhook-Based" icon="webhook">
+    Trigger from external systems via HTTP
+  </Card>
+  <Card title="Condition-Based" icon="scale-balanced">
+    Activate when metrics meet thresholds
+  </Card>
+</CardGroup>
+
+---
+
+## Event-Based Triggers
+
+React to events from your integrated services.
+
+<Tabs>
+  <Tab title="Email Events" icon="envelope">
+    **Gmail Triggers**:
+    - New email received
+    - Email from specific sender
+    - Email with specific label
+    - Unread email count threshold
+
+    **Example**:
+    ```
+    Trigger: New email labeled "Support"
+    Action: Run "Customer Support" workflow
+    Agent: Support Specialist
+    ```
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Email Trigger Setup
+      - Trigger configuration form
+      - Gmail event selector
+      - Filter conditions
+      - Workflow selection
+      - Size: 1600x900px
+    */}
+  </Tab>
+
+  <Tab title="Slack Events" icon="slack">
+    **Slack Triggers**:
+    - Message in channel
+    - Direct message received
+    - Mentioned in message
+    - Emoji reaction added
+
+    **Example**:
+    ```
+    Trigger: Mentioned in #help channel
+    Action: Respond with answer from knowledge base
+    Agent: Help Desk Bot
+    ```
+  </Tab>
+
+  <Tab title="GitHub Events" icon="github">
+    **Development Triggers**:
+    - New issue opened
+    - Pull request created
+    - Code pushed to branch
+    - Release published
+
+    **Example**:
+    ```
+    Trigger: New PR in main branch
+    Action: Run code review workflow
+    Agent: Code Reviewer
+    ```
+  </Tab>
+
+  <Tab title="Calendar Events" icon="calendar">
+    **Schedule Triggers**:
+    - Meeting starts
+    - Meeting ends
+    - Calendar event created
+    - Event updated/cancelled
+
+    **Example**:
+    ```
+    Trigger: 5 minutes before meeting
+    Action: Send briefing with attendee info
+    Agent: Meeting Assistant
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Setting Up Triggers
+
+<Steps>
+  <Step title="Choose Event Source">
+    Select which service to monitor:
+    - Must have integration connected
+    - Pick specific event type
+    - Configure event filters
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Event Source Selection
+      - Service selector with icons
+      - Event type dropdown
+      - Filter configuration
+      - Real-time test button
+      - Size: 1600x900px
+    */}
+  </Step>
+
+  <Step title="Define Conditions">
+    Add filters to narrow when trigger fires:
+
+    **Example - Gmail**:
+    ```
+    Event: New email received
+    Conditions:
+    - From: *@client-domain.com
+    - Subject contains: "Invoice"
+    - Has attachments: Yes
+    ```
+
+    Only matching emails trigger workflow.
+  </Step>
+
+  <Step title="Select Action">
+    Choose what happens:
+    - **Run Workflow**: Execute specific workflow
+    - **Start Agent Conversation**: Free-form task
+    - **Send Notification**: Alert without action
+    - **Chain Multiple Actions**: Sequential tasks
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Action Configuration
+      - Action type selector
+      - Workflow dropdown
+      - Custom instructions textarea
+      - Notification settings
+      - Size: 1400x800px
+    */}
+  </Step>
+
+  <Step title="Configure Agent Context">
+    Provide trigger-specific instructions:
+    ```
+    "When this trigger fires:
+    - Extract invoice details from attachment
+    - Add to accounting spreadsheet
+    - Create task for accounts payable
+    - Notify #finance channel"
+    ```
+
+    Context makes trigger actions precise.
+  </Step>
+
+  <Step title="Test Trigger">
+    Verify trigger works:
+    - Manually fire test event
+    - Check trigger activates
+    - Review workflow execution
+    - Confirm expected behavior
+
+    <Check>
+      Trigger active! Will monitor for matching events.
+    </Check>
+  </Step>
+</Steps>
+
+---
+
+## Webhook Triggers
+
+Trigger agents from external systems.
+
+<Steps>
+  <Step title="Generate Webhook URL">
+    In trigger settings, create webhook:
+    - Omni provides unique URL
+    - Includes authentication token
+    - Optionally set IP whitelist
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Webhook URL
+      - Generated webhook URL displayed
+      - Copy button
+      - Security settings
+      - Example payload
+      - Size: 1400x800px
+    */}
+  </Step>
+
+  <Step title="Configure External System">
+    Add webhook URL to your service:
+    ```
+    URL: https://api.omni.com/webhooks/abc123...
+    Method: POST
+    Headers: 
+      Content-Type: application/json
+      X-Auth-Token: your_token_here
+    ```
+  </Step>
+
+  <Step title="Define Payload Handling">
+    Tell agent how to process webhook data:
+    ```
+    "Extract {{customer_id}} and {{order_total}} from 
+    payload, then create order summary and notify team"
+    ```
+
+    Agent parses JSON automatically.
+  </Step>
+</Steps>
+
+### Webhook Example
+
+<CodeGroup>
+```bash cURL
+curl -X POST 'https://api.omni.com/webhooks/abc123' \
+  -H 'Content-Type: application/json' \
+  -H 'X-Auth-Token: your_token' \
+  -d '{
+    "event": "order.completed",
+    "customer_id": "cust_123",
+    "order_total": 599.99,
+    "items": [...]
+  }'
+```
+
+```json Payload Format
+{
+  "event": "order.completed",
+  "timestamp": "2024-10-05T10:30:00Z",
+  "data": {
+    "customer_id": "cust_123",
+    "order_total": 599.99,
+    "order_id": "ord_456"
+  }
+}
+```
+
+```python Python
+import requests
+
+webhook_url = "https://api.omni.com/webhooks/abc123"
+headers = {
+    "Content-Type": "application/json",
+    "X-Auth-Token": "your_token"
+}
+data = {
+    "event": "custom.event",
+    "data": {"key": "value"}
+}
+
+response = requests.post(webhook_url, json=data, headers=headers)
+```
+</CodeGroup>
+
+---
+
+## Managing Triggers
+
+<Tabs>
+  <Tab title="Active Triggers">
+    View all configured triggers:
+    - Trigger name and type
+    - Connected service
+    - Associated workflow/agent
+    - Status (active/paused)
+    - Last fired time
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Triggers Dashboard
+      - List of all triggers
+      - Status indicators
+      - Quick enable/disable toggles
+      - Edit and delete actions
+      - Size: 1800x1000px
+    */}
+  </Tab>
+
+  <Tab title="Execution Log">
+    Track trigger activations:
+    - When triggered
+    - What activated it
+    - Workflow executed
+    - Success/failure
+    - Output generated
+
+    Monitor automation health.
+  </Tab>
+
+  <Tab title="Pause/Resume">
+    Temporarily disable:
+    - During maintenance
+    - While testing changes
+    - For specific time periods
+    - When investigating issues
+
+    Easy toggle on/off.
+  </Tab>
+</Tabs>
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Specific Conditions" icon="filter">
+    **Be Selective**:
+    ```
+    ❌ Too Broad:
+    Trigger: Any email received
+    
+    ✅ Better:
+    Trigger: Email from customer@domain.com 
+             with "urgent" in subject
+    ```
+
+    Avoid triggering unnecessarily.
+  </Accordion>
+
+  <Accordion title="Test Before Activation" icon="flask">
+    **Testing Checklist**:
+    - ✓ Trigger fires on correct events
+    - ✓ Doesn't fire on wrong events
+    - ✓ Workflow executes successfully
+    - ✓ Outputs are as expected
+    - ✓ Error handling works
+
+    Prevent production issues.
+  </Accordion>
+
+  <Accordion title="Monitor Initially" icon="eye">
+    **First Week**:
+    - Check execution logs daily
+    - Verify trigger accuracy
+    - Adjust conditions if needed
+    - Monitor for false positives
+
+    Fine-tune for reliability.
+  </Accordion>
+
+  <Accordion title="Set Rate Limits" icon="gauge">
+    **Prevent Overload**:
+    - Maximum executions per hour
+    - Cooldown between triggers
+    - Batch multiple events
+    - Queue during high volume
+
+    Protect your systems.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Trigger Not Firing" icon="circle-exclamation">
+    **Check**:
+    - Trigger is enabled (not paused)
+    - Integration is connected
+    - Conditions are correct
+    - Event actually occurred
+    - No rate limit exceeded
+
+    Review execution logs for clues.
+  </Accordion>
+
+  <Accordion title="Too Many False Positives" icon="triangle-exclamation">
+    **Refine Conditions**:
+    - Add more specific filters
+    - Narrow date ranges
+    - Use exact matches vs contains
+    - Test with historical data
+
+    Precision over recall.
+  </Accordion>
+
+  <Accordion title="Workflow Fails After Trigger" icon="xmark">
+    **Diagnostic Steps**:
+    1. Check workflow works manually
+    2. Verify trigger passes correct data
+    3. Review error logs
+    4. Test with similar event data
+    5. Fix workflow, not trigger
+
+    Separate trigger vs workflow issues.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Scheduling"
+    icon="clock"
+    href="/guides/automation/scheduling"
+  >
+    Set up time-based automation
+  </Card>
+  <Card
+    title="Workflows"
+    icon="diagram-project"
+    href="/guides/automation/workflows"
+  >
+    Create workflows for your triggers
+  </Card>
+</CardGroup>

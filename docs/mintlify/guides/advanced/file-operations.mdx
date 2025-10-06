@@ -1,0 +1,420 @@
+---
+title: File Operations
+description: Master file creation, editing, and management with AI agents
+icon: "file"
+---
+
+## File Capabilities
+
+Agents have comprehensive file management abilities within their sandbox environment.
+
+<CardGroup cols={3}>
+  <Card title="Create" icon="file-plus">
+    Generate any file type from scratch
+  </Card>
+  <Card title="Edit" icon="pen">
+    Modify existing files with precision
+  </Card>
+  <Card title="Organize" icon="folder">
+    Manage directory structures
+  </Card>
+  <Card title="Transform" icon="arrows-rotate">
+    Convert between formats
+  </Card>
+  <Card title="Analyze" icon="magnifying-glass">
+    Inspect and process content
+  </Card>
+  <Card title="Share" icon="share">
+    Export and distribute files
+  </Card>
+</CardGroup>
+
+---
+
+## Creating Files
+
+<Tabs>
+  <Tab title="Text Documents">
+    **Create Various Formats**:
+    ```
+    "Create a markdown file called 'project-notes.md' with:
+    - Project overview section
+    - Current status
+    - Next steps
+    - Team assignments"
+    ```
+
+    Agent generates structured content.
+
+    Supported: `.md`, `.txt`, `.rtf`, `.html`
+  </Tab>
+
+  <Tab title="Code Files">
+    **Any Programming Language**:
+    ```
+    "Create a Python script that:
+    - Reads CSV data
+    - Performs statistical analysis
+    - Generates visualization
+    - Exports results as JSON"
+    ```
+
+    Agents write functional code with proper structure.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Code Generation
+      - Code editor showing generated Python script
+      - Syntax highlighting visible
+      - File structure organized
+      - Size: 1600x900px
+    */}
+  </Tab>
+
+  <Tab title="Data Files">
+    **Structured Data**:
+    ```
+    "Create a CSV file with columns: Name, Email, Status
+    and populate with data from {{source}}"
+    ```
+
+    Generate: CSV, JSON, XML, YAML
+
+    Proper formatting guaranteed.
+  </Tab>
+
+  <Tab title="Documents">
+    **Rich Content**:
+    ```
+    "Create a professional report document:
+    - Executive summary
+    - Detailed findings with charts
+    - Recommendations section
+    - Export as PDF"
+    ```
+
+    Generate presentation-ready documents.
+  </Tab>
+</Tabs>
+
+---
+
+## Editing Files
+
+### Smart Editing
+
+<Steps>
+  <Step title="Describe Changes">
+    Use natural language:
+    ```
+    "Update config.json:
+    - Change timeout from 30 to 60
+    - Add new API endpoint
+    - Remove deprecated settings"
+    ```
+
+    Agent makes precise changes.
+  </Step>
+
+  <Step title="AI-Powered Modifications">
+    Intelligent transformations:
+    ```
+    "Improve the README:
+    - Add installation instructions
+    - Include usage examples
+    - Fix any typos
+    - Make tone more welcoming"
+    ```
+
+    Agent understands intent, not just syntax.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: File Diff View
+      - Split view showing before/after
+      - Changes highlighted
+      - Line numbers visible
+      - Accept/reject options
+      - Size: 1800x1000px
+    */}
+  </Step>
+
+  <Step title="Batch Edits">
+    Multiple files at once:
+    ```
+    "In all JavaScript files:
+    - Update import paths to use @/ prefix
+    - Replace var with const/let
+    - Add JSDoc comments"
+    ```
+
+    Consistent changes across codebase.
+  </Step>
+</Steps>
+
+### Edit Modes
+
+<Tabs>
+  <Tab title="Natural Language">
+    Describe what you want:
+    ```
+    "Make the intro paragraph more engaging"
+    "Add error handling to the login function"
+    "Reorganize sections by priority"
+    ```
+
+    Agent interprets and applies changes.
+  </Tab>
+
+  <Tab title="Find & Replace">
+    Precise substitutions:
+    ```
+    "Replace all instances of 'Company Name' with 'Acme Corp'"
+    "Change color: #FF0000 to #4F46E5 throughout CSS"
+    ```
+
+    Exact replacements guaranteed.
+  </Tab>
+
+  <Tab title="Structured Edits">
+    Code-aware modifications:
+    ```
+    "In app.py:
+    - Add rate limiting decorator to /api endpoints
+    - Update error responses to include request ID
+    - Add logging to authentication function"
+    ```
+
+    Syntax-aware editing.
+  </Tab>
+</Tabs>
+
+---
+
+## File Organization
+
+<AccordionGroup>
+  <Accordion title="Directory Management" icon="folder-tree">
+    **Structure Operations**:
+    ```
+    "Create this directory structure:
+    /project
+      /src
+        /components
+        /utils
+      /tests
+      /docs
+    "
+    ```
+
+    ```
+    "Organize these files by file type into folders"
+    ```
+
+    ```
+    "Move all CSV files to /data/raw directory"
+    ```
+
+    Automatic organization.
+  </Accordion>
+
+  <Accordion title="Bulk Operations" icon="layer-group">
+    **Batch Processing**:
+    - Rename multiple files
+    - Copy directories
+    - Delete patterns
+    - Apply transformations
+
+    ```
+    "Rename all files in /images to format: 
+    product-{number}-{date}.jpg"
+    ```
+
+    Consistent naming across files.
+  </Accordion>
+
+  <Accordion title="File Discovery" icon="magnifying-glass">
+    **Search and Filter**:
+    ```
+    "Find all Python files containing 'deprecated'"
+    "List all files modified in the last week"
+    "Show me files larger than 10MB"
+    ```
+
+    Intelligent file system navigation.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: File Browser
+      - Directory tree on left
+      - File list with sorting
+      - Search bar with filters
+      - File preview pane
+      - Size: 1800x1000px
+    */}
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Format Conversion
+
+<Tabs>
+  <Tab title="Document Conversion">
+    **Convert Between Formats**:
+    ```
+    "Convert report.md to:
+    - PDF for printing
+    - HTML for web
+    - DOCX for editing"
+    ```
+
+    Multiple output formats from one source.
+  </Tab>
+
+  <Tab title="Data Transformation">
+    **Restructure Data**:
+    ```
+    "Convert data.csv to JSON with nested structure:
+    - Group by category
+    - Calculate subtotals
+    - Add metadata fields"
+    ```
+
+    Smart data reshaping.
+  </Tab>
+
+  <Tab title="Code Transpilation">
+    **Language Conversion**:
+    ```
+    "Convert this JavaScript function to Python"
+    "Translate SQL queries to MongoDB syntax"
+    ```
+
+    Cross-language code conversion.
+  </Tab>
+</Tabs>
+
+---
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Clear Instructions" icon="bullseye">
+    Specify exactly what you want changed and where
+  </Card>
+  <Card title="Backup First" icon="copy">
+    For important files, create backups before major edits
+  </Card>
+  <Card title="Review Changes" icon="eye">
+    Preview edits before accepting, especially for code
+  </Card>
+  <Card title="Version Control" icon="code-branch">
+    Use timestamps or version numbers in filenames
+  </Card>
+  <Card title="Descriptive Names" icon="tag">
+    Use clear, searchable filenames
+  </Card>
+  <Card title="Organize Early" icon="sitemap">
+    Create folder structure upfront
+  </Card>
+</CardGroup>
+
+---
+
+## Advanced Scenarios
+
+<AccordionGroup>
+  <Accordion title="Code Refactoring" icon="code">
+    ```
+    "Refactor user-service.js:
+    - Extract authentication logic to separate module
+    - Add input validation
+    - Improve error messages
+    - Add unit tests
+    - Update documentation"
+    ```
+
+    Intelligent code improvement.
+  </Accordion>
+
+  <Accordion title="Documentation Generation" icon="book">
+    ```
+    "Generate API documentation from these Python files:
+    - Extract all public functions
+    - Document parameters and return types
+    - Include usage examples
+    - Format as markdown
+    - Create navigation structure"
+    ```
+
+    Automatic documentation from code.
+  </Accordion>
+
+  <Accordion title="Data Cleaning" icon="broom">
+    ```
+    "Clean dataset.csv:
+    - Remove duplicate rows
+    - Fill missing values with averages
+    - Standardize date formats
+    - Normalize text fields
+    - Export cleaned version"
+    ```
+
+    Automated data quality.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## File Sharing
+
+<Steps>
+  <Step title="Agent Creates File">
+    During conversation, agent generates files automatically.
+  </Step>
+
+  <Step title="Review in Interface">
+    Preview files before downloading:
+    - Text files render with highlighting
+    - CSVs show as sortable tables
+    - Images display inline
+
+    No download needed for quick check.
+  </Step>
+
+  <Step title="Download or Share">
+    **Options**:
+    - Download to your computer
+    - Generate shareable link (24-hour)
+    - Export to connected cloud storage
+    - Attach to email/Slack
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: File Sharing Options
+      - File context menu
+      - Download, share, export options
+      - Link generation dialog
+      - Expiration settings
+      - Size: 1200x800px
+    */}
+  </Step>
+</Steps>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Data Processing"
+    icon="chart-line"
+    href="/guides/advanced/data-processing"
+  >
+    Analyze and visualize data from files
+  </Card>
+  <Card
+    title="Web Scraping"
+    icon="spider"
+    href="/guides/advanced/web-scraping"
+  >
+    Extract data from websites into files
+  </Card>
+</CardGroup>

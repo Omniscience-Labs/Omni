@@ -1,0 +1,465 @@
+---
+title: Scheduling
+description: Set up time-based automation for recurring tasks
+icon: "clock"
+---
+
+## Schedule Overview
+
+Run agents and workflows automatically at specific times without manual intervention.
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Schedule Dashboard
+  - List of scheduled tasks
+  - Next run times visible
+  - Calendar view option
+  - Quick enable/disable toggles
+  - Size: 1800x1000px
+*/}
+
+<CardGroup cols={2}>
+  <Card title="Recurring Tasks" icon="rotate">
+    Daily, weekly, monthly execution patterns
+  </Card>
+  <Card title="Precise Timing" icon="stopwatch">
+    Down to the minute scheduling
+  </Card>
+  <Card title="Timezone Aware" icon="earth-americas">
+    Runs in your timezone or specified timezone
+  </Card>
+  <Card title="Flexible Patterns" icon="calendar-days">
+    Complex schedules like "first Monday of each month"
+  </Card>
+</CardGroup>
+
+---
+
+## Quick Scheduling
+
+<Tabs>
+  <Tab title="Simple Schedules">
+    **Common Patterns**:
+
+    | Pattern | Cron Expression | Description |
+    |---------|----------------|-------------|
+    | Every hour | `0 * * * *` | At minute 0 of every hour |
+    | Daily at 9 AM | `0 9 * * *` | Every day at 9:00 AM |
+    | Weekdays at 8 AM | `0 8 * * 1-5` | Mon-Fri at 8:00 AM |
+    | Weekly on Monday | `0 9 * * 1` | Mondays at 9:00 AM |
+    | Monthly on 1st | `0 9 1 * *` | 1st of month at 9:00 AM |
+
+    No cron expertise needed - use presets.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Schedule Presets
+      - Dropdown showing common patterns
+      - Visual calendar showing when it runs
+      - Next 5 execution times preview
+      - Custom cron option
+      - Size: 1400x800px
+    */}
+  </Tab>
+
+  <Tab title="Custom Schedules">
+    **Advanced Patterns**:
+    ```
+    First Monday of each quarter at 2 PM:
+    0 14 1-7 1,4,7,10 1
+    
+    Every 6 hours on weekdays:
+    0 */6 * * 1-5
+    
+    Twice daily (9 AM and 5 PM):
+    0 9,17 * * *
+    ```
+
+    Use cron expression builder for complex patterns.
+
+    <Tip>
+      Use our visual cron builder - no need to memorize syntax.
+    </Tip>
+  </Tab>
+</Tabs>
+
+---
+
+## Creating Schedules
+
+<Steps>
+  <Step title="Select Workflow or Agent">
+    Choose what to run:
+    - Existing workflow
+    - Agent with custom instructions
+    - Multi-step automation
+
+    Workflows provide more consistency.
+  </Step>
+
+  <Step title="Define Schedule">
+    **Choose Scheduling Method**:
+
+    <Tabs>
+      <Tab title="Simple">
+        Select from presets:
+        - Hourly
+        - Daily
+        - Weekly
+        - Monthly
+
+        Pick time and days.
+      </Tab>
+
+      <Tab title="Advanced">
+        Use cron expression:
+        ```
+        ┌─ Minute (0-59)
+        │ ┌─ Hour (0-23)
+        │ │ ┌─ Day of month (1-31)
+        │ │ │ ┌─ Month (1-12)
+        │ │ │ │ ┌─ Day of week (0-6)
+        │ │ │ │ │
+        * * * * *
+        ```
+
+        Full control over timing.
+      </Tab>
+
+      <Tab title="Visual Builder">
+        Point and click schedule:
+        - Calendar interface
+        - Check boxes for days
+        - Time picker
+        - Frequency selector
+
+        {/* 
+          📸 MEDIA PLACEHOLDER: Visual Schedule Builder
+          - Calendar grid with selectable days
+          - Time picker showing 24-hour format
+          - Frequency dropdown
+          - Preview of next runs
+          - Size: 1600x900px
+        */}
+
+        Most intuitive option.
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Set Timezone">
+    Choose timezone for execution:
+    - Your local timezone (default)
+    - Specific timezone (PST, EST, UTC)
+    - Recipient's timezone (dynamic)
+
+    <Info>
+      For distributed teams, consider using UTC for consistency.
+    </Info>
+  </Step>
+
+  <Step title="Configure Options">
+    **Additional Settings**:
+    - **Skip Holidays**: Don't run on company holidays
+    - **Retry on Failure**: Attempt count
+    - **Timeout**: Maximum execution time
+    - **Notifications**: Alert on success/failure
+
+    Fine-tune behavior.
+  </Step>
+
+  <Step title="Activate Schedule">
+    Review and enable:
+    - Verify schedule is correct
+    - Check timezone
+    - Preview next 5 run times
+    - Click **Activate**
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Schedule Preview
+      - Summary of schedule configuration
+      - Next execution times listed
+      - Edit and activate buttons
+      - Timezone displayed clearly
+      - Size: 1400x800px
+    */}
+
+    <Check>
+      Schedule active! First run will occur at next scheduled time.
+    </Check>
+  </Step>
+</Steps>
+
+---
+
+## Common Schedules
+
+<AccordionGroup>
+  <Accordion title="Daily Reports" icon="chart-line">
+    **Morning Briefings**:
+    ```
+    Schedule: Every weekday at 8 AM
+    Workflow: Daily Performance Report
+    Variables: 
+      - date_range: "yesterday"
+      - recipients: "team@company.com"
+    ```
+
+    Start each day informed.
+  </Accordion>
+
+  <Accordion title="Weekly Summaries" icon="calendar-week">
+    **End of Week Wrap-Up**:
+    ```
+    Schedule: Every Friday at 4 PM
+    Workflow: Weekly Summary
+    Variables:
+      - start_date: "last Monday"
+      - end_date: "today"
+      - format: "executive summary"
+    ```
+
+    Automated team updates.
+  </Accordion>
+
+  <Accordion title="Monthly Analytics" icon="calendar-days">
+    **Month-End Processing**:
+    ```
+    Schedule: Last day of month at 11 PM
+    Workflow: Monthly Close
+    Variables:
+      - month: "current"
+      - include_forecasts: true
+      - distribution_list: "leadership"
+    ```
+
+    Timely financial reporting.
+  </Accordion>
+
+  <Accordion title="Continuous Monitoring" icon="radar">
+    **Frequent Checks**:
+    ```
+    Schedule: Every 15 minutes
+    Workflow: System Health Check
+    Variables:
+      - services: ["api", "database", "cache"]
+      - alert_threshold: "error"
+    ```
+
+    Real-time system monitoring.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Schedule Management
+
+<Tabs>
+  <Tab title="View All Schedules">
+    **Schedule Dashboard**:
+    - All active schedules listed
+    - Next run time for each
+    - Last execution status
+    - Execution frequency
+    - Quick actions menu
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Schedule List
+      - Table of scheduled tasks
+      - Status indicators
+      - Next run countdown
+      - Success rate percentage
+      - Size: 1800x1000px
+    */}
+  </Tab>
+
+  <Tab title="Execution History">
+    **Past Runs**:
+    - Timestamp of each execution
+    - Duration
+    - Success/failure
+    - Outputs generated
+    - Error messages
+
+    Track reliability over time.
+  </Tab>
+
+  <Tab title="Edit Schedule">
+    **Modify Timing**:
+    - Change frequency
+    - Update timezone
+    - Adjust workflow
+    - Modify variables
+    - Enable/disable
+
+    Changes apply to future runs only.
+  </Tab>
+</Tabs>
+
+---
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Off-Peak Hours" icon="moon">
+    Schedule resource-intensive tasks during low-traffic periods
+  </Card>
+  <Card title="Stagger Tasks" icon="chart-gantt">
+    Don't schedule everything at same time - spread throughout day
+  </Card>
+  <Card title="Buffer Time" icon="hourglass">
+    Allow time between dependent schedules for completion
+  </Card>
+  <Card title="Monitor Initially" icon="eye">
+    Watch first few executions closely, adjust as needed
+  </Card>
+  <Card title="Set Failure Alerts" icon="bell">
+    Get notified immediately when scheduled tasks fail
+  </Card>
+  <Card title="Review Quarterly" icon="calendar-check">
+    Remove unnecessary schedules, optimize timing
+  </Card>
+</CardGroup>
+
+---
+
+## Advanced Scheduling
+
+<AccordionGroup>
+  <Accordion title="Dependencies" icon="diagram-project">
+    **Chain Schedules**:
+    ```
+    Schedule A: 8 AM - Data collection
+    Schedule B: 9 AM - Analysis (waits for A)
+    Schedule C: 10 AM - Report (waits for B)
+    ```
+
+    Sequential execution with dependencies.
+  </Accordion>
+
+  <Accordion title="Conditional Execution" icon="code-branch">
+    **Smart Skipping**:
+    ```
+    Schedule: Daily at 9 AM
+    Condition: Only if new data exists
+    Else: Skip until tomorrow
+    ```
+
+    Avoid unnecessary runs.
+  </Accordion>
+
+  <Accordion title="Dynamic Timing" icon="wand-magic-sparkles">
+    **Adjust Based on Data**:
+    ```
+    If data volume > threshold:
+      Run every 30 minutes
+    Else:
+      Run every 2 hours
+    ```
+
+    Adapt to workload.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Cron Expression Builder
+
+<Steps>
+  <Step title="Use Visual Builder">
+    No cron syntax needed:
+    - Click days of week
+    - Select hours and minutes
+    - Choose frequency
+    - See human-readable preview
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Cron Builder
+      - Visual interface for cron creation
+      - Interactive day/time selectors
+      - Live preview of schedule
+      - Human-readable translation
+      - Size: 1600x900px
+    */}
+  </Step>
+
+  <Step title="Preview Execution Times">
+    See next scheduled runs:
+    ```
+    Next 5 executions:
+    1. Mon, Oct 7 at 9:00 AM PST
+    2. Mon, Oct 14 at 9:00 AM PST
+    3. Mon, Oct 21 at 9:00 AM PST
+    4. Mon, Oct 28 at 9:00 AM PST
+    5. Mon, Nov 4 at 9:00 AM PST
+    ```
+
+    Verify schedule is correct.
+  </Step>
+
+  <Step title="Save and Activate">
+    Enable the schedule:
+    - Saved to database
+    - Scheduler picks it up
+    - Runs at next occurrence
+
+    <Check>
+      Schedule confirmed! Will execute automatically.
+    </Check>
+  </Step>
+</Steps>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Schedule Not Running" icon="question">
+    **Check**:
+    - Schedule is enabled (not paused)
+    - Time hasn't passed yet
+    - Timezone is correct
+    - No execution limit reached
+
+    View next run time in dashboard.
+  </Accordion>
+
+  <Accordion title="Running at Wrong Time" icon="clock">
+    **Verify**:
+    - Cron expression is correct
+    - Timezone matches expectation
+    - DST (daylight saving time) considered
+    - Server time vs local time
+
+    Use UTC to avoid DST issues.
+  </Accordion>
+
+  <Accordion title="Executions Failing" icon="xmark">
+    **Common Causes**:
+    - Workflow has bugs
+    - Required data missing
+    - Integration disconnected
+    - Rate limits exceeded
+
+    Fix workflow, then reschedule.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Workflows"
+    icon="diagram-project"
+    href="/guides/automation/workflows"
+  >
+    Create workflows to schedule
+  </Card>
+  <Card
+    title="Triggers"
+    icon="bolt"
+    href="/guides/automation/triggers"
+  >
+    Combine schedules with event triggers
+  </Card>
+</CardGroup>

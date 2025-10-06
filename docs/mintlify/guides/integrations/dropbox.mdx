@@ -1,0 +1,352 @@
+---
+title: Dropbox Integration
+description: Automate file storage, sharing, and collaboration with Dropbox
+icon: "dropbox"
+---
+
+## Capabilities
+
+Connect Dropbox for seamless file management and team collaboration.
+
+<CardGroup cols={2}>
+  <Card title="File Operations" icon="file">
+    Upload, download, move, copy, delete files
+  </Card>
+  <Card title="Folder Management" icon="folder">
+    Create, organize, and manage folder structures
+  </Card>
+  <Card title="Sharing" icon="share">
+    Generate share links, manage permissions
+  </Card>
+  <Card title="Team Collaboration" icon="users">
+    Shared folders, file requests, comments
+  </Card>
+</CardGroup>
+
+---
+
+## Setup
+
+<Steps>
+  <Step title="Connect Dropbox">
+    Navigate to **Integrations** and click **Connect Dropbox**.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Dropbox Connection
+      - Dropbox integration card
+      - Connect button and capabilities
+      - OAuth flow preview
+      - Size: 1200x800px
+    */}
+  </Step>
+
+  <Step title="Dropbox Authorization">
+    Grant access:
+    - Log in to Dropbox account
+    - Review folder access requested
+    - Click **Allow**
+
+    <Info>
+      Omni can access files and folders you choose. Permissions are granular and revocable.
+    </Info>
+  </Step>
+
+  <Step title="Select Folders">
+    Choose which folders agents can access:
+    - Full Dropbox access (all folders)
+    - Specific folders only (recommended)
+    - Team folders if applicable
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Folder Selection
+      - Dropbox folder tree
+      - Checkboxes for selection
+      - Permission level per folder
+      - Size: 1400x900px
+    */}
+
+    <Tip>
+      Start with specific folders, expand access as needed.
+    </Tip>
+  </Step>
+
+  <Step title="Test Integration">
+    Verify connection:
+    ```
+    "List files in my Dropbox /Projects folder"
+    "Upload this file to Dropbox"
+    ```
+
+    <Check>
+      Dropbox connected! File automation ready.
+    </Check>
+  </Step>
+</Steps>
+
+---
+
+## File Operations
+
+<Tabs>
+  <Tab title="Upload Files">
+    **Send to Dropbox**:
+    ```
+    "Upload these files to Dropbox:
+    - Source: /workspace/reports/
+    - Destination: /Company/Q4 Reports/
+    - Preserve folder structure
+    - Overwrite if exists"
+    ```
+
+    Bulk upload from agent workspace.
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: File Upload
+      - Upload progress interface
+      - Multiple files uploading
+      - Destination folder shown
+      - Success confirmations
+      - Size: 1600x800px
+    */}
+  </Tab>
+
+  <Tab title="Download Files">
+    **Retrieve from Dropbox**:
+    ```
+    "Download from Dropbox:
+    - Folder: /Customer Data/
+    - File pattern: *.csv
+    - To workspace: /data/
+    - Process for analysis"
+    ```
+
+    Access cloud files for processing.
+  </Tab>
+
+  <Tab title="File Organization">
+    **Manage Structure**:
+    ```
+    "Organize my Dropbox /Downloads folder:
+    - Group by file type
+    - Create folders: Images, Documents, Spreadsheets
+    - Move files to appropriate folders
+    - Delete duplicates
+    - Rename with consistent pattern"
+    ```
+
+    Automated file organization.
+  </Tab>
+
+  <Tab title="Sync Operations">
+    **Keep in Sync**:
+    ```
+    "Sync between agent workspace and Dropbox:
+    - Local: /workspace/project/
+    - Dropbox: /Work/Current Project/
+    - Two-way sync
+    - Conflict resolution: newer wins"
+    ```
+
+    Maintain consistency across environments.
+  </Tab>
+</Tabs>
+
+---
+
+## Sharing & Collaboration
+
+<AccordionGroup>
+  <Accordion title="Generate Share Links" icon="link">
+    **Create Shareable URLs**:
+    ```
+    "Create Dropbox share links for:
+    - Files: report.pdf, analysis.xlsx
+    - Settings: View-only
+    - Expiration: 7 days
+    - Password: optional
+    
+    Send links to team via Slack"
+    ```
+
+    Secure file sharing with control.
+  </Accordion>
+
+  <Accordion title="File Requests" icon="inbox">
+    **Collect Files from Others**:
+    ```
+    "Create Dropbox file request:
+    - Title: Submit Q4 Department Reports
+    - Destination: /Reports/Q4/
+    - Deadline: End of month
+    - Send request link to department heads"
+    ```
+
+    Easy file collection from team or clients.
+  </Accordion>
+
+  <Accordion title="Team Folders" icon="users">
+    **Shared Workspaces**:
+    - Access team shared folders
+    - Manage member permissions
+    - Monitor folder activity
+    - Sync updates automatically
+
+    Seamless team collaboration.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Automated Workflows
+
+<Tabs>
+  <Tab title="Backup Automation">
+    **Regular Backups**:
+    ```
+    Schedule: Daily at midnight
+    
+    Task: "Backup important files:
+    - Source: Agent workspace /critical/
+    - Destination: Dropbox /Backups/{{date}}/
+    - Compress as ZIP
+    - Keep 30 days of backups
+    - Delete older backups
+    - Notify if backup fails"
+    ```
+  </Tab>
+
+  <Tab title="Report Distribution">
+    **Automated Delivery**:
+    ```
+    Trigger: Report generation complete
+    
+    Workflow:
+    1. Upload report to Dropbox /Reports/
+    2. Create share link (view-only)
+    3. Send link via email to stakeholders
+    4. Post announcement in Slack
+    5. Log distribution activity
+    ```
+
+    Seamless report sharing.
+  </Tab>
+
+  <Tab title="File Monitoring">
+    **Watch for Changes**:
+    ```
+    Monitor: Dropbox /Incoming/ folder
+    
+    When new file added:
+    - Download to agent workspace
+    - Process based on file type
+    - Move to appropriate folder
+    - Notify relevant team
+    - Log processing"
+    ```
+
+    Reactive file processing.
+  </Tab>
+</Tabs>
+
+---
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Folder Structure" icon="sitemap">
+    Maintain organized hierarchy for easy navigation
+  </Card>
+  <Card title="Naming Conventions" icon="signature">
+    Use consistent, descriptive file names
+  </Card>
+  <Card title="Access Control" icon="lock">
+    Grant minimum necessary permissions
+  </Card>
+  <Card title="Regular Cleanup" icon="broom">
+    Archive or delete old files quarterly
+  </Card>
+  <Card title="Version Control" icon="clock-rotate-left">
+    Use Dropbox versioning for important files
+  </Card>
+  <Card title="Team Folders" icon="users">
+    Use team folders for shared resources
+  </Card>
+</CardGroup>
+
+---
+
+## Enterprise Features
+
+<AccordionGroup>
+  <Accordion title="Dropbox Business" icon="briefcase">
+    **Advanced Capabilities**:
+    - Unlimited storage
+    - Advanced admin controls
+    - Team folder management
+    - Dropbox Paper integration
+    - Smart Sync support
+
+    Available with Dropbox Business plans.
+  </Accordion>
+
+  <Accordion title="Security & Compliance" icon="shield-halved">
+    **Enterprise Security**:
+    - File encryption at rest and in transit
+    - Remote wipe capabilities
+    - Audit logging
+    - Compliance certifications
+    - Data residency options
+
+    Meet regulatory requirements.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Upload Failed" icon="triangle-exclamation">
+    **Common Causes**:
+    - File size exceeds limits
+    - Storage quota reached
+    - Network interruption
+    - Invalid filename characters
+
+    **Solutions**:
+    - Check Dropbox storage space
+    - Split large files
+    - Retry upload
+    - Rename with valid characters
+  </Accordion>
+
+  <Accordion title="Permission Denied" icon="ban">
+    **Access Issues**:
+    - Folder not shared with integration
+    - Read-only when write needed
+    - Team folder restrictions
+
+    **Fix**: Update folder permissions in Dropbox settings
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Google Drive"
+    icon="google-drive"
+    href="/guides/integrations/overview"
+  >
+    Alternative cloud storage integration
+  </Card>
+  <Card
+    title="File Operations"
+    icon="file"
+    href="/guides/advanced/file-operations"
+  >
+    Advanced file management techniques
+  </Card>
+</CardGroup>

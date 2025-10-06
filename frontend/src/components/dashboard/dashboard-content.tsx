@@ -24,6 +24,8 @@ import { useInitiateAgentWithInvalidation } from '@/hooks/react-query/dashboard/
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { cn } from '@/lib/utils';
 import { BillingModal } from '@/components/billing/billing-modal';
+import { ProjectLimitDialog } from '@/components/billing/project-limit-dialog';
+import { CreditsLimitDialog } from '@/components/billing/credits-limit-dialog';
 import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 import { Examples } from './examples';
 import { AgentExamples } from './examples/agent-examples';
@@ -87,6 +89,10 @@ export function DashboardContent() {
     runningCount: number;
     runningThreadIds: string[];
   } | null>(null);
+  const [showProjectLimitDialog, setShowProjectLimitDialog] = useState(false);
+  const [projectLimitData, setProjectLimitData] = useState<{currentCount: number; limit: number; tierName: string} | null>(null);
+  const [showCreditsLimitDialog, setShowCreditsLimitDialog] = useState(false);
+  const [creditsLimitData, setCreditsLimitData] = useState<{message: string; currentUsage?: number; limit?: number; creditBalance?: number} | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isMobile = useIsMobile();
@@ -222,7 +228,13 @@ export function DashboardContent() {
     } catch (error: any) {
       console.error('Error during submission process:', error);
       if (error instanceof BillingError) {
-        setShowPaymentModal(true);
+        setCreditsLimitData({
+          message: error.detail.message || "You've exhausted your available credits.",
+          currentUsage: error.detail.currentUsage,
+          limit: error.detail.limit,
+          creditBalance: error.detail.creditBalance,
+        });
+        setShowCreditsLimitDialog(true);
       } else if (error instanceof AgentRunLimitError) {
         const { running_thread_ids, running_count } = error.detail;
         setAgentLimitData({
@@ -231,7 +243,12 @@ export function DashboardContent() {
         });
         setShowAgentLimitDialog(true);
       } else if (error instanceof ProjectLimitError) {
-        setShowPaymentModal(true);
+        setProjectLimitData({
+          currentCount: error.detail.current_count,
+          limit: error.detail.limit,
+          tierName: error.detail.tier_name,
+        });
+        setShowProjectLimitDialog(true);
       } else {
         const errorMessage = error instanceof Error ? error.message : 'Operation failed';
         toast.error(errorMessage);
@@ -346,6 +363,29 @@ export function DashboardContent() {
         onOpenChange={setShowPaymentModal}
         showUsageLimitAlert={true}
       />
+
+      {projectLimitData && (
+        <ProjectLimitDialog
+          open={showProjectLimitDialog}
+          onOpenChange={setShowProjectLimitDialog}
+          currentCount={projectLimitData.currentCount}
+          limit={projectLimitData.limit}
+          tierName={projectLimitData.tierName}
+          onUpgrade={() => setShowPaymentModal(true)}
+        />
+      )}
+
+      {creditsLimitData && (
+        <CreditsLimitDialog
+          open={showCreditsLimitDialog}
+          onOpenChange={setShowCreditsLimitDialog}
+          message={creditsLimitData.message}
+          currentUsage={creditsLimitData.currentUsage}
+          limit={creditsLimitData.limit}
+          creditBalance={creditsLimitData.creditBalance}
+          onUpgrade={() => setShowPaymentModal(true)}
+        />
+      )}
       
       <div className="flex flex-col h-screen w-full overflow-hidden">
         <div className="flex-1 overflow-y-auto">

@@ -1,0 +1,467 @@
+---
+title: Knowledge Base Overview
+description: Understand how to leverage your organization's knowledge with AI agents
+icon: "book"
+---
+
+## What is the Knowledge Base?
+
+Your Knowledge Base is a centralized repository of documents, data, and information that agents can access to provide context-aware, informed responses.
+
+{/* 
+  📸 MEDIA PLACEHOLDER: Knowledge Base Dashboard
+  - Grid/list view of folders and files
+  - Upload area prominent at top
+  - Storage usage meter visible
+  - Search bar with semantic search label
+  - Recent files section
+  - Size: 2000x1200px
+*/}
+
+<CardGroup cols={2}>
+  <Card title="Semantic Search" icon="magnifying-glass">
+    AI-powered search finds relevant information by meaning, not just keywords
+  </Card>
+  <Card title="Automatic Context" icon="sparkles">
+    Agents pull relevant knowledge automatically during conversations
+  </Card>
+  <Card title="Version Control" icon="code-branch">
+    Track changes and maintain document history
+  </Card>
+  <Card title="Access Control" icon="lock">
+    Control which agents and team members access specific content
+  </Card>
+</CardGroup>
+
+---
+
+## How Agents Use Knowledge
+
+<Steps>
+  <Step title="You Upload Documents">
+    Add company documents, research, product info, or any relevant content to your Knowledge Base.
+
+    <Tip>
+      The more relevant information you provide, the more accurate and helpful your agents become.
+    </Tip>
+  </Step>
+
+  <Step title="AI Processes Content">
+    Omni automatically:
+    - Extracts text from documents
+    - Creates semantic embeddings
+    - Indexes for fast retrieval
+    - Maintains relationships between concepts
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Processing Pipeline
+      - Diagram showing file → extraction → indexing → search
+      - Visual representation of semantic embeddings
+      - Icons for different file types
+      - Size: 1600x800px
+    */}
+  </Step>
+
+  <Step title="Agent Searches Automatically">
+    During conversations, agents:
+    - Detect when knowledge would be helpful
+    - Search semantically (not just keywords)
+    - Find most relevant passages
+    - Include sources in responses
+
+    No manual search required.
+  </Step>
+
+  <Step title="Context-Aware Responses">
+    Agents provide answers that:
+    - Reference your specific documents
+    - Use your company's terminology
+    - Cite sources with confidence scores
+    - Maintain context across conversation
+
+    {/* 
+      🎥 VIDEO PLACEHOLDER: Knowledge in Action (30 seconds)
+      - User asks agent a question
+      - Agent searches knowledge base (visual indicator)
+      - Relevant documents highlighted
+      - Agent responds with citations
+      - User clicks citation to see source
+    */}
+  </Step>
+</Steps>
+
+---
+
+## Knowledge Base Structure
+
+<Tabs>
+  <Tab title="Global Knowledge" icon="globe">
+    **Company-Wide Access**:
+    - Shared across all agents
+    - Available to entire organization
+    - Centrally managed
+    - Perfect for: Policies, procedures, brand guidelines, product documentation
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Global Knowledge View
+      - Folder structure showing company-wide folders
+      - Lock icons indicating access levels
+      - File count and storage per folder
+      - Admin controls visible
+      - Size: 1600x900px
+    */}
+  </Tab>
+
+  <Tab title="Agent-Specific" icon="robot">
+    **Dedicated Knowledge**:
+    - Private to specific agents
+    - Specialized domain expertise
+    - Focused, relevant content
+    - Perfect for: Technical docs, industry research, specialized datasets
+
+    Only accessible to assigned agents.
+  </Tab>
+
+  <Tab title="Project-Based" icon="folder">
+    **Contextual Knowledge**:
+    - Scoped to specific projects
+    - Temporary or permanent
+    - Inherits from global when needed
+    - Perfect for: Client files, campaign materials, project documents
+
+    Available to all agents working in that project.
+  </Tab>
+
+  <Tab title="Personal" icon="user">
+    **Individual Storage**:
+    - Your private workspace
+    - Test files and drafts
+    - Personal references
+    - Perfect for: Work-in-progress, templates, personal notes
+
+    Only you can access.
+  </Tab>
+</Tabs>
+
+---
+
+## Supported File Types
+
+<AccordionGroup>
+  <Accordion title="Documents" icon="file-lines">
+    **Fully Supported**:
+    - PDF (`.pdf`)
+    - Microsoft Word (`.docx`, `.doc`)
+    - Text files (`.txt`, `.md`, `.rtf`)
+    - HTML (`.html`)
+    - XML (`.xml`)
+
+    Text extracted and indexed automatically.
+  </Accordion>
+
+  <Accordion title="Spreadsheets" icon="table">
+    **Data Files**:
+    - Excel (`.xlsx`, `.xls`)
+    - CSV (`.csv`)
+    - TSV (`.tsv`)
+    - Google Sheets (via integration)
+
+    Structured data parsed for analysis.
+  </Accordion>
+
+  <Accordion title="Presentations" icon="presentation">
+    **Slide Decks**:
+    - PowerPoint (`.pptx`, `.ppt`)
+    - Google Slides (via integration)
+    - PDF presentations
+
+    Text and speaker notes extracted.
+  </Accordion>
+
+  <Accordion title="Code & Technical" icon="code">
+    **Source Files**:
+    - All programming languages
+    - Configuration files
+    - API specifications (OpenAPI, GraphQL)
+    - Database schemas
+
+    Syntax-aware indexing for technical content.
+  </Accordion>
+
+  <Accordion title="Media & Other" icon="image">
+    **Additional Formats**:
+    - Images (`.jpg`, `.png`, `.gif`) - OCR for text
+    - JSON (`.json`)
+    - YAML (`.yaml`, `.yml`)
+    - Log files
+
+    Metadata and visible text extracted.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Search Capabilities
+
+### Semantic Search
+
+Unlike traditional keyword search, semantic search understands **meaning**:
+
+<CardGroup cols={2}>
+  <Card title="Question: 'What's our refund policy?'" icon="question">
+    Finds documents about:
+    - Returns and refunds
+    - Money-back guarantees
+    - Customer satisfaction policies
+    
+    Even if they don't use the word "refund"
+  </Card>
+  <Card title="Query: 'employee benefits'" icon="search">
+    Discovers content about:
+    - Health insurance
+    - 401k retirement plans
+    - Paid time off
+    - Professional development
+    
+    Related concepts automatically included
+  </Card>
+</CardGroup>
+
+### Advanced Search Features
+
+<Tabs>
+  <Tab title="Natural Language">
+    Ask questions naturally:
+    ```
+    "What did the Q3 report say about revenue growth?"
+    "Find information about our API rate limits"
+    "Show me guidelines for social media posting"
+    ```
+
+    No need for exact keywords or Boolean operators.
+  </Tab>
+
+  <Tab title="Filters">
+    Narrow results by:
+    - **File Type**: Documents, spreadsheets, presentations
+    - **Date Range**: Last week, month, year, custom
+    - **Folder**: Specific directories only
+    - **Agent**: Which agent can access
+    - **Tags**: Custom categorization
+
+    {/* 
+      📸 MEDIA PLACEHOLDER: Search Filters
+      - Search interface with filter panel
+      - Active filters shown as chips
+      - Date range picker
+      - File type selector
+      - Size: 1400x800px
+    */}
+  </Tab>
+
+  <Tab title="Source Attribution">
+    Every search result includes:
+    - **Relevance Score**: How well it matches
+    - **Source Document**: Which file it's from
+    - **Page/Section**: Exact location
+    - **Preview**: Context around the match
+    - **Direct Link**: Jump to source
+
+    Full transparency in agent responses.
+  </Tab>
+</Tabs>
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep Content Current" icon="clock-rotate-left">
+    **Regular Updates**:
+    - ✓ Remove outdated documents quarterly
+    - ✓ Update product documentation with releases
+    - ✓ Archive old policies and procedures
+    - ✓ Mark versions clearly (v1.0, v2.0)
+
+    Agents perform better with current information.
+  </Accordion>
+
+  <Accordion title="Organize Logically" icon="sitemap">
+    **Clear Structure**:
+    ```
+    /Company Policies
+      /HR
+        - Employee Handbook.pdf
+        - Benefits Guide.pdf
+      /IT
+        - Security Policy.pdf
+        - Equipment Guidelines.pdf
+    /Product Documentation
+      /User Guides
+      /API Reference
+      /Release Notes
+    ```
+
+    Intuitive organization helps you and your team find content.
+  </Accordion>
+
+  <Accordion title="Use Descriptive Names" icon="tag">
+    **Good Filenames**:
+    ```
+    ✅ "2024-Product-Roadmap-Q1-Q4.pdf"
+    ✅ "Customer-Onboarding-Checklist-v2.docx"
+    ✅ "API-Authentication-Guide.md"
+    ```
+
+    **Poor Filenames**:
+    ```
+    ❌ "document1.pdf"
+    ❌ "final_FINAL_v3.docx"
+    ❌ "Untitled.pdf"
+    ```
+
+    Clear names improve searchability.
+  </Accordion>
+
+  <Accordion title="Add Context with Tags" icon="tags">
+    **Tag Examples**:
+    - Department: `#marketing`, `#engineering`, `#sales`
+    - Content Type: `#policy`, `#guide`, `#template`
+    - Status: `#draft`, `#approved`, `#archived`
+    - Priority: `#essential`, `#reference`, `#supplementary`
+
+    Tags enhance discovery and organization.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Storage & Limits
+
+<Tabs>
+  <Tab title="Storage Plans">
+    | Plan | Storage | File Size Limit |
+    |------|---------|-----------------|
+    | **Starter** | 100 MB | 10 MB per file |
+    | **Professional** | 1 GB | 50 MB per file |
+    | **Enterprise** | Custom | 100 MB per file |
+
+    View your current usage in Knowledge Base settings.
+  </Tab>
+
+  <Tab title="Optimization Tips">
+    **Reduce Storage Usage**:
+    - Compress large PDFs before uploading
+    - Convert images to lower resolution if text-only needed
+    - Remove duplicate files
+    - Archive old projects
+    - Use links to external resources when possible
+
+    **Pro Tip**: Focus on text-based documents for best agent performance.
+  </Tab>
+</Tabs>
+
+---
+
+## Security & Privacy
+
+<CardGroup cols={2}>
+  <Card title="Encryption" icon="lock">
+    All files encrypted at rest and in transit using industry-standard AES-256
+  </Card>
+  <Card title="Access Controls" icon="shield">
+    Row-level security ensures users only see authorized content
+  </Card>
+  <Card title="Audit Logs" icon="list-check">
+    Track who accessed, modified, or deleted files with complete history
+  </Card>
+  <Card title="Compliance" icon="certificate">
+    SOC 2 Type II certified, GDPR and CCPA compliant
+  </Card>
+</CardGroup>
+
+<Warning>
+  **Sensitive Information**: Avoid uploading files containing passwords, API keys, or personally identifiable information (PII) unless absolutely necessary.
+</Warning>
+
+---
+
+## Getting Started
+
+<Steps>
+  <Step title="Upload Your First Documents">
+    Start with your most frequently referenced materials:
+    - Product documentation
+    - Company policies
+    - Brand guidelines
+    - FAQs and help docs
+
+    [Learn how to upload files →](/guides/knowledge/uploading-files)
+  </Step>
+
+  <Step title="Organize into Folders">
+    Create a logical structure:
+    - By department
+    - By document type
+    - By project
+    - By access level
+
+    [Folder organization guide →](/guides/knowledge/organizing-folders)
+  </Step>
+
+  <Step title="Test with Agents">
+    Ask agents questions that require knowledge base information:
+    ```
+    "What does our employee handbook say about remote work?"
+    "Summarize our product's key features"
+    "What are our brand color specifications?"
+    ```
+
+    Verify agents are finding and citing sources correctly.
+  </Step>
+
+  <Step title="Refine and Expand">
+    Based on usage:
+    - Add missing documents
+    - Improve organization
+    - Update outdated content
+    - Remove unused files
+
+    [Search capabilities guide →](/guides/knowledge/search)
+  </Step>
+</Steps>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Upload Files"
+    icon="upload"
+    href="/guides/knowledge/uploading-files"
+  >
+    Learn how to add documents to your Knowledge Base
+  </Card>
+  <Card
+    title="Organize Content"
+    icon="folder-tree"
+    href="/guides/knowledge/organizing-folders"
+  >
+    Create an effective folder structure
+  </Card>
+  <Card
+    title="Search Guide"
+    icon="magnifying-glass"
+    href="/guides/knowledge/search"
+  >
+    Master semantic search and find information quickly
+  </Card>
+  <Card
+    title="Configure Agents"
+    icon="sliders"
+    href="/guides/agents/configuring-agents"
+  >
+    Set up agent access to Knowledge Base content
+  </Card>
+</CardGroup>
