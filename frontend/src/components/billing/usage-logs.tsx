@@ -229,7 +229,7 @@ export default function UsageLogs({ accountId, isAdminView = false }: Props) {
                                     ${(project.thread_cost || 0).toFixed(2)} cost
                                   </div>
                                 </div>
-                                {project.thread_id && (!isAdminView || isViewingOwnLogs) && (
+                                {project.thread_id && !isAdminView && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
