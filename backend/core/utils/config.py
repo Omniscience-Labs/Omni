@@ -402,6 +402,28 @@ class Configuration:
     }
 
     @property
+    def MAX_THREADS_FETCH(self) -> int:
+        """
+        Get the maximum number of threads to fetch per query.
+        
+        Returns 500 for all environments since threads are not tier-limited
+        (unlike projects which have tier-based limits).
+        
+        Note: This can be overridden via MAX_THREADS_FETCH environment variable.
+        """
+        # Check for environment variable override first
+        env_override = os.getenv("MAX_THREADS_FETCH")
+        if env_override:
+            try:
+                return int(env_override)
+            except ValueError:
+                logger.warning(f"Invalid MAX_THREADS_FETCH value: {env_override}, using default")
+        
+        # Default to 500 for all environments
+        # Threads are not tier-limited, so we use a consistent high limit
+        return 500
+    
+    @property
     def MAX_PARALLEL_AGENT_RUNS(self) -> int:
         """
         Get the maximum parallel agent runs limit.
