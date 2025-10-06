@@ -215,6 +215,29 @@ async def health_check():
         "instance_id": instance_id
     }
 
+@api_router.get("/debug/routes")
+async def debug_routes():
+    """Debug endpoint to show all registered routes and configuration."""
+    routes_info = []
+    for route in app.routes:
+        if hasattr(route, 'path') and hasattr(route, 'methods'):
+            routes_info.append({
+                "path": route.path,
+                "methods": list(route.methods) if route.methods else [],
+                "name": route.name if hasattr(route, 'name') else None
+            })
+    
+    return {
+        "status": "ok",
+        "enterprise_mode": config.ENTERPRISE_MODE,
+        "env_mode": config.ENV_MODE.value,
+        "total_routes": len(routes_info),
+        "billing_routes": [r for r in routes_info if '/billing' in r['path']],
+        "admin_routes": [r for r in routes_info if '/admin' in r['path']],
+        "enterprise_routes": [r for r in routes_info if '/enterprise' in r['path']],
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
 @api_router.get("/health-docker")
 async def health_check():
     logger.debug("Health docker check endpoint called")
@@ -237,7 +260,15 @@ async def health_check():
 
 
 app.include_router(api_router, prefix="/api")
-app.include_router(billing_router)
+
+# IMPORTANT: Don't include billing_router here if ENTERPRISE_MODE is enabled
+# The enterprise billing API is already included in api_router above
+if not config.ENTERPRISE_MODE:
+    logger.info("Including Stripe billing router at root level")
+    app.include_router(billing_router)
+else:
+    logger.info("Skipping root-level billing router (ENTERPRISE_MODE enabled)")
+
 app.include_router(transcription_api.router)
 
 

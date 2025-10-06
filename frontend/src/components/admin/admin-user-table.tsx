@@ -77,8 +77,11 @@ export function AdminUserTable({ onUserSelect }: AdminUserTableProps) {
         return '50 Dollar';
       case 'tier_25_200':
         return '200 Dollar';
+      case 'free':
+      case 'none':
+        return 'Free';
       default:
-        return 'Unknown';
+        return tier || 'Free';
     }
   };
 
