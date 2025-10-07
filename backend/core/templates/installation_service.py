@@ -119,6 +119,9 @@ class InstallationService:
         await self._restore_workflows(agent_id, template.config) 
         await self._restore_triggers(agent_id, request.account_id, template.config, request.profile_mappings)
         
+        # Copy LlamaCloud knowledge bases if template has them
+        await self._copy_knowledge_bases(template, agent_id, request.account_id)
+        
         # Copy default files if template has sharing preference for files
         if template.sharing_preferences and template.sharing_preferences.get('default_files'):
             try:
@@ -698,6 +701,77 @@ class InstallationService:
             
         except Exception as e:
             logger.error(f"Failed to sync triggers to version config for agent {agent_id}: {e}")
+    
+    async def _copy_knowledge_bases(
+        self,
+        template: AgentTemplate,
+        agent_id: str,
+        account_id: str
+    ) -> None:
+        """Copy LlamaCloud knowledge bases from template to new agent if sharing_preferences allows"""
+        
+        # Check if knowledge bases should be included
+        if not template.sharing_preferences or not template.sharing_preferences.get('include_knowledge_bases', True):
+            logger.info(f"Knowledge bases excluded per sharing preferences for template {template.template_id}")
+            return
+        
+        # Get KB references from template metadata
+        kb_references = template.metadata.get('llamacloud_knowledge_bases', [])
+        
+        if not kb_references or len(kb_references) == 0:
+            logger.debug(f"No knowledge bases to copy from template {template.template_id}")
+            return
+        
+        logger.info(f"Copying {len(kb_references)} LlamaCloud knowledge bases to agent {agent_id}")
+        
+        client = await self._db.client
+        copied_count = 0
+        failed_count = 0
+        
+        for kb_ref in kb_references:
+            try:
+                # First, ensure the KB exists in the user's account (or create it)
+                kb_result = await client.table('llamacloud_knowledge_bases').select('kb_id')\
+                    .eq('account_id', account_id)\
+                    .eq('index_name', kb_ref['index_name'])\
+                    .maybe_single()\
+                    .execute()
+                
+                if kb_result.data:
+                    # KB already exists for this user
+                    kb_id = kb_result.data['kb_id']
+                    logger.debug(f"LlamaCloud KB {kb_ref['index_name']} already exists for user")
+                else:
+                    # Create the KB for this user
+                    create_result = await client.table('llamacloud_knowledge_bases').insert({
+                        'account_id': account_id,
+                        'name': kb_ref['name'],
+                        'index_name': kb_ref['index_name'],
+                        'description': kb_ref.get('description'),
+                        'is_active': True
+                    }).execute()
+                    
+                    kb_id = create_result.data[0]['kb_id']
+                    logger.debug(f"Created new LlamaCloud KB {kb_ref['index_name']} for user")
+                
+                # Create the assignment (link agent to KB)
+                await client.table('agent_llamacloud_kb_assignments').insert({
+                    'agent_id': agent_id,
+                    'kb_id': kb_id,
+                    'account_id': account_id,
+                    'enabled': True
+                }).execute()
+                
+                copied_count += 1
+                logger.info(f"Assigned LlamaCloud KB '{kb_ref['name']}' to agent {agent_id}")
+                
+            except Exception as e:
+                failed_count += 1
+                logger.error(f"Failed to copy knowledge base {kb_ref.get('name', 'unknown')}: {e}")
+                # Continue with other KBs even if one fails
+                continue
+        
+        logger.info(f"Successfully copied {copied_count}/{len(kb_references)} knowledge bases to agent {agent_id}")
 
     async def _create_composio_trigger(
         self,
