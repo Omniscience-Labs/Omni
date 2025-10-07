@@ -5,7 +5,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
-import { useCreateTemplate, useUnpublishTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
+import { useCreateTemplate, useDeleteTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { toast } from 'sonner';
 import { AgentCard } from './custom-agents-page/agent-card';
 import { OmniLogo } from '../sidebar/omni-logo';
@@ -242,7 +242,7 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
   const [configAgentId, setConfigAgentId] = useState<string | null>(null);
   const router = useRouter();
   
-  const unpublishAgentMutation = useUnpublishTemplate();
+  const deleteTemplateMutation = useDeleteTemplate();
 
   const handleAgentClick = (agent: Agent) => {
     setSelectedAgent(agent);
@@ -270,14 +270,15 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
   const handleUnpublish = async (agentId: string) => {
     const agent = agents.find(a => a.agent_id === agentId);
     if (!agent || !agent.template_id) {
-      toast.error('Unable to unpublish: template not found');
+      toast.error('Unable to make private: template not found');
       return;
     }
 
     try {
       setUnpublishingId(agentId);
-      await unpublishAgentMutation.mutateAsync(agent.template_id);
-      toast.success('Agent made private successfully');
+      // Delete the template from marketplace to make it private
+      await deleteTemplateMutation.mutateAsync(agent.template_id);
+      toast.success('Agent made private - template removed from marketplace');
       setSelectedAgent(null);
     } catch (error: any) {
       toast.error(error.message || 'Failed to make agent private');
