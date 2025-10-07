@@ -268,13 +268,19 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
   };
 
   const handleUnpublish = async (agentId: string) => {
+    const agent = agents.find(a => a.agent_id === agentId);
+    if (!agent || !agent.template_id) {
+      toast.error('Unable to unpublish: template not found');
+      return;
+    }
+
     try {
       setUnpublishingId(agentId);
-      await unpublishAgentMutation.mutateAsync(agentId);
-      toast.success('Agent made private');
+      await unpublishAgentMutation.mutateAsync(agent.template_id);
+      toast.success('Agent made private successfully');
       setSelectedAgent(null);
     } catch (error: any) {
-      toast.error('Failed to make agent private');
+      toast.error(error.message || 'Failed to make agent private');
     } finally {
       setUnpublishingId(null);
     }
