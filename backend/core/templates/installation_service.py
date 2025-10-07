@@ -730,40 +730,19 @@ class InstallationService:
         
         for kb_ref in kb_references:
             try:
-                # First, ensure the KB exists in the user's account (or create it)
-                kb_result = await client.table('llamacloud_knowledge_bases').select('kb_id')\
-                    .eq('account_id', account_id)\
-                    .eq('index_name', kb_ref['index_name'])\
-                    .maybe_single()\
-                    .execute()
-                
-                if kb_result.data:
-                    # KB already exists for this user
-                    kb_id = kb_result.data['kb_id']
-                    logger.debug(f"LlamaCloud KB {kb_ref['index_name']} already exists for user")
-                else:
-                    # Create the KB for this user
-                    create_result = await client.table('llamacloud_knowledge_bases').insert({
-                        'account_id': account_id,
-                        'name': kb_ref['name'],
-                        'index_name': kb_ref['index_name'],
-                        'description': kb_ref.get('description'),
-                        'is_active': True
-                    }).execute()
-                    
-                    kb_id = create_result.data[0]['kb_id']
-                    logger.debug(f"Created new LlamaCloud KB {kb_ref['index_name']} for user")
-                
-                # Create the assignment (link agent to KB)
-                await client.table('agent_llamacloud_kb_assignments').insert({
+                # Use the OLD system (agent_llamacloud_knowledge_bases table)
+                # This is what the frontend/backend API expects
+                await client.table('agent_llamacloud_knowledge_bases').insert({
                     'agent_id': agent_id,
-                    'kb_id': kb_id,
                     'account_id': account_id,
-                    'enabled': True
+                    'name': kb_ref['name'],
+                    'index_name': kb_ref['index_name'],
+                    'description': kb_ref.get('description'),
+                    'is_active': True
                 }).execute()
                 
                 copied_count += 1
-                logger.info(f"Assigned LlamaCloud KB '{kb_ref['name']}' to agent {agent_id}")
+                logger.info(f"Added LlamaCloud KB '{kb_ref['name']}' (index: {kb_ref['index_name']}) to agent {agent_id}")
                 
             except Exception as e:
                 failed_count += 1
