@@ -1524,7 +1524,9 @@ class ResponseProcessor:
                     parsed_args = safe_json_parse(arguments)
                     if isinstance(parsed_args, dict):
                         # logger.debug(f"✅ Parsed arguments as dict: {parsed_args}")
-                        result = await tool_fn(**parsed_args)
+                        # Validate and provide default values for required parameters
+                        validated_args = self._validate_and_fix_tool_arguments(function_name, parsed_args)
+                        result = await tool_fn(**validated_args)
                     else:
                         logger.debug(f"🔄 Arguments parsed as non-dict, passing as single argument")
                         result = await tool_fn(arguments)
@@ -1536,7 +1538,9 @@ class ResponseProcessor:
                     # logger.debug(f"🔄 Falling back to raw arguments")
                     if isinstance(arguments, dict):
                         # logger.debug(f"🔄 Fallback: unpacking dict arguments")
-                        result = await tool_fn(**arguments)
+                        # Validate and provide default values for required parameters
+                        validated_args = self._validate_and_fix_tool_arguments(function_name, arguments)
+                        result = await tool_fn(**validated_args)
                     else:
                         # logger.debug(f"🔄 Fallback: passing as single argument")
                         result = await tool_fn(arguments)
@@ -1544,7 +1548,10 @@ class ResponseProcessor:
                 # logger.debug(f"✅ Arguments are not string, unpacking dict: {type(arguments)}")
                 if isinstance(arguments, dict):
                     # logger.debug(f"🔄 Unpacking dict arguments for tool call")
-                    result = await tool_fn(**arguments)
+                    
+                    # Validate and provide default values for required parameters
+                    validated_args = self._validate_and_fix_tool_arguments(function_name, arguments)
+                    result = await tool_fn(**validated_args)
                 else:
                     # logger.debug(f"🔄 Passing non-dict arguments as single parameter")
                     result = await tool_fn(arguments)
@@ -1593,6 +1600,57 @@ class ResponseProcessor:
             logger.error(f"❌ Full traceback:", exc_info=True)
             span.end(status_message="critical_error", output=str(e), level="ERROR")
             return ToolResult(success=False, output=f"Critical error executing tool: {str(e)}")
+
+    def _validate_and_fix_tool_arguments(self, function_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate and fix tool arguments, providing defaults for required parameters."""
+        try:
+            # Get the tool function to inspect its signature
+            available_functions = self.tool_registry.get_available_functions()
+            tool_fn = available_functions.get(function_name)
+            
+            if not tool_fn:
+                logger.warning(f"Tool function '{function_name}' not found for validation")
+                return arguments
+            
+            # Import inspect to get function signature
+            import inspect
+            
+            # Get the function signature
+            sig = inspect.signature(tool_fn)
+            validated_args = arguments.copy()
+            
+            # Check for required parameters and provide defaults
+            for param_name, param in sig.parameters.items():
+                if param_name not in validated_args:
+                    if param.default == inspect.Parameter.empty:
+                        # This is a required parameter without a default
+                        if function_name == "ask" and param_name == "text":
+                            # Special case for ask tool - provide a default question
+                            validated_args[param_name] = "I need more information to proceed. Could you please provide additional details?"
+                            logger.debug(f"🔧 Added default 'text' parameter for ask tool")
+                        elif function_name == "web_browser_takeover" and param_name == "text":
+                            # Special case for web_browser_takeover tool
+                            validated_args[param_name] = "I need your help with browser interaction. Please take over the browser to complete this task."
+                            logger.debug(f"🔧 Added default 'text' parameter for web_browser_takeover tool")
+                        else:
+                            # For other required parameters, provide a generic default
+                            if param.annotation == str:
+                                validated_args[param_name] = f"Please provide {param_name}"
+                            elif param.annotation == int:
+                                validated_args[param_name] = 0
+                            elif param.annotation == bool:
+                                validated_args[param_name] = False
+                            else:
+                                validated_args[param_name] = None
+                            logger.debug(f"🔧 Added default value for required parameter '{param_name}' in {function_name}")
+            
+            logger.debug(f"✅ Validated arguments for {function_name}: {validated_args}")
+            return validated_args
+            
+        except Exception as e:
+            logger.error(f"❌ Error validating tool arguments for {function_name}: {str(e)}")
+            # Return original arguments if validation fails
+            return arguments
 
     async def _execute_tools(
         self, 
