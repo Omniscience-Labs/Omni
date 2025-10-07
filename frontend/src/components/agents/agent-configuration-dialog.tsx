@@ -35,6 +35,7 @@ import {
   Edit3,
   Save,
   Brain,
+  FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -51,6 +52,7 @@ import { AgentMCPConfiguration } from './agent-mcp-configuration';
 import { AgentKnowledgeBaseManager } from './knowledge-base/agent-knowledge-base-manager';
 import { AgentPlaybooksConfiguration } from './playbooks/agent-playbooks-configuration';
 import { AgentTriggersConfiguration } from './triggers/agent-triggers-configuration';
+import { AgentDefaultFiles } from './default-files/agent-default-files';
 import { ProfilePictureDialog } from './config/profile-picture-dialog';
 import { AgentIconAvatar } from './config/agent-icon-avatar';
 import { AgentVersionSwitcher } from './agent-version-switcher';
@@ -60,7 +62,7 @@ interface AgentConfigurationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   agentId: string;
-  initialTab?: 'general' | 'instructions' | 'tools' | 'integrations' | 'knowledge' | 'playbooks' | 'triggers';
+  initialTab?: 'general' | 'instructions' | 'tools' | 'integrations' | 'knowledge' | 'playbooks' | 'default-files' | 'triggers';
 }
 
 export function AgentConfigurationDialog({
@@ -306,6 +308,7 @@ export function AgentConfigurationDialog({
     { id: 'integrations', label: 'Integrations', icon: Server, disabled: false },
     { id: 'knowledge', label: 'Knowledge', icon: BookOpen, disabled: false },
     { id: 'playbooks', label: 'Playbooks', icon: Workflow, disabled: false },
+    { id: 'default-files', label: 'Default Files', icon: FileText, disabled: false },
     { id: 'triggers', label: 'Triggers', icon: Zap, disabled: false },
   ];
 
@@ -530,6 +533,10 @@ export function AgentConfigurationDialog({
 
                 <TabsContent value="playbooks" className="p-6 mt-0 h-[calc(100vh-16rem)]">
                   <AgentPlaybooksConfiguration agentId={agentId} agentName={formData.name || 'Agent'} />
+                </TabsContent>
+
+                <TabsContent value="default-files" className="p-6 mt-0 h-[calc(100vh-16rem)]">
+                  <AgentDefaultFiles agentId={agentId} isOwner={true} />
                 </TabsContent>
 
                 <TabsContent value="triggers" className="p-6 mt-0 h-[calc(100vh-16rem)]">
