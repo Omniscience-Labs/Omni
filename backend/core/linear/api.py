@@ -9,7 +9,7 @@ from uuid import UUID
 
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt
 from core.services.supabase import DBConnection
-from utils.logger import logger
+from core.utils.logger import logger
 from .service import linear_service
 
 
