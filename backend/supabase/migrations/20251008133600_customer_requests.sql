@@ -4,7 +4,7 @@ BEGIN;
 -- Create customer requests table
 CREATE TABLE IF NOT EXISTS customer_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    account_id UUID NOT NULL REFERENCES basejump.accounts(id) ON DELETE CASCADE,
     title VARCHAR(500) NOT NULL,
     description TEXT NOT NULL,
     request_type VARCHAR(50) NOT NULL CHECK (request_type IN ('feature', 'bug', 'improvement', 'other')),
@@ -33,7 +33,7 @@ ALTER TABLE customer_requests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view their own customer requests" ON customer_requests
     FOR SELECT USING (
         auth.uid() IN (
-            SELECT user_id FROM account_user WHERE account_id = customer_requests.account_id
+            SELECT user_id FROM basejump.account_user WHERE account_id = customer_requests.account_id
         )
     );
 
@@ -41,7 +41,7 @@ CREATE POLICY "Users can view their own customer requests" ON customer_requests
 CREATE POLICY "Users can create customer requests" ON customer_requests
     FOR INSERT WITH CHECK (
         auth.uid() IN (
-            SELECT user_id FROM account_user WHERE account_id = customer_requests.account_id
+            SELECT user_id FROM basejump.account_user WHERE account_id = customer_requests.account_id
         )
     );
 
@@ -49,7 +49,7 @@ CREATE POLICY "Users can create customer requests" ON customer_requests
 CREATE POLICY "Users can update their own customer requests" ON customer_requests
     FOR UPDATE USING (
         auth.uid() IN (
-            SELECT user_id FROM account_user WHERE account_id = customer_requests.account_id
+            SELECT user_id FROM basejump.account_user WHERE account_id = customer_requests.account_id
         )
     );
 
