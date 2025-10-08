@@ -8,12 +8,19 @@ from datetime import datetime
 from uuid import UUID
 
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt
-from core.services.supabase import db
+from core.services.supabase import DBConnection
 from utils.logger import logger
 from .service import linear_service
 
 
 router = APIRouter(prefix="/customer-requests", tags=["customer-requests"])
+
+db: DBConnection = None
+
+
+def initialize(database: DBConnection):
+    global db
+    db = database
 
 
 class CustomerRequestCreate(BaseModel):

@@ -77,6 +77,7 @@ async def lifespan(app: FastAPI):
         credentials_api.initialize(db)
         template_api.initialize(db)
         composio_api.initialize(db)
+        linear_api.initialize(db)
         
         yield
         
