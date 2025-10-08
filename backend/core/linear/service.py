@@ -5,7 +5,7 @@ import os
 import httpx
 from typing import Dict, Any, Optional
 from datetime import datetime
-from utils.logger import logger
+from core.utils.logger import logger
 
 
 class LinearService:
