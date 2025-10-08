@@ -7,7 +7,7 @@ from typing import List, Optional
 from datetime import datetime
 from uuid import UUID
 
-from core.auth import verify_and_get_user_id_from_jwt
+from core.utils.auth_utils import verify_and_get_user_id_from_jwt
 from core.services.supabase import db
 from utils.logger import logger
 from .service import linear_service
