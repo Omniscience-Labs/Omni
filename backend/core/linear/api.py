@@ -56,12 +56,12 @@ async def create_customer_request(
     try:
         # Get user's primary account
         client = await db.client
-        account_result = await client.rpc("get_personal_account").execute()
+        account_result = await client.schema("basejump").table("accounts").select("id").eq("primary_owner_user_id", user_id).eq("personal_account", True).limit(1).execute()
         
         if not account_result.data:
             raise HTTPException(status_code=404, detail="User account not found")
         
-        account_id = account_result.data["account_id"]
+        account_id = account_result.data[0]["id"]
 
         # Create Linear issue first
         linear_issue = None
@@ -76,7 +76,7 @@ async def create_customer_request(
 ---
 **Request Type:** {request.request_type}
 **Priority:** {request.priority}
-**Submitted by:** {account_result.data.get("email", "Unknown")}
+**User ID:** {user_id}
 **Account ID:** {account_id}
 """
 
@@ -144,12 +144,12 @@ async def get_customer_requests(
     try:
         # Get user's primary account
         client = await db.client
-        account_result = await client.rpc("get_personal_account").execute()
+        account_result = await client.schema("basejump").table("accounts").select("id").eq("primary_owner_user_id", user_id).eq("personal_account", True).limit(1).execute()
         
         if not account_result.data:
             raise HTTPException(status_code=404, detail="User account not found")
         
-        account_id = account_result.data["account_id"]
+        account_id = account_result.data[0]["id"]
 
         # Fetch customer requests
         requests_result = await client.table("customer_requests")\
@@ -178,12 +178,12 @@ async def get_customer_request(
     try:
         # Get user's primary account
         client = await db.client
-        account_result = await client.rpc("get_personal_account").execute()
+        account_result = await client.schema("basejump").table("accounts").select("id").eq("primary_owner_user_id", user_id).eq("personal_account", True).limit(1).execute()
         
         if not account_result.data:
             raise HTTPException(status_code=404, detail="User account not found")
         
-        account_id = account_result.data["account_id"]
+        account_id = account_result.data[0]["id"]
 
         # Fetch the specific request
         request_result = await client.table("customer_requests")\
