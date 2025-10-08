@@ -32,7 +32,7 @@ export function useCustomerRequests() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const response = await fetch(`${BACKEND_URL}/api/customer-requests`, {
+      const response = await fetch(`${BACKEND_URL}/customer-requests`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
@@ -56,7 +56,7 @@ export function useCreateCustomerRequest() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const response = await fetch(`${BACKEND_URL}/api/customer-requests`, {
+      const response = await fetch(`${BACKEND_URL}/customer-requests`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
