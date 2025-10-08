@@ -13,7 +13,7 @@ from utils.logger import logger
 from .service import linear_service
 
 
-router = APIRouter(prefix="/api/customer-requests", tags=["customer-requests"])
+router = APIRouter(prefix="/customer-requests", tags=["customer-requests"])
 
 
 class CustomerRequestCreate(BaseModel):
