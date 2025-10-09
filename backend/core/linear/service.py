@@ -14,7 +14,7 @@ class LinearService:
     def __init__(self):
         self.api_key = os.getenv("LINEAR_API_KEY")
         self.api_url = "https://api.linear.app/graphql"
-        self.team_key = os.getenv("LINEAR_TEAM_KEY", "OMNI")  # Default team key
+        self.team_key = os.getenv("LINEAR_TEAM_KEY", "OMN")  # Default team key
         
         if not self.api_key:
             logger.warning("LINEAR_API_KEY not configured. Linear integration will not work.")
@@ -24,7 +24,7 @@ class LinearService:
         Get the team ID from Linear by team key.
         
         Args:
-            team_key: The team key (e.g., 'OMNI')
+            team_key: The team key (e.g., 'OMN')
             
         Returns:
             Team ID if found, None otherwise
@@ -35,12 +35,16 @@ class LinearService:
 
         team_key = team_key or self.team_key
 
+        # Linear API doesn't support querying by key directly
+        # We need to fetch all teams and find the matching one
         query = """
-        query GetTeam($key: String!) {
-            team(key: $key) {
-                id
-                key
-                name
+        query GetTeams {
+            teams {
+                nodes {
+                    id
+                    key
+                    name
+                }
             }
         }
         """
@@ -53,10 +57,7 @@ class LinearService:
                         "Authorization": self.api_key,
                         "Content-Type": "application/json",
                     },
-                    json={
-                        "query": query,
-                        "variables": {"key": team_key}
-                    }
+                    json={"query": query}
                 )
                 
                 response.raise_for_status()
@@ -66,12 +67,15 @@ class LinearService:
                     logger.error(f"Linear API error: {data['errors']}")
                     return None
 
-                team = data.get("data", {}).get("team")
-                if team:
-                    logger.debug(f"Found team: {team['name']} ({team['key']})")
-                    return team["id"]
+                teams = data.get("data", {}).get("teams", {}).get("nodes", [])
                 
-                logger.warning(f"Team with key '{team_key}' not found")
+                # Find team with matching key
+                for team in teams:
+                    if team.get("key") == team_key:
+                        logger.debug(f"Found team: {team['name']} ({team['key']})")
+                        return team["id"]
+                
+                logger.warning(f"Team with key '{team_key}' not found. Available teams: {[t.get('key') for t in teams]}")
                 return None
 
         except Exception as e:
