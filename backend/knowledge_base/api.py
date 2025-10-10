@@ -1,6 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt, require_agent_access, AuthorizedAgentAccess
 from core.services.supabase import DBConnection
 from core.knowledge_base.file_processor import FileProcessor
