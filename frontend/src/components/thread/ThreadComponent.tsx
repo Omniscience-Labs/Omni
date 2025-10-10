@@ -154,6 +154,7 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
     setBillingData,
     checkBillingLimits,
     billingStatusQuery,
+    isEnterprise,
   } = useBilling(null, agentStatus, initialLoadCompleted);
 
   // Real-time project updates (for sandbox creation)
@@ -856,6 +857,7 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
         isMobile={isMobile}
         initialLoadCompleted={initialLoadCompleted}
         agentName={agent && agent.name}
+        isEnterprise={isEnterprise}
       >
         <ThreadError error={error} />
       </ThreadLayout>
@@ -902,6 +904,7 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
           agentName={agent && agent.name}
           disableInitialAnimation={!initialLoadCompleted && toolCalls.length > 0}
           compact={true}
+          isEnterprise={isEnterprise}
         >
           {/* Thread Content - Scrollable */}
           <div 
@@ -1052,6 +1055,7 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
         initialLoadCompleted={initialLoadCompleted}
         agentName={agent && agent.name}
         disableInitialAnimation={!initialLoadCompleted && toolCalls.length > 0}
+        isEnterprise={isEnterprise}
       >
         <ThreadContent
           messages={messages}
