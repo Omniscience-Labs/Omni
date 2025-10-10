@@ -541,7 +541,7 @@ async def stream_agent_run(
                             logger.warning(f"Listener stopped for {agent_run_id}.")
                             await message_queue.put({"type": "error", "data": "Listener stopped unexpectedly"})
                             return
-                        except (ConnectionError, redis.ConnectionError) as e:
+                        except (ConnectionError, redis.ConnectionError, redis.TimeoutError) as e:
                             logger.warning(f"Redis connection error in listener for {agent_run_id}: {e}")
                             await message_queue.put({"type": "error", "data": "Redis connection lost"})
                             return

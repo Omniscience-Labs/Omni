@@ -1,4 +1,5 @@
 import redis.asyncio as redis
+import redis
 import os
 from dotenv import load_dotenv
 import asyncio
