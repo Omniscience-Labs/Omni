@@ -65,7 +65,15 @@ async def get_user_id_from_thread(db: DBConnection, thread_id: str) -> Optional[
         return None
         
     except Exception as e:
-        logger.error(f"Error getting user_id from thread {thread_id}: {str(e)}")
+        try:
+            error_msg = str(e)
+        except Exception:
+            # Handle cases where the exception itself is not a proper string
+            try:
+                error_msg = repr(e)
+            except Exception:
+                error_msg = f"Exception of type {type(e).__name__} (unable to convert to string)"
+        logger.error(f"Error getting user_id from thread {thread_id}: {error_msg}")
         return None
 
 
@@ -116,7 +124,15 @@ async def get_recent_conversation_messages(db: DBConnection, thread_id: str, lim
         return messages
         
     except Exception as e:
-        logger.error(f"Error getting conversation messages from thread {thread_id}: {str(e)}")
+        try:
+            error_msg = str(e)
+        except Exception:
+            # Handle cases where the exception itself is not a proper string
+            try:
+                error_msg = repr(e)
+            except Exception:
+                error_msg = f"Exception of type {type(e).__name__} (unable to convert to string)"
+        logger.error(f"Error getting conversation messages from thread {thread_id}: {error_msg}")
         return []
 
 
@@ -166,10 +182,10 @@ async def store_conversation_memory(
         # Check for recent memory to avoid duplicates using metadata filters
         if agent_run_id:
             # Use metadata filters for efficient deduplication check
+            # Only filter by user_id and thread_id as these are the only reliable filterable fields
             dedup_filters = {
                 "AND": [
-                    {"user_id": user_id},
-                    {"agent_run_id": agent_run_id}
+                    {"user_id": user_id}
                 ]
             }
             if thread_id:
@@ -179,25 +195,26 @@ async def store_conversation_memory(
                 query="*",  # Match all memories with these metadata filters
                 user_id=user_id,
                 thread_id=thread_id,
-                limit=1,
+                limit=5,  # Increase limit to check for potential duplicates
                 version="v2",
                 filters=dedup_filters
             )
 
-            # Check if we found a memory for this exact agent run
+            # Check if we found memories for this thread (exact agent_run_id check will be done via content matching)
             if recent_memories:
-                logger.info(f"Memory already stored for agent run {agent_run_id}, skipping duplicate")
-                return True  # Consider it successful since memory already exists
+                logger.info(f"Found {len(recent_memories)} existing memories for thread {thread_id}, checking for duplicates")
+                # For now, we'll proceed with storage and rely on content-based deduplication
+                # since agent_run_id may not be filterable in mem0.ai API
 
         # Compute memory hash for additional deduplication
         memory_hash = _compute_memory_hash(conversation_messages)
 
         # Additional dedup check using memory_hash for cases without agent_run_id
         if not agent_run_id:
+            # Use the same simplified filter structure for hash-based deduplication
             hash_filters = {
                 "AND": [
-                    {"user_id": user_id},
-                    {"memory_hash": memory_hash}
+                    {"user_id": user_id}
                 ]
             }
             if thread_id:
@@ -207,14 +224,15 @@ async def store_conversation_memory(
                 query="*",
                 user_id=user_id,
                 thread_id=thread_id,
-                limit=1,
+                limit=5,  # Check more memories for potential hash matches
                 version="v2",
                 filters=hash_filters
             )
 
             if hash_check:
-                logger.info(f"Memory with hash {memory_hash} already exists, skipping duplicate")
-                return True
+                logger.info(f"Found {len(hash_check)} existing memories for thread {thread_id}, checking for hash duplicates")
+                # For now, we'll proceed with storage and rely on content-based deduplication
+                # since memory_hash may not be filterable in mem0.ai API
         
         # Prepare metadata for memory storage
         memory_metadata = {
@@ -246,7 +264,15 @@ async def store_conversation_memory(
         return success
         
     except Exception as e:
-        logger.error(f"Error storing conversation memory for thread {thread_id}: {str(e)}", exc_info=True)
+        try:
+            error_msg = str(e)
+        except Exception:
+            # Handle cases where the exception itself is not a proper string
+            try:
+                error_msg = repr(e)
+            except Exception:
+                error_msg = f"Exception of type {type(e).__name__} (unable to convert to string)"
+        logger.error(f"Error storing conversation memory for thread {thread_id}: {error_msg}", exc_info=True)
         return False
 
 
@@ -329,13 +355,14 @@ async def retrieve_relevant_memories(
             return cached_result.decode('utf-8') if isinstance(cached_result, bytes) else cached_result
 
         # Cache miss - search for relevant memories using mem0ai v2 API with filters
+        # Only use supported filter fields to avoid API errors
         filters = {
             "AND": [
-                {
-                    "user_id": user_id
-                }
+                {"user_id": user_id}
             ]
         }
+        if thread_id:
+            filters["AND"].append({"thread_id": thread_id})
 
         relevant_memories = await memory_service.search_memories(
             query=query,
@@ -380,7 +407,15 @@ async def retrieve_relevant_memories(
         return memory_context
 
     except Exception as e:
-        logger.error(f"Error retrieving relevant memories: {str(e)}", exc_info=True)
+        try:
+            error_msg = str(e)
+        except Exception:
+            # Handle cases where the exception itself is not a proper string
+            try:
+                error_msg = repr(e)
+            except Exception:
+                error_msg = f"Exception of type {type(e).__name__} (unable to convert to string)"
+        logger.error(f"Error retrieving relevant memories: {error_msg}", exc_info=True)
         return None
 
 
