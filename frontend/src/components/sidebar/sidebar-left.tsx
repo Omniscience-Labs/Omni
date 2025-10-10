@@ -7,7 +7,7 @@ import { Bot, Menu, Plus, Zap, ChevronRight, BookOpen } from 'lucide-react';
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
 import { OmniLogo } from '@/components/sidebar/omni-logo';
-import { CTACard } from '@/components/sidebar/cta';
+import { CTACard, HelpFeedbackCard } from '@/components/sidebar/cta';
 import {
   Sidebar,
   SidebarContent,
@@ -263,7 +263,8 @@ export function SidebarLeft({
         <NavAgents />
       </SidebarContent>
       {state !== 'collapsed' && (
-        <div className="px-3 py-2">
+        <div className="px-3 py-2 space-y-3">
+          <HelpFeedbackCard />
           <CTACard />
         </div>
       )}
