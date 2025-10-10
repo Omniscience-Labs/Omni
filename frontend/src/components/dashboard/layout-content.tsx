@@ -18,7 +18,6 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { MaintenanceAlert } from '../maintenance-alert';
-import { FloatingHelpFeedbackButton } from '../settings/floating-customer-request-button';
 
 interface DashboardLayoutContentProps {
   children: React.ReactNode;
@@ -133,8 +132,6 @@ export default function DashboardLayoutContent({
           {/* Floating mobile menu button */}
           <FloatingMobileMenuButton />
 
-          {/* Floating help & feedback button */}
-          <FloatingHelpFeedbackButton />
         </SidebarProvider>
       </SubscriptionProvider>
     </DeleteOperationProvider>
