@@ -168,9 +168,50 @@ class ThreadManager:
                 )
                 
                 if deduct_result.get('success'):
-                    logger.info(f"Successfully deducted ${deduct_result.get('cost', 0):.6f}")
+                    logger.info(f"✅ [BILLING] Successfully deducted ${deduct_result.get('cost', 0):.6f}")
                 else:
-                    logger.error(f"Failed to deduct credits: {deduct_result}")
+                    # CRITICAL: Billing deduction failed after LLM call
+                    # This means we were charged by the provider but couldn't charge the user
+                    error_msg = deduct_result.get('error', 'Unknown billing error')
+                    logger.error(
+                        f"❌ [BILLING CRITICAL] Failed to deduct credits after LLM call: {error_msg}",
+                        extra={
+                            "user_id": user_id,
+                            "thread_id": thread_id,
+                            "message_id": saved_message['message_id'],
+                            "cost": deduct_result.get('cost', 0),
+                            "prompt_tokens": prompt_tokens,
+                            "completion_tokens": completion_tokens,
+                            "model": model
+                        }
+                    )
+                    
+                    # Add a status message to the thread indicating billing failure
+                    try:
+                        client = await self.db.client
+                        await client.table('messages').insert({
+                            'thread_id': thread_id,
+                            'type': 'status',
+                            'content': {
+                                'status_type': 'billing_failure',
+                                'message': f'Billing limit exceeded. {error_msg}',
+                                'severity': 'critical'
+                            },
+                            'is_llm_message': False
+                        }).execute()
+                    except Exception as msg_error:
+                        logger.error(f"Failed to add billing failure message: {msg_error}")
+                    
+                    # Raise exception to stop further execution
+                    # This will prevent additional LLM calls from being made
+                    raise ValueError(f"Billing deduction failed: {error_msg}")
+                    
+        except ValueError as e:
+            # Re-raise billing errors to stop execution
+            if "Billing deduction failed" in str(e):
+                logger.error(f"❌ [BILLING] Propagating billing error to stop execution: {e}")
+                raise
+            logger.error(f"Error handling billing: {str(e)}", exc_info=True)
         except Exception as e:
             logger.error(f"Error handling billing: {str(e)}", exc_info=True)
 
@@ -363,6 +404,55 @@ class ThreadManager:
                     )
                 except Exception as e:
                     logger.warning(f"Failed to update Langfuse generation: {e}")
+
+            # CRITICAL: Pre-flight billing check before EVERY LLM call
+            # This catches violations mid-execution (e.g., during auto-continue or tool loops)
+            try:
+                from core.billing.billing_integration import billing_integration
+                
+                # Get account_id for this thread
+                client = await self.db.client
+                thread_row = await client.table('threads').select('account_id').eq('thread_id', thread_id).limit(1).execute()
+                if thread_row.data and len(thread_row.data) > 0:
+                    account_id = thread_row.data[0]['account_id']
+                    
+                    # Check if user can proceed (with $5 threshold)
+                    can_run, message, reservation_id = await billing_integration.check_and_reserve_credits(account_id)
+                    
+                    if not can_run:
+                        error_message = f"Usage limit reached: {message}"
+                        logger.error(f"❌ [BILLING GUARD] Pre-flight check failed for account {account_id}: {message}")
+                        
+                        # Add status message to thread
+                        try:
+                            await client.table('messages').insert({
+                                'thread_id': thread_id,
+                                'type': 'status',
+                                'content': {
+                                    'status_type': 'billing_limit_reached',
+                                    'message': error_message,
+                                    'severity': 'error'
+                                },
+                                'is_llm_message': False
+                            }).execute()
+                        except Exception as msg_error:
+                            logger.error(f"Failed to add limit reached message: {msg_error}")
+                        
+                        return {
+                            "type": "status", 
+                            "status": "error", 
+                            "message": error_message
+                        }
+                    else:
+                        logger.debug(f"✅ [BILLING GUARD] Pre-flight check passed for account {account_id}")
+            except Exception as billing_error:
+                logger.error(f"❌ [BILLING GUARD] Error during pre-flight check: {billing_error}", exc_info=True)
+                # FAIL SAFE: If billing check fails, don't proceed
+                return {
+                    "type": "status",
+                    "status": "error",
+                    "message": f"Billing system error: {str(billing_error)}"
+                }
 
             # Make LLM call
             try:
