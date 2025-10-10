@@ -42,9 +42,9 @@ export function CustomerSupportDialog({
               <MessageSquare className="h-5 w-5 text-white" />
             </div>
             <div>
-              <DialogTitle>Schedule a Support Call</DialogTitle>
+              <DialogTitle>Help & Support</DialogTitle>
               <DialogDescription>
-                Book a time to speak with our team
+                Schedule a help session with a human
               </DialogDescription>
             </div>
           </div>
@@ -82,11 +82,13 @@ export function CustomerSupportDialog({
           `}</style>
           <Cal
             namespace="support-booking"
-            calLink="team/omnisciencelabs/support"
+            calLink="arjun-subramaniam-u32lcu/30min"
             style={{ width: '100%', height: '100%', overflow: 'scroll' }}
             config={{
               layout: 'month_view',
               theme: 'light',
+              hideEventTypeDetails: 'false',
+              hideBranding: 'true',
             }}
           />
         </div>
