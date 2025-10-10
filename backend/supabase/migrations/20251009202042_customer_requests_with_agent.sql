@@ -91,13 +91,17 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
+-- Drop existing policies if they exist, then create new ones
+DROP POLICY IF EXISTS "Public read access for customer request images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload customer request images" ON storage.objects;
+
 -- Create RLS policy for public read access
-CREATE POLICY IF NOT EXISTS "Public read access for customer request images"
+CREATE POLICY "Public read access for customer request images"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'customer-request-images');
 
 -- Create RLS policy for authenticated users to upload
-CREATE POLICY IF NOT EXISTS "Authenticated users can upload customer request images"
+CREATE POLICY "Authenticated users can upload customer request images"
 ON storage.objects FOR INSERT
 WITH CHECK (
     bucket_id = 'customer-request-images' 
