@@ -1,5 +1,4 @@
 import redis.asyncio as redis
-import redis
 import os
 from dotenv import load_dotenv
 import asyncio
@@ -9,7 +8,6 @@ from core.utils.retry import retry
 
 # Redis client and connection pool
 client: redis.Redis | None = None
-pool: redis.ConnectionPool | None = None
 _initialized = False
 _init_lock = asyncio.Lock()
 
@@ -17,9 +15,9 @@ _init_lock = asyncio.Lock()
 REDIS_KEY_TTL = 3600 * 24  # 24 hour TTL as safety mechanism
 
 
-def initialize():
+async def initialize():
     """Initialize Redis connection pool and client using environment variables."""
-    global client, pool
+    global client
 
     # Load environment variables if not already loaded
     load_dotenv()
@@ -28,7 +26,7 @@ def initialize():
     redis_host = os.getenv("REDIS_HOST", "redis")
     redis_port = int(os.getenv("REDIS_PORT", 6379))
     redis_password = os.getenv("REDIS_PASSWORD", "")
-    
+
     # Connection pool configuration - optimized for production
     max_connections = 128            # Reasonable limit for production
     socket_timeout = 15.0            # 15 seconds socket timeout
@@ -37,8 +35,8 @@ def initialize():
 
     logger.info(f"Initializing Redis connection pool to {redis_host}:{redis_port} with max {max_connections} connections")
 
-    # Create connection pool with production-optimized settings
-    pool = redis.ConnectionPool(
+    # Create Redis client (async version)
+    client = redis.Redis(
         host=redis_host,
         port=redis_port,
         password=redis_password,
@@ -51,9 +49,6 @@ def initialize():
         max_connections=max_connections,
     )
 
-    # Create Redis client from connection pool
-    client = redis.Redis(connection_pool=pool)
-
     return client
 
 
@@ -64,7 +59,7 @@ async def initialize_async():
     async with _init_lock:
         if not _initialized:
             # logger.debug("Initializing Redis connection")
-            initialize()
+            client = await initialize()
 
         try:
             # Test connection with timeout
@@ -77,7 +72,7 @@ async def initialize_async():
             _initialized = False
             raise ConnectionError("Redis connection timeout")
         except Exception as e:
-            logger.error(f"Failed to connect to Redis: {e}")
+            logger.error("Failed to connect to Redis", error=str(e))
             client = None
             _initialized = False
             raise
