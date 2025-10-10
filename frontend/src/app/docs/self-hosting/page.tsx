@@ -212,7 +212,7 @@ cd suna`
       </DocsBody>
 
       <DocsBody className="mb-8">
-        <h2 id="step-5-start">Step 5: Start Kortix</h2>
+        <h2 id="step-5-start">Step 5: Start Omni</h2>
         
         <h3 className="mb-4">If you chose Docker setup:</h3>
         <p className="mb-4">The wizard automatically starts everything for you! After setup completes:</p>
@@ -348,7 +348,7 @@ docker compose down`
           </p>
         </div>
 
-        <p className="mb-4">You should see the Kortix dashboard where you can start chatting with Suna or create your own agents.</p>
+        <p className="mb-4">You should see the Omni dashboard where you can start chatting with Omni or create your own agents.</p>
 
         <Alert className="mb-6">
           <CheckCircle2 className="h-4 w-4" />
