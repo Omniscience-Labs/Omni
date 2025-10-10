@@ -5,16 +5,40 @@ This module provides helper functions to integrate memory storage
 at the end of AI interactions, following the mem0ai pattern.
 """
 
+import hashlib
 import json
 from typing import List, Dict, Any, Optional
 from core.services.memory import memory_service
 from core.services.supabase import DBConnection
+from core.services import redis
 from core.utils.logger import logger
+from core.utils.config import config
 
 
 # Constants for memory formatting
 MEMORY_CONTEXT_HEADER = "**Relevant Context from Previous Conversations:**\n"
 MEMORY_CONTEXT_FOOTER = "\n**Current Conversation:**"
+
+
+def _compute_memory_hash(conversation_messages: List[Dict[str, Any]]) -> str:
+    """Compute a hash of conversation messages for deduplication."""
+    # Create a deterministic string representation of the conversation
+    message_strs = []
+    for msg in conversation_messages[-5:]:  # Use last 5 messages for hash
+        role = msg.get('role', '')
+        content = msg.get('content', '')
+        message_strs.append(f"{role}:{content}")
+
+    # Join and hash for consistent deduplication
+    content_to_hash = "|".join(message_strs)
+    return hashlib.sha256(content_to_hash.encode('utf-8')).hexdigest()[:16]
+
+
+def _generate_memory_cache_key(user_id: str, thread_id: str, query: str, limit: int) -> str:
+    """Generate a cache key for memory retrieval."""
+    # Create a deterministic cache key from the parameters
+    key_components = f"{user_id}:{thread_id}:{query}:{limit}"
+    return f"mem_cache:{hashlib.sha256(key_components.encode()).hexdigest()[:16]}"
 
 
 async def get_user_id_from_thread(db: DBConnection, thread_id: str) -> Optional[str]:
@@ -139,35 +163,70 @@ async def store_conversation_memory(
             logger.debug(f"No conversation messages found for thread {thread_id}")
             return False
         
-        # Check for recent memory to avoid duplicates
+        # Check for recent memory to avoid duplicates using metadata filters
         if agent_run_id:
-            # Use a more specific search to check for this agent run
+            # Use metadata filters for efficient deduplication check
+            dedup_filters = {
+                "AND": [
+                    {"user_id": user_id},
+                    {"agent_run_id": agent_run_id}
+                ]
+            }
+            if thread_id:
+                dedup_filters["AND"].append({"thread_id": thread_id})
+
             recent_memories = await memory_service.search_memories(
-                query=f"Agent run {agent_run_id}",
+                query="*",  # Match all memories with these metadata filters
                 user_id=user_id,
                 thread_id=thread_id,
-                limit=1,  # We only need to check if one exists
-                version="v2"
+                limit=1,
+                version="v2",
+                filters=dedup_filters
             )
-            
+
             # Check if we found a memory for this exact agent run
             if recent_memories:
-                for memory in recent_memories:
-                    memory_metadata = memory.get("metadata", {})
-                    if memory_metadata.get("agent_run_id") == agent_run_id:
-                        logger.info(f"Memory already stored for agent run {agent_run_id}, skipping duplicate")
-                        return True  # Consider it successful since memory already exists
+                logger.info(f"Memory already stored for agent run {agent_run_id}, skipping duplicate")
+                return True  # Consider it successful since memory already exists
+
+        # Compute memory hash for additional deduplication
+        memory_hash = _compute_memory_hash(conversation_messages)
+
+        # Additional dedup check using memory_hash for cases without agent_run_id
+        if not agent_run_id:
+            hash_filters = {
+                "AND": [
+                    {"user_id": user_id},
+                    {"memory_hash": memory_hash}
+                ]
+            }
+            if thread_id:
+                hash_filters["AND"].append({"thread_id": thread_id})
+
+            hash_check = await memory_service.search_memories(
+                query="*",
+                user_id=user_id,
+                thread_id=thread_id,
+                limit=1,
+                version="v2",
+                filters=hash_filters
+            )
+
+            if hash_check:
+                logger.info(f"Memory with hash {memory_hash} already exists, skipping duplicate")
+                return True
         
         # Prepare metadata for memory storage
         memory_metadata = {
             "type": "conversation",
             "message_count": len(conversation_messages),
-            "stored_at": "conversation_end"
+            "stored_at": "conversation_end",
+            "memory_hash": memory_hash  # For deduplication
         }
-        
+
         if agent_run_id:
             memory_metadata["agent_run_id"] = agent_run_id
-        
+
         if additional_context:
             memory_metadata["additional_context"] = additional_context
         
@@ -235,16 +294,17 @@ async def retrieve_relevant_memories(
 ) -> Optional[str]:
     """
     Retrieve relevant memories before sending message to agent.
-    
+
     This function searches for relevant user memories based on the current
     query/message and returns formatted context to inject before LLM processing.
-    
+    Uses Redis caching to avoid repeated identical searches.
+
     Args:
         db: Database connection
         thread_id: Thread identifier
         query: User's current message/query
         limit: Maximum number of memories to retrieve
-        
+
     Returns:
         Formatted memory context string or None if no memories found
     """
@@ -252,14 +312,23 @@ async def retrieve_relevant_memories(
         if not memory_service.is_available():
             logger.debug("Memory service not available, skipping memory retrieval")
             return None
-        
+
         # Get user_id from thread
         user_id = await get_user_id_from_thread(db, thread_id)
         if not user_id:
             logger.warning(f"Could not get user_id for thread {thread_id}, skipping memory retrieval")
             return None
-        
-        # Search for relevant memories using mem0ai v2 API with filters
+
+        # Generate cache key for this request
+        cache_key = _generate_memory_cache_key(user_id, thread_id, query, limit)
+
+        # Try to get from cache first
+        cached_result = await redis.get(cache_key)
+        if cached_result:
+            logger.debug(f"Memory cache hit for key: {cache_key}")
+            return cached_result.decode('utf-8') if isinstance(cached_result, bytes) else cached_result
+
+        # Cache miss - search for relevant memories using mem0ai v2 API with filters
         filters = {
             "AND": [
                 {
@@ -267,7 +336,7 @@ async def retrieve_relevant_memories(
                 }
             ]
         }
-        
+
         relevant_memories = await memory_service.search_memories(
             query=query,
             user_id=user_id,
@@ -276,24 +345,29 @@ async def retrieve_relevant_memories(
             version="v2",
             filters=filters
         )
-        
+
         if not relevant_memories:
             logger.debug(f"No relevant memories found for query: {query[:50]}...")
+            # Cache empty results too to avoid repeated searches
+            await redis.set(cache_key, "", ex=config.MEM0_CACHE_TTL)
             return None
-        
+
         # Format memories for context injection
         memory_context_parts = [MEMORY_CONTEXT_HEADER]
-        
+
         for i, memory in enumerate(relevant_memories):
             memory_text = memory.get("memory", memory.get("text", ""))
             if memory_text:
                 memory_context_parts.append(f"{i+1}. {memory_text}")
-        
+
         memory_context_parts.append(MEMORY_CONTEXT_FOOTER)
-        
+
         memory_context = "\n".join(memory_context_parts)
-        
-        logger.info(
+
+        # Cache the result
+        await redis.set(cache_key, memory_context, ex=config.MEM0_CACHE_TTL)
+
+        logger.debug(
             f"Retrieved {len(relevant_memories)} relevant memories for user {user_id}",
             extra={
                 "user_id": user_id,
@@ -302,9 +376,9 @@ async def retrieve_relevant_memories(
                 "memories_count": len(relevant_memories)
             }
         )
-        
+
         return memory_context
-        
+
     except Exception as e:
         logger.error(f"Error retrieving relevant memories: {str(e)}", exc_info=True)
         return None
