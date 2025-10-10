@@ -49,7 +49,8 @@ class FolderRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_folder_name(cls, v):
         is_valid, error_message = FileNameValidator.validate_name(v, "folder")
         if not is_valid:
@@ -60,7 +61,8 @@ class UpdateFolderRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_folder_name(cls, v):
         if v is not None:
             is_valid, error_message = FileNameValidator.validate_name(v, "folder")
