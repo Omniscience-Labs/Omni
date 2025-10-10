@@ -150,7 +150,15 @@ async def publish(channel: str, message: str):
 async def create_pubsub():
     """Create a Redis pubsub object."""
     redis_client = await get_client()
-    return redis_client.pubsub()
+    pubsub = redis_client.pubsub()
+    # Set pubsub specific options for better stability
+    pubsub.connection_pool.connection_kwargs.update({
+        'socket_timeout': 30.0,
+        'socket_connect_timeout': 10.0,
+        'socket_keepalive': True,
+        'retry_on_timeout': True
+    })
+    return pubsub
 
 
 # List operations
@@ -177,3 +185,32 @@ async def keys(pattern: str) -> List[str]:
 async def expire(key: str, seconds: int):
     redis_client = await get_client()
     return await redis_client.expire(key, seconds)
+
+
+async def health_check():
+    """Check Redis connection health."""
+    try:
+        redis_client = await get_client()
+        await asyncio.wait_for(redis_client.ping(), timeout=5.0)
+        return True
+    except Exception as e:
+        logger.warning(f"Redis health check failed: {e}")
+        return False
+
+
+async def reconnect():
+    """Force reconnection to Redis."""
+    global client, pool, _initialized
+    logger.info("Attempting Redis reconnection")
+
+    # Close existing connections
+    await close()
+
+    # Reinitialize
+    try:
+        await initialize_async()
+        logger.info("Redis reconnection successful")
+        return True
+    except Exception as e:
+        logger.error(f"Redis reconnection failed: {e}")
+        return False
