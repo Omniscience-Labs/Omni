@@ -68,7 +68,7 @@ class ProcessorConfig:
 
     execute_tools: bool = True
     execute_on_stream: bool = False
-    tool_execution_strategy: ToolExecutionStrategy = "sequential"
+    tool_execution_strategy: ToolExecutionStrategy = "parallel"
     xml_adding_strategy: XmlAddingStrategy = "assistant_message"
     max_xml_tool_calls: int = 0  # 0 means no limit
     

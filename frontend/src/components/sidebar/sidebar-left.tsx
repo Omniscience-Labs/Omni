@@ -2,12 +2,12 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bot, Menu, Plus, Zap, ChevronRight, BookOpen } from 'lucide-react';
+import { Bot, Menu, Plus, Zap, ChevronRight, BookOpen, ChevronLeft } from 'lucide-react';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
 import { OmniLogo } from '@/components/sidebar/omni-logo';
-import { CTACard } from '@/components/sidebar/cta';
+import { CTACarousel } from '@/components/sidebar/cta';
 import {
   Sidebar,
   SidebarContent,
@@ -127,24 +127,8 @@ export function SidebarLeft({
     fetchUserData();
   }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (isDocumentModalOpen) return;
-
-      if ((event.metaKey || event.ctrlKey) && event.key === 'b') {
-        event.preventDefault();
-        setOpen(!state.startsWith('expanded'));
-        window.dispatchEvent(
-          new CustomEvent('sidebar-left-toggled', {
-            detail: { expanded: !state.startsWith('expanded') },
-          }),
-        );
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state, setOpen, isDocumentModalOpen]);
+  // Keyboard shortcut is now handled in the main sidebar component
+  // and only works on mobile to keep desktop sidebar always expanded
 
 
 
@@ -164,16 +148,27 @@ export function SidebarLeft({
             <div className="ml-2 transition-all duration-200 ease-in-out whitespace-nowrap">
             </div>
           )}
-          <div className="ml-auto flex items-center gap-2">
-            {state !== 'collapsed' && !isMobile && (
+          {/* Collapse button in top right corner when expanded */}
+          {state !== 'collapsed' && !isMobile && (
+            <div className="ml-auto">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <SidebarTrigger className="h-8 w-8" />
+                  <Button
+                    onClick={() => setOpen(false)}
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 hover:bg-accent hover:text-accent-foreground transition-colors duration-200"
+                    aria-label="Collapse sidebar"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
                 </TooltipTrigger>
-                <TooltipContent>Toggle sidebar (CMD+B)</TooltipContent>
+                <TooltipContent side="right">
+                  Collapse sidebar
+                </TooltipContent>
               </Tooltip>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </SidebarHeader>
       <SidebarContent className="[&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
@@ -287,20 +282,11 @@ export function SidebarLeft({
       </SidebarContent>
       {state !== 'collapsed' && (
         <div className="px-3 py-2">
-          <CTACard />
+          <CTACarousel />
         </div>
       )}
       <SidebarFooter>
-        {state === 'collapsed' && (
-          <div className="mt-2 flex justify-center">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <SidebarTrigger className="h-8 w-8" />
-              </TooltipTrigger>
-              <TooltipContent>Expand sidebar (CMD+B)</TooltipContent>
-            </Tooltip>
-          </div>
-        )}
+        {/* Removed collapsed state toggle - sidebar always stays expanded on desktop */}
         <NavUserWithTeams user={user} />
       </SidebarFooter>
       <SidebarRail />

@@ -73,9 +73,12 @@ class AgentService:
                 user_id, pagination_params, filters, base_query
             )
         else:
-            return await self._get_agents_database_paginated(
+            result = await self._get_agents_database_paginated(
                 base_query, count_query, pagination_params, filters
             )
+            # Enrich with template publication status
+            await self._enrich_agents_with_template_status(result.data, user_id)
+            return result
 
     async def _get_user_templates_paginated(
         self,
@@ -219,10 +222,13 @@ class AgentService:
             agent_response = await self._transform_agent_data(agent_data, version_map.get(agent_data['agent_id']))
             agent_responses.append(agent_response)
         
-        return await PaginationService.paginate_filtered_dataset(
+        # Enrich with template publication status
+        result = await PaginationService.paginate_filtered_dataset(
             all_items=agent_responses,
             params=pagination_params
         )
+        await self._enrich_agents_with_template_status(result.data, user_id)
+        return result
 
     async def _load_agent_versions_batch(self, agents: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         version_map = {}
@@ -358,8 +364,58 @@ class AgentService:
             "current_version_id": agent_data.get('current_version_id'),
             "version_count": agent_data.get('version_count', 1),
             "current_version": current_version,
-            "metadata": agent_data.get('metadata')
+            "metadata": agent_data.get('metadata'),
+            "marketplace_published_at": agent_data.get('marketplace_published_at'),
+            "download_count": agent_data.get('download_count', 0)
         }
+
+    async def _enrich_agents_with_template_status(self, agent_responses: List[Dict[str, Any]], user_id: str) -> None:
+        """Enrich agents with their template publication status"""
+        if not agent_responses:
+            return
+        
+        try:
+            # Get agent IDs
+            agent_ids = [agent['agent_id'] for agent in agent_responses]
+            
+            # Query for published templates created from these agents
+            templates_result = await self.db.table('agent_templates').select(
+                'template_id, metadata, is_public, marketplace_published_at, download_count'
+            ).eq('creator_id', user_id).execute()
+            
+            # Create a map of agent_id -> template info
+            agent_template_map = {}
+            for template in templates_result.data or []:
+                metadata = template.get('metadata', {})
+                source_agent_id = metadata.get('source_agent_id')
+                if source_agent_id and source_agent_id in agent_ids:
+                    # Only consider public templates
+                    if template.get('is_public'):
+                        agent_template_map[source_agent_id] = {
+                            'template_id': template['template_id'],
+                            'is_public': template['is_public'],
+                            'marketplace_published_at': template.get('marketplace_published_at'),
+                            'download_count': template.get('download_count', 0)
+                        }
+            
+            # Enrich agent responses with template status
+            for agent in agent_responses:
+                agent_id = agent['agent_id']
+                if agent_id in agent_template_map:
+                    template_info = agent_template_map[agent_id]
+                    agent['is_public'] = template_info['is_public']
+                    agent['marketplace_published_at'] = template_info['marketplace_published_at']
+                    agent['download_count'] = template_info.get('download_count', 0)
+                    agent['template_id'] = template_info['template_id']
+                else:
+                    # Ensure these fields are always present
+                    if 'marketplace_published_at' not in agent:
+                        agent['marketplace_published_at'] = None
+                    if 'download_count' not in agent:
+                        agent['download_count'] = 0
+                        
+        except Exception as e:
+            logger.warning(f"Failed to enrich agents with template status: {e}")
 
     async def _transform_template_to_agent_format(self, template_data: Dict[str, Any]) -> Dict[str, Any]:
         try:

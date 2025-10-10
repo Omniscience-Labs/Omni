@@ -10,6 +10,7 @@ interface UseBillingReturn {
   setBillingData: React.Dispatch<React.SetStateAction<BillingData>>;
   checkBillingLimits: () => Promise<boolean>;
   billingStatusQuery: ReturnType<typeof useBillingStatusQuery>;
+  isEnterprise: boolean;
 }
 
 export function useBilling(
@@ -21,6 +22,9 @@ export function useBilling(
   const [billingData, setBillingData] = useState<BillingData>({});
   const previousAgentStatus = useRef<AgentStatus>('idle');
   const billingStatusQuery = useBillingStatusQuery();
+
+  // Detect enterprise mode from billing status
+  const isEnterprise = billingStatusQuery.data?.enterprise_info !== undefined;
 
   const checkBillingLimits = useCallback(async () => {
     if (isLocalMode()) {
@@ -69,5 +73,6 @@ export function useBilling(
     setBillingData,
     checkBillingLimits,
     billingStatusQuery,
+    isEnterprise,
   };
 } 

@@ -318,6 +318,10 @@ class Configuration:
     
     # Memory service configuration
     MEM0_API_KEY: Optional[str] = None
+    MEM0_REQUEST_TIMEOUT: float = 5.0
+    MEM0_MAX_RETRIES: int = 3
+    MEM0_RETRY_DELAY: float = 1.0
+    MEM0_CACHE_TTL: int = 45  # Cache TTL in seconds for memory retrievals
     
     # Stripe configuration
     STRIPE_SECRET_KEY: Optional[str] = None

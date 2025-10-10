@@ -253,6 +253,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
               size="sm"
               className={cn(
                 'w-8 h-8 flex-shrink-0 self-end rounded-xl',
+                isAgentRunning && 'bg-red-500 hover:bg-red-600 text-white',
                 (!value.trim() && uploadedFiles.length === 0 && !isAgentRunning) ||
                   loading ||
                   (disabled && !isAgentRunning)

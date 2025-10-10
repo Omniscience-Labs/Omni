@@ -5,7 +5,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
-import { useCreateTemplate, useUnpublishTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
+import { useCreateTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { toast } from 'sonner';
 import { AgentCard } from './custom-agents-page/agent-card';
 import { OmniLogo } from '../sidebar/omni-logo';
@@ -71,9 +71,7 @@ interface AgentModalProps {
   onCustomize: (agentId: string) => void;
   onChat: (agentId: string) => void;
   onPublish: (agentId: string) => void;
-  onUnpublish: (agentId: string) => void;
   isPublishing: boolean;
-  isUnpublishing: boolean;
 }
 
 const AgentModal: React.FC<AgentModalProps> = ({ 
@@ -83,9 +81,7 @@ const AgentModal: React.FC<AgentModalProps> = ({
   onCustomize, 
   onChat, 
   onPublish, 
-  onUnpublish, 
-  isPublishing, 
-  isUnpublishing 
+  isPublishing 
 }) => {
   if (!agent) return null;
 
@@ -178,24 +174,11 @@ const AgentModal: React.FC<AgentModalProps> = ({
                         {agent.download_count || 0} downloads
                       </div>
                     </div>
-                    <Button
-                      onClick={() => onUnpublish(agent.agent_id)}
-                      disabled={isUnpublishing}
-                      variant="outline"
-                      className="w-full gap-2"
-                    >
-                      {isUnpublishing ? (
-                        <>
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                          Making Private...
-                        </>
-                      ) : (
-                        <>
-                          <GlobeLock className="h-4 w-4" />
-                          Make Private
-                        </>
-                      )}
-                    </Button>
+                    <div className="p-3 bg-muted/50 rounded-lg border border-border/50">
+                      <p className="text-xs text-muted-foreground">
+                        To remove this template from the marketplace, go to the <span className="font-medium text-foreground">Marketplace tab</span> and use the three-dot menu.
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   <Button
@@ -237,12 +220,9 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
   publishingId: externalPublishingId
 }) => {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-  const [unpublishingId, setUnpublishingId] = useState<string | null>(null);
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [configAgentId, setConfigAgentId] = useState<string | null>(null);
   const router = useRouter();
-  
-  const unpublishAgentMutation = useUnpublishTemplate();
 
   const handleAgentClick = (agent: Agent) => {
     setSelectedAgent(agent);
@@ -264,19 +244,6 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
     if (agent && onPublish) {
       onPublish(agent);
       setSelectedAgent(null);
-    }
-  };
-
-  const handleUnpublish = async (agentId: string) => {
-    try {
-      setUnpublishingId(agentId);
-      await unpublishAgentMutation.mutateAsync(agentId);
-      toast.success('Agent made private');
-      setSelectedAgent(null);
-    } catch (error: any) {
-      toast.error('Failed to make agent private');
-    } finally {
-      setUnpublishingId(null);
     }
   };
 
@@ -381,9 +348,7 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
         onCustomize={handleCustomize}
         onChat={handleChat}
         onPublish={handlePublish}
-        onUnpublish={handleUnpublish}
         isPublishing={externalPublishingId === selectedAgent?.agent_id}
-        isUnpublishing={unpublishingId === selectedAgent?.agent_id}
       />
       
       {configAgentId && (

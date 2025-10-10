@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, X, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { BillingModal } from './billing-modal';
@@ -13,6 +13,7 @@ interface BillingErrorAlertProps {
   accountId?: string | null;
   onDismiss: () => void;
   isOpen: boolean;
+  isEnterprise?: boolean;
 }
 
 export function BillingErrorAlert({
@@ -22,11 +23,57 @@ export function BillingErrorAlert({
   accountId,
   onDismiss,
   isOpen,
+  isEnterprise = false,
 }: BillingErrorAlertProps) {
   const [showBillingModal, setShowBillingModal] = useState(false);
 
   if (!isOpen) return null;
 
+  // Enterprise mode - simple alert without upgrade options
+  if (isEnterprise) {
+    return (
+      <div className="fixed bottom-4 right-4 z-[9999]">
+        <div className="bg-destructive/15 backdrop-blur-sm border border-destructive/30 rounded-lg p-5 shadow-lg max-w-md">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 bg-destructive/20 p-2 rounded-full">
+              <Shield className="h-5 w-5 text-destructive" />
+            </div>
+            <div className="flex-1">
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="text-sm font-semibold text-destructive">
+                  Usage Limit Reached
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onDismiss}
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">
+                {message || 'Your monthly usage limit has been reached. Please contact your administrator to increase your limit.'}
+              </p>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onDismiss}
+                  className="text-xs"
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // SaaS mode - full alert with upgrade options
   return (
     <>
       <BillingModal 
