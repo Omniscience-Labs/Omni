@@ -211,6 +211,7 @@ export function SiteHeader({
               </Button>
             )}
 
+            {/* View Files button - includes text label for better discoverability */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

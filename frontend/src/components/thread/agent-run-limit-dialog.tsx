@@ -114,6 +114,7 @@ const RunningThreadItem: React.FC<RunningThreadItemProps> = ({
           </Tooltip>
         )}
         
+        {/* Navigate to running chat button - styled in red for high visibility */}
         {threadInfo.projectId && (
           <Tooltip>
             <TooltipTrigger asChild>
