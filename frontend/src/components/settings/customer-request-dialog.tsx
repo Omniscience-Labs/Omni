@@ -28,7 +28,7 @@ interface CustomerRequestDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type RequestType = 'feature' | 'bug' | 'improvement' | 'other';
+type RequestType = 'feature' | 'bug' | 'improvement' | 'agent' | 'other';
 type Priority = 'low' | 'medium' | 'high' | 'urgent';
 
 export function CustomerRequestDialog({
@@ -117,6 +117,7 @@ export function CustomerRequestDialog({
                   <SelectItem value="feature">Feature Request</SelectItem>
                   <SelectItem value="bug">Bug Report</SelectItem>
                   <SelectItem value="improvement">Improvement</SelectItem>
+                  <SelectItem value="agent">Agent Request</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>

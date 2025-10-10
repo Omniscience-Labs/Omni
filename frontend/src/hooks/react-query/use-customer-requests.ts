@@ -6,7 +6,7 @@ interface CustomerRequest {
   account_id: string;
   title: string;
   description: string;
-  request_type: 'feature' | 'bug' | 'improvement' | 'other';
+  request_type: 'feature' | 'bug' | 'improvement' | 'agent' | 'other';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   linear_issue_id?: string;
   linear_issue_url?: string;
@@ -17,7 +17,7 @@ interface CustomerRequest {
 interface CreateCustomerRequestInput {
   title: string;
   description: string;
-  request_type: 'feature' | 'bug' | 'improvement' | 'other';
+  request_type: 'feature' | 'bug' | 'improvement' | 'agent' | 'other';
   priority: 'low' | 'medium' | 'high' | 'urgent';
 }
 
