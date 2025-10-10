@@ -98,7 +98,7 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
   const [showProjectLimitDialog, setShowProjectLimitDialog] = useState(false);
   const [projectLimitData, setProjectLimitData] = useState<{currentCount: number; limit: number; tierName: string} | null>(null);
   const [showCreditsLimitDialog, setShowCreditsLimitDialog] = useState(false);
-  const [creditsLimitData, setCreditsLimitData] = useState<{message: string; currentUsage?: number; limit?: number; creditBalance?: number} | null>(null);
+  const [creditsLimitData, setCreditsLimitData] = useState<{message: string; currentUsage?: number; limit?: number; creditBalance?: number; isEnterprise?: boolean} | null>(null);
 
   // Refs - simplified for flex-column-reverse
   const latestMessageRef = useRef<HTMLDivElement>(null);
@@ -468,6 +468,7 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
               currentUsage: error.detail.currentUsage,
               limit: error.detail.limit,
               creditBalance: error.detail.creditBalance,
+              isEnterprise: error.detail.is_enterprise || false,
             });
             setShowCreditsLimitDialog(true);
 
@@ -1009,6 +1010,7 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
             currentUsage={creditsLimitData.currentUsage}
             limit={creditsLimitData.limit}
             creditBalance={creditsLimitData.creditBalance}
+            isEnterprise={creditsLimitData.isEnterprise}
             onUpgrade={() => setShowUpgradeDialog(true)}
           />
         )}
@@ -1166,6 +1168,7 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
           currentUsage={creditsLimitData.currentUsage}
           limit={creditsLimitData.limit}
           creditBalance={creditsLimitData.creditBalance}
+          isEnterprise={creditsLimitData.isEnterprise}
           onUpgrade={() => setShowUpgradeDialog(true)}
         />
       )}
