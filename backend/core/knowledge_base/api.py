@@ -529,13 +529,10 @@ async def get_root_cloud_knowledge_bases(
             query = query.eq('is_active', True)
         
         result = await query.order('created_at', desc=True).execute()
-        
-        logger.info(f"Query result: error={result.error}, count={len(result.data) if result.data else 0}")
-        
-        if result.error:
-            logger.error(f"Query error getting root cloud KBs: {result.error}")
-            raise HTTPException(status_code=500, detail=str(result.error))
-        
+
+        # Log successful query result (Supabase doesn't have result.error attribute)
+        logger.info(f"Query result: count={len(result.data) if result.data else 0}")
+
         cloud_kbs = result.data if result.data else []
         
         # Transform to match the unified entry format expected by frontend
