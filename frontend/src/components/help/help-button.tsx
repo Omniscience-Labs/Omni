@@ -97,11 +97,10 @@ export function HelpButton() {
           )}
         </AnimatePresence>
 
-        {/* Main Help Button - Square with Text */}
+        {/* Main Help Button - Black Circle */}
         <Button
           onClick={() => setIsExpanded(!isExpanded)}
-          variant="outline"
-          className="w-full justify-start gap-2 h-10 rounded-lg border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all duration-200"
+          className="w-full h-12 rounded-full bg-black hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-black shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2"
         >
           <motion.div
             animate={{ rotate: isExpanded ? 90 : 0 }}
