@@ -233,7 +233,7 @@ export function DashboardContent() {
           currentUsage: error.detail.currentUsage,
           limit: error.detail.limit,
           creditBalance: error.detail.creditBalance,
-          isEnterprise: error.detail.is_enterprise || false,
+          isEnterprise: process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true' || error.detail.is_enterprise || false,
         });
         setShowCreditsLimitDialog(true);
       } else if (error instanceof AgentRunLimitError) {
@@ -467,6 +467,7 @@ export function DashboardContent() {
           accountId={personalAccount?.account_id}
           onDismiss={clearBillingError}
           isOpen={!!billingError}
+          isEnterprise={process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true'}
         />
       </div>
 
