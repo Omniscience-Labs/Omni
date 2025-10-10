@@ -77,6 +77,7 @@ async def lifespan(app: FastAPI):
         credentials_api.initialize(db)
         template_api.initialize(db)
         composio_api.initialize(db)
+        linear_api.initialize(db)
         
         yield
         
@@ -205,6 +206,9 @@ api_router.include_router(composio_api.router)
 
 from core.google.google_slides_api import router as google_slides_router
 api_router.include_router(google_slides_router)
+
+from core.linear import api as linear_api
+api_router.include_router(linear_api.router)
 
 @api_router.get("/health")
 async def health_check():
