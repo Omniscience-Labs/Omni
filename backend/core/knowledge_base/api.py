@@ -3,7 +3,7 @@ from typing import List, Optional
 from datetime import datetime
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
-from pydantic import BaseModel, Field, HttpUrl, validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt, verify_and_get_agent_authorization, require_agent_access, AuthorizedAgentAccess
 from core.services.supabase import DBConnection
 from core.knowledge_base.file_processor import FileProcessor
@@ -388,7 +388,8 @@ async def create_global_llamacloud_knowledge_base(
 class CloudKBMoveRequest(BaseModel):
     folder_id: Optional[str] = None  # None means move to root level
     
-    @validator('folder_id')
+    @field_validator('folder_id')
+    @classmethod
     def validate_folder_id(cls, v):
         if v is not None:
             try:
