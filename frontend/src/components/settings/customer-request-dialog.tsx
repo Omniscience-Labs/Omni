@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { useCreateCustomerRequest } from '@/hooks/react-query/use-customer-requests';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Upload, X } from 'lucide-react';
 
 interface CustomerRequestDialogProps {
   open: boolean;
@@ -39,8 +39,58 @@ export function CustomerRequestDialog({
   const [description, setDescription] = useState('');
   const [requestType, setRequestType] = useState<RequestType>('feature');
   const [priority, setPriority] = useState<Priority>('medium');
+  const [attachments, setAttachments] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const createRequestMutation = useCreateCustomerRequest();
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    const newAttachments: string[] = [];
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Check file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error(`${file.name} is too large. Max size is 5MB.`);
+          continue;
+        }
+
+        // Check file type
+        if (!file.type.startsWith('image/')) {
+          toast.error(`${file.name} is not an image file.`);
+          continue;
+        }
+
+        // Convert to base64
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        newAttachments.push(base64);
+      }
+
+      setAttachments([...attachments, ...newAttachments]);
+      toast.success(`${newAttachments.length} image(s) added`);
+    } catch (error) {
+      toast.error('Failed to upload images');
+    } finally {
+      setIsUploading(false);
+      e.target.value = ''; // Reset input
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(attachments.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +106,7 @@ export function CustomerRequestDialog({
         description: description.trim(),
         request_type: requestType,
         priority,
+        attachments: attachments.length > 0 ? attachments : undefined,
       });
 
       toast.success('Request submitted successfully!');
@@ -65,6 +116,7 @@ export function CustomerRequestDialog({
       setDescription('');
       setRequestType('feature');
       setPriority('medium');
+      setAttachments([]);
       onOpenChange(false);
     } catch (error: any) {
       toast.error(error.message || 'Failed to submit request');
@@ -160,6 +212,74 @@ export function CustomerRequestDialog({
             <p className="text-xs text-muted-foreground">
               Include as much detail as possible to help us understand your needs
             </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="attachments">Attachments (Optional)</Label>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isUploading || createRequestMutation.isPending}
+                onClick={() => document.getElementById('file-upload')?.click()}
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Images
+                  </>
+                )}
+              </Button>
+              <input
+                id="file-upload"
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleFileUpload}
+                className="hidden"
+                disabled={isUploading || createRequestMutation.isPending}
+              />
+              <p className="text-xs text-muted-foreground">
+                Max 5MB per image
+              </p>
+            </div>
+            
+            {attachments.length > 0 && (
+              <div className="space-y-2 mt-2">
+                {attachments.map((attachment, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-2 border rounded-md bg-muted/50"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <img
+                        src={attachment}
+                        alt={`Attachment ${index + 1}`}
+                        className="h-10 w-10 object-cover rounded"
+                      />
+                      <span className="text-sm text-muted-foreground truncate">
+                        Image {index + 1}
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeAttachment(index)}
+                      disabled={createRequestMutation.isPending}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-4">

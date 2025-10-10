@@ -4,10 +4,14 @@ import { createClient } from '@/lib/supabase/client';
 interface CustomerRequest {
   id: string;
   account_id: string;
+  user_id: string;
+  user_email?: string;
   title: string;
   description: string;
   request_type: 'feature' | 'bug' | 'improvement' | 'agent' | 'other';
   priority: 'low' | 'medium' | 'high' | 'urgent';
+  attachments?: string[];
+  environment?: string;
   linear_issue_id?: string;
   linear_issue_url?: string;
   created_at: string;
@@ -19,6 +23,7 @@ interface CreateCustomerRequestInput {
   description: string;
   request_type: 'feature' | 'bug' | 'improvement' | 'agent' | 'other';
   priority: 'low' | 'medium' | 'high' | 'urgent';
+  attachments?: string[];
 }
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
