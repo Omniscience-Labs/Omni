@@ -100,8 +100,9 @@ export function HelpButton() {
         {/* Main Help Button - Black Circle */}
         <Button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full h-14 rounded-full bg-black hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-black shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2.5 text-base"
+          className="w-full h-14 rounded-full bg-black hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-black shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 text-base"
         >
+          <span className="font-medium">Help</span>
           <motion.div
             animate={{ rotate: isExpanded ? 90 : 0 }}
             transition={{ duration: 0.2 }}
@@ -113,7 +114,6 @@ export function HelpButton() {
               <HelpCircle className="h-5 w-5" />
             )}
           </motion.div>
-          <span className="font-medium">Help?</span>
         </Button>
       </div>
 
