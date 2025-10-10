@@ -95,26 +95,13 @@ export function CTACarousel() {
     setActiveIndex(index);
   };
 
+  const ActiveCard = cards[activeIndex].component;
 
   return (
     <div className="relative">
-      {/* Card Container with smooth transition */}
-      <div className="relative overflow-hidden rounded-xl">
-        <div className="relative">
-          {/* Render all cards but only show one at a time with opacity and transform */}
-          {cards.map(({ component: CardComponent, key }, index) => (
-            <div
-              key={key}
-              className={`absolute inset-0 transition-all duration-500 ease-in-out ${
-                index === activeIndex
-                  ? 'opacity-100 translate-x-0'
-                  : 'opacity-0 translate-x-full'
-              }`}
-            >
-              <CardComponent />
-            </div>
-          ))}
-        </div>
+      {/* Only render the active card */}
+      <div className="relative">
+        <ActiveCard />
       </div>
 
       {/* Pill Indicators */}
@@ -123,10 +110,10 @@ export function CTACarousel() {
           <button
             key={index}
             onClick={() => handlePillClick(index)}
-            className={`h-1.5 rounded-full transition-all duration-300 ${
+            className={`h-2 rounded-full transition-all duration-300 ${
               index === activeIndex
-                ? 'w-6 bg-white shadow-sm'
-                : 'w-1.5 bg-white/40 hover:bg-white/60'
+                ? 'w-8 bg-white shadow-sm'
+                : 'w-2 bg-white/40 hover:bg-white/60'
             }`}
             aria-label={`Show ${label}`}
           />
