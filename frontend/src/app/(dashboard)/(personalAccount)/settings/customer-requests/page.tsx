@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquarePlus, ExternalLink } from 'lucide-react';
+import { MessageSquarePlus } from 'lucide-react';
 import { CustomerRequestDialog } from '@/components/settings/customer-request-dialog';
 import { useCustomerRequests } from '@/hooks/react-query/use-customer-requests';
 import { Badge } from '@/components/ui/badge';
@@ -50,15 +50,6 @@ export default function CustomerRequestsPage() {
                     <Badge variant={request.priority === 'urgent' ? 'destructive' : 'secondary'}>
                       {request.priority}
                     </Badge>
-                    {request.linear_issue_url && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => window.open(request.linear_issue_url, '_blank')}
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
-                    )}
                   </div>
                 </div>
               </CardHeader>

@@ -27,7 +27,7 @@ class CustomerRequestCreate(BaseModel):
     """Request model for creating a customer request."""
     title: str = Field(..., min_length=1, max_length=500)
     description: str = Field(..., min_length=1)
-    request_type: str = Field(..., pattern="^(feature|bug|improvement|other)$")
+    request_type: str = Field(..., pattern="^(feature|bug|improvement|agent|other)$")
     priority: str = Field(default="medium", pattern="^(low|medium|high|urgent)$")
 
 
@@ -85,13 +85,17 @@ async def create_customer_request(
                 "feature": ["feature-request"],
                 "bug": ["bug"],
                 "improvement": ["improvement"],
+                "agent": ["agent-request"],
                 "other": ["feedback"]
             }
             
             labels = label_map.get(request.request_type, ["feedback"])
 
+            # Dynamic title prefix based on request type
+            title_prefix = "[Agent Request]" if request.request_type == "agent" else "[Customer Request]"
+            
             linear_issue = await linear_service.create_issue(
-                title=f"[Customer Request] {request.title}",
+                title=f"{title_prefix} {request.title}",
                 description=linear_description,
                 priority=request.priority,
                 labels=labels

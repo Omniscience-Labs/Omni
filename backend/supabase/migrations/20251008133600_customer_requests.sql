@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS customer_requests (
     account_id UUID NOT NULL REFERENCES basejump.accounts(id) ON DELETE CASCADE,
     title VARCHAR(500) NOT NULL,
     description TEXT NOT NULL,
-    request_type VARCHAR(50) NOT NULL CHECK (request_type IN ('feature', 'bug', 'improvement', 'other')),
+    request_type VARCHAR(50) NOT NULL CHECK (request_type IN ('feature', 'bug', 'improvement', 'agent', 'other')),
     priority VARCHAR(50) NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
     linear_issue_id VARCHAR(255),
     linear_issue_url TEXT,
