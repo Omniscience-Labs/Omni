@@ -489,12 +489,8 @@ async def get_folder_entries(
                 'p_include_inactive': include_inactive
             }
         ).execute()
-        
-        if result.error:
-            if 'not found' in str(result.error).lower():
-                raise HTTPException(status_code=404, detail="Folder not found or access denied")
-            raise HTTPException(status_code=500, detail=str(result.error))
-        
+
+        # Supabase responses don't have .error attribute - errors are raised as exceptions
         entries = result.data if result.data else []
         
         # FastAPI should handle JSON serialization automatically

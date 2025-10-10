@@ -192,6 +192,10 @@ api_router.include_router(memory_api.router)
 from core.knowledge_base import api as knowledge_base_api
 api_router.include_router(knowledge_base_api.router)
 
+# Include the main knowledge base API (contains upload endpoints)
+from .knowledge_base import api as main_knowledge_base_api
+api_router.include_router(main_knowledge_base_api.router)
+
 api_router.include_router(triggers_api.router)
 
 api_router.include_router(pipedream_api.router)
