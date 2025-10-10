@@ -34,6 +34,11 @@ from core.services import memory_api
 from core.triggers import api as triggers_api
 from core.services import api_keys_api
 from core.services import enterprise_billing_api
+from core.linear import api as linear_api
+from core.pipedream import api as pipedream_api
+from core.credentials import api as credentials_api
+from core.templates import api as template_api
+from core.composio_integration import api as composio_api
 
 
 if sys.platform == "win32":
@@ -175,8 +180,6 @@ api_router.include_router(billing_admin_router)
 api_router.include_router(users_admin.router)
 
 from core.mcp_module import api as mcp_api
-from core.credentials import api as credentials_api
-from core.templates import api as template_api
 
 api_router.include_router(mcp_api.router)
 api_router.include_router(credentials_api.router, prefix="/secure-mcp")
@@ -191,7 +194,6 @@ api_router.include_router(knowledge_base_api.router)
 
 api_router.include_router(triggers_api.router)
 
-from core.pipedream import api as pipedream_api
 api_router.include_router(pipedream_api.router)
 
 from core.admin import api as admin_api
@@ -201,13 +203,11 @@ api_router.include_router(admin_api.router)
 from core.services import enterprise_admin_api
 api_router.include_router(enterprise_admin_api.router)
 
-from core.composio_integration import api as composio_api
 api_router.include_router(composio_api.router)
 
 from core.google.google_slides_api import router as google_slides_router
 api_router.include_router(google_slides_router)
 
-from core.linear import api as linear_api
 api_router.include_router(linear_api.router)
 
 @api_router.get("/health")
