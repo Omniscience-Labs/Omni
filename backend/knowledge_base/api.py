@@ -1,6 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt, require_agent_access, AuthorizedAgentAccess
 from core.services.supabase import DBConnection
 from core.knowledge_base.file_processor import FileProcessor
@@ -49,7 +49,8 @@ class FolderRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_folder_name(cls, v):
         is_valid, error_message = FileNameValidator.validate_name(v, "folder")
         if not is_valid:
@@ -60,7 +61,8 @@ class UpdateFolderRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_folder_name(cls, v):
         if v is not None:
             is_valid, error_message = FileNameValidator.validate_name(v, "folder")

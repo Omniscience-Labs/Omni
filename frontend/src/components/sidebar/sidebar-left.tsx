@@ -7,7 +7,7 @@ import { Bot, Menu, Plus, Zap, ChevronRight, BookOpen, ChevronLeft } from 'lucid
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
 import { OmniLogo } from '@/components/sidebar/omni-logo';
-import { CTACarousel } from '@/components/sidebar/cta';
+import { HelpButton } from '@/components/help/help-button';
 import {
   Sidebar,
   SidebarContent,
@@ -280,12 +280,13 @@ export function SidebarLeft({
         </SidebarGroup>
         <NavAgents />
       </SidebarContent>
-      {state !== 'collapsed' && (
-        <div className="px-3 py-2">
-          <CTACarousel />
-        </div>
-      )}
       <SidebarFooter>
+        {/* Help Button */}
+        {state !== 'collapsed' && (
+          <div className="px-2 pb-2">
+            <HelpButton />
+          </div>
+        )}
         {/* Removed collapsed state toggle - sidebar always stays expanded on desktop */}
         <NavUserWithTeams user={user} />
       </SidebarFooter>
