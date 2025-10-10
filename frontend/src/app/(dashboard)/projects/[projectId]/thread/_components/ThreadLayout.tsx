@@ -42,6 +42,7 @@ interface ThreadLayoutProps {
   agentName?: string;
   disableInitialAnimation?: boolean;
   compact?: boolean;
+  isEnterprise?: boolean;
 }
 
 export function ThreadLayout({
@@ -77,7 +78,8 @@ export function ThreadLayout({
   initialLoadCompleted,
   agentName,
   disableInitialAnimation = false,
-  compact = false
+  compact = false,
+  isEnterprise = false
 }: ThreadLayoutProps) {
   const isActuallyMobile = useIsMobile();
   
@@ -140,6 +142,7 @@ export function ThreadLayout({
             accountId={billingData.accountId}
             onDismiss={onDismissBilling}
             isOpen={showBillingAlert}
+            isEnterprise={isEnterprise}
           />
         </div>
       </>
@@ -211,6 +214,7 @@ export function ThreadLayout({
         accountId={billingData.accountId}
         onDismiss={onDismissBilling}
         isOpen={showBillingAlert}
+        isEnterprise={isEnterprise}
       />
     </div>
   );

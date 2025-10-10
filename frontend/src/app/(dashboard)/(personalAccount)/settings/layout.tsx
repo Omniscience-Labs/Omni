@@ -20,6 +20,7 @@ export default function PersonalAccountSettingsPage({
       ? [{ name: 'Transactions', href: '/settings/transactions' }]
       : [{ name: 'Billing', href: '/settings/billing' }]
     ),
+    { name: 'Customer Requests', href: '/settings/customer-requests' },
   ];
   return (
     <>

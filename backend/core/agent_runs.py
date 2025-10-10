@@ -194,7 +194,10 @@ async def start_agent(
                 "allowed_models": context.get("allowed_models", [])
             })
         elif context.get("error_type") == "insufficient_credits":
-            raise HTTPException(status_code=402, detail={"message": error_message})
+            raise HTTPException(status_code=402, detail={
+                "message": error_message,
+                "is_enterprise": context.get("enterprise_mode", False)
+            })
         else:
             raise HTTPException(status_code=500, detail={"message": error_message})
     
@@ -763,7 +766,10 @@ async def initiate_agent_with_files(
                 "allowed_models": context.get("allowed_models", [])
             })
         elif context.get("error_type") == "insufficient_credits":
-            raise HTTPException(status_code=402, detail={"message": error_message})
+            raise HTTPException(status_code=402, detail={
+                "message": error_message,
+                "is_enterprise": context.get("enterprise_mode", False)
+            })
         else:
             raise HTTPException(status_code=500, detail={"message": error_message})
     

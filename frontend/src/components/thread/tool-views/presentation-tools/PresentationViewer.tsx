@@ -159,7 +159,10 @@ export function PresentationViewer({
       // Add cache-busting parameter to ensure fresh data
       const urlWithCacheBust = `${metadataUrl}?t=${Date.now()}`;
       
-      console.log(`Loading presentation metadata (attempt ${retryCount + 1}/${maxRetries + 1}):`, urlWithCacheBust);
+      // Only log first attempt and retries after first failure
+      if (retryCount === 0 || retryCount > 1) {
+        console.log(`Loading presentation metadata (attempt ${retryCount + 1}/${maxRetries + 1}):`, urlWithCacheBust);
+      }
       
       const response = await fetch(urlWithCacheBust, {
         cache: 'no-cache',
@@ -171,7 +174,9 @@ export function PresentationViewer({
       if (response.ok) {
         const data = await response.json();
         setMetadata(data);
-        console.log('Successfully loaded presentation metadata:', data);
+        if (retryCount > 0) {
+          console.log('✅ Successfully loaded presentation metadata after', retryCount, 'retries');
+        }
         setIsLoadingMetadata(false);
         
         // Clear background retry interval on success
@@ -185,12 +190,14 @@ export function PresentationViewer({
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (err) {
-      console.error(`Error loading metadata (attempt ${retryCount + 1}):`, err);
+      // Only log errors on first attempt or after multiple retries
+      if (retryCount === 0 || retryCount > 2) {
+        console.error(`Error loading metadata (attempt ${retryCount + 1}):`, err);
+      }
       
       // If we haven't reached max retries, try again with exponential backoff
       if (retryCount < maxRetries) {
         const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Cap at 10 seconds
-        console.log(`Retrying in ${delay}ms...`);
         
         setTimeout(() => {
           loadMetadata(retryCount + 1, maxRetries);
@@ -206,7 +213,6 @@ export function PresentationViewer({
       // Start background retry every 10 seconds
       if (!backgroundRetryInterval) {
         const interval = setInterval(() => {
-          console.log('Background retry attempt...');
           loadMetadata(0, 2); // Fewer retries for background attempts
         }, 10000);
         setBackgroundRetryInterval(interval);

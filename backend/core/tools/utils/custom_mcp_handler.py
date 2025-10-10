@@ -1,5 +1,6 @@
 import json
 import asyncio
+import re
 from typing import Dict, Any, List
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
@@ -13,6 +14,63 @@ class CustomMCPHandler:
     def __init__(self, connection_manager: MCPConnectionManager):
         self.connection_manager = connection_manager
         self.custom_tools = {}
+    
+    def _sanitize_property_name(self, prop_name: str) -> str:
+        """
+        Sanitize property names to meet Anthropic's requirements.
+        Property keys must match pattern: ^[a-zA-Z0-9_.-]{1,64}$
+        - Replace invalid characters with underscores
+        - Truncate to 64 characters
+        - Ensure non-empty result
+        """
+        original = prop_name
+        # Replace any character that's not alphanumeric, underscore, dot, or hyphen with underscore
+        sanitized = re.sub(r'[^a-zA-Z0-9_.\-]', '_', prop_name)
+        # Remove leading/trailing underscores
+        sanitized = sanitized.strip('_')
+        # Truncate to 64 characters
+        sanitized = sanitized[:64]
+        # Ensure non-empty
+        if not sanitized:
+            sanitized = "property"
+        
+        # Log if property name was changed
+        if sanitized != original:
+            logger.debug(f"Sanitized property name: '{original}' -> '{sanitized}'")
+        
+        return sanitized
+
+    def _sanitize_input_schema(self, schema: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Recursively sanitize property names in an input schema.
+        Handles nested objects and arrays of objects.
+        """
+        if not isinstance(schema, dict):
+            return schema
+        
+        sanitized = {}
+        for key, value in schema.items():
+            if key == "properties" and isinstance(value, dict):
+                # Sanitize property names in the properties object
+                sanitized_properties = {}
+                for prop_name, prop_schema in value.items():
+                    clean_prop_name = self._sanitize_property_name(prop_name)
+                    # Recursively sanitize nested schemas
+                    sanitized_properties[clean_prop_name] = self._sanitize_input_schema(prop_schema)
+                sanitized[key] = sanitized_properties
+            elif key == "required" and isinstance(value, list):
+                # Sanitize property names in required array
+                sanitized[key] = [self._sanitize_property_name(name) for name in value]
+            elif isinstance(value, dict):
+                # Recursively sanitize nested objects
+                sanitized[key] = self._sanitize_input_schema(value)
+            elif isinstance(value, list):
+                # Recursively sanitize arrays
+                sanitized[key] = [self._sanitize_input_schema(item) if isinstance(item, dict) else item for item in value]
+            else:
+                sanitized[key] = value
+        
+        return sanitized
     
     async def initialize_custom_mcps(self, custom_configs: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         initialization_tasks = []
@@ -224,10 +282,12 @@ class CustomMCPHandler:
             tool_name_from_server = tool.name
             if not enabled_tools or tool_name_from_server in enabled_tools:
                 tool_name = f"custom_{server_name.replace(' ', '_').lower()}_{tool_name_from_server}"
+                # Sanitize the input schema to meet Anthropic's requirements
+                sanitized_schema = self._sanitize_input_schema(tool.inputSchema)
                 self.custom_tools[tool_name] = {
                     'name': tool_name,
                     'description': tool.description,
-                    'parameters': tool.inputSchema,
+                    'parameters': sanitized_schema,
                     'server': server_name,
                     'original_name': tool_name_from_server,
                     'is_custom': True,
@@ -246,10 +306,12 @@ class CustomMCPHandler:
             tool_name_from_server = tool_info['name']
             if not enabled_tools or tool_name_from_server in enabled_tools:
                 tool_name = f"custom_{server_name.replace(' ', '_').lower()}_{tool_name_from_server}"
+                # Sanitize the input schema to meet Anthropic's requirements
+                sanitized_schema = self._sanitize_input_schema(tool_info['input_schema'])
                 self.custom_tools[tool_name] = {
                     'name': tool_name,
                     'description': tool_info['description'],
-                    'parameters': tool_info['input_schema'],
+                    'parameters': sanitized_schema,
                     'server': server_name,
                     'original_name': tool_name_from_server,
                     'is_custom': True,

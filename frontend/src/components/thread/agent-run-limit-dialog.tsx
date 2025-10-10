@@ -114,6 +114,7 @@ const RunningThreadItem: React.FC<RunningThreadItemProps> = ({
           </Tooltip>
         )}
         
+        {/* Navigate to running chat button - styled in red for high visibility */}
         {threadInfo.projectId && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -121,7 +122,7 @@ const RunningThreadItem: React.FC<RunningThreadItemProps> = ({
                 asChild
                 variant="ghost"
                 size="sm"
-                className="h-7 w-7 p-0 hover:bg-background"
+                className="h-7 w-7 p-0 hover:bg-red-100 hover:text-red-600 text-red-500"
               >
                 <Link href={`/projects/${threadInfo.projectId}/thread/${threadInfo.threadId}`} target="_blank">
                   <ExternalLink className="h-3 w-3" />

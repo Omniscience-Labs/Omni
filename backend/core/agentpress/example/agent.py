@@ -159,7 +159,7 @@ Available tools:
             processor_config=ProcessorConfig(
                 xml_tool_calling=True,
                 execute_tools=True,
-                tool_execution_strategy="sequential"
+                tool_execution_strategy="parallel"
             ),
             include_xml_examples=True
         )        

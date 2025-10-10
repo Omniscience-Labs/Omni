@@ -221,9 +221,12 @@ class SandboxPresentationTool(SandboxToolsBase):
 
     async def _save_presentation_metadata(self, presentation_path: str, metadata: Dict):
         """Save presentation metadata"""
+        import asyncio
         metadata["updated_at"] = datetime.now().isoformat()
         metadata_path = f"{presentation_path}/metadata.json"
         await self.sandbox.fs.upload_file(json.dumps(metadata, indent=2).encode(), metadata_path)
+        # Delay to ensure filesystem sync between E2B and web server
+        await asyncio.sleep(0.5)
 
     @openapi_schema({
         "type": "function",

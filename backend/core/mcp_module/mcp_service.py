@@ -206,6 +206,64 @@ class MCPService:
     def get_all_connections(self) -> List[MCPConnection]:
         return list(self._connections.values())
 
+    def _sanitize_property_name(self, prop_name: str) -> str:
+        """
+        Sanitize property names to meet Anthropic's requirements.
+        Property keys must match pattern: ^[a-zA-Z0-9_.-]{1,64}$
+        - Replace invalid characters with underscores
+        - Truncate to 64 characters
+        - Ensure non-empty result
+        """
+        import re
+        original = prop_name
+        # Replace any character that's not alphanumeric, underscore, dot, or hyphen with underscore
+        sanitized = re.sub(r'[^a-zA-Z0-9_.\-]', '_', prop_name)
+        # Remove leading/trailing underscores
+        sanitized = sanitized.strip('_')
+        # Truncate to 64 characters
+        sanitized = sanitized[:64]
+        # Ensure non-empty
+        if not sanitized:
+            sanitized = "property"
+        
+        # Log if property name was changed
+        if sanitized != original:
+            self._logger.debug(f"Sanitized property name: '{original}' -> '{sanitized}'")
+        
+        return sanitized
+
+    def _sanitize_input_schema(self, schema: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Recursively sanitize property names in an input schema.
+        Handles nested objects and arrays of objects.
+        """
+        if not isinstance(schema, dict):
+            return schema
+        
+        sanitized = {}
+        for key, value in schema.items():
+            if key == "properties" and isinstance(value, dict):
+                # Sanitize property names in the properties object
+                sanitized_properties = {}
+                for prop_name, prop_schema in value.items():
+                    clean_prop_name = self._sanitize_property_name(prop_name)
+                    # Recursively sanitize nested schemas
+                    sanitized_properties[clean_prop_name] = self._sanitize_input_schema(prop_schema)
+                sanitized[key] = sanitized_properties
+            elif key == "required" and isinstance(value, list):
+                # Sanitize property names in required array
+                sanitized[key] = [self._sanitize_property_name(name) for name in value]
+            elif isinstance(value, dict):
+                # Recursively sanitize nested objects
+                sanitized[key] = self._sanitize_input_schema(value)
+            elif isinstance(value, list):
+                # Recursively sanitize arrays
+                sanitized[key] = [self._sanitize_input_schema(item) if isinstance(item, dict) else item for item in value]
+            else:
+                sanitized[key] = value
+        
+        return sanitized
+
     def get_all_tools_openapi(self) -> List[Dict[str, Any]]:
         tools = []
         
@@ -217,12 +275,15 @@ class MCPService:
                 if tool.name not in connection.enabled_tools:
                     continue
                 
+                # Sanitize the input schema to meet Anthropic's requirements
+                sanitized_schema = self._sanitize_input_schema(tool.inputSchema)
+                
                 openapi_tool = {
                     "type": "function",
                     "function": {
                         "name": tool.name,
                         "description": tool.description,
-                        "parameters": tool.inputSchema
+                        "parameters": sanitized_schema
                     }
                 }
                 tools.append(openapi_tool)
@@ -318,7 +379,7 @@ class MCPService:
                         tools_info.append({
                             "name": tool.name,
                             "description": tool.description,
-                            "inputSchema": tool.inputSchema
+                            "inputSchema": self._sanitize_input_schema(tool.inputSchema)
                         })
                     
                     return CustomMCPConnectionResult(
@@ -363,7 +424,7 @@ class MCPService:
                             tools_info.append({
                                 "name": tool.name,
                                 "description": tool.description,
-                                "inputSchema": tool.inputSchema
+                                "inputSchema": self._sanitize_input_schema(tool.inputSchema)
                             })
                         
                         return CustomMCPConnectionResult(
@@ -390,7 +451,7 @@ class MCPService:
                                 tools_info.append({
                                     "name": tool.name,
                                     "description": tool.description,
-                                    "inputSchema": tool.inputSchema
+                                    "inputSchema": self._sanitize_input_schema(tool.inputSchema)
                                 })
                             
                             return CustomMCPConnectionResult(

@@ -148,7 +148,7 @@ export function HeroSection() {
   const [showProjectLimitDialog, setShowProjectLimitDialog] = useState(false);
   const [projectLimitData, setProjectLimitData] = useState<{currentCount: number; limit: number; tierName: string} | null>(null);
   const [showCreditsLimitDialog, setShowCreditsLimitDialog] = useState(false);
-  const [creditsLimitData, setCreditsLimitData] = useState<{message: string; currentUsage?: number; limit?: number; creditBalance?: number} | null>(null);
+  const [creditsLimitData, setCreditsLimitData] = useState<{message: string; currentUsage?: number; limit?: number; creditBalance?: number; isEnterprise?: boolean} | null>(null);
 
   // FlipWords arrays for value proposition
   const moreWords = ["research", "analysis", "automation", "productivity", "insights", "results", "growth", "efficiency"];
@@ -420,6 +420,7 @@ export function HeroSection() {
           currentUsage: error.detail.currentUsage,
           limit: error.detail.limit,
           creditBalance: error.detail.creditBalance,
+          isEnterprise: error.detail.is_enterprise || false,
         });
         setShowCreditsLimitDialog(true);
       } else if (error instanceof AgentRunLimitError) {
@@ -1392,6 +1393,7 @@ export function HeroSection() {
           currentUsage={creditsLimitData.currentUsage}
           limit={creditsLimitData.limit}
           creditBalance={creditsLimitData.creditBalance}
+          isEnterprise={creditsLimitData.isEnterprise}
           onUpgrade={() => setShowPaymentModal(true)}
         />
       )}

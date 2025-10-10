@@ -120,11 +120,11 @@ class SimplifiedEnterpriseBillingService:
             # Check if user has remaining monthly allowance
             logger.debug(f"User {account_id} monthly allowance check: remaining=${remaining}")
             
-            if remaining <= 0:
+            if remaining <= 5.00:
                 logger.warning(f"Enterprise billing failed for {account_id}: monthly limit reached (remaining: ${remaining})")
                 return False, f"Monthly limit reached. Contact admin to increase limit.", {
                     'enterprise_balance': enterprise['credit_balance'],
-                    'user_remaining': 0
+                    'user_remaining': remaining
                 }
             
             # All good - user can proceed
@@ -151,6 +151,7 @@ class SimplifiedEnterpriseBillingService:
         """
         Use credits from the enterprise pool for a user.
         Enforces per-user monthly limits.
+        TRACKS usage even when over limit to prevent future bypasses.
         """
         if not config.ENTERPRISE_MODE:
             return False, "Enterprise mode not enabled"
@@ -194,7 +195,35 @@ class SimplifiedEnterpriseBillingService:
                     
                     return True, f"Used ${amount:.4f} from enterprise credits (Balance: ${response['new_balance']:.2f})"
                 else:
-                    return False, response['message']
+                    # CRITICAL FIX: Even though deduction failed, we need to track usage
+                    # This prevents users from bypassing limits on future calls
+                    error_message = response['message']
+                    logger.warning(f"Deduction failed but tracking usage anyway: {error_message}")
+                    
+                    # Manually update the usage tracking even though over limit
+                    try:
+                        # Get current usage
+                        user_limit = await client.table('enterprise_user_limits')\
+                            .select('current_month_usage')\
+                            .eq('account_id', account_id)\
+                            .single()\
+                            .execute()
+                        
+                        if user_limit.data:
+                            current_usage = float(user_limit.data['current_month_usage'])
+                            new_usage = current_usage + amount
+                            
+                            # Update with new usage (even though over limit)
+                            await client.table('enterprise_user_limits').update({
+                                'current_month_usage': new_usage,
+                                'updated_at': 'NOW()'
+                            }).eq('account_id', account_id).execute()
+                            
+                            logger.info(f"USAGE TRACKED (over limit): Account {account_id} used ${amount:.4f}, total now ${new_usage:.2f}")
+                    except Exception as track_error:
+                        logger.error(f"Failed to manually track over-limit usage: {track_error}")
+                    
+                    return False, error_message
             
             return False, "Failed to use enterprise credits"
             

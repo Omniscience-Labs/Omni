@@ -131,6 +131,7 @@ export default function DashboardLayoutContent({
           
           {/* Floating mobile menu button */}
           <FloatingMobileMenuButton />
+
         </SidebarProvider>
       </SubscriptionProvider>
     </DeleteOperationProvider>

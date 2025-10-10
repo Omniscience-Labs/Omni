@@ -869,7 +869,11 @@ async def execute_agent_workflow(
                 "allowed_models": context.get("allowed_models", [])
             })
         elif context.get("error_type") == "insufficient_credits":
-            raise HTTPException(status_code=402, detail={"message": error_message, "error": "insufficient_credits"})
+            raise HTTPException(status_code=402, detail={
+                "message": error_message,
+                "error": "insufficient_credits",
+                "is_enterprise": context.get("enterprise_mode", False)
+            })
         else:
             raise HTTPException(status_code=500, detail={"message": error_message})
     

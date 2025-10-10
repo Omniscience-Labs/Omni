@@ -481,6 +481,7 @@ export function useDeleteTemplate() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['secure-mcp', 'marketplace-templates'] });
       queryClient.invalidateQueries({ queryKey: ['secure-mcp', 'my-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['agents'] }); // Refresh agents list to update published status
     },
   });
 }

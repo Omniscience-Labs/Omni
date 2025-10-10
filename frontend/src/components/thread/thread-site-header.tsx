@@ -211,18 +211,19 @@ export function SiteHeader({
               </Button>
             )}
 
+            {/* View Files button - includes text label for better discoverability */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="icon"
                   onClick={() => {
                     console.log('View Files button clicked');
                     onViewFiles();
                   }}
-                  className="h-9 w-9 cursor-pointer"
+                  className="h-9 px-3 cursor-pointer gap-2"
                 >
                   <FolderOpen className="h-4 w-4" />
+                  <span>Files</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent side={isMobile ? "bottom" : "bottom"}>

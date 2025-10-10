@@ -133,7 +133,7 @@ class SandboxShellTool(SandboxToolsBase):
             wrapped_command = command.replace('"', '\\"')
             
             if blocking:
-                # For blocking execution, use a more reliable approach
+                # For blocking execution, use a more efficient async approach
                 # Add a unique marker to detect command completion
                 marker = f"COMMAND_DONE_{str(uuid4())[:8]}"
                 completion_command = self._format_completion_command(command, marker)
@@ -144,11 +144,12 @@ class SandboxShellTool(SandboxToolsBase):
                 
                 start_time = time.time()
                 final_output = ""
-                
+
+                # Use a more efficient polling approach with exponential backoff
+                check_interval = 0.05  # Start with very short intervals for responsiveness
+                max_interval = 0.5     # Max interval between checks
+
                 while (time.time() - start_time) < timeout:
-                    # Wait a shorter interval for more responsive checking
-                    await asyncio.sleep(0.5)
-                    
                     # Check if session still exists (command might have exited)
                     check_result = await self._execute_raw_command(f"tmux has-session -t {session_name} 2>/dev/null || echo 'ended'")
                     if "ended" in check_result.get("output", ""):
@@ -161,7 +162,11 @@ class SandboxShellTool(SandboxToolsBase):
                     if self._is_command_completed(current_output, marker):
                         final_output = current_output
                         break
-                
+
+                    # Exponential backoff for polling interval, but keep it responsive
+                    await asyncio.sleep(check_interval)
+                    check_interval = min(check_interval * 1.5, max_interval)
+
                 # If we didn't get the marker, capture whatever output we have
                 if not final_output:
                     output_result = await self._execute_raw_command(f"tmux capture-pane -t {session_name} -p -S - -E -")
