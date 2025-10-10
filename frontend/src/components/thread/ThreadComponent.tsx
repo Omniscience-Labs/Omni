@@ -718,7 +718,7 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
   // SEO title update
   useEffect(() => {
     if (projectName) {
-      document.title = `${projectName} | Kortix Suna`;
+      document.title = `${projectName} | Omni`;
 
       const metaDescription = document.querySelector(
         'meta[name="description"]',
@@ -726,13 +726,13 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
       if (metaDescription) {
         metaDescription.setAttribute(
           'content',
-          `${projectName} - Interactive agent conversation powered by Kortix Suna`,
+          `${projectName} - Interactive agent conversation powered by Omni`,
         );
       }
 
       const ogTitle = document.querySelector('meta[property="og:title"]');
       if (ogTitle) {
-        ogTitle.setAttribute('content', `${projectName} | Kortix Suna`);
+        ogTitle.setAttribute('content', `${projectName} | Omni`);
       }
 
       const ogDescription = document.querySelector(
