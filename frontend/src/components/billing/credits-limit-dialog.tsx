@@ -37,7 +37,7 @@ export function CreditsLimitDialog({
   if (isEnterprise) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px] border-subtle dark:border-white/10 bg-card-bg dark:bg-background-secondary rounded-2xl shadow-custom">
+        <DialogContent className="sm:max-w-[500px] border-subtle dark:border-white/10 bg-white dark:bg-gray-900 rounded-2xl shadow-custom">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 rounded-full bg-destructive/10">
@@ -82,7 +82,7 @@ export function CreditsLimitDialog({
   // SaaS mode - full dialog with upgrade options
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] border-subtle dark:border-white/10 bg-card-bg dark:bg-background-secondary rounded-2xl shadow-custom">
+      <DialogContent className="sm:max-w-[500px] border-subtle dark:border-white/10 bg-white dark:bg-gray-900 rounded-2xl shadow-custom">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-full bg-destructive/10">
