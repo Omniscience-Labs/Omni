@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bot, Menu, Plus, Zap, ChevronRight, BookOpen } from 'lucide-react';
+import { Bot, Menu, Plus, Zap, ChevronRight, BookOpen, ChevronLeft } from 'lucide-react';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
@@ -148,9 +148,27 @@ export function SidebarLeft({
             <div className="ml-2 transition-all duration-200 ease-in-out whitespace-nowrap">
             </div>
           )}
-          {/* Removed toggle trigger on desktop - sidebar always stays expanded */}
-          <div className="ml-auto flex items-center gap-2">
-          </div>
+          {/* Collapse button in top right corner when expanded */}
+          {state !== 'collapsed' && !isMobile && (
+            <div className="ml-auto">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={() => setOpen(false)}
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 hover:bg-accent hover:text-accent-foreground transition-colors duration-200"
+                    aria-label="Collapse sidebar"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Collapse sidebar
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          )}
         </div>
       </SidebarHeader>
       <SidebarContent className="[&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
