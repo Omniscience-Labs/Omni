@@ -127,24 +127,8 @@ export function SidebarLeft({
     fetchUserData();
   }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (isDocumentModalOpen) return;
-
-      if ((event.metaKey || event.ctrlKey) && event.key === 'b') {
-        event.preventDefault();
-        setOpen(!state.startsWith('expanded'));
-        window.dispatchEvent(
-          new CustomEvent('sidebar-left-toggled', {
-            detail: { expanded: !state.startsWith('expanded') },
-          }),
-        );
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state, setOpen, isDocumentModalOpen]);
+  // Keyboard shortcut is now handled in the main sidebar component
+  // and only works on mobile to keep desktop sidebar always expanded
 
 
 
@@ -164,15 +148,8 @@ export function SidebarLeft({
             <div className="ml-2 transition-all duration-200 ease-in-out whitespace-nowrap">
             </div>
           )}
+          {/* Removed toggle trigger on desktop - sidebar always stays expanded */}
           <div className="ml-auto flex items-center gap-2">
-            {state !== 'collapsed' && !isMobile && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <SidebarTrigger className="h-8 w-8" />
-                </TooltipTrigger>
-                <TooltipContent>Toggle sidebar (CMD+B)</TooltipContent>
-              </Tooltip>
-            )}
           </div>
         </div>
       </SidebarHeader>
@@ -291,16 +268,7 @@ export function SidebarLeft({
         </div>
       )}
       <SidebarFooter>
-        {state === 'collapsed' && (
-          <div className="mt-2 flex justify-center">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <SidebarTrigger className="h-8 w-8" />
-              </TooltipTrigger>
-              <TooltipContent>Expand sidebar (CMD+B)</TooltipContent>
-            </Tooltip>
-          </div>
-        )}
+        {/* Removed collapsed state toggle - sidebar always stays expanded on desktop */}
         <NavUserWithTeams user={user} />
       </SidebarFooter>
       <SidebarRail />
