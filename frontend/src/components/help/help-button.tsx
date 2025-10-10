@@ -47,25 +47,25 @@ export function HelpButton() {
 
   return (
     <>
-      {/* Fixed Help Button */}
-      <div className="fixed bottom-6 right-6 z-50">
+      {/* Help Button in Sidebar */}
+      <div className="relative">
         <AnimatePresence>
           {isExpanded && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
+              exit={{ opacity: 0, y: 5 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="absolute bottom-20 right-0 w-64 space-y-2"
+              className="absolute bottom-full left-0 right-0 mb-2 space-y-2"
             >
               {options.map((option, index) => {
                 const Icon = option.icon;
                 return (
                   <motion.button
                     key={option.id}
-                    initial={{ opacity: 0, x: 20, y: 10 }}
-                    animate={{ opacity: 1, x: 0, y: 0 }}
-                    exit={{ opacity: 0, x: 20, y: 5 }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 5 }}
                     transition={{ 
                       delay: index * 0.04,
                       duration: 0.2,
@@ -74,10 +74,10 @@ export function HelpButton() {
                     onClick={() => handleOptionClick(option.id)}
                     className="w-full group relative"
                   >
-                    <div className="relative overflow-hidden rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
+                    <div className="relative overflow-hidden rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
                       <div className="absolute inset-0 bg-gradient-to-r from-neutral-50 to-transparent dark:from-neutral-800/50 dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                       <div className="relative p-3 flex items-center gap-3">
-                        <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center group-hover:bg-neutral-900 dark:group-hover:bg-white group-hover:border-neutral-900 dark:group-hover:border-white transition-all duration-200">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-md bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center group-hover:bg-neutral-900 dark:group-hover:bg-white group-hover:border-neutral-900 dark:group-hover:border-white transition-all duration-200">
                           <Icon className="h-4 w-4 text-neutral-700 dark:text-neutral-300 group-hover:text-white dark:group-hover:text-neutral-900 transition-colors duration-200" />
                         </div>
                         <div className="text-left flex-1 min-w-0">
@@ -97,28 +97,25 @@ export function HelpButton() {
           )}
         </AnimatePresence>
 
-        {/* Main Help Button */}
-        <motion.div
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+        {/* Main Help Button - Square with Text */}
+        <Button
+          onClick={() => setIsExpanded(!isExpanded)}
+          variant="outline"
+          className="w-full justify-start gap-2 h-10 rounded-lg border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all duration-200"
         >
-          <Button
-            onClick={() => setIsExpanded(!isExpanded)}
-            size="lg"
-            className="h-14 w-14 rounded-full bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 shadow-lg hover:shadow-xl transition-all duration-200 p-0 border-0"
+          <motion.div
+            animate={{ rotate: isExpanded ? 90 : 0 }}
+            transition={{ duration: 0.2 }}
+            className="flex-shrink-0"
           >
-            <motion.div
-              animate={{ rotate: isExpanded ? 90 : 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              {isExpanded ? (
-                <X className="h-5 w-5" />
-              ) : (
-                <HelpCircle className="h-5 w-5" />
-              )}
-            </motion.div>
-          </Button>
-        </motion.div>
+            {isExpanded ? (
+              <X className="h-4 w-4" />
+            ) : (
+              <HelpCircle className="h-4 w-4" />
+            )}
+          </motion.div>
+          <span className="text-sm font-medium">Help</span>
+        </Button>
       </div>
 
       {/* Dialogs */}
