@@ -3,7 +3,7 @@ from typing import List, Optional
 from datetime import datetime
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
-from pydantic import BaseModel, Field, HttpUrl, validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt, verify_and_get_agent_authorization, require_agent_access, AuthorizedAgentAccess
 from core.services.supabase import DBConnection
 from core.knowledge_base.file_processor import FileProcessor
@@ -388,7 +388,8 @@ async def create_global_llamacloud_knowledge_base(
 class CloudKBMoveRequest(BaseModel):
     folder_id: Optional[str] = None  # None means move to root level
     
-    @validator('folder_id')
+    @field_validator('folder_id')
+    @classmethod
     def validate_folder_id(cls, v):
         if v is not None:
             try:
@@ -489,12 +490,8 @@ async def get_folder_entries(
                 'p_include_inactive': include_inactive
             }
         ).execute()
-        
-        if result.error:
-            if 'not found' in str(result.error).lower():
-                raise HTTPException(status_code=404, detail="Folder not found or access denied")
-            raise HTTPException(status_code=500, detail=str(result.error))
-        
+
+        # Supabase responses don't have .error attribute - errors are raised as exceptions
         entries = result.data if result.data else []
         
         # FastAPI should handle JSON serialization automatically
@@ -529,13 +526,10 @@ async def get_root_cloud_knowledge_bases(
             query = query.eq('is_active', True)
         
         result = await query.order('created_at', desc=True).execute()
-        
-        logger.info(f"Query result: error={result.error}, count={len(result.data) if result.data else 0}")
-        
-        if result.error:
-            logger.error(f"Query error getting root cloud KBs: {result.error}")
-            raise HTTPException(status_code=500, detail=str(result.error))
-        
+
+        # Log successful query result (Supabase doesn't have result.error attribute)
+        logger.info(f"Query result: count={len(result.data) if result.data else 0}")
+
         cloud_kbs = result.data if result.data else []
         
         # Transform to match the unified entry format expected by frontend
