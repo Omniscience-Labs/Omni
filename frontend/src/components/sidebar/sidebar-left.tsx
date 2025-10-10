@@ -127,8 +127,7 @@ export function SidebarLeft({
     fetchUserData();
   }, []);
 
-  // Keyboard shortcut is now handled in the main sidebar component
-  // and only works on mobile to keep desktop sidebar always expanded
+  // Keyboard shortcut is handled in the main sidebar component
 
 
 
@@ -287,7 +286,6 @@ export function SidebarLeft({
             <HelpButton />
           </div>
         )}
-        {/* Removed collapsed state toggle - sidebar always stays expanded on desktop */}
         <NavUserWithTeams user={user} />
       </SidebarFooter>
       <SidebarRail />

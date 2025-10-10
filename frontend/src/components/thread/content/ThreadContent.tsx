@@ -776,7 +776,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                 {/* All file attachments rendered outside message bubble */}
                                                 {renderStandaloneAttachments(attachments as string[], handleOpenFileViewer, sandboxId, project, true)}
                                                 
-                                                <div className="flex justify-end">
+                                                <div className="flex justify-end relative">
                                                     <div className="group flex max-w-[85%] rounded-3xl rounded-br-lg bg-card border px-4 py-3 break-words overflow-hidden relative">
                                                         <div className="space-y-3 min-w-0 flex-1">
                                                             {cleanContent && (
@@ -786,9 +786,9 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                             {/* Use the helper function to render regular (non-spreadsheet) attachments */}
                                                             {renderAttachments(attachments as string[], handleOpenFileViewer, sandboxId, project)}
                                                         </div>
-                                                        <div className="absolute top-2 right-2">
-                                                            <CopyMessageButton content={cleanContent} />
-                                                        </div>
+                                                    </div>
+                                                    <div className="absolute bottom-2 left-2">
+                                                        <CopyMessageButton content={cleanContent} />
                                                     </div>
                                                 </div>
                                             </div>
@@ -910,7 +910,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                     <div className="prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-hidden">
                                                                                         {renderedContent}
                                                                                     </div>
-                                                                                    <div className="absolute top-0 right-0">
+                                                                                    <div className="absolute bottom-0 left-0">
                                                                                         <CopyMessageButton content={mainContent} />
                                                                                     </div>
                                                                                 </div>
