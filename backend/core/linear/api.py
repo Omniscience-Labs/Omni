@@ -1,13 +1,14 @@
 """
 API endpoints for customer requests with Linear integration.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 from uuid import UUID
+import os
 
-from core.utils.auth_utils import verify_and_get_user_id_from_jwt
+from core.utils.auth_utils import verify_and_get_user_id_from_jwt, _decode_jwt_safely
 from core.services.supabase import DBConnection
 from core.utils.logger import logger
 from .service import linear_service
@@ -29,16 +30,21 @@ class CustomerRequestCreate(BaseModel):
     description: str = Field(..., min_length=1)
     request_type: str = Field(..., pattern="^(feature|bug|improvement|agent|other)$")
     priority: str = Field(default="medium", pattern="^(low|medium|high|urgent)$")
+    attachments: Optional[List[str]] = Field(default=[], description="List of image URLs or base64 data")
 
 
 class CustomerRequestResponse(BaseModel):
     """Response model for customer request."""
     id: str
     account_id: str
+    user_id: str
+    user_email: Optional[str] = None
     title: str
     description: str
     request_type: str
     priority: str
+    attachments: Optional[List[str]] = []
+    environment: Optional[str] = None
     linear_issue_id: Optional[str] = None
     linear_issue_url: Optional[str] = None
     created_at: datetime
@@ -47,6 +53,7 @@ class CustomerRequestResponse(BaseModel):
 
 @router.post("", response_model=CustomerRequestResponse)
 async def create_customer_request(
+    req: Request,
     request: CustomerRequestCreate,
     user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
@@ -54,6 +61,20 @@ async def create_customer_request(
     Create a new customer request and automatically create a Linear issue.
     """
     try:
+        # Extract email from JWT token
+        auth_header = req.headers.get('Authorization', '')
+        user_email = None
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            try:
+                payload = _decode_jwt_safely(token)
+                user_email = payload.get('email')
+            except Exception as e:
+                logger.warning(f"Failed to extract email from JWT: {e}")
+        
+        # Get environment from ENV_MODE
+        environment = os.getenv("ENV_MODE", "unknown")
+        
         # Get user's primary account
         client = await db.client
         account_result = await client.schema("basejump").table("accounts").select("id").eq("primary_owner_user_id", user_id).eq("personal_account", True).limit(1).execute()
@@ -76,9 +97,20 @@ async def create_customer_request(
 ---
 **Request Type:** {request.request_type}
 **Priority:** {request.priority}
+**User Email:** {user_email or 'Not available'}
 **User ID:** {user_id}
 **Account ID:** {account_id}
+**Environment:** {environment}
 """
+            
+            # Add attachments to description if provided
+            if request.attachments:
+                linear_description += "\n\n**Attachments:**\n"
+                for i, attachment in enumerate(request.attachments, 1):
+                    if attachment.startswith('http'):
+                        linear_description += f"{i}. {attachment}\n"
+                    else:
+                        linear_description += f"{i}. [Attachment {i}]\n"
 
             # Map request type to labels
             label_map = {
@@ -115,10 +147,14 @@ async def create_customer_request(
         # Insert into database
         insert_result = await client.table("customer_requests").insert({
             "account_id": account_id,
+            "user_id": user_id,
+            "user_email": user_email,
             "title": request.title,
             "description": request.description,
             "request_type": request.request_type,
             "priority": request.priority,
+            "attachments": request.attachments or [],
+            "environment": environment,
             "linear_issue_id": linear_issue_id,
             "linear_issue_url": linear_issue_url,
         }).execute()
