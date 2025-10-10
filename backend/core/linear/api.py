@@ -11,6 +11,7 @@ import os
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt, _decode_jwt_safely
 from core.services.supabase import DBConnection
 from core.utils.logger import logger
+from core.utils.s3_upload_utils import upload_base64_image
 from .service import linear_service
 
 
@@ -72,8 +73,17 @@ async def create_customer_request(
             except Exception as e:
                 logger.warning(f"Failed to extract email from JWT: {e}")
         
-        # Get environment from ENV_MODE
-        environment = os.getenv("ENV_MODE", "unknown")
+        # Get environment/domain from request
+        # Try to get the full URL from the request
+        host = req.headers.get('host', 'unknown')
+        protocol = 'https' if req.headers.get('x-forwarded-proto') == 'https' else 'http'
+        environment = f"{protocol}://{host}"
+        
+        # Fallback to ENV_MODE if host is unknown
+        if host == 'unknown':
+            env_mode = os.getenv("ENV_MODE", "unknown")
+            public_url = os.getenv("NEXT_PUBLIC_URL", os.getenv("BACKEND_URL", ""))
+            environment = public_url if public_url else env_mode
         
         # Get user's primary account
         client = await db.client
@@ -83,6 +93,19 @@ async def create_customer_request(
             raise HTTPException(status_code=404, detail="User account not found")
         
         account_id = account_result.data[0]["id"]
+
+        # Upload attachments to Supabase storage and get public URLs
+        uploaded_image_urls = []
+        if request.attachments:
+            for attachment in request.attachments:
+                try:
+                    # Upload base64 image and get public URL
+                    public_url = await upload_base64_image(attachment, bucket_name="customer-request-images")
+                    uploaded_image_urls.append(public_url)
+                    logger.debug(f"Uploaded image to {public_url}")
+                except Exception as e:
+                    logger.error(f"Failed to upload image: {e}")
+                    # Continue with other images even if one fails
 
         # Create Linear issue first
         linear_issue = None
@@ -103,14 +126,12 @@ async def create_customer_request(
 **Environment:** {environment}
 """
             
-            # Add attachments to description if provided
-            if request.attachments:
-                linear_description += "\n\n**Attachments:**\n"
-                for i, attachment in enumerate(request.attachments, 1):
-                    if attachment.startswith('http'):
-                        linear_description += f"{i}. {attachment}\n"
-                    else:
-                        linear_description += f"{i}. [Attachment {i}]\n"
+            # Add attachments as images to description if provided
+            if uploaded_image_urls:
+                linear_description += "\n\n**Screenshots:**\n"
+                for i, image_url in enumerate(uploaded_image_urls, 1):
+                    # Use markdown image syntax so Linear renders them
+                    linear_description += f"\n![Screenshot {i}]({image_url})\n"
 
             # Map request type to labels
             label_map = {
@@ -153,7 +174,7 @@ async def create_customer_request(
             "description": request.description,
             "request_type": request.request_type,
             "priority": request.priority,
-            "attachments": request.attachments or [],
+            "attachments": uploaded_image_urls,  # Store uploaded URLs, not base64
             "environment": environment,
             "linear_issue_id": linear_issue_id,
             "linear_issue_url": linear_issue_url,
