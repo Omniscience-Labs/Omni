@@ -1,8 +1,14 @@
--- Create customer_requests table for storing user feature requests and bug reports
+-- Drop and recreate customer_requests table with agent request type
 BEGIN;
 
--- Create customer requests table
-CREATE TABLE IF NOT EXISTS customer_requests (
+-- Drop the table if it exists (this will cascade to drop policies, triggers, and indexes)
+DROP TABLE IF EXISTS customer_requests CASCADE;
+
+-- Drop the trigger function if it still exists
+DROP FUNCTION IF EXISTS update_customer_requests_updated_at() CASCADE;
+
+-- Create customer requests table with agent type included
+CREATE TABLE customer_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     account_id UUID NOT NULL REFERENCES basejump.accounts(id) ON DELETE CASCADE,
     title VARCHAR(500) NOT NULL,
@@ -19,11 +25,11 @@ CREATE TABLE IF NOT EXISTS customer_requests (
 );
 
 -- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_customer_requests_account_id ON customer_requests(account_id);
-CREATE INDEX IF NOT EXISTS idx_customer_requests_created_at ON customer_requests(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_customer_requests_request_type ON customer_requests(request_type);
-CREATE INDEX IF NOT EXISTS idx_customer_requests_priority ON customer_requests(priority);
-CREATE INDEX IF NOT EXISTS idx_customer_requests_linear_issue_id ON customer_requests(linear_issue_id);
+CREATE INDEX idx_customer_requests_account_id ON customer_requests(account_id);
+CREATE INDEX idx_customer_requests_created_at ON customer_requests(created_at DESC);
+CREATE INDEX idx_customer_requests_request_type ON customer_requests(request_type);
+CREATE INDEX idx_customer_requests_priority ON customer_requests(priority);
+CREATE INDEX idx_customer_requests_linear_issue_id ON customer_requests(linear_issue_id);
 
 -- Enable RLS
 ALTER TABLE customer_requests ENABLE ROW LEVEL SECURITY;
@@ -45,7 +51,7 @@ CREATE POLICY "Users can create customer requests" ON customer_requests
         )
     );
 
--- Users can update their own requests (only certain fields)
+-- Users can update their own requests
 CREATE POLICY "Users can update their own customer requests" ON customer_requests
     FOR UPDATE USING (
         auth.uid() IN (
@@ -53,8 +59,8 @@ CREATE POLICY "Users can update their own customer requests" ON customer_request
         )
     );
 
--- Create trigger for updated_at
-CREATE OR REPLACE FUNCTION update_customer_requests_updated_at()
+-- Create trigger function for updated_at
+CREATE FUNCTION update_customer_requests_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
@@ -62,7 +68,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-DROP TRIGGER IF EXISTS update_customer_requests_updated_at ON customer_requests;
+-- Create trigger
 CREATE TRIGGER update_customer_requests_updated_at
     BEFORE UPDATE ON customer_requests
     FOR EACH ROW EXECUTE FUNCTION update_customer_requests_updated_at();
