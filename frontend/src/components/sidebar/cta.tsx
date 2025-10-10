@@ -112,8 +112,8 @@ export function CTACarousel() {
             onClick={() => handlePillClick(index)}
             className={`h-2 rounded-full transition-all duration-300 ${
               index === activeIndex
-                ? 'w-8 bg-white shadow-sm'
-                : 'w-2 bg-white/40 hover:bg-white/60'
+                ? 'w-8 bg-gray-800 dark:bg-white shadow-sm'
+                : 'w-2 bg-gray-800/40 dark:bg-white/40 hover:bg-gray-800/60 dark:hover:bg-white/60'
             }`}
             aria-label={`Show ${label}`}
           />
