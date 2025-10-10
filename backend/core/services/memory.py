@@ -12,11 +12,20 @@ Features:
 - Thread-based memory organization
 """
 
+import asyncio
 import os
+import time
 from typing import List, Dict, Any, Optional, Union
-from mem0 import MemoryClient
+from mem0 import AsyncMemoryClient
 from core.utils.config import config
 from core.utils.logger import logger
+
+
+def _clip_message_content(content: str, max_length: int = 4000) -> str:
+    """Clip message content to prevent excessively large memory entries."""
+    if len(content) <= max_length:
+        return content
+    return content[:max_length - 3] + "..."
 
 
 class MemoryError(Exception):
@@ -27,15 +36,15 @@ class MemoryError(Exception):
 class MemoryService:
     """
     Service for managing AI memories using Mem0ai.
-    
+
     Provides methods for adding, searching, and managing memories
     associated with user conversations and AI interactions.
     """
-    
+
     def __init__(self):
-        """Initialize the memory service with Mem0 client."""
+        """Initialize the memory service with Mem0 async client."""
         self.api_key = config.MEM0_API_KEY
-        
+
         if not self.api_key:
             logger.warning("MEM0_API_KEY not found in environment variables")
             self.client = None
@@ -43,11 +52,27 @@ class MemoryService:
             try:
                 # Set the API key in environment for mem0 client
                 os.environ["MEM0_API_KEY"] = self.api_key
-                self.client = MemoryClient()
+                self.client = AsyncMemoryClient()
                 logger.info("Memory service initialized successfully")
             except Exception as e:
-                logger.error(f"Failed to initialize Mem0 client: {str(e)}")
+                logger.error(f"Failed to initialize Mem0 async client: {str(e)}")
                 self.client = None
+
+    async def _retry_with_backoff(self, func, *args, **kwargs):
+        """Execute function with exponential backoff retry logic."""
+        max_retries = config.MEM0_MAX_RETRIES
+        delay = config.MEM0_RETRY_DELAY
+
+        for attempt in range(max_retries + 1):
+            try:
+                return await asyncio.wait_for(func(*args, **kwargs), timeout=config.MEM0_REQUEST_TIMEOUT)
+            except (asyncio.TimeoutError, Exception) as e:
+                if attempt == max_retries:
+                    logger.error(f"Failed after {max_retries + 1} attempts: {str(e)}")
+                    raise
+                wait_time = delay * (2 ** attempt)  # Exponential backoff
+                logger.warning(f"Attempt {attempt + 1} failed, retrying in {wait_time}s: {str(e)}")
+                await asyncio.sleep(wait_time)
     
     def is_available(self) -> bool:
         """Check if the memory service is available."""
@@ -91,18 +116,27 @@ class MemoryService:
             # Add memory using mem0 client - messages parameter expects a list
             if isinstance(content, str):
                 # Handle string content - wrap in list as expected by mem0 API
-                messages = [content]
+                messages = [_clip_message_content(content)]
             else:
-                # Handle list of message dictionaries - pass directly to mem0 API
-                messages = content
+                # Handle list of message dictionaries - clip content in each message
+                messages = []
+                for msg in content:
+                    if isinstance(msg, dict):
+                        clipped_msg = dict(msg)  # Create a copy
+                        if 'content' in clipped_msg:
+                            clipped_msg['content'] = _clip_message_content(str(clipped_msg['content']))
+                        messages.append(clipped_msg)
+                    else:
+                        messages.append(_clip_message_content(str(msg)))
             
-            result = self.client.add(
+            result = await self._retry_with_backoff(
+                self.client.add,
                 messages=messages,
                 user_id=user_id,
                 metadata=memory_data
             )
             
-            logger.info(
+            logger.debug(
                 f"Memory added successfully for user {user_id}",
                 extra={
                     "user_id": user_id,
@@ -158,32 +192,31 @@ class MemoryService:
             # Add version and filters for v2 API
             if version == "v2":
                 search_params["version"] = "v2"
-                
-                # Use provided filters or create default user filter
+
+                # Use provided filters or create default user filter with thread_id if specified
                 if filters:
-                    search_params["filters"] = filters
+                    # Merge provided filters with thread_id filter if needed
+                    if thread_id:
+                        if "AND" not in filters:
+                            # Convert to AND structure if not already
+                            filters = {"AND": [filters]}
+                        # Add thread_id filter to existing AND conditions
+                        if isinstance(filters["AND"], list):
+                            filters["AND"].append({"thread_id": thread_id})
+                        search_params["filters"] = filters
+                    else:
+                        search_params["filters"] = filters
                 else:
-                    search_params["filters"] = {
-                        "AND": [
-                            {
-                                "user_id": user_id
-                            }
-                        ]
-                    }
-            
+                    # Create default user filter with optional thread_id
+                    filter_conditions = [{"user_id": user_id}]
+                    if thread_id:
+                        filter_conditions.append({"thread_id": thread_id})
+                    search_params["filters"] = {"AND": filter_conditions}
+
             # Search memories using mem0 client
-            results = self.client.search(**search_params)
+            results = await self._retry_with_backoff(self.client.search, **search_params)
             
-            # Filter by thread_id if specified (additional filtering)
-            if thread_id and results:
-                filtered_results = []
-                for memory in results:
-                    memory_metadata = memory.get("metadata", {})
-                    if memory_metadata.get("thread_id") == thread_id:
-                        filtered_results.append(memory)
-                results = filtered_results
-            
-            logger.info(
+            logger.debug(
                 f"Found {len(results)} memories for user {user_id}",
                 extra={
                     "user_id": user_id,
@@ -225,29 +258,32 @@ class MemoryService:
             return []
         
         try:
-            # Get all memories for user and filter by thread
-            all_memories = self.client.get_all(user_id=user_id, limit=limit)
-            
-            if not all_memories:
-                return []
-            
-            # Filter memories by thread_id
-            thread_memories = []
-            for memory in all_memories:
-                memory_metadata = memory.get("metadata", {})
-                if memory_metadata.get("thread_id") == thread_id:
-                    thread_memories.append(memory)
-            
-            logger.info(
-                f"Retrieved {len(thread_memories)} memories for thread {thread_id}",
+            # Use search with filters for better performance (server-side filtering)
+            search_params = {
+                "query": "*",  # Match all memories for this user/thread
+                "user_id": user_id,
+                "limit": limit,
+                "version": "v2",
+                "filters": {
+                    "AND": [
+                        {"user_id": user_id},
+                        {"thread_id": thread_id}
+                    ]
+                }
+            }
+
+            results = await self._retry_with_backoff(self.client.search, **search_params)
+
+            logger.debug(
+                f"Retrieved {len(results)} memories for thread {thread_id}",
                 extra={
                     "user_id": user_id,
                     "thread_id": thread_id,
-                    "memories_count": len(thread_memories)
+                    "memories_count": len(results)
                 }
             )
-            
-            return thread_memories
+
+            return results or []
             
         except Exception as e:
             logger.error(
@@ -273,7 +309,7 @@ class MemoryService:
             return False
         
         try:
-            result = self.client.delete(memory_id=memory_id)
+            result = await self._retry_with_backoff(self.client.delete, memory_id=memory_id)
             
             logger.info(
                 f"Memory {memory_id} deleted successfully",
