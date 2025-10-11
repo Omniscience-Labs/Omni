@@ -60,7 +60,7 @@ export const DocsContent = () => {
               
               <p className="text-lg lg:text-xl text-muted-foreground leading-relaxed max-w-3xl">
                 Build, deploy, and manage powerful AI agents that automate complex workflows. 
-                <Omni></Omni> provides everything you need to create intelligent automation solutions.
+                Omni provides everything you need to create intelligent automation solutions.
               </p>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mt-6">
                  <Button size="lg" className="w-full sm:w-auto backdrop-blur-sm">
