@@ -151,11 +151,22 @@ export const groupThreadsByDate = (
 ): GroupedThreads => {
   const sortedThreads = sortThreads(threadsList);
   const grouped: GroupedThreads = {};
+  
+  // Get current date at start of day in user's local timezone
   const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   
   sortedThreads.forEach(thread => {
     const threadDate = new Date(thread.updatedAt);
-    const diffInMs = now.getTime() - threadDate.getTime();
+    // Normalize thread date to start of day in user's local timezone
+    const threadDayStart = new Date(
+      threadDate.getFullYear(),
+      threadDate.getMonth(),
+      threadDate.getDate()
+    );
+    
+    // Calculate difference in days based on local timezone midnight boundaries
+    const diffInMs = today.getTime() - threadDayStart.getTime();
     const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
     
     let dateGroup: string;
