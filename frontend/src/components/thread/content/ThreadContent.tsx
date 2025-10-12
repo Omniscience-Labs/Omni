@@ -787,7 +787,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                             {renderAttachments(attachments as string[], handleOpenFileViewer, sandboxId, project)}
                                                         </div>
                                                     </div>
-                                                    <div className="absolute bottom-2 left-2">
+                                                    <div className="absolute -bottom-1 -left-1">
                                                         <CopyMessageButton content={cleanContent} />
                                                     </div>
                                                 </div>
@@ -910,7 +910,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                     <div className="prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-hidden">
                                                                                         {renderedContent}
                                                                                     </div>
-                                                                                    <div className="absolute bottom-0 left-0">
+                                                                                    <div className="absolute -bottom-1 -left-1">
                                                                                         <CopyMessageButton content={mainContent} />
                                                                                     </div>
                                                                                 </div>
