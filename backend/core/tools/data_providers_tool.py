@@ -355,12 +355,12 @@ Use this tool when you need to discover what endpoints are available.
     #     <function_calls>
     #     <invoke name="apollo_reveal_phone">
     #     <parameter name="first_name">Tim</parameter>
-        <parameter name="last_name">Zheng</parameter>
-        <parameter name="organization_name">Apollo</parameter>
-        <parameter name="domain">apollo.io</parameter>
-        </invoke>
-        </function_calls>
-        ''')
+    #     <parameter name="last_name">Zheng</parameter>
+    #     <parameter name="organization_name">Apollo</parameter>
+    #     <parameter name="domain">apollo.io</parameter>
+    #     </invoke>
+    #     </function_calls>
+    #     ''')
     # async def apollo_reveal_phone(
     #     self,
     #     first_name: str,
