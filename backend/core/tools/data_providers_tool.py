@@ -365,7 +365,8 @@ Use this tool when you need to discover what endpoints are available.
         last_name: str,
         organization_name: Optional[str] = None,
         domain: Optional[str] = None,
-        email: Optional[str] = None
+        email: Optional[str] = None,
+        _thread_id: Optional[str] = None
     ) -> ToolResult:
         """
         Request phone number reveal for a person (asynchronous with webhook callback).
@@ -376,13 +377,17 @@ Use this tool when you need to discover what endpoints are available.
         3. Returns immediately with pending status
         4. Phone numbers will be delivered to webhook endpoint
         5. User will be notified when phone numbers arrive
+        
+        Args:
+            first_name: Person's first name
+            last_name: Person's last name
+            organization_name: Optional organization name
+            domain: Optional company domain
+            email: Optional email address
+            _thread_id: Thread ID (injected by the execution framework)
         """
         try:
-            if not self.thread_manager:
-                return self.fail_response("Thread manager not available for phone reveal webhook")
-            
-            thread_id = self.thread_manager.thread_id
-            if not thread_id:
+            if not _thread_id:
                 return self.fail_response("Thread ID not available for phone reveal webhook")
             
             logger.info(f"Apollo phone reveal requested for: {first_name} {last_name}")
@@ -400,7 +405,7 @@ Use this tool when you need to discover what endpoints are available.
             client = await db.client
             
             webhook_data = {
-                "thread_id": thread_id,
+                "thread_id": _thread_id,
                 "webhook_secret": webhook_secret,
                 "person_data": {
                     "first_name": first_name,
