@@ -179,60 +179,17 @@ async def store_conversation_memory(
             logger.debug(f"No conversation messages found for thread {thread_id}")
             return False
         
-        # Check for recent memory to avoid duplicates using metadata filters
-        if agent_run_id:
-            # Use metadata filters for efficient deduplication check
-            # Only filter by user_id and thread_id as these are the only reliable filterable fields
-            dedup_filters = {
-                "AND": [
-                    {"user_id": user_id}
-                ]
-            }
-            if thread_id:
-                dedup_filters["AND"].append({"thread_id": thread_id})
-
-            recent_memories = await memory_service.search_memories(
-                query="*",  # Match all memories with these metadata filters
-                user_id=user_id,
-                thread_id=thread_id,
-                limit=5,  # Increase limit to check for potential duplicates
-                version="v2",
-                filters=dedup_filters
-            )
-
-            # Check if we found memories for this thread (exact agent_run_id check will be done via content matching)
-            if recent_memories:
-                logger.info(f"Found {len(recent_memories)} existing memories for thread {thread_id}, checking for duplicates")
-                # For now, we'll proceed with storage and rely on content-based deduplication
-                # since agent_run_id may not be filterable in mem0.ai API
-
-        # Compute memory hash for additional deduplication
+        # Compute memory hash for deduplication
         memory_hash = _compute_memory_hash(conversation_messages)
 
-        # Additional dedup check using memory_hash for cases without agent_run_id
-        if not agent_run_id:
-            # Use the same simplified filter structure for hash-based deduplication
-            hash_filters = {
-                "AND": [
-                    {"user_id": user_id}
-                ]
-            }
-            if thread_id:
-                hash_filters["AND"].append({"thread_id": thread_id})
-
-            hash_check = await memory_service.search_memories(
-                query="*",
-                user_id=user_id,
-                thread_id=thread_id,
-                limit=5,  # Check more memories for potential hash matches
-                version="v2",
-                filters=hash_filters
+        # Check for recent memory to avoid duplicates
+        # Note: Deduplication is complex with Mem0 API v2 limitations
+        # We'll rely on memory_hash and let Mem0's internal deduplication handle most cases
+        if agent_run_id:
+            logger.debug(
+                f"Storing memory with agent_run_id {agent_run_id} and hash {memory_hash}",
+                extra={"agent_run_id": agent_run_id, "memory_hash": memory_hash}
             )
-
-            if hash_check:
-                logger.info(f"Found {len(hash_check)} existing memories for thread {thread_id}, checking for hash duplicates")
-                # For now, we'll proceed with storage and rely on content-based deduplication
-                # since memory_hash may not be filterable in mem0.ai API
         
         # Prepare metadata for memory storage
         memory_metadata = {
@@ -354,23 +311,16 @@ async def retrieve_relevant_memories(
             logger.debug(f"Memory cache hit for key: {cache_key}")
             return cached_result.decode('utf-8') if isinstance(cached_result, bytes) else cached_result
 
-        # Cache miss - search for relevant memories using mem0ai v2 API with filters
-        # Only use supported filter fields to avoid API errors
-        filters = {
-            "AND": [
-                {"user_id": user_id}
-            ]
-        }
-        if thread_id:
-            filters["AND"].append({"thread_id": thread_id})
-
+        # Cache miss - search for relevant memories using mem0ai v2 API
+        # Note: Mem0 v2 API has limited filter support, so we rely on semantic search
+        # and post-process results if needed
         relevant_memories = await memory_service.search_memories(
             query=query,
             user_id=user_id,
             thread_id=thread_id,
             limit=limit,
             version="v2",
-            filters=filters
+            filters=None  # Let Mem0 handle filtering based on user_id in the search
         )
 
         if not relevant_memories:
