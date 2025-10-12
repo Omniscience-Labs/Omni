@@ -150,7 +150,7 @@ class ToolManager:
     def _register_utility_tools(self, disabled_tools: List[str]):
         """Register utility and data provider tools."""
         if config.RAPID_API_KEY and 'data_providers_tool' not in disabled_tools:
-            self.thread_manager.add_tool(DataProvidersTool, thread_manager=self.thread_manager)
+            self.thread_manager.add_tool(DataProvidersTool, thread_manager=self.thread_manager, thread_id=self.thread_id)
             # logger.debug("Registered data_providers_tool")
     
     def _register_agent_builder_tools(self, agent_id: str, disabled_tools: List[str]):
