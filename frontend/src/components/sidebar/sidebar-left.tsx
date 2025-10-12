@@ -280,6 +280,27 @@ export function SidebarLeft({
         <NavAgents />
       </SidebarContent>
       <SidebarFooter>
+        {/* Expand button - only shown when collapsed */}
+        {state === 'collapsed' && (
+          <div className="px-2 pb-2 flex justify-center">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => setOpen(true)}
+                  size="icon"
+                  variant="ghost"
+                  className="h-9 w-9 hover:bg-accent hover:text-accent-foreground transition-colors duration-200"
+                  aria-label="Expand sidebar"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                Expand sidebar
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
         {/* Help Button */}
         {state !== 'collapsed' && (
           <div className="px-2 pb-2">
