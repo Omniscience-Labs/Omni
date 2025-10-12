@@ -1,21 +1,26 @@
 import json
-from typing import Union, Dict, Any
+import os
+import uuid
+from typing import Union, Dict, Any, Optional
 
 from core.agentpress.tool import Tool, ToolResult, openapi_schema, usage_example
+from core.agentpress.thread_manager import ThreadManager
 from core.tools.data_providers.LinkedinProvider import LinkedinProvider
 from core.tools.data_providers.YahooFinanceProvider import YahooFinanceProvider
 from core.tools.data_providers.AmazonProvider import AmazonProvider
 from core.tools.data_providers.ZillowProvider import ZillowProvider
 from core.tools.data_providers.TwitterProvider import TwitterProvider
-from core.tools.data_providers.ApolloProvider import ApolloProvider
+from core.tools.data_providers.ApolloProvider import ApolloProvider, ApolloDirectAPI
 from core.tools.data_providers.ActiveJobsProvider import ActiveJobsProvider
+from core.utils.logger import logger
 
 
 class DataProvidersTool(Tool):
     """Tool for making requests to various data providers."""
 
-    def __init__(self):
+    def __init__(self, thread_manager: Optional[ThreadManager] = None):
         super().__init__()
+        self.thread_manager = thread_manager
 
         self.register_data_providers = {
             "linkedin": LinkedinProvider(),
@@ -26,6 +31,9 @@ class DataProvidersTool(Tool):
             "apollo": ApolloProvider(),
             "active_jobs": ActiveJobsProvider()
         }
+        
+        # Initialize Apollo Direct API client for lead generation
+        self.apollo_direct_api = ApolloDirectAPI()
 
     @openapi_schema({
         "type": "function",
@@ -174,6 +182,280 @@ Use this tool when you need to discover what endpoints are available.
             error_message = str(e)
             print(error_message)
             simplified_message = f"Error executing data provider call: {error_message[:200]}"
+            if len(error_message) > 200:
+                simplified_message += "..."
+            return self.fail_response(simplified_message)
+    
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "apollo_match_lead",
+            "description": "Match and retrieve detailed information about a person using Apollo.io's lead generation API. Returns comprehensive contact and professional information including email (if revealed), employment history, and organization details. Use this to find and enrich lead data for sales and marketing purposes. IMPORTANT: Always ask the user for explicit confirmation before setting reveal_personal_emails=true.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "first_name": {
+                        "type": "string",
+                        "description": "The person's first name (required)"
+                    },
+                    "last_name": {
+                        "type": "string",
+                        "description": "The person's last name (required)"
+                    },
+                    "organization_name": {
+                        "type": "string",
+                        "description": "The name of the company/organization the person works for (optional but recommended for better matching)"
+                    },
+                    "domain": {
+                        "type": "string",
+                        "description": "The company domain (e.g., 'apollo.io' or 'google.com'). Optional but helps with accurate matching"
+                    },
+                    "email": {
+                        "type": "string",
+                        "description": "The person's email address if known (optional, helps with matching)"
+                    },
+                    "linkedin_url": {
+                        "type": "string",
+                        "description": "The person's LinkedIn profile URL (optional, helps with accurate matching)"
+                    },
+                    "reveal_personal_emails": {
+                        "type": "boolean",
+                        "description": "Whether to reveal and return personal email addresses. IMPORTANT: This consumes Apollo credits. Always ask user for explicit confirmation before setting to true. Default: false",
+                        "default": False
+                    }
+                },
+                "required": ["first_name", "last_name"]
+            }
+        }
+    })
+    @usage_example('''
+        <!-- Example 1: Basic lead matching without email reveal -->
+        <function_calls>
+        <invoke name="apollo_match_lead">
+        <parameter name="first_name">Tim</parameter>
+        <parameter name="last_name">Zheng</parameter>
+        <parameter name="organization_name">Apollo</parameter>
+        <parameter name="domain">apollo.io</parameter>
+        </invoke>
+        </function_calls>
+        
+        <!-- Example 2: With email reveal (after user confirmation) -->
+        <function_calls>
+        <invoke name="apollo_match_lead">
+        <parameter name="first_name">Tim</parameter>
+        <parameter name="last_name">Zheng</parameter>
+        <parameter name="organization_name">Apollo</parameter>
+        <parameter name="reveal_personal_emails">true</parameter>
+        </invoke>
+        </function_calls>
+        
+        <!-- Example 3: Using LinkedIn URL for more accurate matching -->
+        <function_calls>
+        <invoke name="apollo_match_lead">
+        <parameter name="first_name">Tim</parameter>
+        <parameter name="last_name">Zheng</parameter>
+        <parameter name="linkedin_url">http://www.linkedin.com/in/tim-zheng-677ba010</parameter>
+        <parameter name="reveal_personal_emails">true</parameter>
+        </invoke>
+        </function_calls>
+        ''')
+    async def apollo_match_lead(
+        self,
+        first_name: str,
+        last_name: str,
+        organization_name: Optional[str] = None,
+        domain: Optional[str] = None,
+        email: Optional[str] = None,
+        linkedin_url: Optional[str] = None,
+        reveal_personal_emails: bool = False
+    ) -> ToolResult:
+        """
+        Match and retrieve detailed information about a person using Apollo.io's direct API.
+        
+        Returns comprehensive lead data including:
+        - Personal information (name, title, location)
+        - Contact information (email with verification status)
+        - Employment history
+        - Organization details
+        - Social profiles
+        """
+        try:
+            logger.info(f"Apollo lead match requested for: {first_name} {last_name}")
+            
+            # Call Apollo Direct API
+            result = await self.apollo_direct_api.match_person(
+                first_name=first_name,
+                last_name=last_name,
+                organization_name=organization_name,
+                domain=domain,
+                email=email,
+                linkedin_url=linkedin_url,
+                reveal_personal_emails=reveal_personal_emails
+            )
+            
+            # Check if person was found
+            if not result.get('person'):
+                return self.fail_response(
+                    f"Could not find person matching: {first_name} {last_name}" +
+                    (f" at {organization_name}" if organization_name else "")
+                )
+            
+            logger.info(f"Apollo lead match successful for: {first_name} {last_name}")
+            return self.success_response(result)
+            
+        except ValueError as e:
+            # API key not configured
+            logger.error(f"Apollo API configuration error: {e}")
+            return self.fail_response(str(e))
+        except Exception as e:
+            error_message = str(e)
+            logger.error(f"Apollo lead match error: {error_message}")
+            simplified_message = f"Error matching lead in Apollo: {error_message[:200]}"
+            if len(error_message) > 200:
+                simplified_message += "..."
+            return self.fail_response(simplified_message)
+    
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "apollo_reveal_phone",
+            "description": "Request phone number reveal for a matched person using Apollo.io. This is an ASYNCHRONOUS operation - the phone number will be delivered via webhook and you'll be notified when it arrives (typically 30-60 seconds). IMPORTANT: This consumes Apollo credits. Always ask the user for explicit confirmation before using this tool. Use apollo_match_lead first to identify the person, then use this tool to reveal their phone number.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "first_name": {
+                        "type": "string",
+                        "description": "The person's first name (required)"
+                    },
+                    "last_name": {
+                        "type": "string",
+                        "description": "The person's last name (required)"
+                    },
+                    "organization_name": {
+                        "type": "string",
+                        "description": "The name of the company/organization the person works for (optional but recommended for better matching)"
+                    },
+                    "domain": {
+                        "type": "string",
+                        "description": "The company domain (e.g., 'apollo.io' or 'google.com'). Optional but helps with accurate matching"
+                    },
+                    "email": {
+                        "type": "string",
+                        "description": "The person's email address if known (optional, helps with matching)"
+                    }
+                },
+                "required": ["first_name", "last_name"]
+            }
+        }
+    })
+    @usage_example('''
+        <!-- Example: Request phone number reveal (after user confirmation) -->
+        <function_calls>
+        <invoke name="apollo_reveal_phone">
+        <parameter name="first_name">Tim</parameter>
+        <parameter name="last_name">Zheng</parameter>
+        <parameter name="organization_name">Apollo</parameter>
+        <parameter name="domain">apollo.io</parameter>
+        </invoke>
+        </function_calls>
+        ''')
+    async def apollo_reveal_phone(
+        self,
+        first_name: str,
+        last_name: str,
+        organization_name: Optional[str] = None,
+        domain: Optional[str] = None,
+        email: Optional[str] = None
+    ) -> ToolResult:
+        """
+        Request phone number reveal for a person (asynchronous with webhook callback).
+        
+        This method:
+        1. Creates a webhook request in the database
+        2. Calls Apollo API with webhook URL
+        3. Returns immediately with pending status
+        4. Phone numbers will be delivered to webhook endpoint
+        5. User will be notified when phone numbers arrive
+        """
+        try:
+            if not self.thread_manager:
+                return self.fail_response("Thread manager not available for phone reveal webhook")
+            
+            thread_id = self.thread_manager.thread_id
+            if not thread_id:
+                return self.fail_response("Thread ID not available for phone reveal webhook")
+            
+            logger.info(f"Apollo phone reveal requested for: {first_name} {last_name}")
+            
+            # Generate unique webhook secret
+            webhook_secret = str(uuid.uuid4())
+            
+            # Build webhook URL
+            webhook_base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
+            webhook_url = f"{webhook_base_url}/api/tools/apollo/webhook/{webhook_secret}"
+            
+            # Store webhook request in database
+            from core.services.supabase import DBConnection
+            db = DBConnection()
+            client = await db.client
+            
+            webhook_data = {
+                "thread_id": thread_id,
+                "webhook_secret": webhook_secret,
+                "person_data": {
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "organization_name": organization_name,
+                    "domain": domain,
+                    "email": email
+                },
+                "status": "pending"
+            }
+            
+            result = await client.table("apollo_webhook_requests").insert(webhook_data).execute()
+            
+            if not result.data:
+                return self.fail_response("Failed to create webhook request in database")
+            
+            # Call Apollo API with webhook URL
+            try:
+                await self.apollo_direct_api.match_person(
+                    first_name=first_name,
+                    last_name=last_name,
+                    organization_name=organization_name,
+                    domain=domain,
+                    email=email,
+                    reveal_phone_number=True,
+                    webhook_url=webhook_url
+                )
+            except Exception as api_error:
+                # Clean up database record if API call fails
+                await client.table("apollo_webhook_requests").update(
+                    {"status": "failed"}
+                ).eq("webhook_secret", webhook_secret).execute()
+                raise api_error
+            
+            logger.info(f"Apollo phone reveal webhook created with secret: {webhook_secret}")
+            
+            return self.success_response({
+                "status": "pending",
+                "message": f"Phone number reveal requested for {first_name} {last_name}. This typically takes 30-60 seconds. You'll be notified when the phone number arrives.",
+                "webhook_id": webhook_secret,
+                "person": {
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "organization_name": organization_name
+                }
+            })
+            
+        except ValueError as e:
+            # API key not configured
+            logger.error(f"Apollo API configuration error: {e}")
+            return self.fail_response(str(e))
+        except Exception as e:
+            error_message = str(e)
+            logger.error(f"Apollo phone reveal error: {error_message}")
+            simplified_message = f"Error requesting phone reveal from Apollo: {error_message[:200]}"
             if len(error_message) > 200:
                 simplified_message += "..."
             return self.fail_response(simplified_message)
