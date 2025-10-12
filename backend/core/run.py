@@ -150,7 +150,7 @@ class ToolManager:
     def _register_utility_tools(self, disabled_tools: List[str]):
         """Register utility and data provider tools."""
         if config.RAPID_API_KEY and 'data_providers_tool' not in disabled_tools:
-            self.thread_manager.add_tool(DataProvidersTool)
+            self.thread_manager.add_tool(DataProvidersTool, thread_manager=self.thread_manager)
             # logger.debug("Registered data_providers_tool")
     
     def _register_agent_builder_tools(self, agent_id: str, disabled_tools: List[str]):
@@ -330,6 +330,34 @@ class PromptManager:
                 # Append the full agent builder prompt to the existing system prompt
                 builder_prompt = get_agent_builder_prompt()
                 system_content += f"\n\n{builder_prompt}"
+            
+            # Check if data providers tool is enabled for Apollo lead generation
+            if agentpress_tools.get('data_providers_tool', False):
+                apollo_instructions = """
+
+=== APOLLO LEAD GENERATION USAGE ===
+You have access to Apollo.io's lead generation capabilities through two specialized tools:
+
+1. **apollo_match_lead**: Find and retrieve detailed contact information for prospects
+   - Returns: Name, title, company, email (if revealed), employment history, organization details
+   - IMPORTANT: ALWAYS ask the user for explicit confirmation before setting reveal_personal_emails=true
+   - This consumes Apollo credits when revealing emails
+   - Example: "I found [Name] at [Company]. Would you like me to reveal their personal email address? (This will use credits)"
+
+2. **apollo_reveal_phone**: Request phone number for a matched person (ASYNCHRONOUS)
+   - IMPORTANT: ALWAYS ask the user for explicit confirmation before using this tool
+   - This consumes Apollo credits
+   - Phone numbers arrive via webhook in 30-60 seconds
+   - You'll receive a notification when the phone number arrives
+   - Example: "Would you like me to reveal [Name]'s phone number? (This will use credits and takes about 30-60 seconds)"
+
+Best Practices:
+- Use apollo_match_lead first to identify and verify the person
+- Only reveal personal information with explicit user consent
+- Inform users about credit usage before revealing contact details
+- For phone reveals, set expectations about the 30-60 second wait time
+"""
+                system_content += apollo_instructions
         
         # Add agent knowledge base context if available
         if agent_config and client and 'agent_id' in agent_config:

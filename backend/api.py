@@ -214,6 +214,102 @@ api_router.include_router(google_slides_router)
 
 api_router.include_router(linear_api.router)
 
+@api_router.post("/tools/apollo/webhook/{webhook_secret}")
+async def apollo_webhook_handler(webhook_secret: str, request: Request):
+    """
+    Webhook endpoint for receiving Apollo.io phone number reveals.
+    This is called by Apollo when phone numbers are ready.
+    """
+    try:
+        # Get request body
+        body = await request.json()
+        logger.info(f"Apollo webhook received for secret: {webhook_secret[:8]}...")
+        
+        # Verify webhook secret exists in database
+        client = await db.client
+        webhook_result = await client.table("apollo_webhook_requests").select("*").eq(
+            "webhook_secret", webhook_secret
+        ).eq("status", "pending").execute()
+        
+        if not webhook_result.data:
+            logger.warning(f"Apollo webhook received for unknown or already processed secret: {webhook_secret[:8]}...")
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "error": "Webhook request not found or already processed"}
+            )
+        
+        webhook_record = webhook_result.data[0]
+        thread_id = webhook_record["thread_id"]
+        
+        # Extract phone numbers from Apollo response
+        person_data = body.get("person", {})
+        phone_numbers = []
+        
+        # Get phone numbers from contact if available
+        contact = person_data.get("contact", {})
+        if contact and contact.get("phone_numbers"):
+            phone_numbers = contact["phone_numbers"]
+        
+        # Update database record
+        update_data = {
+            "status": "completed",
+            "phone_numbers": phone_numbers,
+            "person_data": person_data
+        }
+        
+        await client.table("apollo_webhook_requests").update(update_data).eq(
+            "webhook_secret", webhook_secret
+        ).execute()
+        
+        logger.info(f"Apollo webhook processed successfully for thread: {thread_id}")
+        
+        # Create a message in the thread with the phone numbers
+        if phone_numbers and thread_id:
+            try:
+                # Format phone numbers message
+                person_name = f"{person_data.get('first_name', '')} {person_data.get('last_name', '')}".strip()
+                company = person_data.get('organization', {}).get('name', 'Unknown Company')
+                
+                phone_list = "\n".join([
+                    f"- {phone.get('raw_number', phone.get('sanitized_number', 'N/A'))} ({phone.get('type', 'Unknown type')})"
+                    for phone in phone_numbers
+                ])
+                
+                message_content = f"""📞 **Phone Numbers Revealed for {person_name}** ({company})
+
+{phone_list}
+
+Status: {phone_numbers[0].get('status', 'N/A') if phone_numbers else 'N/A'}
+"""
+                
+                # Create assistant message in thread
+                message_data = {
+                    "thread_id": thread_id,
+                    "role": "assistant",
+                    "content": message_content,
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }
+                
+                await client.table("messages").insert(message_data).execute()
+                logger.info(f"Phone number message created in thread: {thread_id}")
+                
+            except Exception as msg_error:
+                logger.error(f"Error creating message for phone reveal: {msg_error}")
+                # Don't fail the webhook if message creation fails
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": "Phone numbers processed successfully",
+            "phone_count": len(phone_numbers)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error processing Apollo webhook: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": "Internal server error"}
+        )
+
 @api_router.get("/health")
 async def health_check():
     logger.debug("Health check endpoint called")
