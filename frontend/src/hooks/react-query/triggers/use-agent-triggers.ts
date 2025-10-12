@@ -113,14 +113,10 @@ export const useCreateTrigger = () => {
   return useMutation({
     mutationFn: createTrigger,
     onSuccess: (newTrigger) => {
+      // Invalidate queries to refetch - this prevents duplicate entries
+      queryClient.invalidateQueries({ queryKey: ['agent-triggers', newTrigger.agent_id] });
       queryClient.invalidateQueries({ queryKey: ['agent-upcoming-runs', newTrigger.agent_id] });
       queryClient.invalidateQueries({ queryKey: ['all-triggers'] });
-      queryClient.setQueryData(
-        ['agent-triggers', newTrigger.agent_id],
-        (old: TriggerConfiguration[] | undefined) => {
-          return old ? [...old, newTrigger] : [newTrigger];
-        }
-      );
     },
   });
 };
@@ -131,17 +127,10 @@ export const useUpdateTrigger = () => {
   return useMutation({
     mutationFn: updateTrigger,
     onSuccess: (updatedTrigger) => {
+      // Invalidate queries to refetch - this prevents duplicate entries
+      queryClient.invalidateQueries({ queryKey: ['agent-triggers', updatedTrigger.agent_id] });
       queryClient.invalidateQueries({ queryKey: ['agent-upcoming-runs', updatedTrigger.agent_id] });
       queryClient.invalidateQueries({ queryKey: ['all-triggers'] });
-      queryClient.setQueryData(
-        ['agent-triggers', updatedTrigger.agent_id],
-        (old: TriggerConfiguration[] | undefined) => {
-          if (!old) return [updatedTrigger];
-          return old.map(trigger => 
-            trigger.trigger_id === updatedTrigger.trigger_id ? updatedTrigger : trigger
-          );
-        }
-      );
     },
   });
 };
@@ -170,17 +159,10 @@ export const useToggleTrigger = () => {
       });
     },
     onSuccess: (updatedTrigger) => {
+      // Invalidate queries to refetch - this prevents duplicate entries
+      queryClient.invalidateQueries({ queryKey: ['agent-triggers', updatedTrigger.agent_id] });
       queryClient.invalidateQueries({ queryKey: ['agent-upcoming-runs', updatedTrigger.agent_id] });
       queryClient.invalidateQueries({ queryKey: ['all-triggers'] });
-      queryClient.setQueryData(
-        ['agent-triggers', updatedTrigger.agent_id],
-        (old: TriggerConfiguration[] | undefined) => {
-          if (!old) return [updatedTrigger];
-          return old.map(trigger => 
-            trigger.trigger_id === updatedTrigger.trigger_id ? updatedTrigger : trigger
-          );
-        }
-      );
     },
   });
 }; 
