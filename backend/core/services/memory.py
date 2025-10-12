@@ -52,8 +52,8 @@ class MemoryService:
             try:
                 # Set the API key in environment for mem0 client
                 os.environ["MEM0_API_KEY"] = self.api_key
-                # Initialize with v1.1 output format to avoid deprecation warnings
-                self.client = AsyncMemoryClient(output_format="v1.1")
+                # Initialize Mem0 async client
+                self.client = AsyncMemoryClient()
                 logger.info("Memory service initialized successfully")
             except Exception as e:
                 logger.error(f"Failed to initialize Mem0 async client: {str(e)}")
