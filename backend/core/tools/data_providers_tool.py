@@ -18,9 +18,10 @@ from core.utils.logger import logger
 class DataProvidersTool(Tool):
     """Tool for making requests to various data providers."""
 
-    def __init__(self, thread_manager: Optional[ThreadManager] = None):
+    def __init__(self, thread_manager: Optional[ThreadManager] = None, thread_id: Optional[str] = None):
         super().__init__()
         self.thread_manager = thread_manager
+        self.thread_id = thread_id
 
         self.register_data_providers = {
             "linkedin": LinkedinProvider(),
@@ -365,47 +366,45 @@ Use this tool when you need to discover what endpoints are available.
         last_name: str,
         organization_name: Optional[str] = None,
         domain: Optional[str] = None,
-        email: Optional[str] = None,
-        _thread_id: Optional[str] = None
+        email: Optional[str] = None
     ) -> ToolResult:
         """
         Request phone number reveal for a person (asynchronous with webhook callback).
-        
+
         This method:
         1. Creates a webhook request in the database
         2. Calls Apollo API with webhook URL
         3. Returns immediately with pending status
         4. Phone numbers will be delivered to webhook endpoint
         5. User will be notified when phone numbers arrive
-        
+
         Args:
             first_name: Person's first name
             last_name: Person's last name
             organization_name: Optional organization name
             domain: Optional company domain
             email: Optional email address
-            _thread_id: Thread ID (injected by the execution framework)
         """
         try:
-            if not _thread_id:
+            if not self.thread_id:
                 return self.fail_response("Thread ID not available for phone reveal webhook")
-            
+
             logger.info(f"Apollo phone reveal requested for: {first_name} {last_name}")
-            
+
             # Generate unique webhook secret
             webhook_secret = str(uuid.uuid4())
-            
+
             # Build webhook URL
             webhook_base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
             webhook_url = f"{webhook_base_url}/api/tools/apollo/webhook/{webhook_secret}"
-            
+
             # Store webhook request in database
             from core.services.supabase import DBConnection
             db = DBConnection()
             client = await db.client
-            
+
             webhook_data = {
-                "thread_id": _thread_id,
+                "thread_id": self.thread_id,
                 "webhook_secret": webhook_secret,
                 "person_data": {
                     "first_name": first_name,
