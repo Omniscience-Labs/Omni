@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { ToolViewProps } from '../types';
 import { formatTimestamp } from '../utils';
+import { parseToolResult } from '../tool-result-parser';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -95,25 +96,31 @@ function extractApolloLeadData(
   let actualIsSuccess = isSuccess;
   let isPending = false;
 
-  // Try to parse tool content
-  if (toolContent) {
-    if (typeof toolContent === 'string') {
-      try {
-        const parsed = JSON.parse(toolContent);
-        if (parsed.result) {
-          data = parsed.result;
-        } else {
-          data = parsed;
-        }
-      } catch {
-        data = null;
+  // First, parse the tool result structure to get the actual output
+  const toolResult = parseToolResult(toolContent);
+  const outputString = toolResult?.toolOutput || '';
+  
+  // Update success status from tool result
+  if (toolResult) {
+    actualIsSuccess = toolResult.isSuccess;
+  }
+
+  // Try to parse the tool output as JSON
+  if (outputString) {
+    try {
+      const parsed = JSON.parse(outputString);
+      // The Apollo API response is directly in the parsed object
+      data = parsed;
+      
+      // Debug logging to help diagnose data structure issues
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Apollo Tool] Parsed data:', data);
+        console.log('[Apollo Tool] Person data:', data?.person);
       }
-    } else if (typeof toolContent === 'object') {
-      if (toolContent.result) {
-        data = toolContent.result;
-      } else {
-        data = toolContent;
-      }
+    } catch (error) {
+      console.error('Failed to parse Apollo tool output:', error);
+      console.error('Raw output string:', outputString);
+      data = null;
     }
   }
 
