@@ -316,150 +316,151 @@ Use this tool when you need to discover what endpoints are available.
                 simplified_message += "..."
             return self.fail_response(simplified_message)
     
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "apollo_reveal_phone",
-            "description": "Request phone number reveal for a matched person using Apollo.io. This is an ASYNCHRONOUS operation - the phone number will be delivered via webhook and you'll be notified when it arrives (typically 30-60 seconds). IMPORTANT: This consumes Apollo credits. Always ask the user for explicit confirmation before using this tool. Use apollo_match_lead first to identify the person, then use this tool to reveal their phone number.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "first_name": {
-                        "type": "string",
-                        "description": "The person's first name (required)"
-                    },
-                    "last_name": {
-                        "type": "string",
-                        "description": "The person's last name (required)"
-                    },
-                    "organization_name": {
-                        "type": "string",
-                        "description": "The name of the company/organization the person works for (optional but recommended for better matching)"
-                    },
-                    "domain": {
-                        "type": "string",
-                        "description": "The company domain (e.g., 'apollo.io' or 'google.com'). Optional but helps with accurate matching"
-                    },
-                    "email": {
-                        "type": "string",
-                        "description": "The person's email address if known (optional, helps with matching)"
-                    }
-                },
-                "required": ["first_name", "last_name"]
-            }
-        }
-    })
-    @usage_example('''
-        <!-- Example: Request phone number reveal (after user confirmation) -->
-        <function_calls>
-        <invoke name="apollo_reveal_phone">
-        <parameter name="first_name">Tim</parameter>
+    # TEMPORARILY DISABLED: Apollo phone reveal tool
+    # @openapi_schema({
+    #     "type": "function",
+    #     "function": {
+    #         "name": "apollo_reveal_phone",
+    #         "description": "Request phone number reveal for a matched person using Apollo.io. This is an ASYNCHRONOUS operation - the phone number will be delivered via webhook and you'll be notified when it arrives (typically 30-60 seconds). IMPORTANT: This consumes Apollo credits. Always ask the user for explicit confirmation before using this tool. Use apollo_match_lead first to identify the person, then use this tool to reveal their phone number.",
+    #         "parameters": {
+    #             "type": "object",
+    #             "properties": {
+    #                 "first_name": {
+    #                     "type": "string",
+    #                     "description": "The person's first name (required)"
+    #                 },
+    #                 "last_name": {
+    #                     "type": "string",
+    #                     "description": "The person's last name (required)"
+    #                 },
+    #                 "organization_name": {
+    #                     "type": "string",
+    #                     "description": "The name of the company/organization the person works for (optional but recommended for better matching)"
+    #                 },
+    #                 "domain": {
+    #                     "type": "string",
+    #                     "description": "The company domain (e.g., 'apollo.io' or 'google.com'). Optional but helps with accurate matching"
+    #                 },
+    #                 "email": {
+    #                     "type": "string",
+    #                     "description": "The person's email address if known (optional, helps with matching)"
+    #                 }
+    #             },
+    #             "required": ["first_name", "last_name"]
+    #         }
+    #     }
+    # })
+    # @usage_example('''
+    #     <!-- Example: Request phone number reveal (after user confirmation) -->
+    #     <function_calls>
+    #     <invoke name="apollo_reveal_phone">
+    #     <parameter name="first_name">Tim</parameter>
         <parameter name="last_name">Zheng</parameter>
         <parameter name="organization_name">Apollo</parameter>
         <parameter name="domain">apollo.io</parameter>
         </invoke>
         </function_calls>
         ''')
-    async def apollo_reveal_phone(
-        self,
-        first_name: str,
-        last_name: str,
-        organization_name: Optional[str] = None,
-        domain: Optional[str] = None,
-        email: Optional[str] = None
-    ) -> ToolResult:
-        """
-        Request phone number reveal for a person (asynchronous with webhook callback).
-
-        This method:
-        1. Creates a webhook request in the database
-        2. Calls Apollo API with webhook URL
-        3. Returns immediately with pending status
-        4. Phone numbers will be delivered to webhook endpoint
-        5. User will be notified when phone numbers arrive
-
-        Args:
-            first_name: Person's first name
-            last_name: Person's last name
-            organization_name: Optional organization name
-            domain: Optional company domain
-            email: Optional email address
-        """
-        try:
-            if not self.thread_id:
-                return self.fail_response("Thread ID not available for phone reveal webhook")
-
-            logger.info(f"Apollo phone reveal requested for: {first_name} {last_name}")
-
-            # Generate unique webhook secret
-            webhook_secret = str(uuid.uuid4())
-
-            # Build webhook URL
-            webhook_base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
-            webhook_url = f"{webhook_base_url}/api/tools/apollo/webhook/{webhook_secret}"
-
-            # Store webhook request in database
-            from core.services.supabase import DBConnection
-            db = DBConnection()
-            client = await db.client
-
-            webhook_data = {
-                "thread_id": self.thread_id,
-                "webhook_secret": webhook_secret,
-                "person_data": {
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "organization_name": organization_name,
-                    "domain": domain,
-                    "email": email
-                },
-                "status": "pending"
-            }
-            
-            result = await client.table("apollo_webhook_requests").insert(webhook_data).execute()
-            
-            if not result.data:
-                return self.fail_response("Failed to create webhook request in database")
-            
-            # Call Apollo API with webhook URL
-            try:
-                await self.apollo_direct_api.match_person(
-                    first_name=first_name,
-                    last_name=last_name,
-                    organization_name=organization_name,
-                    domain=domain,
-                    email=email,
-                    reveal_phone_number=True,
-                    webhook_url=webhook_url
-                )
-            except Exception as api_error:
-                # Clean up database record if API call fails
-                await client.table("apollo_webhook_requests").update(
-                    {"status": "failed"}
-                ).eq("webhook_secret", webhook_secret).execute()
-                raise api_error
-            
-            logger.info(f"Apollo phone reveal webhook created with secret: {webhook_secret}")
-            
-            return self.success_response({
-                "status": "pending",
-                "message": f"Phone number reveal requested for {first_name} {last_name}. This typically takes 30-60 seconds. You'll be notified when the phone number arrives.",
-                "webhook_id": webhook_secret,
-                "person": {
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "organization_name": organization_name
-                }
-            })
-            
-        except ValueError as e:
-            # API key not configured
-            logger.error(f"Apollo API configuration error: {e}")
-            return self.fail_response(str(e))
-        except Exception as e:
-            error_message = str(e)
-            logger.error(f"Apollo phone reveal error: {error_message}")
-            simplified_message = f"Error requesting phone reveal from Apollo: {error_message[:200]}"
-            if len(error_message) > 200:
-                simplified_message += "..."
-            return self.fail_response(simplified_message)
+    # async def apollo_reveal_phone(
+    #     self,
+    #     first_name: str,
+    #     last_name: str,
+    #     organization_name: Optional[str] = None,
+    #     domain: Optional[str] = None,
+    #     email: Optional[str] = None
+    # ) -> ToolResult:
+    #     """
+    #     Request phone number reveal for a person (asynchronous with webhook callback).
+    #
+    #     This method:
+    #     1. Creates a webhook request in the database
+    #     2. Calls Apollo API with webhook URL
+    #     3. Returns immediately with pending status
+    #     4. Phone numbers will be delivered to webhook endpoint
+    #     5. User will be notified when phone numbers arrive
+    #
+    #     Args:
+    #         first_name: Person's first name
+    #         last_name: Person's last name
+    #         organization_name: Optional organization name
+    #         domain: Optional company domain
+    #         email: Optional email address
+    #     """
+    #     try:
+    #         if not self.thread_id:
+    #             return self.fail_response("Thread ID not available for phone reveal webhook")
+    #
+    #         logger.info(f"Apollo phone reveal requested for: {first_name} {last_name}")
+    #
+    #         # Generate unique webhook secret
+    #         webhook_secret = str(uuid.uuid4())
+    #
+    #         # Build webhook URL
+    #         webhook_base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
+    #         webhook_url = f"{webhook_base_url}/api/tools/apollo/webhook/{webhook_secret}"
+    #
+    #         # Store webhook request in database
+    #         from core.services.supabase import DBConnection
+    #         db = DBConnection()
+    #         client = await db.client
+    #
+    #         webhook_data = {
+    #             "thread_id": self.thread_id,
+    #             "webhook_secret": webhook_secret,
+    #             "person_data": {
+    #                 "first_name": first_name,
+    #                 "last_name": last_name,
+    #                 "organization_name": organization_name,
+    #                 "domain": domain,
+    #                 "email": email
+    #             },
+    #             "status": "pending"
+    #         }
+    #
+    #         result = await client.table("apollo_webhook_requests").insert(webhook_data).execute()
+    #
+    #         if not result.data:
+    #             return self.fail_response("Failed to create webhook request in database")
+    #
+    #         # Call Apollo API with webhook URL
+    #         try:
+    #             await self.apollo_direct_api.match_person(
+    #                 first_name=first_name,
+    #                 last_name=last_name,
+    #                 organization_name=organization_name,
+    #                 domain=domain,
+    #                 email=email,
+    #                 reveal_phone_number=True,
+    #                 webhook_url=webhook_url
+    #             )
+    #         except Exception as api_error:
+    #             # Clean up database record if API call fails
+    #             await client.table("apollo_webhook_requests").update(
+    #                 {"status": "failed"}
+    #             ).eq("webhook_secret", webhook_secret).execute()
+    #             raise api_error
+    #
+    #         logger.info(f"Apollo phone reveal webhook created with secret: {webhook_secret}")
+    #
+    #         return self.success_response({
+    #             "status": "pending",
+    #             "message": f"Phone number reveal requested for {first_name} {last_name}. This typically takes 30-60 seconds. You'll be notified when the phone number arrives.",
+    #             "webhook_id": webhook_secret,
+    #             "person": {
+    #                 "first_name": first_name,
+    #                 "last_name": last_name,
+    #                 "organization_name": organization_name
+    #             }
+    #         })
+    #
+    #     except ValueError as e:
+    #         # API key not configured
+    #         logger.error(f"Apollo API configuration error: {e}")
+    #         return self.fail_response(str(e))
+    #     except Exception as e:
+    #         error_message = str(e)
+    #         logger.error(f"Apollo phone reveal error: {error_message}")
+    #         simplified_message = f"Error requesting phone reveal from Apollo: {error_message[:200]}"
+    #         if len(error_message) > 200:
+    #             simplified_message += "..."
+    #         return self.fail_response(simplified_message)
