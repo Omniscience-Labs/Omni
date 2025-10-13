@@ -129,7 +129,8 @@
           "ai-tools/overview",
           "ai-tools/cursor",
           "ai-tools/claude-code",
-          "ai-tools/windsurf"
+          "ai-tools/windsurf",
+          "ai-tools/apollo-lead-generation"
         ]
       },
       {

@@ -431,11 +431,13 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
   const generateCronFromOneTime = () => {
     if (!oneTimeDate) return '';
 
+    // Use the selected date in user's local timezone
     const minute = oneTimeMinute;
     const hour = oneTimeHour;
     const day = oneTimeDate.getDate();
     const month = oneTimeDate.getMonth() + 1; // JavaScript months are 0-indexed
-
+    
+    // The backend will handle timezone conversion from user's timezone to UTC
     return `${minute} ${hour} ${day} ${month} *`;
   };
 
@@ -780,9 +782,10 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
                               <Label className="text-xs">Date</Label>
-                              <span className="text-xs text-muted-foreground">
-                                Timezone: {timezone}
-                              </span>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Globe className="h-3 w-3" />
+                                <span>{timezone}</span>
+                              </div>
                             </div>
                             <Popover>
                               <PopoverTrigger asChild>
@@ -798,15 +801,25 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
                                 </Button>
                               </PopoverTrigger>
                               <PopoverContent className="w-auto p-0" align="start">
+                                <div className="p-3 border-b bg-muted/30">
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Globe className="h-3 w-3" />
+                                    <span>Dates shown in your timezone: <strong className="text-foreground">{timezone}</strong></span>
+                                  </div>
+                                </div>
                                 <Calendar
                                   mode="single"
                                   selected={oneTimeDate}
                                   onSelect={setOneTimeDate}
                                   disabled={(date) => {
-                                    const today = new Date();
-                                    today.setHours(0, 0, 0, 0); // Start of today in local timezone
-                                    const compareDate = new Date(date);
-                                    compareDate.setHours(0, 0, 0, 0); // Start of selected date
+                                    // Get current date in user's local timezone
+                                    const now = new Date();
+                                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                                    
+                                    // Get the selected date at midnight in local timezone
+                                    const compareDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                                    
+                                    // Disable if the date is before today in user's local timezone
                                     return compareDate < today;
                                   }}
                                   initialFocus
@@ -819,9 +832,10 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
                               <Label className="text-xs">Time</Label>
-                              <span className="text-xs text-muted-foreground">
-                                {timezone}
-                              </span>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Globe className="h-3 w-3" />
+                                <span>{timezone}</span>
+                              </div>
                             </div>
                             <div className="flex gap-2">
                               <Select value={oneTimeHour} onValueChange={setOneTimeHour}>
@@ -857,18 +871,29 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
                             <div className="bg-muted/50 p-4 rounded-lg border">
                               <div className="font-medium text-sm mb-2">Schedule Summary</div>
                               <div className="space-y-2 text-sm">
-                                <div className="text-foreground">
-                                  <strong>Scheduled for:</strong> {format(oneTimeDate, "PPP")} at {oneTimeHour.padStart(2, '0')}:{oneTimeMinute}
+                                <div className="text-foreground flex items-start gap-2">
+                                  <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                  <div>
+                                    <div><strong>Scheduled for:</strong> {format(oneTimeDate, "PPP")} at {oneTimeHour.padStart(2, '0')}:{oneTimeMinute}</div>
+                                    <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                      <Globe className="h-3 w-3" />
+                                      {timezone}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="text-muted-foreground">
-                                  <strong>Cron:</strong> <code className="bg-background px-1 rounded font-mono text-xs">{generateCronFromOneTime()}</code>
+                                <div className="text-muted-foreground text-xs">
+                                  <strong>Cron expression:</strong> <code className="bg-background px-1.5 py-0.5 rounded font-mono">{generateCronFromOneTime()}</code>
                                 </div>
                               </div>
                             </div>
                           )}
 
-                          <div className="text-xs text-muted-foreground">
-                            <strong>Note:</strong> This task will run once at the specified date and time, then be automatically disabled.
+                          <div className="flex items-start gap-2 text-xs text-muted-foreground bg-blue-50/50 dark:bg-blue-950/20 p-3 rounded-lg border border-blue-200/50 dark:border-blue-800/50">
+                            <Info className="h-4 w-4 mt-0.5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
+                            <div>
+                              <strong className="text-blue-900 dark:text-blue-100">One-time execution:</strong>
+                              <div className="mt-1">This task will run once at the specified date and time in your timezone (<strong>{timezone}</strong>), then be automatically disabled.</div>
+                            </div>
                           </div>
                         </div>
                       </TabsContent>

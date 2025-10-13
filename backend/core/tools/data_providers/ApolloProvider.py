@@ -1,6 +1,110 @@
-from typing import Dict
+import os
+import httpx
+from typing import Dict, Optional, Any
 
 from core.tools.data_providers.RapidDataProviderBase import RapidDataProviderBase, EndpointSchema
+from core.utils.logger import logger
+
+
+class ApolloDirectAPI:
+    """Direct Apollo.io API client (not RapidAPI) for lead generation features."""
+    
+    def __init__(self):
+        self.api_key = os.getenv("APOLLO_API_KEY")
+        self.base_url = "https://api.apollo.io/api/v1"
+        self._client: Optional[httpx.AsyncClient] = None
+    
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Get or create async HTTP client."""
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(timeout=30.0)
+        return self._client
+    
+    async def match_person(
+        self,
+        first_name: str,
+        last_name: str,
+        organization_name: Optional[str] = None,
+        domain: Optional[str] = None,
+        email: Optional[str] = None,
+        linkedin_url: Optional[str] = None,
+        reveal_personal_emails: bool = False,
+        webhook_url: Optional[str] = None,
+        reveal_phone_number: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Match a person using Apollo.io's direct API.
+        
+        Args:
+            first_name: Person's first name
+            last_name: Person's last name
+            organization_name: Company name
+            domain: Company domain (e.g., apollo.io)
+            email: Person's email address
+            linkedin_url: LinkedIn profile URL
+            reveal_personal_emails: Whether to reveal personal email
+            webhook_url: Webhook URL for async phone number reveal
+            reveal_phone_number: Whether to reveal phone number
+            
+        Returns:
+            Dict containing person data from Apollo API
+            
+        Raises:
+            ValueError: If API key is not configured
+            httpx.HTTPError: If API request fails
+        """
+        if not self.api_key:
+            raise ValueError(
+                "APOLLO_API_KEY not configured. "
+                "Please set the APOLLO_API_KEY environment variable with your Apollo.io API key. "
+                "Get your API key from: https://app.apollo.io/#/settings/integrations/api"
+            )
+        
+        # Build request parameters
+        params = {
+            "first_name": first_name,
+            "last_name": last_name,
+        }
+        
+        if organization_name:
+            params["organization_name"] = organization_name
+        if domain:
+            params["domain"] = domain
+        if email:
+            params["email"] = email
+        if linkedin_url:
+            params["linkedin_url"] = linkedin_url
+        if reveal_personal_emails:
+            params["reveal_personal_emails"] = "true"
+        if reveal_phone_number:
+            params["reveal_phone_number"] = "true"
+        if webhook_url:
+            params["webhook_url"] = webhook_url
+        
+        # Build URL with query parameters
+        url = f"{self.base_url}/people/match"
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+            "x-api-key": self.api_key
+        }
+        
+        logger.debug(f"Apollo API request to {url} with params: {list(params.keys())}")
+        
+        client = await self._get_client()
+        response = await client.post(url, params=params, headers=headers)
+        response.raise_for_status()
+        
+        data = response.json()
+        logger.debug(f"Apollo API response received, person found: {data.get('person', {}).get('id') is not None}")
+        
+        return data
+    
+    async def close(self):
+        """Close the HTTP client."""
+        if self._client and not self._client.is_closed:
+            await self._client.aclose()
 
 
 class ApolloProvider(RapidDataProviderBase):

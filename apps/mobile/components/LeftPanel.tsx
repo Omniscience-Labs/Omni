@@ -4,9 +4,9 @@ import { usePanelTopOffset } from '@/constants/SafeArea';
 import { useAuth } from '@/hooks/useAuth';
 import { useThemedStyles } from '@/hooks/useThemeColor';
 import { useIsNewChatMode, useResetNewChatSession, useSelectedProject, useSetNewChatMode, useSetSelectedProject } from '@/stores/ui-store';
-import { ChevronsUpDown, SquarePen } from 'lucide-react-native';
-import React, { useRef, useState } from 'react';
-import { ScrollView, TouchableOpacity, View } from 'react-native';
+import { ChevronsUpDown, HelpCircle, SquarePen } from 'lucide-react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { ScrollView, TouchableOpacity, View, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatActionModal } from './ChatActionModal';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';
@@ -33,8 +33,39 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({ isVisible, onClose }) => {
     const [projectToShare, setProjectToShare] = useState<{ id: string; name: string; isPublic?: boolean } | null>(null);
     const [selectedChatLayout, setSelectedChatLayout] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
 
+    // Animation state for help button
+    const hopAnimation = useRef(new Animated.Value(0)).current;
+    const [isHopping, setIsHopping] = useState(false);
+
     // Refs for layout measurement
     const chatItemRefs = useRef<{ [key: string]: View | null }>({});
+
+    // Hop animation effect every 30 seconds
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (!isHopping) {
+                setIsHopping(true);
+
+                // Hop animation: up and down quickly
+                Animated.sequence([
+                    Animated.timing(hopAnimation, {
+                        toValue: -8, // Move up by 8 units
+                        duration: 200,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(hopAnimation, {
+                        toValue: 0, // Move back to original position
+                        duration: 200,
+                        useNativeDriver: true,
+                    }),
+                ]).start(() => {
+                    setIsHopping(false);
+                });
+            }
+        }, 30000); // 30 seconds
+
+        return () => clearInterval(interval);
+    }, [hopAnimation, isHopping]);
 
     // Use React Query to fetch projects
     const { data: projects = [], isLoading, error } = useProjects();
@@ -225,6 +256,26 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({ isVisible, onClose }) => {
         },
         settingsIcon: {
             opacity: 0.6,
+        },
+        helpSection: {
+            paddingHorizontal: 20,
+            paddingVertical: 16,
+            borderTopWidth: 1,
+            borderTopColor: theme.border,
+        },
+        helpButton: {
+            flexDirection: 'row' as const,
+            alignItems: 'center' as const,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 8,
+            backgroundColor: theme.mutedWithOpacity(0.1),
+        },
+        helpButtonText: {
+            color: theme.foreground,
+            fontSize: 15,
+            fontFamily: fontWeights[500],
+            marginLeft: 12,
         },
     }));
 
@@ -454,6 +505,22 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({ isVisible, onClose }) => {
                     {renderTasksSection()}
                 </View>
             </ScrollView>
+
+            {/* Help Section */}
+            <View style={styles.helpSection}>
+                <TouchableOpacity
+                    style={styles.helpButton}
+                    onPress={() => {
+                        console.log('[LeftPanel] Help button pressed');
+                        // Add help functionality here
+                    }}
+                >
+                    <Animated.View style={{ transform: [{ translateY: hopAnimation }] }}>
+                        <HelpCircle size={20} color={styles.helpButtonText.color} />
+                    </Animated.View>
+                    <Body style={styles.helpButtonText}>Help?</Body>
+                </TouchableOpacity>
+            </View>
 
             {/* User Section */}
             <View style={styles.userSection}>

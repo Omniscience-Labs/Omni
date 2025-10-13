@@ -516,14 +516,11 @@ async def stream_agent_run(
             message_queue = asyncio.Queue()
 
             async def listen_messages():
-                listener = pubsub.listen()
-                task = asyncio.create_task(listener.__anext__())
-
-                while not terminate_stream:
-                    done, _ = await asyncio.wait([task], return_when=asyncio.FIRST_COMPLETED)
-                    for finished in done:
+                try:
+                    listener = pubsub.listen()
+                    while not terminate_stream:
                         try:
-                            message = finished.result()
+                            message = await asyncio.wait_for(listener.__anext__(), timeout=30.0)
                             if message and isinstance(message, dict) and message.get("type") == "message":
                                 channel = message.get("channel")
                                 data = message.get("data")
@@ -537,18 +534,24 @@ async def stream_agent_run(
                                     await message_queue.put({"type": "control", "data": data})
                                     return  # Stop listening on control signal
 
+                        except asyncio.TimeoutError:
+                            # Timeout waiting for message, continue listening
+                            continue
                         except StopAsyncIteration:
                             logger.warning(f"Listener stopped for {agent_run_id}.")
                             await message_queue.put({"type": "error", "data": "Listener stopped unexpectedly"})
+                            return
+                        except (ConnectionError, redis.ConnectionError, redis.TimeoutError) as e:
+                            logger.warning(f"Redis connection error in listener for {agent_run_id}: {e}")
+                            await message_queue.put({"type": "error", "data": "Redis connection lost"})
                             return
                         except Exception as e:
                             logger.error(f"Error in listener for {agent_run_id}: {e}")
                             await message_queue.put({"type": "error", "data": "Listener failed"})
                             return
-                        finally:
-                            # Resubscribe to the next message if continuing
-                            if not terminate_stream:
-                                task = asyncio.create_task(listener.__anext__())
+                except Exception as e:
+                    logger.error(f"Failed to initialize listener for {agent_run_id}: {e}")
+                    await message_queue.put({"type": "error", "data": "Failed to initialize listener"})
 
 
             listener_task = asyncio.create_task(listen_messages())
@@ -610,19 +613,22 @@ async def stream_agent_run(
             try:
                 if 'pubsub' in locals() and pubsub:
                     await pubsub.unsubscribe(response_channel, control_channel)
-                    await pubsub.close()
+                    await pubsub.aclose()
             except Exception as e:
                 logger.debug(f"Error during pubsub cleanup for {agent_run_id}: {e}")
 
             if listener_task:
                 listener_task.cancel()
                 try:
-                    await listener_task  # Reap inner tasks & swallow their errors
+                    # Give the task a chance to clean up gracefully
+                    await asyncio.wait_for(listener_task, timeout=2.0)
                 except asyncio.CancelledError:
-                    pass
+                    logger.debug(f"Listener task cancelled successfully for {agent_run_id}")
+                except asyncio.TimeoutError:
+                    logger.warning(f"Listener task did not cancel within timeout for {agent_run_id}")
                 except Exception as e:
                     logger.debug(f"listener_task ended with: {e}")
-            # Wait briefly for tasks to cancel
+            # Wait briefly for any remaining cleanup
             await asyncio.sleep(0.1)
             logger.debug(f"Streaming cleanup complete for agent run: {agent_run_id}")
 

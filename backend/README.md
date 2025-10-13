@@ -102,6 +102,7 @@ MCP_CREDENTIAL_ENCRYPTION_KEY=your-generated-encryption-key
 
 # Optional APIs
 RAPID_API_KEY=your-rapidapi-key
+APOLLO_API_KEY=your-apollo-api-key  # For Apollo.io lead generation (direct API)
 
 NEXT_PUBLIC_URL=http://localhost:3000
 ```

@@ -52,6 +52,7 @@ class MemoryService:
             try:
                 # Set the API key in environment for mem0 client
                 os.environ["MEM0_API_KEY"] = self.api_key
+                # Initialize Mem0 async client
                 self.client = AsyncMemoryClient()
                 logger.info("Memory service initialized successfully")
             except Exception as e:
@@ -66,12 +67,33 @@ class MemoryService:
         for attempt in range(max_retries + 1):
             try:
                 return await asyncio.wait_for(func(*args, **kwargs), timeout=config.MEM0_REQUEST_TIMEOUT)
-            except (asyncio.TimeoutError, Exception) as e:
+            except asyncio.TimeoutError as e:
                 if attempt == max_retries:
-                    logger.error(f"Failed after {max_retries + 1} attempts: {str(e)}")
+                    logger.error(
+                        f"Mem0 API request timed out after {max_retries + 1} attempts "
+                        f"(timeout: {config.MEM0_REQUEST_TIMEOUT}s)"
+                    )
                     raise
                 wait_time = delay * (2 ** attempt)  # Exponential backoff
-                logger.warning(f"Attempt {attempt + 1} failed, retrying in {wait_time}s: {str(e)}")
+                logger.warning(
+                    f"Mem0 API timeout on attempt {attempt + 1}/{max_retries + 1}, "
+                    f"retrying in {wait_time}s"
+                )
+                await asyncio.sleep(wait_time)
+            except Exception as e:
+                if attempt == max_retries:
+                    try:
+                        error_msg = str(e)
+                    except Exception:
+                        error_msg = repr(e)
+                    logger.error(f"Mem0 API failed after {max_retries + 1} attempts: {error_msg}")
+                    raise
+                wait_time = delay * (2 ** attempt)  # Exponential backoff
+                try:
+                    error_msg = str(e)
+                except Exception:
+                    error_msg = repr(e)
+                logger.warning(f"Mem0 API attempt {attempt + 1} failed, retrying in {wait_time}s: {error_msg}")
                 await asyncio.sleep(wait_time)
     
     def is_available(self) -> bool:
@@ -129,12 +151,22 @@ class MemoryService:
                     else:
                         messages.append(_clip_message_content(str(msg)))
             
-            result = await self._retry_with_backoff(
-                self.client.add,
-                messages=messages,
-                user_id=user_id,
-                metadata=memory_data
-            )
+            try:
+                result = await self._retry_with_backoff(
+                    self.client.add,
+                    messages=messages,
+                    user_id=user_id,
+                    metadata=memory_data
+                )
+            except Exception as api_error:
+                # Log the memory data for debugging API issues
+                logger.error(
+                    f"Mem0 API add failed with messages: {len(messages)} items, metadata keys: {list(memory_data.keys())}",
+                    extra={"user_id": user_id, "thread_id": thread_id},
+                    exc_info=True
+                )
+                # Re-raise the original error for proper handling
+                raise api_error
             
             logger.debug(
                 f"Memory added successfully for user {user_id}",
@@ -147,8 +179,17 @@ class MemoryService:
             return True
             
         except Exception as e:
+            try:
+                error_msg = str(e)
+            except Exception:
+                # Handle cases where the exception itself is not a proper string
+                try:
+                    error_msg = repr(e)
+                except Exception:
+                    error_msg = f"Exception of type {type(e).__name__} (unable to convert to string)"
+
             logger.error(
-                f"Error adding memory for user {user_id}: {str(e)}",
+                f"Error adding memory for user {user_id}: {error_msg}",
                 extra={"user_id": user_id, "thread_id": thread_id},
                 exc_info=True
             )
@@ -189,32 +230,26 @@ class MemoryService:
                 "limit": limit
             }
             
-            # Add version and filters for v2 API
+            # Add version for v2 API
+            # Note: Mem0 v2 API has issues with complex filters, so we avoid them
+            # The user_id parameter already scopes the search appropriately
             if version == "v2":
                 search_params["version"] = "v2"
-
-                # Use provided filters or create default user filter with thread_id if specified
-                if filters:
-                    # Merge provided filters with thread_id filter if needed
-                    if thread_id:
-                        if "AND" not in filters:
-                            # Convert to AND structure if not already
-                            filters = {"AND": [filters]}
-                        # Add thread_id filter to existing AND conditions
-                        if isinstance(filters["AND"], list):
-                            filters["AND"].append({"thread_id": thread_id})
-                        search_params["filters"] = filters
-                    else:
-                        search_params["filters"] = filters
-                else:
-                    # Create default user filter with optional thread_id
-                    filter_conditions = [{"user_id": user_id}]
-                    if thread_id:
-                        filter_conditions.append({"thread_id": thread_id})
-                    search_params["filters"] = {"AND": filter_conditions}
+                # Filters are not reliably supported, so we skip them
+                # The API will use user_id for scoping
 
             # Search memories using mem0 client
-            results = await self._retry_with_backoff(self.client.search, **search_params)
+            try:
+                results = await self._retry_with_backoff(self.client.search, **search_params)
+            except Exception as api_error:
+                # Log the search parameters for debugging API issues
+                logger.error(
+                    f"Mem0 API search failed with params: {search_params}",
+                    extra={"user_id": user_id, "thread_id": thread_id, "query": query},
+                    exc_info=True
+                )
+                # Re-raise the original error for proper handling
+                raise api_error
             
             logger.debug(
                 f"Found {len(results)} memories for user {user_id}",
@@ -229,8 +264,17 @@ class MemoryService:
             return results or []
             
         except Exception as e:
+            try:
+                error_msg = str(e)
+            except Exception:
+                # Handle cases where the exception itself is not a proper string
+                try:
+                    error_msg = repr(e)
+                except Exception:
+                    error_msg = f"Exception of type {type(e).__name__} (unable to convert to string)"
+
             logger.error(
-                f"Error searching memories for user {user_id}: {str(e)}",
+                f"Error searching memories for user {user_id}: {error_msg}",
                 extra={"user_id": user_id, "thread_id": thread_id, "query": query},
                 exc_info=True
             )
@@ -258,36 +302,58 @@ class MemoryService:
             return []
         
         try:
-            # Use search with filters for better performance (server-side filtering)
-            search_params = {
-                "query": "*",  # Match all memories for this user/thread
-                "user_id": user_id,
-                "limit": limit,
-                "version": "v2",
-                "filters": {
-                    "AND": [
-                        {"user_id": user_id},
-                        {"thread_id": thread_id}
+            # Use get_all method for v2 API to retrieve all memories
+            # The v2 API doesn't support wildcard queries
+            try:
+                results = await self._retry_with_backoff(
+                    self.client.get_all,
+                    user_id=user_id
+                )
+                
+                # Filter by thread_id client-side since API filtering may not support it
+                if thread_id and results:
+                    results = [
+                        mem for mem in results 
+                        if mem.get("metadata", {}).get("thread_id") == thread_id
                     ]
-                }
-            }
-
-            results = await self._retry_with_backoff(self.client.search, **search_params)
+                    
+                # Limit results
+                if results and len(results) > limit:
+                    results = results[:limit]
+                    
+            except Exception as api_error:
+                # Log the search parameters for debugging API issues
+                logger.error(
+                    f"Mem0 API get_thread_memories failed for user {user_id}, thread {thread_id}",
+                    extra={"user_id": user_id, "thread_id": thread_id},
+                    exc_info=True
+                )
+                # Re-raise the original error for proper handling
+                raise api_error
 
             logger.debug(
-                f"Retrieved {len(results)} memories for thread {thread_id}",
+                f"Retrieved {len(results) if results else 0} memories for thread {thread_id}",
                 extra={
                     "user_id": user_id,
                     "thread_id": thread_id,
-                    "memories_count": len(results)
+                    "memories_count": len(results) if results else 0
                 }
             )
 
             return results or []
             
         except Exception as e:
+            try:
+                error_msg = str(e)
+            except Exception:
+                # Handle cases where the exception itself is not a proper string
+                try:
+                    error_msg = repr(e)
+                except Exception:
+                    error_msg = f"Exception of type {type(e).__name__} (unable to convert to string)"
+
             logger.error(
-                f"Error getting thread memories: {str(e)}",
+                f"Error getting thread memories: {error_msg}",
                 extra={"user_id": user_id, "thread_id": thread_id},
                 exc_info=True
             )
@@ -318,8 +384,17 @@ class MemoryService:
             return True
             
         except Exception as e:
+            try:
+                error_msg = str(e)
+            except Exception:
+                # Handle cases where the exception itself is not a proper string
+                try:
+                    error_msg = repr(e)
+                except Exception:
+                    error_msg = f"Exception of type {type(e).__name__} (unable to convert to string)"
+
             logger.error(
-                f"Error deleting memory {memory_id}: {str(e)}",
+                f"Error deleting memory {memory_id}: {error_msg}",
                 extra={"user_id": user_id, "memory_id": memory_id},
                 exc_info=True
             )
@@ -364,8 +439,17 @@ class MemoryService:
             return success_count == len(thread_memories)
             
         except Exception as e:
+            try:
+                error_msg = str(e)
+            except Exception:
+                # Handle cases where the exception itself is not a proper string
+                try:
+                    error_msg = repr(e)
+                except Exception:
+                    error_msg = f"Exception of type {type(e).__name__} (unable to convert to string)"
+
             logger.error(
-                f"Error clearing thread memories: {str(e)}",
+                f"Error clearing thread memories: {error_msg}",
                 extra={"user_id": user_id, "thread_id": thread_id},
                 exc_info=True
             )

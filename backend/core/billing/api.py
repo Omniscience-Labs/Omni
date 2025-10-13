@@ -402,7 +402,7 @@ async def get_subscription(
         }
         
     except Exception as e:
-        logger.error(f"Error getting subscription: {e}", exc_info=True)
+        logger.error("Error getting subscription", error=str(e))
         no_tier = TIERS['none']
         tier_info = {
             'name': no_tier.name,
@@ -843,7 +843,7 @@ async def get_available_models(
         }
         
     except Exception as e:
-        logger.error(f"Error getting available models: {e}", exc_info=True)
+        logger.error("Error getting available models", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/subscription-commitment/{subscription_id}")

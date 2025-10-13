@@ -18,6 +18,7 @@ import { CompleteToolView } from '../CompleteToolView';
 import { WaitToolView } from '../wait-tool/WaitToolView';
 import { ExecuteDataProviderCallToolView } from '../data-provider-tool/ExecuteDataProviderCallToolView';
 import { DataProviderEndpointsToolView } from '../data-provider-tool/DataProviderEndpointsToolView';
+import { ApolloLeadToolView } from '../data-provider-tool/ApolloLeadToolView';
 import { DeployToolView } from '../DeployToolView';
 import { SearchMcpServersToolView } from '../search-mcp-servers/search-mcp-servers';
 import { GetAppDetailsToolView } from '../get-app-details/get-app-details';
@@ -88,6 +89,10 @@ const defaultRegistry: ToolViewRegistryType = {
 
   'execute-data-provider-call': ExecuteDataProviderCallToolView,
   'get-data-provider-endpoints': DataProviderEndpointsToolView,
+  'apollo-match-lead': ApolloLeadToolView,
+  'apollo_match_lead': ApolloLeadToolView,
+  'apollo-reveal-phone': ApolloLeadToolView,
+  'apollo_reveal_phone': ApolloLeadToolView,
 
   'search-mcp-servers': SearchMcpServersToolView,
   'get-app-details': GetAppDetailsToolView,

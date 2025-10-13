@@ -15,14 +15,16 @@ LOGGING_LEVEL = logging.getLevelNamesMapping().get(
 )
 
 renderer = [structlog.processors.JSONRenderer()]
+exc_processor = structlog.processors.dict_tracebacks
 if ENV_MODE.lower() == "local".lower() or ENV_MODE.lower() == "staging".lower():
     renderer = [structlog.dev.ConsoleRenderer(colors=True)]
+    exc_processor = structlog.processors.format_exc_info
 
 structlog.configure(
     processors=[
         structlog.stdlib.add_log_level,
         structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.dict_tracebacks,
+        exc_processor,
         structlog.processors.CallsiteParameterAdder(
             {
                 structlog.processors.CallsiteParameter.FILENAME,

@@ -1292,6 +1292,13 @@ export function getToolComponent(toolName: string): string {
     case 'execute-data-provider-call':
     case 'get-data-provider-endpoints':
       return 'DataProviderToolView';
+    
+    // Apollo lead generation
+    case 'apollo-match-lead':
+    case 'apollo_match_lead':
+    case 'apollo-reveal-phone':
+    case 'apollo_reveal_phone':
+      return 'ApolloLeadToolView';
 
     // MCP operations
     case 'search-mcp-servers':

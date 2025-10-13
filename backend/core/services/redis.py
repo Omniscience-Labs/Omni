@@ -8,7 +8,6 @@ from core.utils.retry import retry
 
 # Redis client and connection pool
 client: redis.Redis | None = None
-pool: redis.ConnectionPool | None = None
 _initialized = False
 _init_lock = asyncio.Lock()
 
@@ -16,9 +15,9 @@ _init_lock = asyncio.Lock()
 REDIS_KEY_TTL = 3600 * 24  # 24 hour TTL as safety mechanism
 
 
-def initialize():
+async def initialize():
     """Initialize Redis connection pool and client using environment variables."""
-    global client, pool
+    global client
 
     # Load environment variables if not already loaded
     load_dotenv()
@@ -27,7 +26,7 @@ def initialize():
     redis_host = os.getenv("REDIS_HOST", "redis")
     redis_port = int(os.getenv("REDIS_PORT", 6379))
     redis_password = os.getenv("REDIS_PASSWORD", "")
-    
+
     # Connection pool configuration - optimized for production
     max_connections = 128            # Reasonable limit for production
     socket_timeout = 15.0            # 15 seconds socket timeout
@@ -36,8 +35,8 @@ def initialize():
 
     logger.info(f"Initializing Redis connection pool to {redis_host}:{redis_port} with max {max_connections} connections")
 
-    # Create connection pool with production-optimized settings
-    pool = redis.ConnectionPool(
+    # Create Redis client (async version)
+    client = redis.Redis(
         host=redis_host,
         port=redis_port,
         password=redis_password,
@@ -50,9 +49,6 @@ def initialize():
         max_connections=max_connections,
     )
 
-    # Create Redis client from connection pool
-    client = redis.Redis(connection_pool=pool)
-
     return client
 
 
@@ -63,7 +59,7 @@ async def initialize_async():
     async with _init_lock:
         if not _initialized:
             # logger.debug("Initializing Redis connection")
-            initialize()
+            client = await initialize()
 
         try:
             # Test connection with timeout
@@ -76,7 +72,7 @@ async def initialize_async():
             _initialized = False
             raise ConnectionError("Redis connection timeout")
         except Exception as e:
-            logger.error(f"Failed to connect to Redis: {e}")
+            logger.error("Failed to connect to Redis", error=str(e))
             client = None
             _initialized = False
             raise
@@ -86,7 +82,7 @@ async def initialize_async():
 
 async def close():
     """Close Redis connection and connection pool."""
-    global client, pool, _initialized
+    global client, _initialized
     if client:
         # logger.debug("Closing Redis connection")
         try:
@@ -98,19 +94,8 @@ async def close():
         finally:
             client = None
     
-    if pool:
-        # logger.debug("Closing Redis connection pool")
-        try:
-            await asyncio.wait_for(pool.aclose(), timeout=5.0)
-        except asyncio.TimeoutError:
-            logger.warning("Redis pool close timeout, forcing close")
-        except Exception as e:
-            logger.warning(f"Error closing Redis pool: {e}")
-        finally:
-            pool = None
-    
     _initialized = False
-    logger.info("Redis connection and pool closed")
+    logger.info("Redis connection closed")
 
 
 async def get_client():
@@ -150,7 +135,15 @@ async def publish(channel: str, message: str):
 async def create_pubsub():
     """Create a Redis pubsub object."""
     redis_client = await get_client()
-    return redis_client.pubsub()
+    pubsub = redis_client.pubsub()
+    # Set pubsub specific options for better stability
+    pubsub.connection_pool.connection_kwargs.update({
+        'socket_timeout': 30.0,
+        'socket_connect_timeout': 10.0,
+        'socket_keepalive': True,
+        'retry_on_timeout': True
+    })
+    return pubsub
 
 
 # List operations
@@ -177,3 +170,32 @@ async def keys(pattern: str) -> List[str]:
 async def expire(key: str, seconds: int):
     redis_client = await get_client()
     return await redis_client.expire(key, seconds)
+
+
+async def health_check():
+    """Check Redis connection health."""
+    try:
+        redis_client = await get_client()
+        await asyncio.wait_for(redis_client.ping(), timeout=5.0)
+        return True
+    except Exception as e:
+        logger.warning(f"Redis health check failed: {e}")
+        return False
+
+
+async def reconnect():
+    """Force reconnection to Redis."""
+    global client, _initialized
+    logger.info("Attempting Redis reconnection")
+
+    # Close existing connections
+    await close()
+
+    # Reinitialize
+    try:
+        await initialize_async()
+        logger.info("Redis reconnection successful")
+        return True
+    except Exception as e:
+        logger.error(f"Redis reconnection failed: {e}")
+        return False

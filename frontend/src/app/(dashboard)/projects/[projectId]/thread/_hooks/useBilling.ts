@@ -23,8 +23,9 @@ export function useBilling(
   const previousAgentStatus = useRef<AgentStatus>('idle');
   const billingStatusQuery = useBillingStatusQuery();
 
-  // Detect enterprise mode from billing status
-  const isEnterprise = billingStatusQuery.data?.enterprise_info !== undefined;
+  // Detect enterprise mode: Check environment variable first, then fallback to billing status
+  const isEnterprise = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true' || 
+    billingStatusQuery.data?.enterprise_info !== undefined;
 
   const checkBillingLimits = useCallback(async () => {
     if (isLocalMode()) {

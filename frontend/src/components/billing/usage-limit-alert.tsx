@@ -33,7 +33,7 @@ export function BillingErrorAlert({
   if (isEnterprise) {
     return (
       <div className="fixed bottom-4 right-4 z-[9999]">
-        <div className="bg-destructive/15 backdrop-blur-sm border border-destructive/30 rounded-lg p-5 shadow-lg max-w-md">
+        <div className="bg-white dark:bg-neutral-900 border border-destructive/30 rounded-lg p-5 shadow-lg max-w-md">
           <div className="flex items-start gap-4">
             <div className="flex-shrink-0 bg-destructive/20 p-2 rounded-full">
               <Shield className="h-5 w-5 text-destructive" />
@@ -82,7 +82,7 @@ export function BillingErrorAlert({
         showUsageLimitAlert={true}
       />
       <div className="fixed bottom-4 right-4 z-[9999]">
-      <div className="bg-destructive/15 backdrop-blur-sm border border-destructive/30 rounded-lg p-5 shadow-lg max-w-md">
+      <div className="bg-white dark:bg-neutral-900 border border-destructive/30 rounded-lg p-5 shadow-lg max-w-md">
         <div className="flex items-start gap-4">
           <div className="flex-shrink-0 bg-destructive/20 p-2 rounded-full">
             <AlertTriangle className="h-5 w-5 text-destructive" />

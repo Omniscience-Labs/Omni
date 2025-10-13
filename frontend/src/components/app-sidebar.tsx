@@ -33,13 +33,13 @@ import { useTheme } from "next-themes"
 
 const data = {
   user: {
-    name: "Kortix User",
-    email: "docs@kortix.ai",
+    name: "Omni User",
+    email: "docs@omnisciencelabs.com",
     avatar: "/favicon.png",
   },
   teams: [
     {
-      name: "Kortix AI",
+      name: "Omni AI",
       logo: GalleryVerticalEnd,
       plan: "Open Source",
     },
@@ -119,7 +119,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader className="bg-transparent p-6 px-2">
         <Image
           src={logoSrc}
-          alt="Kortix Logo"
+          alt="Omni Logo"
           width={80}
           height={14}
           className="md:w-[100px] md:h-[18px]"
