@@ -52,31 +52,23 @@ export function HelpButton() {
         <AnimatePresence>
           {isExpanded && (
             <>
-              {/* White Background Container */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="fixed bottom-0 left-0 w-[16rem] bg-white dark:bg-neutral-950 shadow-lg border-r border-neutral-200 dark:border-neutral-800 z-40"
-                style={{ 
-                  height: 'calc(100vh - 4rem)',
-                  pointerEvents: 'none'
-                }}
-              />
-              
-              {/* Popup Options */}
+              {/* Popup Options Container with Background */}
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 5 }}
                 transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="absolute bottom-full left-0 right-0 mb-2 space-y-2 z-50"
+                className="absolute bottom-full left-0 right-0 mb-2 z-50"
               >
+                {/* White Background */}
+                <div className="absolute inset-0 -inset-x-2 -inset-y-3 bg-white dark:bg-neutral-950 rounded-xl shadow-xl border border-neutral-200 dark:border-neutral-800 -z-10" />
+                
+                {/* Options */}
+                <div className="space-y-2">
               {options.map((option, index) => {
                 const Icon = option.icon;
                 return (
-                  <motion.div
+                  <motion.button
                     key={option.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -86,32 +78,29 @@ export function HelpButton() {
                       duration: 0.2,
                       ease: [0.23, 1, 0.32, 1]
                     }}
-                    className="w-full group relative"
+                    onClick={() => handleOptionClick(option.id)}
+                    className="w-full relative group/item"
                   >
-                    <button
-                      onClick={() => handleOptionClick(option.id)}
-                      className="w-full"
-                    >
-                      <div className="relative overflow-hidden rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-lg group-hover:shadow-xl transition-all duration-200 group-hover:-translate-y-0.5">
-                        <div className="absolute inset-0 bg-gradient-to-r from-neutral-50 to-transparent dark:from-neutral-800/50 dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                        <div className="relative p-3 flex items-center gap-3">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-md bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center group-hover:bg-neutral-900 dark:group-hover:bg-white group-hover:border-neutral-900 dark:group-hover:border-white transition-all duration-200">
-                            <Icon className="h-4 w-4 text-neutral-700 dark:text-neutral-300 group-hover:text-white dark:group-hover:text-neutral-900 transition-colors duration-200" />
+                    <div className="relative overflow-hidden rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
+                      <div className="absolute inset-0 bg-gradient-to-r from-neutral-50 to-transparent dark:from-neutral-800/50 dark:to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-200" />
+                      <div className="relative p-3 flex items-center gap-3">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-md bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center group-hover/item:bg-neutral-900 dark:group-hover/item:bg-white group-hover/item:border-neutral-900 dark:group-hover/item:border-white transition-all duration-200">
+                          <Icon className="h-4 w-4 text-neutral-700 dark:text-neutral-300 group-hover/item:text-white dark:group-hover/item:text-neutral-900 transition-colors duration-200" />
+                        </div>
+                        <div className="text-left flex-1 min-w-0">
+                          <div className="font-medium text-sm text-neutral-900 dark:text-neutral-100 transition-colors duration-200">
+                            {option.label}
                           </div>
-                          <div className="text-left flex-1 min-w-0">
-                            <div className="font-medium text-sm text-neutral-900 dark:text-neutral-100 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors duration-200">
-                              {option.label}
-                            </div>
-                            <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                              {option.description}
-                            </div>
+                          <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                            {option.description}
                           </div>
                         </div>
                       </div>
-                    </button>
-                  </motion.div>
+                    </div>
+                  </motion.button>
                 );
               })}
+                </div>
               </motion.div>
             </>
           )}
