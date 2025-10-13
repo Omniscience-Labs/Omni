@@ -361,7 +361,8 @@ export function useCachedFile<T = string>(
       console.error('Error processing file data:', error);
       return null;
     }
-  }, [query.data, options.processFn, options]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.data]);
   
   return {
     data: processedData,
