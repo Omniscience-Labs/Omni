@@ -700,9 +700,9 @@ export const siteConfig = {
     },
   },
   pricing: {
-    title: 'Open Source & Free Forever',
+    title: 'Free Forever',
     description:
-      'Omni is 100% open source and free to use. No hidden fees, no premium features locked behind paywalls.',
+      'Autonomous ai agents that sense → decide → act in real-time.',
     pricingItems: [
       {
         name: 'Community',
