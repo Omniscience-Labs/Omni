@@ -460,6 +460,7 @@ export function useAgentStream(
           );
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       threadId,
       setMessages,
@@ -618,6 +619,7 @@ export function useAgentStream(
       // Only set mounted flag to false to prevent new operations
       // Streams will be cleaned up when they naturally complete or on explicit stop
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array for mount/unmount effect
 
   // --- Public Functions ---

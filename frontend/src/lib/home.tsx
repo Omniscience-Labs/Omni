@@ -215,6 +215,7 @@ export const siteConfig = {
         id: 1,
         name: 'MSSC',
         logo: (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src="/company-logos/mssc.png"
             alt="MSSC"
@@ -226,6 +227,7 @@ export const siteConfig = {
         id: 2,
         name: 'Huston',
         logo: (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src="/company-logos/huston.png"
             alt="Huston"
@@ -237,6 +239,7 @@ export const siteConfig = {
         id: 3,
         name: 'PSI',
         logo: (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src="/company-logos/psi-cropped.png"
             alt="PSI"
@@ -248,6 +251,7 @@ export const siteConfig = {
         id: 4,
         name: 'PPS',
         logo: (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src="/company-logos/pps.svg"
             alt="PPS"
