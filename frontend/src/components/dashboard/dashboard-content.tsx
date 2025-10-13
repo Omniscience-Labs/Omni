@@ -41,6 +41,7 @@ import { TourConfirmationDialog } from '@/components/tour/TourConfirmationDialog
 import { ThreeSpinner } from '@/components/ui/three-spinner';
 import { Calendar, MessageSquare, Plus, Sparkles, Zap } from 'lucide-react';
 import { AgentConfigurationDialog } from '@/components/agents/agent-configuration-dialog';
+import { DocsThemeToggle } from '@/components/ui/docs-theme-toggle';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
@@ -285,6 +286,11 @@ export function DashboardContent() {
 
   return (
     <>
+      {/* Floating Theme Toggle */}
+      <div className="fixed top-6 right-6 z-40">
+        <DocsThemeToggle />
+      </div>
+
       <Joyride
         steps={dashboardTourSteps}
         run={run}
