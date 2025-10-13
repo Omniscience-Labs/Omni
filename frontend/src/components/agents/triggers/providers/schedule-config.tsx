@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
-import { Clock, Calendar as CalendarIcon, Info, Zap, Repeat, Timer, Target, Activity } from 'lucide-react';
+import { Clock, Calendar as CalendarIcon, Info, Zap, Repeat, Timer, Target, Activity, Globe } from 'lucide-react';
 import { format, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { TriggerProvider, ScheduleTriggerConfig } from '../types';
@@ -695,8 +695,14 @@ export const ScheduleTriggerConfigForm: React.FC<ScheduleTriggerConfigFormProps>
 
                     <TabsContent value="one-time" className="space-y-6 mt-6">
                       <div className="space-y-4">
-                        <div>
-                          <Label className="text-sm font-medium mb-3 block">Date</Label>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium">Date</Label>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Globe className="h-3 w-3" />
+                              <span>{config.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone}</span>
+                            </div>
+                          </div>
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button
@@ -706,20 +712,30 @@ export const ScheduleTriggerConfigForm: React.FC<ScheduleTriggerConfigFormProps>
                                   !selectedDate && "text-muted-foreground"
                                 )}
                               >
-                                <CalendarIcon className="h-4 w-4" />
+                                <CalendarIcon className="mr-2 h-4 w-4" />
                                 {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
+                              <div className="p-3 border-b bg-muted/30">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Globe className="h-3 w-3" />
+                                  <span>Dates shown in your timezone: <strong className="text-foreground">{config.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone}</strong></span>
+                                </div>
+                              </div>
                               <Calendar
                                 mode="single"
                                 selected={selectedDate}
                                 onSelect={setSelectedDate}
                                 disabled={(date) => {
-                                  const today = new Date();
-                                  today.setHours(0, 0, 0, 0); // Start of today in local timezone
-                                  const compareDate = new Date(date);
-                                  compareDate.setHours(0, 0, 0, 0); // Start of selected date
+                                  // Get current date in user's local timezone
+                                  const now = new Date();
+                                  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                                  
+                                  // Get the selected date at midnight in local timezone
+                                  const compareDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                                  
+                                  // Disable if the date is before today in user's local timezone
                                   return compareDate < today;
                                 }}
                                 initialFocus
@@ -728,8 +744,14 @@ export const ScheduleTriggerConfigForm: React.FC<ScheduleTriggerConfigFormProps>
                           </Popover>
                         </div>
 
-                        <div>
-                          <Label className="text-sm font-medium mb-3 block">Time</Label>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium">Time</Label>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Globe className="h-3 w-3" />
+                              <span>{config.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone}</span>
+                            </div>
+                          </div>
                           <div className="flex gap-2 items-center">
                             <Select value={oneTimeTime.hour} onValueChange={(value) => setOneTimeTime(prev => ({ ...prev, hour: value }))}>
                               <SelectTrigger className="w-20">
@@ -758,6 +780,24 @@ export const ScheduleTriggerConfigForm: React.FC<ScheduleTriggerConfigFormProps>
                             </Select>
                           </div>
                         </div>
+
+                        {selectedDate && (
+                          <div className="bg-muted/50 p-4 rounded-lg border">
+                            <div className="font-medium text-sm mb-2">Schedule Summary</div>
+                            <div className="space-y-2 text-sm">
+                              <div className="text-foreground flex items-start gap-2">
+                                <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <div><strong>Scheduled for:</strong> {format(selectedDate, "PPP")} at {oneTimeTime.hour}:{oneTimeTime.minute}</div>
+                                  <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                    <Globe className="h-3 w-3" />
+                                    {config.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </TabsContent>
                     <TabsContent value="advanced" className="space-y-4 mt-6">

@@ -412,7 +412,7 @@ async def run_agent_background(
         if pubsub:
             try:
                 await pubsub.unsubscribe()
-                await pubsub.close()
+                await pubsub.aclose()
                 logger.debug(f"Closed pubsub connection for {agent_run_id}")
             except Exception as e:
                 logger.warning(f"Error closing pubsub for {agent_run_id}: {str(e)}")

@@ -73,16 +73,10 @@ function SidebarProvider({
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  // On desktop, sidebar is always expanded
   const [_open, _setOpen] = React.useState(defaultOpen);
-  const open = isMobile ? (openProp ?? _open) : true;
+  const open = openProp ?? _open;
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
-      // Prevent changing state on desktop - sidebar always stays expanded
-      if (!isMobile) {
-        return;
-      }
-      
       const openState = typeof value === 'function' ? value(open) : value;
       if (setOpenProp) {
         setOpenProp(openState);
@@ -93,25 +87,22 @@ function SidebarProvider({
       // This sets the cookie to keep the sidebar state.
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
     },
-    [setOpenProp, open, isMobile],
+    [setOpenProp, open],
   );
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
-    // Only allow toggling on mobile, desktop sidebar stays expanded
-    return isMobile ? setOpenMobile((open) => !open) : undefined;
-  }, [isMobile, setOpenMobile]);
+    return setOpen((open) => !open);
+  }, [setOpen]);
 
-  // Adds a keyboard shortcut to toggle the sidebar (mobile only).
+  // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isDocumentModalOpen) {
         return;
       }
-      
-      // Only allow keyboard toggle on mobile
+
       if (
-        isMobile &&
         event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
         (event.metaKey || event.ctrlKey)
       ) {
@@ -123,7 +114,7 @@ function SidebarProvider({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleSidebar, isDocumentModalOpen, isMobile]);
+  }, [toggleSidebar, isDocumentModalOpen]);
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
@@ -296,12 +287,7 @@ function SidebarTrigger({
 }
 
 function SidebarRail({ className, ...props }: React.ComponentProps<'button'>) {
-  const { toggleSidebar, isMobile } = useSidebar();
-
-  // Don't render the rail on desktop since sidebar can't be toggled
-  if (!isMobile) {
-    return null;
-  }
+  const { toggleSidebar } = useSidebar();
 
   return (
     <button

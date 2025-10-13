@@ -1526,6 +1526,8 @@ class ResponseProcessor:
                         # logger.debug(f"✅ Parsed arguments as dict: {parsed_args}")
                         # Validate and provide default values for required parameters
                         validated_args = self._validate_and_fix_tool_arguments(function_name, parsed_args)
+                        # Inject thread_id if the tool accepts it
+                        validated_args = self._inject_context_params(function_name, validated_args, thread_id, message_id, tool_fn)
                         result = await tool_fn(**validated_args)
                     else:
                         logger.debug(f"🔄 Arguments parsed as non-dict, passing as single argument")
@@ -1540,6 +1542,8 @@ class ResponseProcessor:
                         # logger.debug(f"🔄 Fallback: unpacking dict arguments")
                         # Validate and provide default values for required parameters
                         validated_args = self._validate_and_fix_tool_arguments(function_name, arguments)
+                        # Inject thread_id if the tool accepts it
+                        validated_args = self._inject_context_params(function_name, validated_args, thread_id, message_id, tool_fn)
                         result = await tool_fn(**validated_args)
                     else:
                         # logger.debug(f"🔄 Fallback: passing as single argument")
@@ -1551,6 +1555,8 @@ class ResponseProcessor:
                     
                     # Validate and provide default values for required parameters
                     validated_args = self._validate_and_fix_tool_arguments(function_name, arguments)
+                    # Inject thread_id if the tool accepts it
+                    validated_args = self._inject_context_params(function_name, validated_args, thread_id, message_id, tool_fn)
                     result = await tool_fn(**validated_args)
                 else:
                     # logger.debug(f"🔄 Passing non-dict arguments as single parameter")
@@ -1650,6 +1656,39 @@ class ResponseProcessor:
         except Exception as e:
             logger.error(f"❌ Error validating tool arguments for {function_name}: {str(e)}")
             # Return original arguments if validation fails
+            return arguments
+    
+    def _inject_context_params(
+        self, 
+        function_name: str, 
+        arguments: Dict[str, Any], 
+        thread_id: Optional[str], 
+        message_id: Optional[str],
+        tool_fn: Any
+    ) -> Dict[str, Any]:
+        """Inject context parameters like thread_id and message_id if the tool accepts them."""
+        try:
+            import inspect
+            
+            # Get the function signature
+            sig = inspect.signature(tool_fn)
+            injected_args = arguments.copy()
+            
+            # Check if tool accepts _thread_id parameter
+            if '_thread_id' in sig.parameters and thread_id:
+                injected_args['_thread_id'] = thread_id
+                logger.debug(f"🔧 Injected _thread_id={thread_id} for {function_name}")
+            
+            # Check if tool accepts _message_id parameter
+            if '_message_id' in sig.parameters and message_id:
+                injected_args['_message_id'] = message_id
+                logger.debug(f"🔧 Injected _message_id={message_id} for {function_name}")
+            
+            return injected_args
+            
+        except Exception as e:
+            logger.error(f"❌ Error injecting context params for {function_name}: {str(e)}")
+            # Return original arguments if injection fails
             return arguments
 
     async def _execute_tools(

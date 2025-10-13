@@ -205,11 +205,21 @@ export function SidebarSearch() {
             const isActive = pathname?.includes(thread.threadId) || false;
             const isThreadLoading = loadingThreadId === thread.threadId;
             const updatedDate = new Date(thread.updatedAt);
-            const isToday =
-              new Date().toDateString() === updatedDate.toDateString();
-            const isYesterday =
-              new Date(Date.now() - 86400000).toDateString() ===
-              updatedDate.toDateString();
+            
+            // Get today and yesterday at midnight in user's local timezone for accurate comparison
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+            
+            // Normalize thread date to midnight in local timezone
+            const threadDayStart = new Date(
+              updatedDate.getFullYear(),
+              updatedDate.getMonth(),
+              updatedDate.getDate()
+            );
+            
+            const isToday = threadDayStart.getTime() === today.getTime();
+            const isYesterday = threadDayStart.getTime() === yesterday.getTime();
 
             // Format date as "today", "yesterday", or formatted date
             let dateDisplay;

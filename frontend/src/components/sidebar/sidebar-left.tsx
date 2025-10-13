@@ -7,7 +7,7 @@ import { Bot, Menu, Plus, Zap, ChevronRight, BookOpen, ChevronLeft } from 'lucid
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
 import { OmniLogo } from '@/components/sidebar/omni-logo';
-import { CTACarousel } from '@/components/sidebar/cta';
+import { HelpButton } from '@/components/help/help-button';
 import {
   Sidebar,
   SidebarContent,
@@ -127,8 +127,7 @@ export function SidebarLeft({
     fetchUserData();
   }, []);
 
-  // Keyboard shortcut is now handled in the main sidebar component
-  // and only works on mobile to keep desktop sidebar always expanded
+  // Keyboard shortcut is handled in the main sidebar component
 
 
 
@@ -280,13 +279,34 @@ export function SidebarLeft({
         </SidebarGroup>
         <NavAgents />
       </SidebarContent>
-      {state !== 'collapsed' && (
-        <div className="px-3 py-2">
-          <CTACarousel />
-        </div>
-      )}
       <SidebarFooter>
-        {/* Removed collapsed state toggle - sidebar always stays expanded on desktop */}
+        {/* Expand button - only shown when collapsed */}
+        {state === 'collapsed' && (
+          <div className="px-2 pb-2 flex justify-center">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => setOpen(true)}
+                  size="icon"
+                  variant="ghost"
+                  className="h-9 w-9 hover:bg-accent hover:text-accent-foreground transition-colors duration-200"
+                  aria-label="Expand sidebar"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                Expand sidebar
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
+        {/* Help Button */}
+        {state !== 'collapsed' && (
+          <div className="px-2 pb-2">
+            <HelpButton />
+          </div>
+        )}
         <NavUserWithTeams user={user} />
       </SidebarFooter>
       <SidebarRail />
