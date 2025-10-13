@@ -12,12 +12,14 @@ export const OmniFallbackIcon: React.FC<OmniFallbackIconProps> = ({
   return (
     <div className={`inline-flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
       {/* Light version for dark mode, dark version for light mode */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/omni-ball-light.svg"
         alt="Omni"
         className="block dark:hidden w-full h-full"
         style={{ width: size, height: size }}
       />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/omni-ball-dark.svg"
         alt="Omni"

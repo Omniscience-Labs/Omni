@@ -58,6 +58,9 @@ export function ThreeSpinner({
   useEffect(() => {
     if (!mountRef.current) return;
 
+    // Capture the current mount element for cleanup
+    const currentMount = mountRef.current;
+
     // Scene setup
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
@@ -71,7 +74,7 @@ export function ThreeSpinner({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x000000, 0); // Transparent background
     
-    mountRef.current.appendChild(renderer.domElement);
+    currentMount.appendChild(renderer.domElement);
 
     // Create both simple and complex geometries - we'll blend between them based on speed
     // Complex geometries (visible when slow)
@@ -302,8 +305,8 @@ export function ThreeSpinner({
         simpleMiddleMaterial.dispose();
       }
       
-      if (mountRef.current && renderer.domElement) {
-        mountRef.current.removeChild(renderer.domElement);
+      if (currentMount && renderer.domElement) {
+        currentMount.removeChild(renderer.domElement);
       }
     };
   }, [size, color, isDarkMode]); // Added isDarkMode to dependencies
