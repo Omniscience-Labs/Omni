@@ -1,7 +1,7 @@
 'use client';
 import { HeroVideoSection } from '@/components/home/sections/hero-video-section';
 import { siteConfig } from '@/lib/home';
-import { ArrowRight, X, AlertCircle, Sparkles } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
 import { GradientText } from '@/components/animate-ui/text/gradient';
 import { FlickeringGrid } from '@/components/home/ui/flickering-grid';
 import { LampContainer } from '@/components/ui/lamp';
@@ -912,33 +912,7 @@ export function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.8 }}
           >
-            {/* Badge with enhanced styling - moved above the main heading */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.1, duration: 0.6 }}
-              className="relative z-50 mb-2"
-            >
-              <Link
-                href="#enterprise"
-                className="group relative inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/20 backdrop-blur-sm px-4 py-2 text-sm transition-all duration-300 hover:border-border/70 hover:bg-background/30 hover:shadow-lg hover:shadow-primary/20"
-              >
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  <GradientText 
-                    text={hero.badge}
-                    gradient="linear-gradient(90deg, #3b82f6 0%, #a855f7 20%, #ec4899 50%, #a855f7 80%, #3b82f6 100%)"
-                    transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-                    className="font-medium text-xs tracking-wider uppercase group-hover:opacity-90 transition-opacity duration-300"
-                  />
-                </div>
-                <div className="inline-flex items-center justify-center size-4 rounded-full bg-primary/20 group-hover:bg-primary/30 transition-colors duration-300">
-                  <ArrowRight className="h-2.5 w-2.5 text-primary group-hover:translate-x-0.5 transition-transform duration-300" />
-                </div>
-              </Link>
-            </motion.div>
-
-            {/* Lamp Container positioned between badge and title */}
+            {/* Lamp Container positioned above title */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

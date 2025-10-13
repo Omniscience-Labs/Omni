@@ -108,9 +108,8 @@ export const siteConfig = {
         />
       </svg>
     ),
-    badge: '100% OPEN SOURCE',
     githubUrl: 'https://github.com/omniscience-labs/omni',
-    title: 'Omni – Build, manage and train your AI Workforce.',
+    title: 'Omni – Build, manage and train your AI Workforce.',
     description:
       'Omni – industrial platform to build, manage and train your AI Workforce.',
     inputPlaceholder: 'Ask Omni to...',
