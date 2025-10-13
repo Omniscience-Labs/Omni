@@ -184,6 +184,7 @@ export const DocsImage = React.forwardRef<HTMLDivElement, DocsImageProps>(
 
           {/* Image */}
           {src && !imageError && (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={src}
               alt={alt || caption || 'Documentation image'}
