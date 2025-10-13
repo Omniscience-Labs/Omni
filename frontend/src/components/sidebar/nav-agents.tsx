@@ -12,11 +12,14 @@ import {
   ExternalLink,
   X,
   Check,
-  History
+  History,
+  Pencil
 } from "lucide-react"
 import { ThreadIcon } from "./thread-icon"
 import { toast } from "sonner"
 import { usePathname, useRouter } from "next/navigation"
+import { useUpdateProject } from '@/hooks/react-query/sidebar/use-project-mutations'
+import { Input } from '@/components/ui/input'
 
 import {
   DropdownMenu,
@@ -87,6 +90,78 @@ const ThreadItem: React.FC<{
   setShowShareModal,
   isMobile 
 }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(thread.projectName);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+  const updateProjectMutation = useUpdateProject();
+
+  const startEditing = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditName(thread.projectName);
+    setIsEditing(true);
+    setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 0);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditName(thread.projectName);
+  };
+
+  const saveNewName = async () => {
+    if (editName.trim() === '') {
+      setEditName(thread.projectName);
+      setIsEditing(false);
+      return;
+    }
+
+    if (editName !== thread.projectName) {
+      try {
+        if (!thread.projectId) {
+          toast.error('Cannot rename: Project ID is missing');
+          setEditName(thread.projectName);
+          setIsEditing(false);
+          return;
+        }
+
+        await updateProjectMutation.mutateAsync({
+          projectId: thread.projectId,
+          data: { name: editName }
+        });
+        
+        toast.success('Chat renamed successfully');
+        queryClient.invalidateQueries({ queryKey: threadKeys.project(thread.projectId) });
+        queryClient.invalidateQueries({ queryKey: projectKeys.all() });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Failed to rename chat';
+        console.error('Failed to rename chat:', errorMessage);
+        toast.error(errorMessage);
+        setEditName(thread.projectName);
+      }
+    }
+
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      saveNewName();
+    } else if (e.key === 'Escape') {
+      cancelEditing();
+    }
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    if (!isEditing && !isSelected) {
+      startEditing(e);
+    }
+  };
+
   return (
     <SidebarMenuItem key={`thread-${thread.threadId}`} className="group/row">
       <SidebarMenuButton
@@ -99,25 +174,49 @@ const ThreadItem: React.FC<{
           }`}
       >
         <div className="flex items-center w-full">
-          <Link
-            href={thread.url}
-            onClick={(e) =>
-              handleThreadClick(e, thread.threadId, thread.url)
-            }
-            prefetch={false}
-            className="flex items-center flex-1 min-w-0 touch-manipulation"
-          >
-            {isThreadLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2 flex-shrink-0" />
-            ) : (
-              <ThreadIcon 
-                iconName={thread.iconName} 
-                className="mr-2" 
-                size={16} 
+          {isEditing ? (
+            <div className="flex items-center flex-1 min-w-0 mr-2">
+              {isThreadLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2 flex-shrink-0" />
+              ) : (
+                <ThreadIcon 
+                  iconName={thread.iconName} 
+                  className="mr-2" 
+                  size={16} 
+                />
+              )}
+              <Input
+                ref={inputRef}
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onBlur={saveNewName}
+                className="h-7 text-sm flex-1"
+                onClick={(e) => e.stopPropagation()}
               />
-            )}
-            <span className="truncate">{thread.projectName}</span>
-          </Link>
+            </div>
+          ) : (
+            <Link
+              href={thread.url}
+              onClick={(e) =>
+                handleThreadClick(e, thread.threadId, thread.url)
+              }
+              onDoubleClick={handleDoubleClick}
+              prefetch={false}
+              className="flex items-center flex-1 min-w-0 touch-manipulation"
+            >
+              {isThreadLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2 flex-shrink-0" />
+              ) : (
+                <ThreadIcon 
+                  iconName={thread.iconName} 
+                  className="mr-2" 
+                  size={16} 
+                />
+              )}
+              <span className="truncate">{thread.projectName}</span>
+            </Link>
+          )}
           
           {/* Checkbox - only visible on hover of this specific area */}
           <div
@@ -155,6 +254,11 @@ const ThreadItem: React.FC<{
               side={isMobile ? 'bottom' : 'right'}
               align={isMobile ? 'end' : 'start'}
             >
+              <DropdownMenuItem onClick={(e) => startEditing(e)}>
+                <Pencil className="text-muted-foreground" />
+                <span>Rename</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => {
                 setSelectedItem({ threadId: thread?.threadId, projectId: thread?.projectId })
                 setShowShareModal(true)
