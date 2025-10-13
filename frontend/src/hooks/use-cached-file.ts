@@ -280,6 +280,7 @@ export function useCachedFile<T = string>(
         setLocalBlobUrl(null);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sandboxId, filePath, options.contentType]);
 
   // Expose the cache manipulation functions
