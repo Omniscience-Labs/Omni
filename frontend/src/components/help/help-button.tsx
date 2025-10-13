@@ -58,7 +58,7 @@ export function HelpButton() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 5 }}
                 transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="absolute bottom-full left-0 right-0 mb-2 z-50"
+                className="absolute bottom-full left-0 right-0 mb-4 z-50"
               >
                 {/* White Background */}
                 <div className="absolute inset-0 -inset-x-2 -inset-y-3 bg-white dark:bg-neutral-950 rounded-xl shadow-xl border border-neutral-200 dark:border-neutral-800 -z-10" />
