@@ -99,7 +99,7 @@ export function SheetsToolView({
       case 'visualize-sheet': return 'bg-gradient-to-br from-green-500/20 to-green-600/10 border border-green-500/20';
       case 'format-sheet': return 'bg-gradient-to-br from-red-500/20 to-red-600/10 border border-red-500/20';
     }
-  }, [toolContent]);
+  }, [toolName]);
 
   const getSheetIconColor = useCallback(() => {
     switch (toolName) {

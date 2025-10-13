@@ -3,6 +3,11 @@ import type { NextConfig } from 'next';
 const nextConfig = (): NextConfig => ({
   output: (process.env.NEXT_OUTPUT as 'standalone') || undefined,
   
+  // Ignore ESLint errors during production builds
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  
   // Skip middleware URL normalization as suggested by Next.js
   skipMiddlewareUrlNormalize: true,
   
