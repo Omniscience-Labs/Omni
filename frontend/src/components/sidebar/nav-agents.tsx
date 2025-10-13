@@ -29,6 +29,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
@@ -163,16 +170,18 @@ const ThreadItem: React.FC<{
   };
 
   return (
-    <SidebarMenuItem key={`thread-${thread.threadId}`} className="group/row">
-      <SidebarMenuButton
-        asChild
-        className={`relative ${isActive
-          ? 'bg-accent text-accent-foreground font-medium'
-          : isSelected
-            ? 'bg-primary/10'
-            : ''
-          }`}
-      >
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <SidebarMenuItem key={`thread-${thread.threadId}`} className="group/row">
+          <SidebarMenuButton
+            asChild
+            className={`relative ${isActive
+              ? 'bg-accent text-accent-foreground font-medium'
+              : isSelected
+                ? 'bg-primary/10'
+                : ''
+              }`}
+          >
         <div className="flex items-center w-full">
           {isEditing ? (
             <div className="flex items-center flex-1 min-w-0 mr-2">
@@ -292,7 +301,48 @@ const ThreadItem: React.FC<{
           </DropdownMenu>
         </div>
       </SidebarMenuButton>
-    </SidebarMenuItem>
+        </SidebarMenuItem>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-56 rounded-lg">
+        <ContextMenuItem onClick={(e) => {
+          e.preventDefault();
+          startEditing(e as any);
+        }}>
+          <Pencil className="text-muted-foreground h-4 w-4" />
+          <span>Rename</span>
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => {
+          setSelectedItem({ threadId: thread?.threadId, projectId: thread?.projectId })
+          setShowShareModal(true)
+        }}>
+          <ExternalLink className="text-muted-foreground h-4 w-4" />
+          <span>Share</span>
+        </ContextMenuItem>
+        <ContextMenuItem asChild>
+          <a
+            href={thread.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <ArrowUpRight className="text-muted-foreground h-4 w-4" />
+            <span>Open in New Tab</span>
+          </a>
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          onClick={() =>
+            handleDeleteThread(
+              thread.threadId,
+              thread.projectName,
+            )
+          }
+        >
+          <Trash2 className="text-muted-foreground h-4 w-4" />
+          <span>Delete</span>
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 };
 
