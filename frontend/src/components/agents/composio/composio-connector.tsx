@@ -335,6 +335,10 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
   const [customAuthConfig, setCustomAuthConfig] = useState<Record<string, string>>({});
   const [customAuthConfigErrors, setCustomAuthConfigErrors] = useState<Record<string, string>>({});
 
+  // API Key authentication state
+  const [authMethod, setAuthMethod] = useState<'oauth' | 'api_key'>('oauth');
+  const [apiKey, setApiKey] = useState('');
+
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
 
   const { mutate: createProfile, isPending: isCreating } = useCreateComposioProfile();
@@ -390,6 +394,8 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
       setUseCustomAuth(requiresCustomAuth);
       setCustomAuthConfig({});
       setCustomAuthConfigErrors({});
+      setAuthMethod('oauth');
+      setApiKey('');
     }
   }, [open, app.name, app.slug, mode]);
 
@@ -494,6 +500,8 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
       setCustomAuthConfigErrors({});
       setUseCustomAuth(requiresCustomAuth);
       setProfileName(`${app.name} Profile`);
+      setAuthMethod('oauth');
+      setApiKey('');
     }
     setCurrentStep(newStep);
   };
@@ -527,6 +535,12 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
       return;
     }
 
+    // Validate API key if API key auth is selected
+    if (authMethod === 'api_key' && !apiKey.trim()) {
+      toast.error('API key is required');
+      return;
+    }
+
     if (!validateCustomAuthFields()) {
       toast.error('Please fill in all required OAuth configuration fields');
       return;
@@ -543,6 +557,8 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
       initiation_fields: Object.keys(initiationFields).length > 0 ? initiationFields : undefined,
       custom_auth_config: useCustomAuth && Object.keys(customAuthConfig).length > 0 ? customAuthConfig : undefined,
       use_custom_auth: useCustomAuth,
+      auth_scheme: authMethod === 'api_key' ? 'API_KEY' : 'OAUTH2',
+      api_key: authMethod === 'api_key' ? apiKey : undefined,
     }, {
       onSuccess: (response) => {
         setCreatedProfileId(response.profile_id);
@@ -624,6 +640,8 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
           setCustomAuthConfigErrors({});
           setUseCustomAuth(requiresCustomAuth);
           setProfileName(`${app.name} Profile`);
+          setAuthMethod('oauth');
+          setApiKey('');
           navigateToStep(Step.ProfileSelect);
         }
         break;
@@ -819,6 +837,8 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                                 setCustomAuthConfigErrors({});
                                 setUseCustomAuth(requiresCustomAuth);
                                 setProfileName(`${app.name} Profile`);
+                                setAuthMethod('oauth');
+                                setApiKey('');
                               }
                             }}>
                               <CardContent className='p-2'>
@@ -1004,6 +1024,64 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                           )}
                         </div>
 
+                        {/* Authentication Method Selector */}
+                        <div className="space-y-3 border rounded-lg p-3 bg-muted/30">
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-3.5 w-3.5 text-primary" />
+                            <Label className="text-sm font-medium">Authentication Method</Label>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              type="button"
+                              variant={authMethod === 'oauth' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => setAuthMethod('oauth')}
+                              className="flex-1 h-8"
+                            >
+                              OAuth
+                            </Button>
+                            <Button 
+                              type="button"
+                              variant={authMethod === 'api_key' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => setAuthMethod('api_key')}
+                              className="flex-1 h-8"
+                            >
+                              API Key
+                            </Button>
+                          </div>
+                          
+                          <AnimatePresence>
+                            {authMethod === 'api_key' && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="space-y-1.5 pt-2 border-t">
+                                  <Label htmlFor="api-key" className="text-xs">
+                                    API Key
+                                    <span className="text-destructive ml-1">*</span>
+                                  </Label>
+                                  <Input
+                                    id="api-key"
+                                    type="password"
+                                    value={apiKey}
+                                    onChange={(e) => setApiKey(e.target.value)}
+                                    placeholder="Enter your API key"
+                                    className="h-8 text-xs"
+                                  />
+                                  <p className="text-[10px] text-muted-foreground">
+                                    Enter the API key for your {app.name} account. This will be securely stored.
+                                  </p>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+
                         {!isLoadingToolkitDetails && 
                          toolkitDetails?.toolkit.connected_account_initiation_fields?.required?.length > 0 && (
                           <div className="space-y-2">
@@ -1067,7 +1145,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                             })}
                           </div>
                         )}
-                        {toolkitDetails?.toolkit.auth_config_details?.[0]?.fields?.auth_config_creation && (
+                        {authMethod === 'oauth' && toolkitDetails?.toolkit.auth_config_details?.[0]?.fields?.auth_config_creation && (
                           <div className="space-y-3 border rounded-lg p-3">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">

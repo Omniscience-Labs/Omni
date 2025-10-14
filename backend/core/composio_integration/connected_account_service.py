@@ -60,14 +60,25 @@ class ConnectedAccountService:
         self, 
         auth_config_id: str, 
         user_id: str,
-        initiation_fields: Optional[Dict[str, str]] = None
+        initiation_fields: Optional[Dict[str, str]] = None,
+        auth_scheme: str = "OAUTH2",
+        api_key: Optional[str] = None
     ) -> ConnectedAccount:
         try:
             print("[DEBUG] Auth config id: ", auth_config_id)
             print("[DEBUG] User id: ", user_id)
             print("[DEBUG] Initiation fields: ", initiation_fields)
+            print("[DEBUG] Auth scheme: ", auth_scheme)
             
-            state_val = {"status": "INITIALIZING"}
+            # Handle API key authentication
+            if auth_scheme == "API_KEY" and api_key:
+                logger.debug("Creating connected account with API_KEY auth")
+                state_val = {
+                    "status": "ACTIVE",
+                    "api_key": api_key
+                }
+            else:
+                state_val = {"status": "INITIALIZING"}
             
             if initiation_fields:
                 for field_name, field_value in initiation_fields.items():

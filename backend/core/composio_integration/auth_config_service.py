@@ -37,13 +37,44 @@ class AuthConfigService:
         toolkit_slug: str, 
         initiation_fields: Optional[Dict[str, str]] = None,
         custom_auth_config: Optional[Dict[str, str]] = None,
-        use_custom_auth: bool = False
+        use_custom_auth: bool = False,
+        auth_scheme: str = "OAUTH2",
+        api_key: Optional[str] = None
     ) -> AuthConfig:
         try:
             logger.debug(f"Creating auth config for toolkit: {toolkit_slug}")
             logger.debug(f"Initiation fields: {initiation_fields}")
             logger.debug(f"Custom auth config provided: {bool(custom_auth_config)}")
             logger.debug(f"Use custom auth: {use_custom_auth}")
+            logger.debug(f"Auth scheme: {auth_scheme}")
+            
+            # If API key auth is requested, create auth config with API key
+            if auth_scheme == "API_KEY" and api_key:
+                logger.debug("Creating API_KEY auth config")
+                
+                response = self.client.auth_configs.create(
+                    toolkit={
+                        "slug": toolkit_slug
+                    },
+                    auth_config={
+                        "type": "use_custom_auth",
+                        "credentials": {"api_key": api_key},
+                        "authScheme": "API_KEY"
+                    }
+                )
+                
+                auth_config_obj = response.auth_config
+                
+                auth_config = AuthConfig(
+                    id=auth_config_obj.id,
+                    auth_scheme="API_KEY",
+                    is_composio_managed=False,
+                    restrict_to_following_tools=getattr(auth_config_obj, 'restrict_to_following_tools', []),
+                    toolkit_slug=toolkit_slug
+                )
+                
+                logger.debug(f"Successfully created API_KEY auth config: {auth_config.id}")
+                return auth_config
             
             # If custom auth config is provided, use it for credentials
             if use_custom_auth and custom_auth_config:

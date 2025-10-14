@@ -131,6 +131,8 @@ export interface CreateComposioProfileRequest {
   initiation_fields?: Record<string, string>;
   custom_auth_config?: Record<string, string>;
   use_custom_auth?: boolean;
+  auth_scheme?: 'OAUTH2' | 'API_KEY';
+  api_key?: string;
 }
 
 export interface CreateComposioProfileResponse {

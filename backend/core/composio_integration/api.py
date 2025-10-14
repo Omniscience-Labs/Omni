@@ -172,6 +172,8 @@ class CreateProfileRequest(BaseModel):
     initiation_fields: Optional[Dict[str, str]] = None
     custom_auth_config: Optional[Dict[str, str]] = None
     use_custom_auth: bool = False
+    auth_scheme: str = "OAUTH2"
+    api_key: Optional[str] = None
 
 class ToolsListRequest(BaseModel):
     toolkit_slug: str
@@ -353,7 +355,9 @@ async def create_profile(
             save_as_profile=True,
             initiation_fields=request.initiation_fields,
             custom_auth_config=request.custom_auth_config,
-            use_custom_auth=request.use_custom_auth
+            use_custom_auth=request.use_custom_auth,
+            auth_scheme=request.auth_scheme,
+            api_key=request.api_key
         )
         
         logger.debug(f"Integration result for {request.toolkit_slug}: redirect_url = {result.connected_account.redirect_url}")
