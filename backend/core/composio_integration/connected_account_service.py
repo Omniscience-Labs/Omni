@@ -74,22 +74,24 @@ class ConnectedAccountService:
             if auth_scheme == "API_KEY" and api_key:
                 logger.debug("Creating connected account with API_KEY auth")
                 state_val = {
-                    "status": "ACTIVE",
                     "api_key": api_key
                 }
+                auth_scheme_for_state = "API_KEY"
             else:
                 state_val = {"status": "INITIALIZING"}
-            
-            if initiation_fields:
-                for field_name, field_value in initiation_fields.items():
-                    if field_value:
-                        if field_name == "suffix.one":
-                            state_val["extension"] = str(field_value)
-                        else:
-                            state_val[field_name] = str(field_value)
+                auth_scheme_for_state = "OAUTH2"
+                
+                if initiation_fields:
+                    for field_name, field_value in initiation_fields.items():
+                        if field_value:
+                            if field_name == "suffix.one":
+                                state_val["extension"] = str(field_value)
+                            else:
+                                state_val[field_name] = str(field_value)
             
             logger.debug(f"Using state.val: {state_val}")
-            logger.debug(f"Final state.val for Composio API: {json.dumps(state_val, indent=2)}")
+            logger.debug(f"Auth scheme for state: {auth_scheme_for_state}")
+            logger.debug(f"Final state for Composio API: {json.dumps({'authScheme': auth_scheme_for_state, 'val': state_val}, indent=2)}")
             
             response = self.client.connected_accounts.create(
                 auth_config={
@@ -98,7 +100,7 @@ class ConnectedAccountService:
                 connection={
                     "user_id": user_id,
                     "state": {
-                        "authScheme": "OAUTH2",
+                        "authScheme": auth_scheme_for_state,
                         "val": state_val,
                     }
                 }
