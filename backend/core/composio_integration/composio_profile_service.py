@@ -165,7 +165,7 @@ class ComposioProfileService:
                 connected_account_id=connected_account_id,
                 is_active=True,
                 is_default=is_default,
-                is_connected=bool(redirect_url),
+                is_connected=bool(redirect_url or mcp_url),
                 created_at=now,
                 updated_at=now
             )
@@ -284,7 +284,7 @@ class ComposioProfileService:
                     connected_account_id=config.get('connected_account_id'),
                     is_active=row.get('is_active', True),
                     is_default=row.get('is_default', False),
-                    is_connected=bool(config.get('redirect_url')),
+                    is_connected=bool(config.get('redirect_url') or config.get('mcp_url')),
                     created_at=datetime.fromisoformat(row['created_at'].replace('Z', '+00:00')) if row.get('created_at') else None,
                     updated_at=datetime.fromisoformat(row['updated_at'].replace('Z', '+00:00')) if row.get('updated_at') else None
                 )
