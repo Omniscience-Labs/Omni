@@ -383,16 +383,6 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
                     setShowNewAgentDialog(false);
                     onAgentSelect?.(agentId);
                 }}
-<<<<<<< HEAD
-            />
-            <PlaybookExecuteDialog
-                open={execDialog.open}
-                onOpenChange={(open) => setExecDialog((s) => ({ ...s, open }))}
-                playbook={execDialog.playbook as any}
-                agentId={execDialog.agentId || ''}
-            />
-            {(selectedAgentId || displayAgent?.agent_id) && (
-=======
             />
             {(selectedAgentId || displayAgent?.agent_id) && agentConfigDialog.open && (
                 <AgentConfigurationDialog
@@ -403,7 +393,6 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
 <<<<<<< HEAD
 =======
                     onAgentChange={onAgentSelect}
->>>>>>> upstream/PRODUCTION
                 />
             )}
 

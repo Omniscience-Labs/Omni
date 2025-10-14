@@ -483,63 +483,6 @@ import { AttachmentGroup } from '../attachment-group';
                     <span className="text-xs font-medium">Integrations</span>
                   </button>
                   <button
-<<<<<<< HEAD
-=======
-                    onClick={() => setAgentConfigDialog({ open: true, tab: 'tools' })}
-                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
-                  >
-                    <Wrench className="h-3.5 w-3.5 flex-shrink-0" />
-                    <span className="text-xs font-medium">Tools</span>
-                  </button>                  
-                  <button
-                    onClick={() => setAgentConfigDialog({ open: true, tab: 'instructions' })}
-                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
-                  >
-                    <Brain className="h-3.5 w-3.5 flex-shrink-0" />
-                    <span className="text-xs font-medium">Instructions</span>
-                  </button>
-                  <button
-                    onClick={() => setAgentConfigDialog({ open: true, tab: 'knowledge' })}
-                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
-                  >
-                    <Database className="h-3.5 w-3.5 flex-shrink-0" />
-                    <span className="text-xs font-medium">Knowledge</span>
-                  </button>
-
-                  <button
-                    onClick={() => setAgentConfigDialog({ open: true, tab: 'triggers' })}
-                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
-                  >
-                    <Zap className="h-3.5 w-3.5 flex-shrink-0" />
-                    <span className="text-xs font-medium">Triggers</span>
-                  </button>
->>>>>>> upstream/PRODUCTION
-                </div>
-              </div>
-            </div>
-          )}
-
-          <Dialog open={registryDialogOpen} onOpenChange={setRegistryDialogOpen}>
-            <DialogContent className="p-0 max-w-6xl h-[90vh] overflow-hidden">
-              <DialogHeader className="sr-only">
-                <DialogTitle>Integrations</DialogTitle>
-              </DialogHeader>
-              <IntegrationsRegistry
-                showAgentSelector={true}
-                selectedAgentId={selectedAgentId}
-                onAgentChange={onAgentSelect}
-                onToolsSelected={(profileId, selectedTools, appName, appSlug) => {
-                }}
-              />
-            </DialogContent>
-          </Dialog>
-          <BillingModal
-            open={billingModalOpen}
-            onOpenChange={setBillingModalOpen}
-          />
-<<<<<<< HEAD
-          {selectedAgentId && (
-=======
           {selectedAgentId && agentConfigDialog.open && (
             <AgentConfigurationDialog
               open={agentConfigDialog.open}
@@ -549,7 +492,6 @@ import { AttachmentGroup } from '../attachment-group';
 <<<<<<< HEAD
 =======
               onAgentChange={onAgentSelect}
->>>>>>> upstream/PRODUCTION
             />
           )}
         </div>
