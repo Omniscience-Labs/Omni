@@ -103,6 +103,7 @@ export const DocsCard = React.forwardRef<HTMLDivElement, DocsCardProps>(
             "overflow-hidden",
             orientation === 'vertical' ? "rounded-t-lg" : "rounded-l-lg w-48 flex-shrink-0"
           )}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={image}
               alt={imageAlt || title}

@@ -202,6 +202,7 @@ export function TriggersPage() {
         setSelectedTrigger(null);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [triggers, selectedTrigger?.trigger_id]);
 
   const handleClosePanel = () => {

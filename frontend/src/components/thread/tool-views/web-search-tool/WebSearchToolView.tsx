@@ -139,6 +139,7 @@ export function WebSearchToolView({
                           rel="noopener noreferrer"
                           className="group relative overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 hover:border-blue-300 dark:hover:border-blue-700 transition-colors shadow-sm hover:shadow-md"
                         >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={imageUrl}
                             alt={`Search result ${idx + 1}`}
@@ -191,6 +192,7 @@ export function WebSearchToolView({
                       <div className="p-4">
                         <div className="flex items-start gap-3 mb-2">
                           {favicon && (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={favicon}
                               alt=""
