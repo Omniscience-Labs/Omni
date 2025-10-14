@@ -43,13 +43,8 @@ export function extractDesignerData(
   let status: string | undefined;
   let error: string | undefined;
   let actualIsSuccess = isSuccess;
-<<<<<<< HEAD
-  let actualToolTimestamp = toolTimestamp;
-  let actualAssistantTimestamp = assistantTimestamp;
-=======
   const actualToolTimestamp = toolTimestamp;
   const actualAssistantTimestamp = assistantTimestamp;
->>>>>>> upstream/PRODUCTION
   let sandbox_id: string | undefined;
 
   if (toolContent && typeof toolContent === 'object') {

@@ -47,98 +47,6 @@ import {
           <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-<<<<<<< HEAD
-                <button
-                  className={cn(
-                    "cursor-pointer transition-opacity hover:opacity-80",
-                    isSunaAgent && "cursor-default hover:opacity-100"
-                  )}
-                  onClick={() => !isSunaAgent && setIsProfileDialogOpen(true)}
-                  type="button"
-                  disabled={isSunaAgent}
-                >
-                  {isSunaAgent ? (
-                    <div className="h-10 w-10 rounded-lg bg-muted border flex items-center justify-center">
-                      <KortixLogo size={18} />
-                    </div>
-                  ) : (
-                    <AgentIconAvatar
-                      profileImageUrl={formData.profile_image_url}
-                      iconName={formData.icon_name}
-                      iconColor={formData.icon_color}
-                      backgroundColor={formData.icon_background}
-                      agentName={formData.name}
-                      size={40}
-                      className="ring-1 ring-border hover:ring-foreground/20 transition-all"
-                    />
-                  )}
-                </button>
-
-                <div>
-                  {isEditingName ? (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        ref={nameInputRef}
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleNameSave();
-                          } else if (e.key === 'Escape') {
-                            setEditName(formData.name);
-                            setIsEditingName(false);
-                          }
-                        }}
-                        className="h-8 w-64"
-                        maxLength={50}
-                      />
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
-                        onClick={handleNameSave}
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
-                        onClick={() => {
-                          setEditName(formData.name);
-                          setIsEditingName(false);
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <DialogTitle className="text-xl font-semibold">
-                        {isLoading ? 'Loading...' : formData.name || 'Agent'}
-                      </DialogTitle>
-                      {isNameEditable && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6"
-                          onClick={() => {
-                            setIsEditingName(true);
-                            setTimeout(() => {
-                              nameInputRef.current?.focus();
-                              nameInputRef.current?.select();
-                            }, 0);
-                          }}
-                        >
-                          <Edit3 className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                  <DialogDescription>
-                    Configure your agent's capabilities and behavior
-                  </DialogDescription>
-=======
                 <div
                   className="flex-shrink-0"
                 >
@@ -316,7 +224,6 @@ import {
                       </div>
                     )}
                   </div>
->>>>>>> upstream/PRODUCTION
                 </div>
               </div>
 
@@ -373,11 +280,7 @@ import {
                 </TabsList>
               </div>
               <div className="flex-1 overflow-auto">
-<<<<<<< HEAD
-                <TabsContent value="general" className="p-6 mt-0 flex flex-col h-full">
-=======
                 {/* <TabsContent value="general" className="p-6 mt-0 flex flex-col h-full">
->>>>>>> upstream/PRODUCTION
                   <div className="flex flex-col flex-1 gap-6">
                     <div className="flex-shrink-0">
                       <Label className="text-base font-semibold mb-3 block">Model</Label>
@@ -389,23 +292,8 @@ import {
                       />
                     </div>
 
-<<<<<<< HEAD
-                    <div className="flex flex-col flex-1 min-h-0">
-                      <Label className="text-base font-semibold mb-3 block">Description</Label>
-                      <Textarea
-                        value={formData.description}
-                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                        placeholder="Describe what this agent does..."
-                        className="flex-1 resize-none bg-muted/50"
-                        disabled={isViewingOldVersion}
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
-=======
                   </div>
                 </TabsContent> */}
->>>>>>> upstream/PRODUCTION
 
                 <TabsContent value="instructions" className="p-6 mt-0 flex flex-col h-full">
                   <div className="flex flex-col flex-1 min-h-0">
@@ -420,46 +308,6 @@ import {
                   </div>
                 </TabsContent>
 
-<<<<<<< HEAD
-                <TabsContent value="tools" className="p-6 mt-0 h-[calc(100vh-16rem)]">
-                  <AgentToolsConfiguration
-                    tools={formData.agentpress_tools}
-                    onToolsChange={handleToolsChange}
-                    disabled={!areToolsEditable}
-                  />
-                </TabsContent>
-                <TabsContent value="integrations" className="p-6 mt-0 h-[calc(100vh-16rem)]">
-                  <AgentMCPConfiguration
-                    configuredMCPs={formData.configured_mcps}
-                    customMCPs={formData.custom_mcps}
-                    onMCPChange={handleMCPChange}
-                    agentId={agentId}
-                    versionData={{
-                      configured_mcps: formData.configured_mcps,
-                      custom_mcps: formData.custom_mcps,
-                      system_prompt: formData.system_prompt,
-                      agentpress_tools: formData.agentpress_tools
-                    }}
-                    saveMode="callback"
-                    isLoading={updateAgentMCPsMutation.isPending}
-                  />
-                </TabsContent>
-
-                <TabsContent value="knowledge" className="p-6 mt-0 h-[calc(100vh-16rem)]">
-                  <AgentKnowledgeBaseManager agentId={agentId} agentName={formData.name || 'Agent'} />
-                </TabsContent>
-
-                <TabsContent value="playbooks" className="p-6 mt-0 h-[calc(100vh-16rem)]">
-                  <AgentPlaybooksConfiguration agentId={agentId} agentName={formData.name || 'Agent'} />
-                </TabsContent>
-
-                <TabsContent value="default-files" className="p-6 mt-0 h-[calc(100vh-16rem)]">
-                  <AgentDefaultFiles agentId={agentId} isOwner={true} />
-                </TabsContent>
-
-                <TabsContent value="triggers" className="p-6 mt-0 h-[calc(100vh-16rem)]">
-                  <AgentTriggersConfiguration agentId={agentId} />
-=======
                 <TabsContent value="tools" className="p-6 mt-0 flex flex-col h-full">
                   <div className="flex flex-col flex-1 min-h-0 h-full">
                     <GranularToolConfiguration
@@ -500,7 +348,6 @@ import {
                   <div className="flex flex-col flex-1 min-h-0 h-full">
                     <AgentTriggersConfiguration agentId={agentId} />
                   </div>
->>>>>>> upstream/PRODUCTION
                 </TabsContent>
               </div>
             </Tabs>
@@ -534,28 +381,17 @@ import {
         </DialogContent>
       </Dialog>
 
-<<<<<<< HEAD
-      <ProfilePictureDialog
-        isOpen={isProfileDialogOpen}
-        onClose={() => setIsProfileDialogOpen(false)}
-        currentImageUrl={formData.profile_image_url}
-=======
       <AgentIconEditorDialog
         isOpen={isIconEditorOpen}
         onClose={() => {
           console.log('Icon editor dialog closing');
           setIsIconEditorOpen(false);
         }}
->>>>>>> upstream/PRODUCTION
         currentIconName={formData.icon_name}
         currentIconColor={formData.icon_color}
         currentBackgroundColor={formData.icon_background}
         agentName={formData.name}
-<<<<<<< HEAD
-        onImageUpdate={handleProfileImageChange}
-=======
         agentDescription={agent?.description}
->>>>>>> upstream/PRODUCTION
         onIconUpdate={handleIconChange}
       />
     </>

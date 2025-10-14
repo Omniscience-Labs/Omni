@@ -49,52 +49,6 @@ export const useModelSelection = () => {
   const { data: subscriptionData } = useSubscriptionData();
   const { selectedModel, setSelectedModel } = useModelStore();
 
-<<<<<<< HEAD
-  // Transform API data to ModelOption format with fallback models (like PRODUCTION)
-  const availableModels = useMemo<ModelOption[]>(() => {
-    let models: ModelOption[] = [];
-    
-    if (!modelsData?.models || isLoading) {
-      // Fallback models when API fails (matching PRODUCTION pattern)
-      models = [
-        { 
-          id: 'claude-sonnet-4', 
-          label: 'Omni 4', 
-          requiresSubscription: false,
-          priority: 100,
-          recommended: true
-        },
-      ];
-    } else {
-      models = modelsData.models
-        .filter(model => {
-          // Hide GPT-5 models entirely
-          const modelName = model.display_name || model.short_name || model.id;
-          return !modelName.toLowerCase().includes('gpt-5');
-        })
-        .map(model => {
-          let label = model.display_name || model.short_name || model.id;
-          
-          // Transform Claude Sonnet 4 to Omni 4
-          if (label === 'Claude Sonnet 4' || label === 'claude-sonnet-4' || 
-              (model.short_name || model.id) === 'anthropic/claude-sonnet-4-20250514') {
-            label = 'Omni 4';
-          }
-          
-          return {
-            id: model.short_name || model.id,
-            label: label,
-            requiresSubscription: model.requires_subscription || false,
-            priority: model.priority || 0,
-            recommended: model.recommended || false,
-            capabilities: model.capabilities || [],
-            contextWindow: model.context_window || 128000,
-          };
-        });
-    }
-    
-    return models.sort((a, b) => {
-=======
   // Transform API data to ModelOption format
   const availableModels = useMemo<ModelOption[]>(() => {
     if (!modelsData?.models) return [];
@@ -108,31 +62,15 @@ export const useModelSelection = () => {
       capabilities: model.capabilities || [],
       contextWindow: model.context_window || 128000,
     })).sort((a, b) => {
->>>>>>> upstream/PRODUCTION
       // Sort by recommended first, then priority, then name
       if (a.recommended !== b.recommended) return a.recommended ? -1 : 1;
       if (a.priority !== b.priority) return b.priority - a.priority;
       return a.label.localeCompare(b.label);
     });
-<<<<<<< HEAD
-  }, [modelsData, isLoading]);
-
-  // Get accessible models based on subscription (matching PRODUCTION pattern)
-  const accessibleModels = useMemo(() => {
-    // Check enterprise mode safely to avoid hydration mismatches
-    const isEnterpriseMode = typeof window !== 'undefined' && 
-      process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
-    
-    if (isEnterpriseMode) {
-      return availableModels; // All models accessible in enterprise mode
-    }
-    
-=======
   }, [modelsData]);
 
   // Get accessible models based on subscription
   const accessibleModels = useMemo(() => {
->>>>>>> upstream/PRODUCTION
     const hasActiveSubscription = subscriptionData?.status === 'active' || subscriptionData?.status === 'trialing';
     return availableModels.filter(model => hasActiveSubscription || !model.requiresSubscription);
   }, [availableModels, subscriptionData]);
