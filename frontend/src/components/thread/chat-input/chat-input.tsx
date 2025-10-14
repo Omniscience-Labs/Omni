@@ -6,143 +6,23 @@ import React, {
   useEffect,
   forwardRef,
   useImperativeHandle,
+  useCallback,
+  useMemo,
+  memo,
 } from 'react';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 
 import { Card, CardContent } from '@/components/ui/card';
-import { handleFiles } from './file-upload-handler';
-import { MessageInput } from './message-input';
+import { handleFiles, FileUploadHandler } from './file-upload-handler';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { Loader2, ArrowUp } from 'lucide-react';
+import { VoiceRecorder } from './voice-recorder';
+import { UnifiedConfigMenu } from './unified-config-menu';
 import { AttachmentGroup } from '../attachment-group';
-import { useModelSelection } from '@/hooks/use-model-selection';
-import { useFileDelete } from '@/hooks/react-query/files';
-import { useQueryClient } from '@tanstack/react-query';
-import { ToolCallInput } from './floating-tool-preview';
-import { ChatSnack } from './chat-snack';
-import { Brain, Zap, Workflow, Database, ArrowDown } from 'lucide-react';
-import { useComposioToolkitIcon } from '@/hooks/react-query/composio/use-composio';
-import { Skeleton } from '@/components/ui/skeleton';
-
-import { IntegrationsRegistry } from '@/components/agents/integrations-registry';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useSubscriptionData } from '@/contexts/SubscriptionContext';
-import { isLocalMode } from '@/lib/config';
-import { BillingModal } from '@/components/billing/billing-modal';
-import { AgentConfigurationDialog } from '@/components/agents/agent-configuration-dialog';
-import posthog from 'posthog-js';
-
-export interface ChatInputHandles {
-  getPendingFiles: () => File[];
-  clearPendingFiles: () => void;
-}
-
-export interface ChatInputProps {
-  onSubmit: (
-    message: string,
-    options?: {
-      model_name?: string;
-      enable_thinking?: boolean;
-      agent_id?: string;
-    },
-  ) => void;
-  placeholder?: string;
-  loading?: boolean;
-  disabled?: boolean;
-  isAgentRunning?: boolean;
-  onStopAgent?: () => void;
-  autoFocus?: boolean;
-  value?: string;
-  onChange?: (value: string) => void;
-  onFileBrowse?: () => void;
-  sandboxId?: string;
-  hideAttachments?: boolean;
-  selectedAgentId?: string;
-  onAgentSelect?: (agentId: string | undefined) => void;
-  agentName?: string;
-  messages?: any[];
-  bgColor?: string;
-  toolCalls?: ToolCallInput[];
-  toolCallIndex?: number;
-  showToolPreview?: boolean;
-  onExpandToolPreview?: () => void;
-  isLoggedIn?: boolean;
-  enableAdvancedConfig?: boolean;
-  onConfigureAgent?: (agentId: string) => void;
-  hideAgentSelection?: boolean;
-  defaultShowSnackbar?: 'tokens' | 'upgrade' | false;
-  showToLowCreditUsers?: boolean;
-  agentMetadata?: {
-    is_suna_default?: boolean;
-    is_omni_default?: boolean;
-  };
-  showScrollToBottomIndicator?: boolean;
-  onScrollToBottom?: () => void;
-}
-
-export interface UploadedFile {
-  name: string;
-  path: string;
-  size: number;
-  type: string;
-  localUrl?: string;
-}
-
-
-
-export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
-  (
-    {
-      onSubmit,
-      placeholder = 'Describe what you need help with...',
-      loading = false,
-      disabled = false,
-      isAgentRunning = false,
-      onStopAgent,
-      autoFocus = true,
-      value: controlledValue,
-      onChange: controlledOnChange,
-      onFileBrowse,
-      sandboxId,
-      hideAttachments = false,
-      selectedAgentId,
-      onAgentSelect,
-      agentName,
-      messages = [],
-      bgColor = 'bg-card',
-      toolCalls = [],
-      toolCallIndex = 0,
-      showToolPreview = false,
-      onExpandToolPreview,
-      isLoggedIn = true,
-      enableAdvancedConfig = false,
-      onConfigureAgent,
-      hideAgentSelection = false,
-      defaultShowSnackbar = false,
-      showToLowCreditUsers = true,
-      agentMetadata,
-      showScrollToBottomIndicator = false,
-      onScrollToBottom,
-    },
-    ref,
-  ) => {
-    const isControlled =
-      controlledValue !== undefined && controlledOnChange !== undefined;
-
-    const [uncontrolledValue, setUncontrolledValue] = useState('');
-    const value = isControlled ? controlledValue : uncontrolledValue;
-
-    const isSunaAgent = agentMetadata?.is_suna_default || agentMetadata?.is_omni_default || false;
-
-    const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-    const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-    const [isUploading, setIsUploading] = useState(false);
-    const [isDraggingOver, setIsDraggingOver] = useState(false);
-
-    const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
-    const [showSnackbar, setShowSnackbar] = useState(defaultShowSnackbar);
-    const [userDismissedUsage, setUserDismissedUsage] = useState(false);
-    const [billingModalOpen, setBillingModalOpen] = useState(false);
-    const [agentConfigDialog, setAgentConfigDialog] = useState<{ open: boolean; tab: 'general' | 'instructions' | 'knowledge' | 'triggers' | 'playbooks' | 'tools' | 'integrations' }>({ open: false, tab: 'general' });
+    const [agentConfigDialog, setAgentConfigDialog] = useState<{ open: boolean; tab: 'instructions' | 'knowledge' | 'triggers' | 'tools' | 'integrations' }>({ open: false, tab: 'instructions' });
+    const [mounted, setMounted] = useState(false);
 
     const {
       selectedModel,
@@ -167,7 +47,9 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     // Show usage preview logic:
     // - Always show to free users when showToLowCreditUsers is true
     // - For paid users, only show when they're at 70% or more of their cost limit (30% or below remaining)
-    const shouldShowUsage = !isLocalMode() && subscriptionData && showToLowCreditUsers && (() => {
+    const shouldShowUsage = useMemo(() => {
+      if (!subscriptionData || !showToLowCreditUsers || isLocalMode()) return false;
+      
       // Free users: always show
       if (subscriptionStatus === 'no_subscription') {
         return true;
@@ -180,7 +62,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       if (costLimit === 0) return false; // No limit set
 
       return currentUsage >= (costLimit * 0.7); // 70% or more used (30% or less remaining)
-    })();
+    }, [subscriptionData, showToLowCreditUsers, subscriptionStatus]);
 
     // Auto-show usage preview when we have subscription data
     useEffect(() => {
@@ -209,6 +91,31 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       }
     }, [agents, onAgentSelect, initializeFromAgents]);
 
+    useEffect(() => {
+      setMounted(true);
+    }, []);
+
+    // Auto-resize textarea
+    useEffect(() => {
+      if (!textareaRef.current) return;
+
+      const adjustHeight = () => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.maxHeight = '200px';
+        el.style.overflowY = el.scrollHeight > 200 ? 'auto' : 'hidden';
+
+        const newHeight = Math.min(el.scrollHeight, 200);
+        el.style.height = `${newHeight}px`;
+      };
+
+      adjustHeight();
+
+      window.addEventListener('resize', adjustHeight);
+      return () => window.removeEventListener('resize', adjustHeight);
+    }, [value]);
+
 
 
     useEffect(() => {
@@ -217,7 +124,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       }
     }, [autoFocus]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = useCallback(async (e: React.FormEvent) => {
       e.preventDefault();
       if (
         (!value.trim() && uploadedFiles.length === 0) ||
@@ -241,14 +148,13 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       }
 
       const baseModelName = getActualModelId(selectedModel);
-      const thinkingEnabled = false; // Thinking mode removed - use API models directly
+>>>>>>> upstream/PRODUCTION
 
       posthog.capture("task_prompt_submitted", { message });
 
       onSubmit(message, {
         agent_id: selectedAgentId,
         model_name: baseModelName,
-        enable_thinking: thinkingEnabled,
       });
 
       if (!isControlled) {
@@ -256,18 +162,55 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       }
 
       setUploadedFiles([]);
-    };
+    }, [value, uploadedFiles, loading, disabled, isAgentRunning, onStopAgent, getActualModelId, selectedModel, onSubmit, selectedAgentId, isControlled]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value;
       if (isControlled) {
         controlledOnChange(newValue);
       } else {
         setUncontrolledValue(newValue);
       }
+    }, [isControlled, controlledOnChange]);
+
+    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+        e.preventDefault();
+        if (
+          (value.trim() || uploadedFiles.length > 0) &&
+          !loading &&
+          (!disabled || isAgentRunning)
+        ) {
+          handleSubmit(e as unknown as React.FormEvent);
+        }
+      }
+    }, [value, uploadedFiles, loading, disabled, isAgentRunning, handleSubmit]);
+
+    const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      if (!e.clipboardData) return;
+      const items = Array.from(e.clipboardData.items);
+      const imageFiles: File[] = [];
+      for (const item of items) {
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) imageFiles.push(file);
+        }
+      }
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        handleFiles(
+          imageFiles,
+          sandboxId,
+          setPendingFiles,
+          setUploadedFiles,
+          setIsUploading,
+          messages,
+          queryClient,
+        );
+      }
     };
 
-    const handleTranscription = (transcribedText: string) => {
+    const handleTranscription = useCallback((transcribedText: string) => {
       const currentValue = isControlled ? controlledValue : uncontrolledValue;
       const newValue = currentValue ? `${currentValue} ${transcribedText}` : transcribedText;
 
@@ -276,9 +219,9 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       } else {
         setUncontrolledValue(newValue);
       }
-    };
+    }, [isControlled, controlledValue, uncontrolledValue, controlledOnChange]);
 
-    const removeUploadedFile = async (index: number) => {
+    const removeUploadedFile = useCallback(async (index: number) => {
       const fileToRemove = uploadedFiles[index];
 
       // Clean up local URL if it exists
@@ -311,7 +254,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       } else {
         // File exists in chat history, don't delete from server
       }
-    };
+    }, [uploadedFiles, sandboxId, pendingFiles, messages, deleteFileMutation]);
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
@@ -324,6 +267,111 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       e.stopPropagation();
       setIsDraggingOver(false);
     };
+
+    const renderConfigDropdown = useMemo(() => {
+      // Don't render dropdown components until after hydration to prevent ID mismatches
+      if (!mounted) {
+        return <div className="flex items-center gap-2 h-8" />; // Placeholder with same height
+      }
+      // Unified compact menu for both logged and non-logged (non-logged shows only models subset via menu trigger)
+      return (
+        <div className="flex items-center gap-2" data-tour="agent-selector">
+          <UnifiedConfigMenu
+            isLoggedIn={isLoggedIn}
+            selectedAgentId={!hideAgentSelection ? selectedAgentId : undefined}
+            onAgentSelect={!hideAgentSelection ? onAgentSelect : undefined}
+            selectedModel={selectedModel}
+            onModelChange={handleModelChange}
+            modelOptions={modelOptions}
+            subscriptionStatus={subscriptionStatus}
+            canAccessModel={canAccessModel}
+            refreshCustomModels={refreshCustomModels}
+          />
+        </div>
+      );
+    }, [mounted, isLoggedIn, hideAgentSelection, selectedAgentId, onAgentSelect, selectedModel, handleModelChange, modelOptions, subscriptionStatus, canAccessModel, refreshCustomModels]);
+
+    const renderTextArea = useMemo(() => (
+      <div className="flex flex-col gap-1 px-2">
+        <Textarea
+          ref={textareaRef}
+          value={value}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          placeholder={placeholder}
+          className={cn(
+            'w-full bg-transparent dark:bg-transparent border-none shadow-none focus-visible:ring-0 px-0.5 pb-6 pt-4 !text-[15px] min-h-[36px] max-h-[200px] overflow-y-auto resize-none',
+            isDraggingOver ? 'opacity-40' : '',
+          )}
+          disabled={loading || (disabled && !isAgentRunning)}
+          rows={1}
+        />
+      </div>
+    ), [value, handleChange, handleKeyDown, handlePaste, placeholder, isDraggingOver, loading, disabled, isAgentRunning]);
+
+    const renderControls = useMemo(() => (
+      <div className="flex items-center justify-between mt-0 mb-1 px-2">
+        <div className="flex items-center gap-3">
+          {!hideAttachments && (
+            <FileUploadHandler
+              ref={fileInputRef}
+              loading={loading}
+              disabled={disabled}
+              isAgentRunning={isAgentRunning}
+              isUploading={isUploading}
+              sandboxId={sandboxId}
+              setPendingFiles={setPendingFiles}
+              setUploadedFiles={setUploadedFiles}
+              setIsUploading={setIsUploading}
+              messages={messages}
+              isLoggedIn={isLoggedIn}
+            />
+          )}
+        </div>
+
+        <div className='flex items-center gap-2'>
+          {renderConfigDropdown}
+          <BillingModal
+            open={billingModalOpen}
+            onOpenChange={setBillingModalOpen}
+            returnUrl={typeof window !== 'undefined' ? window.location.href : '/'}
+          />
+
+          {isLoggedIn && <VoiceRecorder
+            onTranscription={handleTranscription}
+            disabled={loading || (disabled && !isAgentRunning)}
+          />}
+
+          <Button
+            type="submit"
+            onClick={isAgentRunning && onStopAgent ? onStopAgent : handleSubmit}
+            size="sm"
+            className={cn(
+              'w-8 h-8 flex-shrink-0 self-end rounded-xl',
+              (!value.trim() && uploadedFiles.length === 0 && !isAgentRunning) ||
+                loading ||
+                (disabled && !isAgentRunning)
+                ? 'opacity-50'
+                : '',
+            )}
+            disabled={
+              (!value.trim() && uploadedFiles.length === 0 && !isAgentRunning) ||
+              loading ||
+              (disabled && !isAgentRunning)
+            }
+          >
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : isAgentRunning ? (
+              <div className="min-h-[14px] min-w-[14px] w-[14px] h-[14px] rounded-sm bg-current" />
+            ) : (
+              <ArrowUp className="h-5 w-5" />
+            )}
+          </Button>
+        </div>
+      </div>
+    ), [hideAttachments, loading, disabled, isAgentRunning, isUploading, sandboxId, messages, isLoggedIn, renderConfigDropdown, billingModalOpen, setBillingModalOpen, handleTranscription, onStopAgent, handleSubmit, value, uploadedFiles]);
 
 
 
@@ -386,41 +434,10 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                   maxHeight="216px"
                   showPreviews={true}
                 />
-                <MessageInput
-                  ref={textareaRef}
-                  value={value}
-                  onChange={handleChange}
-                  onSubmit={handleSubmit}
-                  onTranscription={handleTranscription}
-                  placeholder={placeholder}
-                  loading={loading}
-                  disabled={disabled}
-                  isAgentRunning={isAgentRunning}
-                  onStopAgent={onStopAgent}
-                  isDraggingOver={isDraggingOver}
-                  uploadedFiles={uploadedFiles}
-
-                  fileInputRef={fileInputRef}
-                  isUploading={isUploading}
-                  sandboxId={sandboxId}
-                  setPendingFiles={setPendingFiles}
-                  setUploadedFiles={setUploadedFiles}
-                  setIsUploading={setIsUploading}
-                  hideAttachments={hideAttachments}
-                  messages={messages}
-
-                  selectedModel={selectedModel}
-                  onModelChange={handleModelChange}
-                  modelOptions={modelOptions}
-                  subscriptionStatus={subscriptionStatus}
-                  canAccessModel={canAccessModel}
-                  refreshCustomModels={refreshCustomModels}
-                  isLoggedIn={isLoggedIn}
-
-                  selectedAgentId={selectedAgentId}
-                  onAgentSelect={onAgentSelect}
-                  hideAgentSelection={hideAgentSelection}
-                />
+                <div className="relative flex flex-col w-full h-full gap-2 justify-between">
+                  {renderTextArea}
+                  {renderControls}
+                </div>
               </CardContent>
             </div>
           </Card>
@@ -430,7 +447,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
               <div className="bg-gradient-to-b from-transparent via-transparent to-muted/30 pt-8 pb-2 px-4 rounded-b-3xl border border-t-0 border-border/50 transition-all duration-300 ease-out">
                 <div className="flex items-center justify-between gap-1 overflow-x-auto scrollbar-none relative">
                   <button
-                    onClick={() => setRegistryDialogOpen(true)}
+                    onClick={() => setAgentConfigDialog({ open: true, tab: 'integrations' })}
                     className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
                   >
                     <div className="flex items-center -space-x-0.5">
@@ -466,6 +483,15 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                     <span className="text-xs font-medium">Integrations</span>
                   </button>
                   <button
+<<<<<<< HEAD
+=======
+                    onClick={() => setAgentConfigDialog({ open: true, tab: 'tools' })}
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
+                  >
+                    <Wrench className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="text-xs font-medium">Tools</span>
+                  </button>                  
+                  <button
                     onClick={() => setAgentConfigDialog({ open: true, tab: 'instructions' })}
                     className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
                   >
@@ -479,6 +505,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                     <Database className="h-3.5 w-3.5 flex-shrink-0" />
                     <span className="text-xs font-medium">Knowledge</span>
                   </button>
+
                   <button
                     onClick={() => setAgentConfigDialog({ open: true, tab: 'triggers' })}
                     className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
@@ -486,13 +513,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                     <Zap className="h-3.5 w-3.5 flex-shrink-0" />
                     <span className="text-xs font-medium">Triggers</span>
                   </button>
-                  <button
-                    onClick={() => setAgentConfigDialog({ open: true, tab: 'playbooks' })}
-                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
-                  >
-                    <Workflow className="h-3.5 w-3.5 flex-shrink-0" />
-                    <span className="text-xs font-medium">Playbooks</span>
-                  </button>
+>>>>>>> upstream/PRODUCTION
                 </div>
               </div>
             </div>
@@ -516,18 +537,25 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             open={billingModalOpen}
             onOpenChange={setBillingModalOpen}
           />
+<<<<<<< HEAD
           {selectedAgentId && (
+=======
+          {selectedAgentId && agentConfigDialog.open && (
             <AgentConfigurationDialog
               open={agentConfigDialog.open}
               onOpenChange={(open) => setAgentConfigDialog({ ...agentConfigDialog, open })}
               agentId={selectedAgentId}
               initialTab={agentConfigDialog.tab}
+<<<<<<< HEAD
+=======
+              onAgentChange={onAgentSelect}
+>>>>>>> upstream/PRODUCTION
             />
           )}
         </div>
       </div>
     );
   },
-);
+));
 
 ChatInput.displayName = 'ChatInput';

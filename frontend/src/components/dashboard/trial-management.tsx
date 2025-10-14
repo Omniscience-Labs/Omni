@@ -29,7 +29,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 export function TrialManagement() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const { user } = useAuth();
-  const { data: trialStatus, isLoading } = useTrialStatus();
+  const { data: trialStatus, isLoading } = useTrialStatus(!!user);
   const cancelTrialMutation = useCancelTrial();
 
   if (isLoading || !trialStatus) {
@@ -61,7 +61,7 @@ export function TrialManagement() {
             </div>
           </div>
           <CardDescription>
-            You're currently on a 7-day free trial with $20 in credits
+            You're currently on a 7-day free trial with $5 in credits
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

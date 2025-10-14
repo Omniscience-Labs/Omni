@@ -1,10 +1,12 @@
 import asyncio
 from typing import Optional, List
-from core.agentpress.tool import ToolResult, openapi_schema, usage_example
+from core.agentpress.tool import ToolResult, openapi_schema
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
 from core.utils.config import config
-from knowledge_base.validation import FileNameValidator, ValidationError
+from core.knowledge_base.validation import FileNameValidator, ValidationError
+from core.utils.logger import logger
+
 
 class SandboxKbTool(SandboxToolsBase):
     """Tool for knowledge base operations using kb-fusion binary in a Daytona sandbox.
@@ -16,11 +18,9 @@ class SandboxKbTool(SandboxToolsBase):
         self.kb_download_url = f"https://github.com/kortix-ai/kb-fusion/releases/download/v{self.kb_version}/kb"
 
     async def _execute_kb_command(self, command: str) -> dict:
-        """Execute a kb command with OPENAI_API_KEY environment variable set."""
         await self._ensure_sandbox()
-        
+
         env = {"OPENAI_API_KEY": config.OPENAI_API_KEY} if config.OPENAI_API_KEY else {}
-        
         response = await self.sandbox.process.exec(command, env=env)
         
         return {
@@ -46,13 +46,7 @@ class SandboxKbTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="init_kb">
-        <parameter name="sync_global_knowledge_base">true</parameter>
-        </invoke>
-        </function_calls>
-        ''')
+
     async def init_kb(self, sync_global_knowledge_base: bool = False) -> ToolResult:
         try:
             await self._ensure_sandbox()
@@ -147,14 +141,7 @@ class SandboxKbTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="search_files">
-        <parameter name="path"> /workspace/documents/dataset.txt</parameter>
-        <parameter name="queries">["What is the atomic number of oxygen?", "What color is oxygen when liquid?"]</parameter>
-        </invoke>
-        </function_calls>
-        ''')
+
     async def search_files(self, path: str, queries: List[str]) -> ToolResult:
         try:
             if not queries:
@@ -211,27 +198,7 @@ class SandboxKbTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="cleanup_kb">
-        <parameter name="operation">default</parameter>
-        </invoke>
-        </function_calls>
-        
-        <function_calls>
-        <invoke name="cleanup_kb">
-        <parameter name="operation">remove_files</parameter>
-        <parameter name="file_paths">["/workspace/old_dataset.txt", "/workspace/temp.pdf"]</parameter>
-        </invoke>
-        </function_calls>
-        
-        <function_calls>
-        <invoke name="cleanup_kb">
-        <parameter name="operation">clear_embeddings</parameter>
-        <parameter name="days">7</parameter>
-        </invoke>
-        </function_calls>
-        ''')
+
     async def cleanup_kb(self, operation: str, file_paths: Optional[List[str]] = None, days: Optional[int] = None, retention_days: int = 30) -> ToolResult:
         try:
             if operation == "default":
@@ -277,16 +244,9 @@ class SandboxKbTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="ls_kb">
-        </invoke>
-        </function_calls>
-        ''')
     async def ls_kb(self) -> ToolResult:
         try:
             result = await self._execute_kb_command("kb ls")
-            
             if result["exit_code"] != 0:
                 return self.fail_response(f"List operation failed: {result['output']}")
             
@@ -311,12 +271,7 @@ class SandboxKbTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="global_kb_sync">
-        </invoke>
-        </function_calls>
-        ''')
+
     async def global_kb_sync(self) -> ToolResult:
         """Sync all agent's knowledge base files to sandbox ~/knowledge-base-global directory."""
         try:
@@ -451,14 +406,7 @@ Agent ID: {agent_id}
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="global_kb_create_folder">
-        <parameter name="name">Documentation</parameter>
-        <parameter name="description">API and technical documentation</parameter>
-        </invoke>
-        </function_calls>
-        ''')
+
     async def global_kb_create_folder(self, name: str, description: str = None) -> ToolResult:
         """Create a new folder in the global knowledge base."""
         try:
@@ -476,7 +424,7 @@ Agent ID: {agent_id}
                 return self.fail_response("No agent ID found for knowledge base operations")
             
             from core.services.supabase import DBConnection
-            from knowledge_base.validation import validate_folder_name_unique
+            from core.knowledge_base.validation import validate_folder_name_unique
             db = DBConnection()
             client = await db.client
             
@@ -552,15 +500,7 @@ Agent ID: {agent_id}
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="global_kb_upload_file">
-        <parameter name="sandbox_file_path">workspace/analysis.txt</parameter>
-        <parameter name="folder_name">Documentation</parameter>
-        <parameter name="description">Data analysis results</parameter>
-        </invoke>
-        </function_calls>
-        ''')
+
     async def global_kb_upload_file(self, sandbox_file_path: str, folder_name: str, description: str = None) -> ToolResult:
         """Upload a file from sandbox to the global knowledge base."""
         try:
@@ -627,7 +567,7 @@ Agent ID: {agent_id}
                 return self.fail_response(f"File size limit exceeded. Current: {current_mb:.1f}MB, New: {new_mb:.1f}MB, Limit: 50MB")
             
             # Generate unique filename if there's a conflict
-            from knowledge_base.validation import validate_file_name_unique_in_folder
+            from core.knowledge_base.validation import validate_file_name_unique_in_folder
             final_filename = await validate_file_name_unique_in_folder(filename, folder_id)
             
             # Process file using existing processor
@@ -688,14 +628,7 @@ Agent ID: {agent_id}
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="global_kb_delete_item">
-        <parameter name="item_type">file</parameter>
-        <parameter name="item_id">123e4567-e89b-12d3-a456-426614174000</parameter>
-        </invoke>
-        </function_calls>
-        ''')
+
     async def global_kb_delete_item(self, item_type: str, item_id: str) -> ToolResult:
         """Delete a file or folder from the global knowledge base using its ID."""
         try:
@@ -781,15 +714,7 @@ Agent ID: {agent_id}
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="global_kb_enable_item">
-        <parameter name="item_type">file</parameter>
-        <parameter name="item_id">123e4567-e89b-12d3-a456-426614174000</parameter>
-        <parameter name="enabled">true</parameter>
-        </invoke>
-        </function_calls>
-        ''')
+
     async def global_kb_enable_item(self, item_type: str, item_id: str, enabled: bool) -> ToolResult:
         """Enable or disable a knowledge base file for this agent."""
         try:
@@ -865,12 +790,7 @@ Agent ID: {agent_id}
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="global_kb_list_contents">
-        </invoke>
-        </function_calls>
-        ''')
+
     async def global_kb_list_contents(self) -> ToolResult:
         """List all folders and files in the global knowledge base."""
         try:

@@ -802,11 +802,6 @@ export function PricingSection({
   noPadding = false,
   onSubscriptionUpdate,
 }: PricingSectionProps) {
-  const [deploymentType, setDeploymentType] = useState<'cloud' | 'self-hosted'>(
-    'cloud',
-  );
-  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
-
   const { user } = useAuth();
   const isUserAuthenticated = !!user;
 

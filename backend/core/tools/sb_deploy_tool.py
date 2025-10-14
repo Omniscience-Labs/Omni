@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from core.agentpress.tool import ToolResult, openapi_schema, usage_example
+from core.agentpress.tool import ToolResult, openapi_schema
 from core.sandbox.tool_base import SandboxToolsBase
 from core.utils.files_utils import clean_path
 from core.agentpress.thread_manager import ThreadManager
@@ -13,7 +13,6 @@ class SandboxDeployTool(SandboxToolsBase):
 
     def __init__(self, project_id: str, thread_manager: ThreadManager):
         super().__init__(project_id, thread_manager)
-        self.workspace_path = "/workspace"  # Ensure we're always operating in /workspace
         self.cloudflare_api_token = os.getenv("CLOUDFLARE_API_TOKEN")
 
     def clean_path(self, path: str) -> str:
@@ -41,22 +40,6 @@ class SandboxDeployTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <!-- 
-        IMPORTANT: Only use this tool when:
-        1. The user explicitly requests permanent deployment to production
-        2. You have a complete, ready-to-deploy directory 
-        
-        NOTE: If the same name is used, it will redeploy to the same project as before
-        -->
-
-        <function_calls>
-        <invoke name="deploy">
-        <parameter name="name">my-site</parameter>
-        <parameter name="directory_path">website</parameter>
-        </invoke>
-        </function_calls>
-        ''')
     async def deploy(self, name: str, directory_path: str) -> ToolResult:
         """
         Deploy a static website (HTML+CSS+JS) from the sandbox to Cloudflare Pages.

@@ -122,13 +122,19 @@ export function HeroSection() {
   const { billingError, handleBillingError, clearBillingError } =
     useBillingError();
   const { data: accounts } = useAccounts({ enabled: !!user });
-  const { data: agentsResponse } = useAgents({}, { enabled: !!user });
-  const agents = agentsResponse?.agents || [];
+>>>>>>> upstream/PRODUCTION
   const personalAccount = accounts?.find((account) => account.personal_account);
   const { onOpen } = useModal();
   const initiateAgentMutation = useInitiateAgentMutation();
   const [initiatedThreadId, setInitiatedThreadId] = useState<string | null>(null);
   const threadQuery = useThreadQuery(initiatedThreadId || '');
+
+  // Initialize agent selection from localStorage when agents are loaded
+  useEffect(() => {
+    if (agents.length > 0) {
+      initializeFromAgents(agents);
+    }
+  }, [agents, initializeFromAgents]);
 
   // Initialize agent selection from localStorage when agents are loaded
   useEffect(() => {
@@ -384,9 +390,17 @@ export function HeroSection() {
     }
   }, [threadQuery.data, initiatedThreadId, router]);
 
+<<<<<<< HEAD
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
+=======
+  // Handle ChatInput submission
+  const handleChatInputSubmit = async (
+    message: string,
+    options?: { model_name?: string }
+  ) => {
+    if ((!message.trim() && !chatInputRef.current?.getPendingFiles().length) || isSubmitting) return;
 
     setIsSubmitting(true);
     setAuthError(null);
@@ -399,11 +413,16 @@ export function HeroSection() {
         return;
       }
 
-      // If authenticated, proceed with agent creation
-      const formData = new FormData();
-      formData.append('prompt', inputValue.trim());
-      formData.append('stream', 'true');
-      
+      // Add files if any
+      files.forEach((file) => {
+        const normalizedName = normalizeFilenameToNFC(file.name);
+        formData.append('files', file, normalizedName);
+      });
+
+      if (options?.model_name) formData.append('model_name', options.model_name);
+      formData.append('stream', 'true'); // Always stream for better UX
+      formData.append('enable_context_manager', 'false');
+
       const result = await initiateAgentMutation.mutateAsync(formData);
 
       if (result.thread_id) {
@@ -938,270 +957,22 @@ export function HeroSection() {
               </Link>
             </motion.div>
 
-            {/* Lamp Container positioned between badge and title */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3, duration: 1.2 }}
-              className="relative z-10 w-full max-w-4xl mx-auto"
-            >
-              <div className="relative w-full h-3 md:h-4 flex items-center justify-center">
-                {/* Glow effect container */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="relative w-full max-w-sm md:max-w-md h-[2px]">
-                    {/* Far outer glow - very soft and wide */}
-                    <motion.div
-                      className="absolute inset-0 bg-[length:700%_100%] bg-[position:0%_0%] rounded-full blur-[48px] opacity-20"
-                      style={{
-                        backgroundImage: 'linear-gradient(90deg, #3b82f6 0%, #a855f7 20%, #ec4899 50%, #a855f7 80%, #3b82f6 100%)',
-                        transform: 'scale(4, 20)',
-                        transformOrigin: 'center 30%',
-                      }}
-                      initial={{ backgroundPosition: '0% 0%' }}
-                      animate={{ backgroundPosition: '500% 100%' }}
-                      transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-                    />
-                    
-                    {/* Extended outer glow */}
-                    <motion.div
-                      className="absolute inset-0 bg-[length:700%_100%] bg-[position:0%_0%] rounded-full blur-[32px] opacity-30"
-                      style={{
-                        backgroundImage: 'linear-gradient(90deg, #3b82f6 0%, #a855f7 20%, #ec4899 50%, #a855f7 80%, #3b82f6 100%)',
-                        transform: 'scale(3, 16)',
-                        transformOrigin: 'center 30%',
-                      }}
-                      initial={{ backgroundPosition: '0% 0%' }}
-                      animate={{ backgroundPosition: '500% 100%' }}
-                      transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-                    />
-                    
-                    {/* Medium glow */}
-                    <motion.div
-                      className="absolute inset-0 bg-[length:700%_100%] bg-[position:0%_0%] rounded-full blur-[20px] opacity-40"
-                      style={{
-                        backgroundImage: 'linear-gradient(90deg, #3b82f6 0%, #a855f7 20%, #ec4899 50%, #a855f7 80%, #3b82f6 100%)',
-                        transform: 'scale(2, 10)',
-                        transformOrigin: 'center 30%',
-                      }}
-                      initial={{ backgroundPosition: '0% 0%' }}
-                      animate={{ backgroundPosition: '500% 100%' }}
-                      transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-                    />
-                    
-                    {/* Inner medium glow */}
-                    <motion.div
-                      className="absolute inset-0 bg-[length:700%_100%] bg-[position:0%_0%] rounded-full blur-[12px] opacity-50"
-                      style={{
-                        backgroundImage: 'linear-gradient(90deg, #3b82f6 0%, #a855f7 20%, #ec4899 50%, #a855f7 80%, #3b82f6 100%)',
-                        transform: 'scale(1.8, 6)',
-                        transformOrigin: 'center 30%',
-                      }}
-                      initial={{ backgroundPosition: '0% 0%' }}
-                      animate={{ backgroundPosition: '500% 100%' }}
-                      transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-                    />
-                    
-                    {/* Inner glow */}
-                    <motion.div
-                      className="absolute inset-0 bg-[length:700%_100%] bg-[position:0%_0%] rounded-full blur-[6px] opacity-70 mix-blend-plus-lighter"
-                      style={{
-                        backgroundImage: 'linear-gradient(90deg, #3b82f6 0%, #a855f7 20%, #ec4899 50%, #a855f7 80%, #3b82f6 100%)',
-                        transform: 'scale(1.5, 4)',
-                        transformOrigin: 'center 30%',
-                      }}
-                      initial={{ backgroundPosition: '0% 0%' }}
-                      animate={{ backgroundPosition: '500% 100%' }}
-                      transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-                    />
-                    
-                    {/* Main gradient line */}
-                    <motion.div
-                      className="absolute inset-0 bg-[length:700%_100%] bg-[position:0%_0%] rounded-full"
-                      style={{
-                        backgroundImage: 'linear-gradient(90deg, #3b82f6 0%, #a855f7 20%, #ec4899 50%, #a855f7 80%, #3b82f6 100%)',
-                      }}
-                      initial={{ backgroundPosition: '0% 0%' }}
-                      animate={{ backgroundPosition: '500% 100%' }}
-                      transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-            
-            <motion.h1 
-              className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-semibold tracking-tight text-balance leading-[1.1] bg-gradient-to-br from-foreground to-foreground/80 bg-clip-text text-transparent drop-shadow-lg px-4 relative z-40"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5, duration: 0.8 }}
-            >
-              {hero.title}
-            </motion.h1>
-            
-            <motion.p 
-              className="text-base sm:text-lg md:text-xl lg:text-2xl text-center text-muted-foreground font-normal text-balance leading-relaxed max-w-2xl tracking-tight drop-shadow-md px-4 relative z-40"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7, duration: 0.8 }}
-            >
-              a generalist{' '}
-              <GradientText 
-                text="AI Agent" 
-                gradient="linear-gradient(90deg, #3b82f6 0%, #a855f7 20%, #ec4899 50%, #a855f7 80%, #3b82f6 100%)"
-                transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-              />{' '}
-              that works on your behalf.
-            </motion.p>
-          </motion.div>
-
-          {/* Enhanced input with modern styling */}
-          <motion.div 
-            className="hero-input-wrapper flex items-center w-full max-w-2xl relative z-40"
-            data-hero-element="wrapper"
-            style={{
-              border: '0',
-              borderColor: 'transparent',
-              outline: 'none'
-            }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.9, duration: 0.8 }}
-            layout="position"
-          >
-            <form 
-              className="w-full relative group" 
-              onSubmit={handleSubmit}
-              id="hero-form"
-              data-hero-element="form"
-              data-safari-fix="form"
-              style={{
-                border: 'none',
-                borderStyle: 'none',
-                borderWidth: '0',
-                borderColor: 'transparent',
-                outline: 'none'
-              }}
-            >
-              <div 
-                className="relative" 
-                data-hero-element="container" 
-                data-safari-fix="container"
-                style={{ 
-                  border: 'none',
-                  borderStyle: 'none',
-                  borderWidth: '0',
-                  borderColor: 'transparent',
-                  outline: 'none'
-                }}
-              >
-                {/* Enhanced glow effect */}
-                <div 
-                  className="hero-glow-effect absolute -inset-1 bg-gradient-to-r from-cyan-500/20 via-cyan-400/10 to-cyan-500/20 rounded-full blur-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-500 pointer-events-none" 
-                  data-hero-element="glow"
-                  style={{ border: '0', borderColor: 'transparent', outline: 'none' }}
-                ></div>
-                
-                {/* Input container with beautiful theme-aware design */}
-                <div 
-                  className="hero-input-container relative flex items-center rounded-full px-4 sm:px-6 transition-all duration-300"
-                  data-hero-element="input-container"
-                  data-safari-fix="true"
-                  style={{
-                    border: '1px solid rgba(34, 211, 238, 0.3)',
-                    borderRadius: '9999px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-                    paddingLeft: '1rem',
-                    paddingRight: '1rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    position: 'relative',
-                    width: '100%',
-                    minHeight: '3.5rem',
-                    overflow: 'hidden'
-                  }}
-                >
-                  <input
-                    type="text"
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={hero.inputPlaceholder}
-                    className="hero-input flex-1 h-14 sm:h-16 lg:h-18 rounded-full px-2 bg-transparent text-sm sm:text-base lg:text-lg text-foreground placeholder:text-muted-foreground placeholder:opacity-70 focus:placeholder:opacity-40 py-2 font-medium transition-all duration-200 appearance-none"
-                    style={{
-                      border: 'none',
-                      borderStyle: 'none',
-                      borderWidth: '0',
-                      borderColor: 'transparent',
-                      borderImage: 'none',
-                      outline: 'none',
-                      outlineStyle: 'none',
-                      outlineWidth: '0',
-                      boxShadow: 'none',
-                      background: 'transparent',
-                      backgroundColor: 'transparent',
-                      WebkitAppearance: 'none',
-                      MozAppearance: 'none',
-                      WebkitTapHighlightColor: 'transparent',
-                      ...{
-                        ['-webkit-border-before' as any]: 'none',
-                        ['-webkit-border-after' as any]: 'none',
-                        ['-webkit-border-start' as any]: 'none',
-                        ['-webkit-border-end' as any]: 'none',
-                      }
-                    }}
-                    disabled={isSubmitting}
-                    autoComplete="off"
-                    spellCheck="false"
-                  />
-                  <motion.button
-                    type="submit"
-                    className={`rounded-full p-2.5 sm:p-3 lg:p-4 transition-all duration-300 ${
-                      inputValue.trim()
-                        ? 'bg-cyan-500 text-white hover:bg-cyan-400 shadow-lg hover:shadow-cyan-500/40 scale-100'
-                        : 'bg-muted/40 text-muted-foreground scale-95'
-                    }`}
-                    disabled={!inputValue.trim() || isSubmitting}
-                    aria-label="Submit"
-                    whileHover={inputValue.trim() ? { scale: 1.05 } : {}}
-                    whileTap={inputValue.trim() ? { scale: 0.95 } : {}}
-                  >
-                    {isSubmitting ? (
-                      <div className="h-4 sm:h-5 lg:h-6 w-4 sm:w-5 lg:w-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <ArrowRight className="size-4 sm:size-5 lg:size-6" />
-                    )}
-                  </motion.button>
-                </div>
-              </div>
-            </form>
-          </motion.div>
-
-          {/* Dynamic value proposition with FlipWords */}
-          <motion.div 
-            className="text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl text-muted-foreground font-medium text-center max-w-4xl relative z-40 px-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8, duration: 0.8 }}
-          >
-            {/* Mobile: Stacked layout */}
-            <div className="flex flex-col gap-3 sm:hidden">
-              <div className="flex items-center justify-center gap-2">
-                <span className="drop-shadow-md">80% more</span>
-                <FlipWords 
-                  words={moreWords} 
-                  duration={3000}
-                  className="text-primary font-bold text-base drop-shadow-lg"
-                />
-              </div>
-              <div className="flex items-center justify-center gap-2">
-                <span className="drop-shadow-md">with 20% the</span>
-                <FlipWords 
-                  words={lessWords} 
-                  duration={4500}
-                  className="text-primary font-bold text-base drop-shadow-lg"
+          <div className="flex flex-col items-center w-full max-w-3xl mx-auto gap-2 flex-wrap justify-center px-2 sm:px-0">
+            <div className="w-full relative">
+              <div className="relative z-10">
+                <ChatInput
+                  ref={chatInputRef}
+                  onSubmit={handleChatInputSubmit}
+                  placeholder="Give Kortix a task to complete..."
+                  loading={isSubmitting}
+                  disabled={isSubmitting}
+                  value={inputValue}
+                  onChange={setInputValue}
+                  isLoggedIn={!!user}
+                  selectedAgentId={selectedAgentId}
+                  onAgentSelect={setSelectedAgent}
+                  autoFocus={false}
+                  enableAdvancedConfig={false}
                 />
               </div>
             </div>

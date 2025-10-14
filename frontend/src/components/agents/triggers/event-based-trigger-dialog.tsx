@@ -18,7 +18,6 @@ import { useComposioProfiles } from '@/hooks/react-query/composio/use-composio-p
 import { useComposioToolkitDetails } from '@/hooks/react-query/composio/use-composio';
 import { toast } from 'sonner';
 import { cn, truncateString } from '@/lib/utils';
-import { useAgentWorkflows } from '@/hooks/react-query/agents/use-agent-workflows';
 import { ComposioConnector } from '@/components/agents/composio/composio-connector';
 import { Markdown } from '@/components/ui/markdown';
 
@@ -317,17 +316,24 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
     const [name, setName] = useState('');
     const [prompt, setPrompt] = useState('');
     const [profileId, setProfileId] = useState('');
-    const [executionType, setExecutionType] = useState<'agent' | 'workflow'>('agent');
-    const [selectedWorkflowId, setSelectedWorkflowId] = useState('');
-    const [workflowInput, setWorkflowInput] = useState<Record<string, any>>({});
+    const [executionType] = useState<'agent'>('agent');
     const [showComposioConnector, setShowComposioConnector] = useState(false);
 
     const { data: appsData, isLoading: loadingApps } = useComposioAppsWithTriggers();
-    const { data: triggersData, isLoading: loadingTriggers } = useComposioAppTriggers(selectedApp?.slug, !!selectedApp);
+    const { data: triggersData, isLoading: loadingTriggers, error: triggersError } = useComposioAppTriggers(selectedApp?.slug, !!selectedApp);
     const { data: profiles, isLoading: loadingProfiles, refetch: refetchProfiles } = useComposioProfiles(selectedApp?.slug ? { toolkit_slug: selectedApp.slug } : undefined);
     const { data: allProfiles } = useComposioProfiles(); // Get all profiles for connection status
     const { data: toolkitDetails } = useComposioToolkitDetails(selectedApp?.slug || '', { enabled: !!selectedApp });
-    const { data: workflows = [], isLoading: isLoadingWorkflows } = useAgentWorkflows(agentId);
+
+    // Debug logging for trigger data
+    useEffect(() => {
+        if (isEditMode) {
+            console.log('Edit mode - selectedApp changed:', selectedApp);
+            console.log('Edit mode - loadingTriggers:', loadingTriggers);
+            console.log('Edit mode - triggersData:', triggersData);
+            console.log('Edit mode - triggersError:', triggersError);
+        }
+    }, [isEditMode, selectedApp, loadingTriggers, triggersData, triggersError]);
 
     const apps = useMemo(() => (appsData?.items || []).filter((a) => a.name.toLowerCase().includes(search.toLowerCase()) || a.slug.toLowerCase().includes(search.toLowerCase())), [appsData, search]);
 
@@ -356,9 +362,6 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
             setName('');
             setPrompt('');
             setProfileId('');
-            setExecutionType('agent');
-            setSelectedWorkflowId('');
-            setWorkflowInput({});
             setShowComposioConnector(false);
         }
     }, [open, isEditMode]);
@@ -382,78 +385,75 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
         }
     }, [profiles, profileId]);
 
-    // Initialize form for edit mode
     useEffect(() => {
         if (isEditMode && existingTrigger && open) {
-            console.log('Edit mode - existingTrigger:', existingTrigger);
             const triggerConfig = existingTrigger.config || {};
-            console.log('Edit mode - triggerConfig:', triggerConfig);
-            
-            // Set basic info
             setName(existingTrigger.name || '');
             setPrompt(triggerConfig.agent_prompt || '');
             setProfileId(triggerConfig.profile_id || '');
-            setExecutionType(triggerConfig.execution_type || 'agent');
-            setSelectedWorkflowId(triggerConfig.workflow_id || '');
-            setWorkflowInput(triggerConfig.workflow_input || {});
-            
-            // Set trigger config (excluding execution-specific fields)
-            const { agent_prompt, workflow_id, workflow_input, execution_type, profile_id, ...triggerSpecificConfig } = triggerConfig;
+
+            const { agent_prompt, profile_id, provider_id, trigger_slug, qualified_name, ...triggerSpecificConfig } = triggerConfig;
             setConfig(triggerSpecificConfig);
-            
-            // For composio triggers, we need to reconstruct the app and trigger selection
-            if (triggerConfig.provider_id === 'composio' && triggerConfig.trigger_slug) {
-                console.log('Edit mode - setting up composio trigger for:', triggerConfig.qualified_name, triggerConfig.trigger_slug);
+            const isComposioTrigger = triggerConfig.provider_id === 'composio' || existingTrigger.provider_id === 'composio';
+
+            if (isComposioTrigger && triggerConfig.trigger_slug) {
+                let toolkitSlug = '';
+                if (triggerConfig.qualified_name) {
+                    toolkitSlug = triggerConfig.qualified_name.replace(/^composio\./, '').toLowerCase();
+                    console.log('Edit mode - extracted from qualified_name:', toolkitSlug);
+                }
                 
-                // Extract toolkit slug from qualified_name (e.g., "composio.googledocs" -> "googledocs")
-                const toolkitSlug = triggerConfig.qualified_name?.replace('composio.', '') || '';
-                
+                if (!toolkitSlug && triggerConfig.trigger_slug) {
+                    const slugParts = triggerConfig.trigger_slug.toLowerCase().split('_');
+                    if (slugParts.length > 0) {
+                        toolkitSlug = slugParts[0];
+                    }
+                }
+
                 if (toolkitSlug) {
-                    // Create app object to trigger the API call
                     const app = {
                         slug: toolkitSlug,
                         name: toolkitSlug,
                         logo: undefined
                     };
                     setSelectedApp(app);
-                }
-            }
-        }
-    }, [isEditMode, existingTrigger, open]);
-
-    // Find the matching trigger for edit mode once triggers are fetched
-    useEffect(() => {
-        if (isEditMode && existingTrigger && selectedApp && triggersData?.items) {
-            const triggerConfig = existingTrigger.config || {};
-            console.log('Edit mode - looking for trigger with slug:', triggerConfig.trigger_slug);
-            console.log('Edit mode - available triggers:', triggersData.items.map(t => t.slug));
-            
-            if (triggerConfig.trigger_slug) {
-                // Find the matching trigger from the fetched data
-                const matchingTrigger = triggersData.items.find(t => t.slug === triggerConfig.trigger_slug);
-                if (matchingTrigger) {
-                    console.log('Edit mode - found matching trigger:', matchingTrigger);
-                    setSelectedTrigger(matchingTrigger);
                 } else {
-                    console.log('Edit mode - no matching trigger found for slug:', triggerConfig.trigger_slug);
+                    toast.error('Could not determine the app for this trigger');
+                    onOpenChange(false);
+                }
+            } else if (isComposioTrigger && !triggerConfig.trigger_slug) {
+                toast.error('Invalid trigger configuration: missing trigger information');
+                onOpenChange(false);
+            }
+        }
+    }, [isEditMode, existingTrigger, open, onOpenChange]);
+
+    useEffect(() => {
+        if (isEditMode && existingTrigger && selectedApp) {
+            const triggerConfig = existingTrigger.config || {};
+            if (triggersData !== undefined) {
+                if (triggersData?.items && triggersData.items.length > 0) {
+                    if (triggerConfig.trigger_slug) {
+                        const searchSlug = triggerConfig.trigger_slug.toLowerCase();
+                        const matchingTrigger = triggersData.items.find(t => t.slug.toLowerCase() === searchSlug);
+                        if (matchingTrigger) {
+                            setSelectedTrigger(matchingTrigger);
+                        } else {
+                            toast.error('Could not find the trigger type. It may have been removed or renamed.');
+                            setTimeout(() => onOpenChange(false), 2000);
+                        }
+                    } else {
+                        toast.error('Invalid trigger configuration: missing trigger_slug');
+                        setTimeout(() => onOpenChange(false), 2000);
+                    }
+                } else {
+                    toast.error('No triggers available for this app');
+                    setTimeout(() => onOpenChange(false), 2000);
                 }
             }
         }
-    }, [isEditMode, existingTrigger, selectedApp, triggersData]);
+    }, [isEditMode, existingTrigger, selectedApp, triggersData, onOpenChange]);
 
-    const selectedWorkflow = useMemo(() => {
-        return (workflows || []).find((w: any) => w.id === selectedWorkflowId);
-    }, [workflows, selectedWorkflowId]);
-
-    const { variableSpecs, templateText } = useMemo(() => {
-        if (!selectedWorkflow) return { variableSpecs: [] as any[], templateText: '' };
-        const stepsAny = ((selectedWorkflow as any)?.steps as any[]) || [];
-        const start = stepsAny.find((s: any) => s?.name === 'Start' && s?.description === 'Click to add steps or use the Add Node button');
-        const child = start?.children?.[0] ?? stepsAny[0];
-        const vars = (child?.config?.playbook?.variables as any[]) || [];
-        const tpl = (child?.config?.playbook?.template as string) || '';
-        return { variableSpecs: vars, templateText: tpl };
-    }, [selectedWorkflow]);
 
     const isConfigValid = useMemo(() => {
         if (!selectedTrigger?.config) return true;
@@ -463,20 +463,6 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
             return value !== undefined && value !== '' && value !== null;
         });
     }, [selectedTrigger?.config, config]);
-
-    useEffect(() => {
-        if (!selectedWorkflow || executionType !== 'workflow') return;
-        if (!variableSpecs || variableSpecs.length === 0) return;
-        const defaults: Record<string, any> = {};
-        for (const v of variableSpecs) {
-            if (v.default !== undefined && (workflowInput?.[v.key] === undefined)) {
-                defaults[v.key] = v.default;
-            }
-        }
-        if (Object.keys(defaults).length > 0) {
-            setWorkflowInput(prev => ({ ...prev, ...defaults }));
-        }
-    }, [selectedWorkflow?.id, executionType]);
 
     const handleCreate = async () => {
         if (!agentId || !profileId || !selectedTrigger) return;
@@ -489,16 +475,12 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                     trigger_slug: selectedTrigger.slug,
                     qualified_name: `composio.${selectedApp?.slug}`,
                     provider_id: 'composio',
-                    execution_type: executionType,
-                    ...(executionType === 'agent' ? { agent_prompt: prompt || 'Read this' } : {
-                        workflow_id: selectedWorkflowId,
-                        workflow_input: workflowInput
-                    })
+                    agent_prompt: prompt || 'Read this'
                 };
 
                 await updateTrigger.mutateAsync({
                     triggerId: existingTrigger.trigger_id,
-                    name: name || `${selectedTrigger.toolkit.name} → ${executionType === 'agent' ? 'Agent' : 'Workflow'}`,
+                    name: name || `${selectedTrigger.toolkit.name} → Agent`,
                     description: existingTrigger.description || `Event trigger for ${selectedTrigger.toolkit.name}`,
                     config: updatedConfig,
                     is_active: true,
@@ -516,13 +498,13 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                     profile_id: profileId,
                     slug: selectedTrigger.slug,
                     trigger_config: config,
-                    name: name || `${selectedTrigger.toolkit.name} → ${executionType === 'agent' ? 'Agent' : 'Workflow'}`,
+                    name: name || `${selectedTrigger.toolkit.name} → Agent`,
                     connected_account_id: selectedProfile?.connected_account_id,
                     toolkit_slug: selectedApp?.slug,
                 };
                 const payload = executionType === 'agent'
                     ? { ...base, route: 'agent' as const, agent_prompt: (prompt || 'Read this') }
-                    : { ...base, route: 'workflow' as const, workflow_id: selectedWorkflowId, workflow_input: workflowInput };
+                    : { ...base, route: 'agent' as const };
                 
                 const result = await createTrigger.mutateAsync(payload);
                 toast.success('Task created');
@@ -534,17 +516,7 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
 
             onOpenChange(false);
         } catch (e: any) {
-            // Handle nested error structure from API
             let errorMessage = isEditMode ? 'Failed to update trigger' : 'Failed to create trigger';
-            console.error('Error creating trigger:', e);
-            console.error('Error details:', e?.details);
-            console.error('Error keys:', Object.keys(e || {}));
-            if (e?.details) {
-                console.error('Details keys:', Object.keys(e.details));
-                console.error('Details content:', JSON.stringify(e.details, null, 2));
-            }
-
-            // Check for details property from api-client.ts error structure
             if (e?.details?.detail?.error?.message) {
                 errorMessage = e.details.detail.error.message;
             } else if (e?.details?.message) {
@@ -720,208 +692,12 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                             {step === 'config' && (
                                 <div className="h-full flex flex-col">
                                     {/* Loading state for edit mode while waiting for trigger data */}
-                                    {isEditMode && !selectedTrigger ? (
+                                    {isEditMode && !selectedTrigger && (loadingTriggers || !selectedApp) ? (
                                         <div className="flex-1 flex items-center justify-center p-6">
                                             <div className="text-center space-y-3">
                                                 <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
                                                 <p className="text-sm text-muted-foreground">Loading trigger configuration...</p>
-                                            </div>
-                                        </div>
-                                    ) : selectedTrigger ? (
-                                        <>
-                                            <div
-                                                className="flex-1 overflow-y-auto p-6"
-                                                style={{ maxHeight: 'calc(90vh - 250px)' }}
-                                            >
-                                        <div className="max-w-2xl mx-auto space-y-6">
-                                            {selectedTrigger.instructions && (
-                                                <Markdown className="text-sm w-full text-muted-foreground">
-                                                    {selectedTrigger.instructions}
-                                                </Markdown>
-                                            )}
-
-                                            {(!loadingProfiles && (profiles || []).filter(p => p.is_connected).length === 0) ? (
-                                                <div className="text-center py-8">
-                                                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center mb-3 mx-auto">
-                                                        <Info className="h-6 w-6 text-muted-foreground" />
-                                                    </div>
-                                                    <h3 className="font-medium mb-2">No Connected Profile</h3>
-                                                    <p className="text-sm text-muted-foreground mb-4">
-                                                        Connect {selectedApp?.name} first to create triggers.
-                                                    </p>
-                                                    <Button variant="outline" onClick={() => setStep('apps')}>
-                                                        Back to Apps
-                                                    </Button>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-6">
-                                                    <div className="border rounded-lg p-4 space-y-4">
-                                                        <div>
-                                                            <h3 className="font-medium mb-1">{selectedTrigger.name}</h3>
-                                                            <p className="text-sm text-muted-foreground">Configure this trigger</p>
-                                                        </div>
-                                                        <DynamicConfigForm schema={selectedTrigger.config as any} value={config} onChange={setConfig} />
-                                                    </div>
-
-                                                    <div className="border rounded-lg p-4 space-y-4">
-                                                        <div>
-                                                            <h3 className="font-medium mb-1">Execution Settings</h3>
-                                                            <p className="text-sm text-muted-foreground">Choose how to handle this event</p>
-                                                        </div>
-
-                                                        <div className="space-y-4">
-                                                            <div className="space-y-2">
-                                                                <Label className="text-sm">Connection Profile</Label>
-                                                                <Select
-                                                                    value={profileId}
-                                                                    onValueChange={(value) => {
-                                                                        if (value === '__create_new__') {
-                                                                            setShowComposioConnector(true);
-                                                                        } else {
-                                                                            setProfileId(value);
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <SelectTrigger>
-                                                                        <SelectValue placeholder="Select a profile..." />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent>
-                                                                        {loadingProfiles ? (
-                                                                            <SelectItem value="__loading__" disabled>
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                                                                    <span>Loading...</span>
-                                                                                </div>
-                                                                            </SelectItem>
-                                                                        ) : (
-                                                                            <>
-                                                                                {(profiles || []).filter(p => p.is_connected).map((profile) => (
-                                                                                    <SelectItem key={profile.profile_id} value={profile.profile_id}>
-                                                                                        <div className="flex items-center gap-2">
-                                                                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                                                                            <span>{profile.profile_name}</span>
-                                                                                        </div>
-                                                                                    </SelectItem>
-                                                                                ))}
-                                                                                <Separator className="my-1" />
-                                                                                <SelectItem value="__create_new__">
-                                                                                    <div className="flex items-center gap-2 text-primary">
-                                                                                        <Plus className="h-3 w-3" />
-                                                                                        <span>Create New Connection</span>
-                                                                                    </div>
-                                                                                </SelectItem>
-                                                                            </>
-                                                                        )}
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            </div>
-
-                                                            <div className="space-y-2">
-                                                                <Label className="text-sm">Trigger Name</Label>
-                                                                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Gmail → Agent" />
-                                                            </div>
-
-                                                            <div className="space-y-2">
-                                                                <Label className="text-sm">Execution Type</Label>
-                                                                <RadioGroup value={executionType} onValueChange={(v) => setExecutionType(v as 'agent' | 'workflow')}>
-                                                                    <div className="flex items-center space-x-2">
-                                                                        <RadioGroupItem value="agent" id="exec-agent" />
-                                                                        <Label htmlFor="exec-agent" className="text-sm">Execute Agent</Label>
-                                                                    </div>
-                                                                    <div className="flex items-center space-x-2">
-                                                                        <RadioGroupItem value="workflow" id="exec-workflow" />
-                                                                        <Label htmlFor="exec-workflow" className="text-sm">Execute Workflow</Label>
-                                                                    </div>
-                                                                </RadioGroup>
-                                                            </div>
-
-                                                            {executionType === 'agent' ? (
-                                                                <div className="space-y-2">
-                                                                    <Label className="text-sm">Agent Prompt</Label>
-                                                                    <Textarea
-                                                                        rows={3}
-                                                                        value={prompt}
-                                                                        onChange={(e) => setPrompt(e.target.value)}
-                                                                        placeholder="Read this"
-                                                                    />
-                                                                    <p className="text-xs text-muted-foreground">
-                                                                        Use <code className="text-xs bg-muted px-1 rounded">payload</code> to include trigger data
-                                                                    </p>
-                                                                </div>
-                                                            ) : (
-                                                                <div className="space-y-4">
-                                                                    <div className="space-y-2">
-                                                                        <Label className="text-sm">Workflow</Label>
-                                                                        <Select value={selectedWorkflowId} onValueChange={(v) => { setSelectedWorkflowId(v); setWorkflowInput({}); }}>
-                                                                            <SelectTrigger>
-                                                                                <SelectValue placeholder={isLoadingWorkflows ? 'Loading...' : 'Select workflow'} />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                {isLoadingWorkflows ? (
-                                                                                    <SelectItem value="__loading__" disabled>Loading...</SelectItem>
-                                                                                ) : (workflows || []).length === 0 ? (
-                                                                                    <SelectItem value="__no_workflows__" disabled>No workflows available</SelectItem>
-                                                                                ) : (
-                                                                                    (workflows as any[]).filter(w => w.status === 'active').map((w: any) => (
-                                                                                        <SelectItem key={w.id} value={w.id}>
-                                                                                            {w.name}
-                                                                                        </SelectItem>
-                                                                                    ))
-                                                                                )}
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                    </div>
-
-                                                                    {templateText && (
-                                                                        <div className="rounded-lg border p-3 bg-muted/30 max-h-32 overflow-y-auto">
-                                                                            <p className="text-xs text-muted-foreground whitespace-pre-wrap">{templateText}</p>
-                                                                        </div>
-                                                                    )}
-
-                                                                    {selectedWorkflowId && variableSpecs && (variableSpecs as any[]).length > 0 ? (
-                                                                        <div className="space-y-3">
-                                                                            {(variableSpecs as any[]).map((v: any) => (
-                                                                                <div key={v.key} className="space-y-1">
-                                                                                    <Label htmlFor={`v-${v.key}`} className="text-sm">{v.label || v.key}</Label>
-                                                                                    <Input
-                                                                                        id={`v-${v.key}`}
-                                                                                        type={v.type === 'number' ? 'number' : 'text'}
-                                                                                        value={(workflowInput?.[v.key] ?? '') as any}
-                                                                                        onChange={(e) => setWorkflowInput(prev => ({ ...prev, [v.key]: v.type === 'number' ? Number(e.target.value) : e.target.value }))}
-                                                                                        placeholder={v.helperText || ''}
-                                                                                    />
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    ) : (
-                                                                        selectedWorkflowId && (
-                                                                            <div className="space-y-2">
-                                                                                <Label className="text-sm">Instructions</Label>
-                                                                                <Textarea
-                                                                                    rows={3}
-                                                                                    value={(workflowInput?.prompt as string) || ''}
-                                                                                    onChange={(e) => setWorkflowInput(prev => ({ ...prev, prompt: e.target.value }))}
-                                                                                    placeholder="What should the workflow do..."
-                                                                                />
-                                                                            </div>
-                                                                        )
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                            {/* Fixed Footer */}
-                                            {(!loadingProfiles && (profiles || []).filter(p => p.is_connected).length > 0) && (
-                                                <div className="shrink-0 border-t p-4 bg-background">
-                                                    <div className="flex justify-end">
-                                                        <Button
-                                                            onClick={handleCreate}
-                                                            disabled={(isEditMode ? updateTrigger.isPending : createTrigger.isPending) || !name.trim() || !profileId || !isConfigValid || (executionType === 'agent' ? !prompt.trim() : !selectedWorkflowId)}
+                                                            disabled={(isEditMode ? updateTrigger.isPending : createTrigger.isPending) || !name.trim() || !profileId || !isConfigValid || !prompt.trim()}
                                                             size="sm"
                                                         >
                                                             {(isEditMode ? updateTrigger.isPending : createTrigger.isPending) ? (

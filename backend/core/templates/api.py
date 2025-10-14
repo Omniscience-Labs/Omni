@@ -23,27 +23,22 @@ from .installation_service import (
 )
 from .utils import format_template_for_response
 
-router = APIRouter()
+router = APIRouter(tags=["templates"])
 
 db: Optional[DBConnection] = None
 
 
-class SharingPreferences(BaseModel):
-    include_system_prompt: bool = True
-    include_model_settings: bool = True
-    include_default_tools: bool = True
-    include_integrations: bool = True
-    include_knowledge_bases: bool = True
-    include_playbooks: bool = True
-    include_triggers: bool = True
+class UsageExampleMessage(BaseModel):
+    role: str
+    content: str
+    tool_calls: Optional[List[Dict[str, Any]]] = None
 
 
 class CreateTemplateRequest(BaseModel):
     agent_id: str
     make_public: bool = False
     tags: Optional[List[str]] = None
-    sharing_preferences: Optional[SharingPreferences] = Field(default_factory=SharingPreferences)
-    
+    usage_examples: Optional[List[UsageExampleMessage]] = None
 
 
 class InstallTemplateRequest(BaseModel):
@@ -52,19 +47,19 @@ class InstallTemplateRequest(BaseModel):
     custom_system_prompt: Optional[str] = None
     profile_mappings: Optional[Dict[str, str]] = None
     custom_mcp_configs: Optional[Dict[str, Dict[str, Any]]] = None
+    trigger_configs: Optional[Dict[str, Dict[str, Any]]] = None
+    trigger_variables: Optional[Dict[str, Dict[str, str]]] = None
 
 
 class PublishTemplateRequest(BaseModel):
     tags: Optional[List[str]] = None
-    sharing_preferences: Optional[SharingPreferences] = Field(default_factory=SharingPreferences)
-    
+    usage_examples: Optional[List[UsageExampleMessage]] = None
 
 
 class TemplateResponse(BaseModel):
     template_id: str
     creator_id: str
     name: str
-    description: Optional[str] = None
     system_prompt: str
     mcp_requirements: List[Dict[str, Any]]
     agentpress_tools: Dict[str, Any]
@@ -75,14 +70,13 @@ class TemplateResponse(BaseModel):
     download_count: int
     created_at: str
     updated_at: str
-    profile_image_url: Optional[str] = None
     icon_name: Optional[str] = None
     icon_color: Optional[str] = None
     icon_background: Optional[str] = None
     metadata: Dict[str, Any]
     creator_name: Optional[str] = None
-    sharing_preferences: Optional[Dict[str, bool]] = None
-
+    usage_examples: Optional[List[UsageExampleMessage]] = None
+    config: Optional[Dict[str, Any]] = None
 
 class InstallationResponse(BaseModel):
     status: str
@@ -90,6 +84,7 @@ class InstallationResponse(BaseModel):
     name: Optional[str] = None
     missing_regular_credentials: List[Dict[str, Any]] = []
     missing_custom_configs: List[Dict[str, Any]] = []
+    missing_trigger_variables: Optional[Dict[str, Dict[str, Any]]] = None
     template_info: Optional[Dict[str, Any]] = None
 
 
@@ -155,12 +150,16 @@ async def create_template_from_agent(
         
         template_service = get_template_service(db)
         
+        usage_examples = None
+        if request.usage_examples:
+            usage_examples = [msg.dict() for msg in request.usage_examples]
+        
         template_id = await template_service.create_from_agent(
             agent_id=request.agent_id,
             creator_id=user_id,
             make_public=request.make_public,
             tags=request.tags,
-            sharing_preferences=request.sharing_preferences.dict() if request.sharing_preferences else None
+            usage_examples=usage_examples
         )
         
         logger.debug(f"Successfully created template {template_id} from agent {request.agent_id}")
@@ -178,7 +177,11 @@ async def create_template_from_agent(
         logger.warning(f"Template creation failed - Suna default agent: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error creating template from agent {request.agent_id}: {e}", exc_info=True)
+        try:
+            error_str = str(e)
+        except Exception:
+            error_str = f"Error of type {type(e).__name__}"
+        logger.error(f"Error creating template from agent {request.agent_id}: {error_str}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -195,10 +198,14 @@ async def publish_template(
         
         template_service = get_template_service(db)
         
+        usage_examples = None
+        if request.usage_examples:
+            usage_examples = [msg.dict() for msg in request.usage_examples]
+        
         success = await template_service.publish_template(
             template_id, 
             user_id,
-            sharing_preferences=request.sharing_preferences.dict() if request.sharing_preferences else None
+            usage_examples=usage_examples
         )
         
         if not success:
@@ -211,7 +218,11 @@ async def publish_template(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error publishing template {template_id}: {e}", exc_info=True)
+        try:
+            error_str = str(e)
+        except Exception:
+            error_str = f"Error of type {type(e).__name__}"
+        logger.error(f"Error publishing template {template_id}: {error_str}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -239,7 +250,11 @@ async def unpublish_template(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error unpublishing template {template_id}: {e}", exc_info=True)
+        try:
+            error_str = str(e)
+        except Exception:
+            error_str = f"Error of type {type(e).__name__}"
+        logger.error(f"Error unpublishing template {template_id}: {error_str}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -267,7 +282,11 @@ async def delete_template(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting template {template_id}: {e}", exc_info=True)
+        try:
+            error_str = str(e)
+        except Exception:
+            error_str = f"Error of type {type(e).__name__}"
+        logger.error(f"Error deleting template {template_id}: {error_str}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -297,13 +316,17 @@ async def install_template(
         
         installation_service = get_installation_service(db)
         
+        logger.info(f"Installing template with trigger_configs: {request.trigger_configs}")
+        
         install_request = TemplateInstallationRequest(
             template_id=request.template_id,
             account_id=user_id,
             instance_name=request.instance_name,
             custom_system_prompt=request.custom_system_prompt,
             profile_mappings=request.profile_mappings,
-            custom_mcp_configs=request.custom_mcp_configs
+            custom_mcp_configs=request.custom_mcp_configs,
+            trigger_configs=request.trigger_configs,
+            trigger_variables=request.trigger_variables
         )
         
         result = await installation_service.install_template(install_request)
@@ -316,6 +339,7 @@ async def install_template(
             name=result.name,
             missing_regular_credentials=result.missing_regular_credentials,
             missing_custom_configs=result.missing_custom_configs,
+            missing_trigger_variables=result.missing_trigger_variables,
             template_info=result.template_info
         )
         
@@ -328,7 +352,11 @@ async def install_template(
         logger.warning(f"Template installation failed - invalid credentials: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error installing template {request.template_id}: {e}", exc_info=True)
+        try:
+            error_str = str(e)
+        except Exception:
+            error_str = f"Error of type {type(e).__name__}"
+        logger.error(f"Error installing template {request.template_id}: {error_str}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -346,11 +374,61 @@ class MarketplaceTemplatesResponse(BaseModel):
     templates: List[TemplateResponse]
     pagination: MarketplacePaginationInfo
 
+@router.get("/kortix-all", response_model=MarketplaceTemplatesResponse)
+async def get_all_kortix_templates(
+    request: Request = None
+):
+    try:
+        from core.templates.services.marketplace_service import MarketplaceService, MarketplaceFilters
+        
+        pagination_params = PaginationParams(
+            page=1,
+            page_size=1000
+        )
+        
+        filters = MarketplaceFilters(
+            is_kortix_team=True,
+            sort_by="download_count",
+            sort_order="desc"
+        )
+        
+        client = await db.client
+        marketplace_service = MarketplaceService(client)
+        paginated_result = await marketplace_service.get_marketplace_templates_paginated(
+            pagination_params=pagination_params,
+            filters=filters
+        )
+        
+        template_responses = []
+        for template_data in paginated_result.data:
+            template_response = TemplateResponse(**template_data)
+            template_responses.append(template_response)
+        
+        return MarketplaceTemplatesResponse(
+            templates=template_responses,
+            pagination=MarketplacePaginationInfo(
+                current_page=1,
+                page_size=len(template_responses),
+                total_items=len(template_responses),
+                total_pages=1,
+                has_next=False,
+                has_previous=False
+            )
+        )
+        
+    except Exception as e:
+        try:
+            error_str = str(e)
+        except Exception:
+            error_str = f"Error of type {type(e).__name__}"
+        logger.error(f"Error getting all Kortix templates: {error_str}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 @router.get("/marketplace", response_model=MarketplaceTemplatesResponse)
 async def get_marketplace_templates(
     page: Optional[int] = Query(1, ge=1, description="Page number (1-based)"),
     limit: Optional[int] = Query(20, ge=1, le=100, description="Number of items per page"),
-    search: Optional[str] = Query(None, description="Search term for name and description"),
+    search: Optional[str] = Query(None, description="Search term for name"),
     tags: Optional[str] = Query(None, description="Comma-separated list of tags to filter by"),
     is_kortix_team: Optional[bool] = Query(None, description="Filter for Kortix team templates"),
     mine: Optional[bool] = Query(None, description="Filter to show only user's own templates"),
@@ -359,7 +437,7 @@ async def get_marketplace_templates(
     request: Request = None
 ):
     try:
-        from core.templates.services.template_service import TemplateService, MarketplaceFilters
+        from core.templates.services.marketplace_service import MarketplaceService, MarketplaceFilters
         creator_id_filter = None
         if mine:
             try:
@@ -389,8 +467,8 @@ async def get_marketplace_templates(
         )
         
         client = await db.client
-        template_service = TemplateService(client)
-        paginated_result = await template_service.get_marketplace_templates_paginated(
+        marketplace_service = MarketplaceService(client)
+        paginated_result = await marketplace_service.get_marketplace_templates_paginated(
             pagination_params=pagination_params,
             filters=filters
         )
@@ -413,7 +491,11 @@ async def get_marketplace_templates(
         )
         
     except Exception as e:
-        logger.error(f"Error getting marketplace templates: {e}", exc_info=True)
+        try:
+            error_str = str(e)
+        except Exception:
+            error_str = f"Error of type {type(e).__name__}"
+        logger.error(f"Error getting marketplace templates: {error_str}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -421,13 +503,13 @@ async def get_marketplace_templates(
 async def get_my_templates(
     page: Optional[int] = Query(1, ge=1, description="Page number (1-based)"),
     limit: Optional[int] = Query(20, ge=1, le=100, description="Number of items per page"),
-    search: Optional[str] = Query(None, description="Search term for name and description"),
+    search: Optional[str] = Query(None, description="Search term for name"),
     sort_by: Optional[str] = Query("created_at", description="Sort field: created_at, name, download_count"),
     sort_order: Optional[str] = Query("desc", description="Sort order: asc, desc"),
     user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     try:
-        from core.templates.services.template_service import TemplateService, MarketplaceFilters
+        from core.templates.services.marketplace_service import MarketplaceService, MarketplaceFilters
         
         pagination_params = PaginationParams(
             page=page,
@@ -442,9 +524,9 @@ async def get_my_templates(
         )
         
         client = await db.client
-        template_service = TemplateService(client)
+        marketplace_service = MarketplaceService(client)
         
-        paginated_result = await template_service.get_user_templates_paginated(
+        paginated_result = await marketplace_service.get_user_templates_paginated(
             pagination_params=pagination_params,
             filters=filters
         )
@@ -467,7 +549,11 @@ async def get_my_templates(
         )
         
     except Exception as e:
-        logger.error(f"Error getting templates for user {user_id}: {e}", exc_info=True)
+        try:
+            error_str = str(e)
+        except Exception:
+            error_str = f"Error of type {type(e).__name__}"
+        logger.error(f"Error getting templates for user {user_id}: {error_str}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -508,7 +594,11 @@ async def get_public_template(template_id: str):
         # Re-raise HTTP exceptions as-is
         raise http_exc
     except Exception as e:
-        logger.error(f"Unexpected error getting public template {template_id}: {e}", exc_info=True)
+        try:
+            error_str = str(e)
+        except Exception:
+            error_str = f"Error of type {type(e).__name__}"
+        logger.error(f"Unexpected error getting public template {template_id}: {error_str}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -530,7 +620,11 @@ async def get_template(
         logger.warning(f"Access denied to template {template_id} for user {user_id}: {e}")
         raise HTTPException(status_code=403, detail="Access denied to template")
     except Exception as e:
-        logger.error(f"Error getting template {template_id}: {e}", exc_info=True)
+        try:
+            error_str = str(e)
+        except Exception:
+            error_str = f"Error of type {type(e).__name__}"
+        logger.error(f"Error getting template {template_id}: {error_str}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

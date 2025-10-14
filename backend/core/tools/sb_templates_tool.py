@@ -2,7 +2,7 @@ import json
 import os
 from typing import Optional, Dict, Any, List
 
-from core.agentpress.tool import ToolResult, openapi_schema, usage_example
+from core.agentpress.tool import ToolResult, openapi_schema
 from core.agentpress.thread_manager import ThreadManager
 from core.sandbox.tool_base import SandboxToolsBase
 from core.utils.logger import logger
@@ -13,7 +13,6 @@ class SandboxTemplatesTool(SandboxToolsBase):
 
     def __init__(self, project_id: str, thread_manager: ThreadManager):
         super().__init__(project_id, thread_manager)
-        self.workspace_path = "/workspace"
         self.local_templates_dir = "/opt/templates"
         self.local_manifest = f"{self.local_templates_dir}/manifest.json"
         self.remote_manifest_url = os.getenv("TEMPLATES_MANIFEST_URL")
@@ -64,11 +63,6 @@ class SandboxTemplatesTool(SandboxToolsBase):
             "parameters": {"type": "object", "properties": {}, "required": []}
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="list_templates" />
-        </function_calls>
-    ''')
     async def list_templates(self) -> ToolResult:
         try:
             await self._ensure_sandbox()
@@ -100,15 +94,6 @@ class SandboxTemplatesTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="scaffold_from_template">
-          <parameter name="template_name">next14-shadcn</parameter>
-          <parameter name="project_name">webdemo</parameter>
-          <parameter name="package_manager">pnpm</parameter>
-        </invoke>
-        </function_calls>
-    ''')
     async def scaffold_from_template(self, template_name: str, project_name: str, package_manager: str = "pnpm") -> ToolResult:
         try:
             await self._ensure_sandbox()

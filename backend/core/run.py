@@ -30,16 +30,10 @@ from core.utils.logger import logger
 from core.billing.billing_integration import billing_integration
 from core.tools.sb_vision_tool import SandboxVisionTool
 from core.tools.sb_image_edit_tool import SandboxImageEditTool
-from core.tools.sb_video_avatar_tool import SandboxVideoAvatarTool
-from core.tools.sb_presentation_outline_tool import SandboxPresentationOutlineTool
-from core.tools.sb_presentation_tool import SandboxPresentationTool
-from core.services.billing_wrapper import check_billing_status_unified
-from core.tools.sb_vision_tool import SandboxVisionTool
-from core.tools.sb_image_edit_tool import SandboxImageEditTool
-from core.tools.sb_video_avatar_tool import SandboxVideoAvatarTool
 from core.tools.sb_designer_tool import SandboxDesignerTool
 from core.tools.sb_presentation_outline_tool import SandboxPresentationOutlineTool
 from core.tools.sb_presentation_tool import SandboxPresentationTool
+from core.tools.sb_document_parser import SandboxDocumentParserTool
 
 from core.services.langfuse import langfuse
 from langfuse.client import StatefulTraceClient
@@ -53,112 +47,69 @@ from core.tools.sb_upload_file_tool import SandboxUploadFileTool
 from core.tools.sb_custom_automation_tool import SandboxCustomAutomationTool
 from core.tools.podcast_tool import SandboxPodcastTool
 from core.tools.sb_docs_tool import SandboxDocsTool
-from core.ai_models.manager import model_manager
-
-load_dotenv()
-
-
-@dataclass
-class AgentConfig:
-    thread_id: str
-    project_id: str
-    stream: bool
-    native_max_auto_continues: int = 25
-    max_iterations: int = 100
-    model_name: str = "Qwen3 VL 235B Thinking"
-    enable_thinking: Optional[bool] = False
-    reasoning_effort: Optional[str] = 'low'
-    enable_context_manager: bool = True
-    agent_config: Optional[dict] = None
-    trace: Optional[StatefulTraceClient] = None
-    enable_prompt_caching: bool = True
-    is_agent_builder: Optional[bool] = False
-    target_agent_id: Optional[str] = None
-
-
-class ToolManager:
-    def __init__(self, thread_manager: ThreadManager, project_id: str, thread_id: str):
-        self.thread_manager = thread_manager
-        self.project_id = project_id
-        self.thread_id = thread_id
-    
-    def register_all_tools(self, agent_id: Optional[str] = None, disabled_tools: Optional[List[str]] = None):
-        """Register all available tools by default, with optional exclusions.
-        
-        Args:
-            agent_id: Optional agent ID for agent builder tools
-            disabled_tools: List of tool names to exclude from registration
-        """
-        disabled_tools = disabled_tools or []
-        
-        # logger.debug(f"Registering tools with disabled list: {disabled_tools}")
-        
-        # Core tools - always enabled
-        self._register_core_tools()
-        
-        # Sandbox tools
-        self._register_sandbox_tools(disabled_tools)
-        
-        # Data and utility tools
-        self._register_utility_tools(disabled_tools)
-        
-        # Agent builder tools - register if agent_id provided
-        if agent_id:
-            self._register_agent_builder_tools(agent_id, disabled_tools)
-        
-        # Browser tool
-        self._register_browser_tool(disabled_tools)
-        
-        # logger.debug(f"Tool registration complete. Registered {len(self.thread_manager.tool_registry.tools)} tools")
-    
-    def _register_core_tools(self):
-        """Register core tools that are always available."""
-        self.thread_manager.add_tool(ExpandMessageTool, thread_id=self.thread_id, thread_manager=self.thread_manager)
-        self.thread_manager.add_tool(MessageTool)
-        self.thread_manager.add_tool(TaskListTool, project_id=self.project_id, thread_manager=self.thread_manager, thread_id=self.thread_id)
-    
-    def _register_sandbox_tools(self, disabled_tools: List[str]):
-        """Register sandbox-related tools."""
-        sandbox_tools = [
-            ('sb_shell_tool', SandboxShellTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('sb_files_tool', SandboxFilesTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('sb_deploy_tool', SandboxDeployTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('sb_expose_tool', SandboxExposeTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('web_search_tool', SandboxWebSearchTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('image_search_tool', SandboxImageSearchTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('sb_vision_tool', SandboxVisionTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
-            ('sb_image_edit_tool', SandboxImageEditTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
-            ('sb_kb_tool', SandboxKbTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('sb_design_tool', SandboxDesignerTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
-            ('sb_presentation_outline_tool', SandboxPresentationOutlineTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('sb_presentation_tool', SandboxPresentationTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('sb_video_avatar_tool', SandboxVideoAvatarTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('sb_sheets_tool', SandboxSheetsTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            # ('sb_web_dev_tool', SandboxWebDevTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),  # DEACTIVATED
-            ('sb_upload_file_tool', SandboxUploadFileTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('sb_custom_automation_tool', SandboxCustomAutomationTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('podcast_tool', SandboxPodcastTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('sb_docs_tool', SandboxDocsTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-
+            # ('sb_document_parser_tool', SandboxDocumentParserTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
         ]
         
         for tool_name, tool_class, kwargs in sandbox_tools:
             if tool_name not in disabled_tools:
-                self.thread_manager.add_tool(tool_class, **kwargs)
-                # logger.debug(f"Registered {tool_name}")
+                # Check for granular method control
+                enabled_methods = self._get_enabled_methods_for_tool(tool_name)
+                if enabled_methods is not None:
+                    # Register only enabled methods
+                    self.thread_manager.add_tool(tool_class, function_names=enabled_methods, **kwargs)
+                    logger.debug(f"Registered {tool_name} with methods: {enabled_methods}")
+                else:
+                    # Register all methods (backward compatibility)
+                    self.thread_manager.add_tool(tool_class, **kwargs)
+                    # logger.debug(f"Registered {tool_name} (all methods)")
     
     def _register_utility_tools(self, disabled_tools: List[str]):
-        """Register utility and data provider tools."""
         if config.RAPID_API_KEY and 'data_providers_tool' not in disabled_tools:
-            self.thread_manager.add_tool(DataProvidersTool)
-            # logger.debug("Registered data_providers_tool")
+            # Check for granular method control
+            enabled_methods = self._get_enabled_methods_for_tool('data_providers_tool')
+            if enabled_methods is not None:
+                # Register only enabled methods
+                self.thread_manager.add_tool(DataProvidersTool, function_names=enabled_methods)
+                logger.debug(f"Registered data_providers_tool with methods: {enabled_methods}")
+            else:
+                # Register all methods (backward compatibility)
+                self.thread_manager.add_tool(DataProvidersTool)
+                # logger.debug("Registered data_providers_tool (all methods)")
+        
+        # Register search tools if EXA API key is available
+        if config.EXA_API_KEY:
+            if 'people_search_tool' not in disabled_tools:
+                enabled_methods = self._get_enabled_methods_for_tool('people_search_tool')
+                if enabled_methods is not None:
+                    self.thread_manager.add_tool(PeopleSearchTool, function_names=enabled_methods, thread_manager=self.thread_manager)
+                    logger.debug(f"Registered people_search_tool with methods: {enabled_methods}")
+                else:
+                    self.thread_manager.add_tool(PeopleSearchTool, thread_manager=self.thread_manager)
+                    logger.debug("Registered people_search_tool (all methods)")
+            
+            if 'company_search_tool' not in disabled_tools:
+                enabled_methods = self._get_enabled_methods_for_tool('company_search_tool')
+                if enabled_methods is not None:
+                    self.thread_manager.add_tool(CompanySearchTool, function_names=enabled_methods, thread_manager=self.thread_manager)
+                    logger.debug(f"Registered company_search_tool with methods: {enabled_methods}")
+                else:
+                    self.thread_manager.add_tool(CompanySearchTool, thread_manager=self.thread_manager)
+                    logger.debug("Registered company_search_tool (all methods)")
+            
+            if 'paper_search_tool' not in disabled_tools:
+                enabled_methods = self._get_enabled_methods_for_tool('paper_search_tool')
+                if enabled_methods is not None:
+                    self.thread_manager.add_tool(PaperSearchTool, function_names=enabled_methods, thread_manager=self.thread_manager)
+                    logger.debug(f"Registered paper_search_tool with methods: {enabled_methods}")
+                else:
+                    self.thread_manager.add_tool(PaperSearchTool, thread_manager=self.thread_manager)
+                    logger.debug("Registered paper_search_tool (all methods)")
     
     def _register_agent_builder_tools(self, agent_id: str, disabled_tools: List[str]):
         """Register agent builder tools."""
         from core.tools.agent_builder_tools.agent_config_tool import AgentConfigTool
         from core.tools.agent_builder_tools.mcp_search_tool import MCPSearchTool
         from core.tools.agent_builder_tools.credential_profile_tool import CredentialProfileTool
-        from core.tools.agent_builder_tools.workflow_tool import WorkflowTool
         from core.tools.agent_builder_tools.trigger_tool import TriggerTool
         from core.services.supabase import DBConnection
         
@@ -168,27 +119,24 @@ class ToolManager:
             ('agent_config_tool', AgentConfigTool),
             ('mcp_search_tool', MCPSearchTool),
             ('credential_profile_tool', CredentialProfileTool),
-            ('workflow_tool', WorkflowTool),
             ('trigger_tool', TriggerTool),
         ]
-        
-        # logger.debug(f"Registering agent builder tools for agent_id: {agent_id}")
-        # logger.debug(f"Disabled tools list: {disabled_tools}")
-        
+
         for tool_name, tool_class in agent_builder_tools:
             if tool_name not in disabled_tools:
                 try:
-                    self.thread_manager.add_tool(tool_class, thread_manager=self.thread_manager, db_connection=db, agent_id=agent_id)
-                    # logger.debug(f"✅ Registered {tool_name}")
-                    pass
+                    enabled_methods = self._get_enabled_methods_for_tool(tool_name)
+                    if enabled_methods is not None:
+                        self.thread_manager.add_tool(tool_class, function_names=enabled_methods, thread_manager=self.thread_manager, db_connection=db, agent_id=agent_id)
+                        logger.debug(f"✅ Registered {tool_name} with methods: {enabled_methods}")
+                    else:
+                        self.thread_manager.add_tool(tool_class, thread_manager=self.thread_manager, db_connection=db, agent_id=agent_id)
                 except Exception as e:
                     logger.warning(f"❌ Failed to register {tool_name}: {e}")
             else:
-                # logger.debug(f"⏭️ Skipping {tool_name} - disabled")
                 pass
     
     def _register_suna_specific_tools(self, disabled_tools: List[str]):
-        """Register tools specific to Suna (the default agent)."""
         if 'agent_creation_tool' not in disabled_tools:
             from core.tools.agent_creation_tool import AgentCreationTool
             from core.services.supabase import DBConnection
@@ -196,18 +144,44 @@ class ToolManager:
             db = DBConnection()
             
             if hasattr(self, 'account_id') and self.account_id:
-                self.thread_manager.add_tool(AgentCreationTool, thread_manager=self.thread_manager, db_connection=db, account_id=self.account_id)
-                logger.debug("Registered agent_creation_tool for Suna")
+                enabled_methods = self._get_enabled_methods_for_tool('agent_creation_tool')
+                if enabled_methods is not None:
+                    self.thread_manager.add_tool(AgentCreationTool, function_names=enabled_methods, thread_manager=self.thread_manager, db_connection=db, account_id=self.account_id)
+                    logger.debug(f"Registered agent_creation_tool for Suna with methods: {enabled_methods}")
+                else:
+                    self.thread_manager.add_tool(AgentCreationTool, thread_manager=self.thread_manager, db_connection=db, account_id=self.account_id)
+                    logger.debug("Registered agent_creation_tool for Suna (all methods)")
             else:
                 logger.warning("Could not register agent_creation_tool: account_id not available")
     
     def _register_browser_tool(self, disabled_tools: List[str]):
-        """Register browser tool."""
         if 'browser_tool' not in disabled_tools:
             from core.tools.browser_tool import BrowserTool
-            self.thread_manager.add_tool(BrowserTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
-            # logger.debug("Registered browser_tool")
+            
+            # Check for granular method control
+            enabled_methods = self._get_enabled_methods_for_tool('browser_tool')
+            if enabled_methods is not None:
+                self.thread_manager.add_tool(BrowserTool, function_names=enabled_methods, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
+                logger.debug(f"Registered browser_tool with methods: {enabled_methods}")
+            else:
+                self.thread_manager.add_tool(BrowserTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
+                # logger.debug("Registered browser_tool (all methods)")
     
+    def _get_enabled_methods_for_tool(self, tool_name: str) -> Optional[List[str]]:
+        if not self.agent_config or 'agentpress_tools' not in self.agent_config:
+            return None
+        
+        from core.utils.tool_groups import get_enabled_methods_for_tool
+        from core.utils.tool_migration import migrate_legacy_tool_config
+        
+        raw_tools = self.agent_config['agentpress_tools']
+        
+        if not isinstance(raw_tools, dict):
+            return None
+        
+        migrated_tools = migrate_legacy_tool_config(raw_tools)
+        
+        return get_enabled_methods_for_tool(tool_name, migrated_tools)
 
 class MCPManager:
     def __init__(self, thread_manager: ThreadManager, account_id: str):
@@ -224,27 +198,7 @@ class MCPManager:
             for custom_mcp in agent_config['custom_mcps']:
                 custom_type = custom_mcp.get('customType', custom_mcp.get('type', 'sse'))
                 
-                if custom_type == 'pipedream':
-                    if 'config' not in custom_mcp:
-                        custom_mcp['config'] = {}
-                    
-                    if not custom_mcp['config'].get('external_user_id'):
-                        profile_id = custom_mcp['config'].get('profile_id')
-                        if profile_id:
-                            try:
-                                from pipedream import profile_service
-                                from uuid import UUID
-                                
-                                profile = await profile_service.get_profile(UUID(self.account_id), UUID(profile_id))
-                                if profile:
-                                    custom_mcp['config']['external_user_id'] = profile.external_user_id
-                            except Exception as e:
-                                logger.error(f"Error retrieving external_user_id from profile {profile_id}: {e}")
-                    
-                    if 'headers' in custom_mcp['config'] and 'x-pd-app-slug' in custom_mcp['config']['headers']:
-                        custom_mcp['config']['app_slug'] = custom_mcp['config']['headers']['x-pd-app-slug']
-                
-                elif custom_type == 'composio':
+                if custom_type == 'composio':
                     qualified_name = custom_mcp.get('qualifiedName')
                     if not qualified_name:
                         qualified_name = f"composio.{custom_mcp['name'].replace(' ', '_').lower()}"
@@ -301,7 +255,6 @@ class PromptManager:
                                   mcp_wrapper_instance: Optional[MCPToolWrapper],
                                   client=None,
                                   tool_registry=None,
-                                  include_xml_examples: bool = False,
                                   xml_tool_calling: bool = True) -> dict:
         
         default_system_content = get_system_prompt()
@@ -323,7 +276,7 @@ class PromptManager:
             agentpress_tools = agent_config.get('agentpress_tools', {})
             has_builder_tools = any(
                 agentpress_tools.get(tool, False) 
-                for tool in ['agent_config_tool', 'mcp_search_tool', 'credential_profile_tool', 'workflow_tool', 'trigger_tool']
+                for tool in ['agent_config_tool', 'mcp_search_tool', 'credential_profile_tool', 'trigger_tool']
             )
             
             if has_builder_tools:
@@ -411,20 +364,12 @@ class PromptManager:
             system_content += mcp_info
         
         # Add XML tool calling instructions to system prompt if requested
-        if include_xml_examples and xml_tool_calling and tool_registry:
+        if xml_tool_calling and tool_registry:
             openapi_schemas = tool_registry.get_openapi_schemas()
-            usage_examples = tool_registry.get_usage_examples()
             
             if openapi_schemas:
                 # Convert schemas to JSON string
                 schemas_json = json.dumps(openapi_schemas, indent=2)
-                
-                # Build usage examples section if any exist
-                usage_examples_section = ""
-                if usage_examples:
-                    usage_examples_section = "\n\nUsage Examples:\n"
-                    for func_name, example in usage_examples.items():
-                        usage_examples_section += f"\n{func_name}:\n{example}\n"
                 
                 examples_content = f"""
 
@@ -452,7 +397,6 @@ When using the tools:
 - Include all required parameters as specified in the schema
 - Format complex data (objects, arrays) as JSON strings within the parameter tags
 - Boolean values should be "true" or "false" (lowercase)
-{usage_examples_section}
 """
                 
                 system_content += examples_content
@@ -474,13 +418,12 @@ When using the tools:
 
 class MessageManager:
     def __init__(self, client, thread_id: str, model_name: str, trace: Optional[StatefulTraceClient], 
-                 agent_config: Optional[dict] = None, enable_context_manager: bool = False):
+                 agent_config: Optional[dict] = None):
         self.client = client
         self.thread_id = thread_id
         self.model_name = model_name
         self.trace = trace
         self.agent_config = agent_config
-        self.enable_context_manager = enable_context_manager
     
     async def build_temporary_message(self) -> Optional[dict]:
         system_message = None
@@ -494,7 +437,7 @@ class MessageManager:
             agentpress_tools = self.agent_config.get('agentpress_tools', {})
             has_builder_tools = any(
                 agentpress_tools.get(tool, False) 
-                for tool in ['agent_config_tool', 'mcp_search_tool', 'credential_profile_tool', 'workflow_tool', 'trigger_tool']
+                for tool in ['agent_config_tool', 'mcp_search_tool', 'credential_profile_tool', 'trigger_tool']
             )
             
             if has_builder_tools:
@@ -549,15 +492,7 @@ class AgentRunner:
             logger.debug(f"No sandbox found for project {self.config.project_id}; will create lazily when needed")
     
     async def setup_tools(self):
-        # Enrich agent config with LlamaCloud knowledge bases if agent exists
-        if self.config.agent_config and self.config.agent_config.get('agent_id'):
-            try:
-                from core.config_helper import enrich_agent_config_with_llamacloud_kb
-                self.config.agent_config = await enrich_agent_config_with_llamacloud_kb(self.config.agent_config)
-            except Exception as e:
-                logger.error(f"Failed to enrich agent config with LlamaCloud knowledge bases: {e}")
-        
-        tool_manager = ToolManager(self.thread_manager, self.config.project_id, self.config.thread_id)
+        tool_manager = ToolManager(self.thread_manager, self.config.project_id, self.config.thread_id, self.config.agent_config)
         
         agent_id = None
         if self.config.agent_config and (self.config.agent_config.get('is_suna_default', False) or self.config.agent_config.get('is_omni_default', False)):
@@ -582,6 +517,22 @@ class AgentRunner:
         else:
             logger.debug("Not a Suna agent, skipping Suna-specific tool registration")
     
+    def _get_enabled_methods_for_tool(self, tool_name: str) -> Optional[List[str]]:
+        if not self.config.agent_config or 'agentpress_tools' not in self.config.agent_config:
+            return None
+        
+        from core.utils.tool_groups import get_enabled_methods_for_tool
+        from core.utils.tool_migration import migrate_legacy_tool_config
+        
+        raw_tools = self.config.agent_config['agentpress_tools']
+        
+        if not isinstance(raw_tools, dict):
+            return None
+        
+        migrated_tools = migrate_legacy_tool_config(raw_tools)
+        
+        return get_enabled_methods_for_tool(tool_name, migrated_tools)
+    
     def _register_suna_specific_tools(self, disabled_tools: List[str]):
         if 'agent_creation_tool' not in disabled_tools:
             from core.tools.agent_creation_tool import AgentCreationTool
@@ -590,8 +541,16 @@ class AgentRunner:
             db = DBConnection()
             
             if hasattr(self, 'account_id') and self.account_id:
-                self.thread_manager.add_tool(AgentCreationTool, thread_manager=self.thread_manager, db_connection=db, account_id=self.account_id)
-                logger.debug("Registered agent_creation_tool for Suna")
+                # Check for granular method control
+                enabled_methods = self._get_enabled_methods_for_tool('agent_creation_tool')
+                if enabled_methods is not None:
+                    # Register only enabled methods
+                    self.thread_manager.add_tool(AgentCreationTool, function_names=enabled_methods, thread_manager=self.thread_manager, db_connection=db, account_id=self.account_id)
+                    logger.debug(f"Registered agent_creation_tool for Suna with methods: {enabled_methods}")
+                else:
+                    # Register all methods (backward compatibility)
+                    self.thread_manager.add_tool(AgentCreationTool, thread_manager=self.thread_manager, db_connection=db, account_id=self.account_id)
+                    logger.debug("Registered agent_creation_tool for Suna (all methods)")
             else:
                 logger.warning("Could not register agent_creation_tool: account_id not available")
     
@@ -625,9 +584,11 @@ class AgentRunner:
         all_tools = [
             'sb_shell_tool', 'sb_files_tool', 'sb_deploy_tool', 'sb_expose_tool',
             'web_search_tool', 'image_search_tool', 'sb_vision_tool', 'sb_presentation_tool', 'sb_image_edit_tool',
-            'sb_sheets_tool', 'sb_web_dev_tool', 'data_providers_tool', 'browser_tool',
-            'agent_config_tool', 'mcp_search_tool', 'credential_profile_tool', 
-            'workflow_tool', 'trigger_tool'
+            'sb_sheets_tool', 'sb_kb_tool', 'sb_design_tool', 'sb_presentation_outline_tool', 'sb_upload_file_tool',
+            'sb_docs_tool', 'sb_browser_tool', 'sb_templates_tool', 'computer_use_tool', 'sb_web_dev_tool', 
+            'data_providers_tool', 'browser_tool', 'people_search_tool', 'company_search_tool', 
+            'agent_config_tool', 'mcp_search_tool', 'credential_profile_tool', 'trigger_tool',
+            'agent_creation_tool'
         ]
         
         for tool_name in all_tools:
@@ -673,7 +634,6 @@ class AgentRunner:
             self.config.thread_id, 
             mcp_wrapper_instance, self.client,
             tool_registry=self.thread_manager.tool_registry,
-            include_xml_examples=True,
             xml_tool_calling=True
         )
         logger.info(f"📝 System message built once: {len(str(system_message.get('content', '')))} chars")
@@ -719,7 +679,7 @@ class AgentRunner:
                 response = await self.thread_manager.run_thread(
                     thread_id=self.config.thread_id,
                     system_prompt=system_message,
-                    stream=self.config.stream,
+                    stream=True, 
                     llm_model=self.config.model_name,
                     llm_temperature=0,
                     llm_max_tokens=max_tokens,
@@ -735,11 +695,7 @@ class AgentRunner:
                         xml_adding_strategy="user_message"
                     ),
                     native_max_auto_continues=self.config.native_max_auto_continues,
-                    enable_thinking=self.config.enable_thinking,
-                    reasoning_effort=self.config.reasoning_effort,
-                    generation=generation,
-                    enable_prompt_caching=self.config.enable_prompt_caching,
-                    enable_context_manager=self.config.enable_context_manager
+                    generation=generation
                 )
 
                 last_tool_call = None
@@ -858,15 +814,10 @@ class AgentRunner:
 async def run_agent(
     thread_id: str,
     project_id: str,
-    stream: bool,
     thread_manager: Optional[ThreadManager] = None,
     native_max_auto_continues: int = 25,
     max_iterations: int = 100,
-    model_name: str = "Qwen3 VL 235B Thinking",
-    enable_thinking: Optional[bool] = False,
-    reasoning_effort: Optional[str] = 'low',
-    enable_context_manager: bool = False,
-    enable_prompt_caching: bool = False,
+    model_name: str = "openai/gpt-5-mini",
     agent_config: Optional[dict] = None,    
     trace: Optional[StatefulTraceClient] = None,
     is_agent_builder: Optional[bool] = False,
@@ -875,7 +826,6 @@ async def run_agent(
     effective_model = model_name
 
     # is_tier_default = model_name in ["Kimi K2", "Claude Sonnet 4", "openai/gpt-5-mini"]
-    
     # if is_tier_default and agent_config and agent_config.get('model'):
     #     effective_model = agent_config['model']
     #     logger.debug(f"Using model from agent config: {effective_model} (tier default was {model_name})")
@@ -887,14 +837,9 @@ async def run_agent(
     config = AgentConfig(
         thread_id=thread_id,
         project_id=project_id,
-        stream=stream,
         native_max_auto_continues=native_max_auto_continues,
         max_iterations=max_iterations,
         model_name=effective_model,
-        enable_thinking=enable_thinking,
-        reasoning_effort=reasoning_effort,
-        enable_context_manager=enable_context_manager,
-        enable_prompt_caching=enable_prompt_caching,
         agent_config=agent_config,
         trace=trace,
         is_agent_builder=is_agent_builder,

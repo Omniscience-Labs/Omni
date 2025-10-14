@@ -1,14 +1,13 @@
 import httpx
 from dotenv import load_dotenv
-from core.agentpress.tool import ToolResult, openapi_schema, usage_example
+from core.agentpress.tool import ToolResult, openapi_schema
+
 from core.utils.config import config
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
 import json
 import logging
 from typing import Union, List
-
-logger = logging.getLogger(__name__)
 
 class SandboxImageSearchTool(SandboxToolsBase):
     """Tool for performing image searches using SERPER API."""
@@ -20,51 +19,6 @@ class SandboxImageSearchTool(SandboxToolsBase):
         # Use API keys from config
         self.serper_api_key = config.SERPER_API_KEY
         
-        # Allow initialization without API key, but tool will fail gracefully when used
-        if not self.serper_api_key:
-            logger.warning("SERPER_API_KEY not configured - image search tool will be available but non-functional")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "image_search",
-            "description": "Search for images using SERPER API. Supports both single and batch searches. Returns image URLs for the given search query(s). Perfect for finding visual content, illustrations, photos, or any images related to your search terms.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Search query for images. Be specific about what kind of images you're looking for (e.g., 'cats playing', 'mountain landscape', 'modern architecture'). For multiple searches, use comma-separated values or call the function multiple times."
-                    },
-                    "num_results": {
-                        "type": "integer",
-                        "description": "The number of image results to return per query. Default is 12, maximum is 100.",
-                        "default": 12,
-                        "minimum": 1,
-                        "maximum": 100
-                    }
-                },
-                "required": ["query"]
-            }
-        }
-    })
-    @usage_example('''
-        <!-- Single search -->
-        <function_calls>
-        <invoke name="image_search">
-        <parameter name="query">cute cats playing</parameter>
-        <parameter name="num_results">20</parameter>
-        </invoke>
-        </function_calls>
-        
-        <!-- Batch search (more efficient for multiple queries) -->
-        <function_calls>
-        <invoke name="image_search">
-        <parameter name="query">["cats", "dogs", "birds"]</parameter>
-        <parameter name="num_results">15</parameter>
-        </invoke>
-        </function_calls>
-        ''')
     async def image_search(
         self, 
         query: Union[str, List[str]],

@@ -1,5 +1,6 @@
 'use client';
 
+<<<<<<< HEAD
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,10 @@ interface TreeItem {
     children?: TreeItem[];
     data?: any;
 }
+=======
+import React from 'react';
+import { KnowledgeBaseManager } from '@/components/knowledge-base/knowledge-base-manager';
+>>>>>>> upstream/PRODUCTION
 
 interface AgentKnowledgeBaseManagerProps {
     agentId: string;
@@ -38,6 +43,7 @@ interface AgentKnowledgeBaseManagerProps {
 }
 
 export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledgeBaseManagerProps) => {
+<<<<<<< HEAD
     const [treeData, setTreeData] = useState<TreeItem[]>([]);
     const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
@@ -343,5 +349,17 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
                 </div>
             </div>
         </div>
+=======
+    return (
+        <KnowledgeBaseManager
+            agentId={agentId}
+            agentName={agentName}
+            showHeader={true}
+            showRecentFiles={false}
+            enableAssignments={true}
+            maxHeight="400px"
+            emptyStateMessage={`Create folders and upload files to provide ${agentName} with searchable knowledge`}
+        />
+>>>>>>> upstream/PRODUCTION
     );
 };

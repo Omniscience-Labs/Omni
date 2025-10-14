@@ -1,5 +1,6 @@
 'use client';
 
+<<<<<<< HEAD
 import React, { useState, useRef } from 'react';
 import { toast } from 'sonner';
 import { KBDeleteConfirmDialog } from './kb-delete-confirm-dialog';
@@ -1216,6 +1217,13 @@ export function KnowledgeBasePage() {
         );
     }
 
+=======
+import React from 'react';
+import { KnowledgeBasePageHeader } from './knowledge-base-header';
+import { KnowledgeBaseManager } from './knowledge-base-manager';
+
+export function KnowledgeBasePage() {
+>>>>>>> upstream/PRODUCTION
     return (
         <div>
             <div className="min-h-screen">
@@ -1224,6 +1232,7 @@ export function KnowledgeBasePage() {
                 </div>
                 <div className="container mx-auto max-w-7xl px-4 py-2">
                     <div className="w-full min-h-[calc(100vh-300px)]">
+<<<<<<< HEAD
                         {/* Header Section */}
                         <div className="flex justify-between items-start mb-8">
                             <div className="space-y-3">
@@ -1555,3 +1564,16 @@ export function KnowledgeBasePage() {
         </div>
     );
 }
+=======
+                        <KnowledgeBaseManager
+                            showHeader={true}
+                            showRecentFiles={true}
+                            enableAssignments={false}
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+>>>>>>> upstream/PRODUCTION

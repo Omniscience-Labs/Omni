@@ -2,23 +2,30 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { knowledgeBaseKeys } from './keys';
-import { 
-  CreateKnowledgeBaseEntryRequest, 
-  KnowledgeBaseEntry, 
-  KnowledgeBaseListResponse, 
-  UpdateKnowledgeBaseEntryRequest,
-  FileUploadRequest,
-  GitCloneRequest,
-  ProcessingJob,
-  ProcessingJobsResponse,
-  UploadResponse,
-  CloneResponse,
-  UnifiedKnowledgeBaseListResponse,
-  UnifiedAssignmentRequest,
-  UnifiedAssignmentResponse
-} from './types';
+>>>>>>> upstream/PRODUCTION
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+
+// Only keep the types that are actually used
+export interface KnowledgeBaseEntry {
+  entry_id: string;
+  name: string;
+  description?: string;
+  content: string;
+  usage_context: 'always' | 'on_request' | 'contextual';
+  is_active: boolean;
+  content_tokens?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpdateKnowledgeBaseEntryRequest {
+  name?: string;
+  description?: string;
+  content?: string;
+  usage_context?: 'always' | 'on_request' | 'contextual';
+  is_active?: boolean;
+}
 
 const useAuthHeaders = () => {
   const getHeaders = async () => {
@@ -120,62 +127,6 @@ export function useDeleteKnowledgeBaseEntry() {
   });
 }
 
-export function useAgentKnowledgeBaseEntries(agentId: string, includeInactive = false) {
-  const { getHeaders } = useAuthHeaders();
-  
-  return useQuery({
-    queryKey: knowledgeBaseKeys.agent(agentId),
-    queryFn: async (): Promise<KnowledgeBaseListResponse> => {
-      const headers = await getHeaders();
-      const url = new URL(`${API_URL}/knowledge-base/agents/${agentId}`);
-      url.searchParams.set('include_inactive', includeInactive.toString());
-      
-      const response = await fetch(url.toString(), { headers });
-      
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Failed to fetch agent knowledge base entries');
-      }
-      
-      return await response.json();
-    },
-    enabled: !!agentId,
-  });
-}
-
-export function useCreateAgentKnowledgeBaseEntry() {
-  const queryClient = useQueryClient();
-  const { getHeaders } = useAuthHeaders();
-  
-  return useMutation({
-    mutationFn: async ({ agentId, data }: { agentId: string; data: CreateKnowledgeBaseEntryRequest }) => {
-      const headers = await getHeaders();
-      const response = await fetch(`${API_URL}/knowledge-base/agents/${agentId}`, {
-        method: 'POST',
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Failed to create agent knowledge base entry');
-      }
-      
-      return await response.json();
-    },
-    onSuccess: (_, { agentId }) => {
-      queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.agent(agentId) });
-      queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.agentContext(agentId) });
-      toast.success('Agent knowledge entry created successfully');
-    },
-    onError: (error) => {
-      toast.error(`Failed to create agent knowledge entry: ${error.message}`);
-    },
-  });
-}
 
 export function useAgentKnowledgeBaseContext(agentId: string, maxTokens = 4000) {
   const { getHeaders } = useAuthHeaders();
@@ -200,6 +151,7 @@ export function useAgentKnowledgeBaseContext(agentId: string, maxTokens = 4000) 
   });
 }
 
+<<<<<<< HEAD
 // New hooks for file upload and git clone operations
 export function useUploadAgentFiles() {
   const queryClient = useQueryClient();
@@ -391,3 +343,4 @@ export function useUpdateAgentUnifiedAssignments() {
     },
   });
 } 
+=======

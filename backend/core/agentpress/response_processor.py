@@ -26,6 +26,7 @@ from core.utils.json_helpers import (
     ensure_dict, ensure_list, safe_json_parse, 
     to_json_string, format_for_yield
 )
+from litellm import token_counter
 
 # Type alias for XML result adding strategy
 XmlAddingStrategy = Literal["user_message", "assistant_message", "inline_edit"]
@@ -117,6 +118,38 @@ class ResponseProcessor:
             return format_for_yield(message_obj)
         return None
 
+    def _estimate_token_usage(self, prompt_messages: List[Dict[str, Any]], accumulated_content: str, llm_model: str) -> Dict[str, Any]:
+        """
+        Estimate token usage when exact usage data is unavailable.
+        This is critical for billing on timeouts, crashes, disconnects, etc.
+        """
+        try:
+            prompt_tokens = token_counter(model=llm_model, messages=prompt_messages)
+            completion_tokens = token_counter(model=llm_model, text=accumulated_content) if accumulated_content else 0
+            
+            logger.warning(f"⚠️ ESTIMATED TOKEN USAGE (no exact data): prompt={prompt_tokens}, completion={completion_tokens}")
+            
+            return {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens,
+                "estimated": True
+            }
+        except Exception as e:
+            logger.error(f"Failed to estimate token usage: {e}")
+            fallback_prompt = len(' '.join(str(m.get('content', '')) for m in prompt_messages).split()) * 1.3
+            fallback_completion = len(accumulated_content.split()) * 1.3 if accumulated_content else 0
+            
+            logger.warning(f"⚠️ FALLBACK TOKEN ESTIMATION: prompt≈{int(fallback_prompt)}, completion≈{int(fallback_completion)}")
+            
+            return {
+                "prompt_tokens": int(fallback_prompt),
+                "completion_tokens": int(fallback_completion),
+                "total_tokens": int(fallback_prompt + fallback_completion),
+                "estimated": True,
+                "fallback": True
+            }
+    
     def _serialize_model_response(self, model_response) -> Dict[str, Any]:
         """Convert a LiteLLM ModelResponse object to a JSON-serializable dictionary.
         
@@ -238,22 +271,11 @@ class ResponseProcessor:
         complete_native_tool_calls = [] # Initialize early for use in assistant_response_end
         accumulated_thinking = ""  # Separate accumulator for thinking content
 
-        # Collect metadata for reconstructing LiteLLM response object
-        streaming_metadata = {
-            "model": llm_model,
-            "created": None,
-            "usage": {
-                "prompt_tokens": 0,
-                "completion_tokens": 0,
-                "total_tokens": 0,
-                "cache_creation_input_tokens": 0,
-                "cache_read_input_tokens": 0,
-                "prompt_tokens_details": {"cached_tokens": 0}
-            },
-            "response_ms": None,
-            "first_chunk_time": None,
-            "last_chunk_time": None
-        }
+        # Store the complete LiteLLM response object as received
+        final_llm_response = None
+        first_chunk_time = None
+        last_chunk_time = None
+        llm_response_end_saved = False
 
         logger.debug(f"Streaming Config: XML={config.xml_tool_calling}, Native={config.native_tool_calling}, "
                    f"Execute on stream={config.execute_on_stream}, Strategy={config.tool_execution_strategy}")
@@ -261,9 +283,13 @@ class ResponseProcessor:
         # Reuse thread_run_id for auto-continue or create new one
         thread_run_id = continuous_state.get('thread_run_id') or str(uuid.uuid4())
         continuous_state['thread_run_id'] = thread_run_id
+        
+        # CRITICAL: Generate unique ID for THIS specific LLM call (not per thread run)
+        llm_response_id = str(uuid.uuid4())
+        logger.info(f"🔵 LLM CALL #{auto_continue_count + 1} starting - llm_response_id: {llm_response_id}")
 
         try:
-            # --- Save and Yield Start Events (only if not auto-continuing) ---
+            # --- Save and Yield Start Events ---
             if auto_continue_count == 0:
                 start_content = {"status_type": "thread_run_start", "thread_run_id": thread_run_id}
                 start_msg_obj = await self.add_message(
@@ -271,19 +297,24 @@ class ResponseProcessor:
                     is_llm_message=False, metadata={"thread_run_id": thread_run_id}
                 )
                 if start_msg_obj: 
-                    # logger.debug(f"📤 About to yield start_msg_obj")
                     yield format_for_yield(start_msg_obj)
-                    # logger.debug(f"✅ Successfully yielded start_msg_obj")
 
-                assist_start_content = {"status_type": "assistant_response_start"}
-                assist_start_msg_obj = await self.add_message(
-                    thread_id=thread_id, type="status", content=assist_start_content, 
-                    is_llm_message=False, metadata={"thread_run_id": thread_run_id}
-                )
-                if assist_start_msg_obj: 
-                    # logger.debug(f"📤 About to yield assist_start_msg_obj")
-                    yield format_for_yield(assist_start_msg_obj)
-                    # logger.debug(f"✅ Successfully yielded assist_start_msg_obj")
+            llm_start_content = {
+                "llm_response_id": llm_response_id,
+                "auto_continue_count": auto_continue_count,
+                "model": llm_model,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            llm_start_msg_obj = await self.add_message(
+                thread_id=thread_id, type="llm_response_start", content=llm_start_content, 
+                is_llm_message=False, metadata={
+                    "thread_run_id": thread_run_id,
+                    "llm_response_id": llm_response_id
+                }
+            )
+            if llm_start_msg_obj: 
+                yield format_for_yield(llm_start_msg_obj)
+                logger.info(f"✅ Saved llm_response_start for call #{auto_continue_count + 1}")
             # --- End Start Events ---
 
             __sequence = continuous_state.get('sequence', 0)    # get the sequence from the previous auto-continue cycle
@@ -292,52 +323,23 @@ class ResponseProcessor:
             async for chunk in llm_response:
                 chunk_count += 1
                 
-                # Extract streaming metadata from chunks
+                # Track timing
                 current_time = datetime.now(timezone.utc).timestamp()
-                if streaming_metadata["first_chunk_time"] is None:
-                    streaming_metadata["first_chunk_time"] = current_time
-                streaming_metadata["last_chunk_time"] = current_time
+                if first_chunk_time is None:
+                    first_chunk_time = current_time
+                last_chunk_time = current_time
                 
                 # Log info about chunks periodically for debugging
                 if chunk_count == 1 or (chunk_count % 1000 == 0) or hasattr(chunk, 'usage'):
                     logger.debug(f"Processing chunk #{chunk_count}, type={type(chunk).__name__}")
                 
-                if hasattr(chunk, 'created') and chunk.created:
-                    streaming_metadata["created"] = chunk.created
-                if hasattr(chunk, 'model') and chunk.model:
-                    streaming_metadata["model"] = chunk.model
-                # DEBUG: Always log chunk info to see what's available
-                # logger.info(f"🔍 CHUNK #{chunk_count}: type={type(chunk)}, has_usage={hasattr(chunk, 'usage')}, usage_value={getattr(chunk, 'usage', 'NO_ATTR')}")
-                if hasattr(chunk, 'usage'):
-                    logger.info(f"🔍 USAGE OBJECT: {chunk.usage}")
-
-                if hasattr(chunk, 'usage') and chunk.usage:
-                    # DEBUG: Log the complete usage object to see what data we have
-                    logger.info(f"🔍 RAW USAGE OBJECT: {chunk.usage}")
-                    if hasattr(chunk.usage, '__dict__'):
-                        logger.info(f"🔍 USAGE ATTRS: {chunk.usage.__dict__}")
-
-                    # Save the usage object EXACTLY as received - don't modify cache data
-                    if hasattr(chunk.usage, 'prompt_tokens') and chunk.usage.prompt_tokens is not None:
-                        streaming_metadata["usage"]["prompt_tokens"] = chunk.usage.prompt_tokens
-                    if hasattr(chunk.usage, 'completion_tokens') and chunk.usage.completion_tokens is not None:
-                        streaming_metadata["usage"]["completion_tokens"] = chunk.usage.completion_tokens
-                    if hasattr(chunk.usage, 'total_tokens') and chunk.usage.total_tokens is not None:
-                        streaming_metadata["usage"]["total_tokens"] = chunk.usage.total_tokens
-
-                    # Cache metrics - save EXACTLY as received
-                    if hasattr(chunk.usage, 'cache_creation_input_tokens') and chunk.usage.cache_creation_input_tokens is not None:
-                        streaming_metadata["usage"]["cache_creation_input_tokens"] = chunk.usage.cache_creation_input_tokens
-                    if hasattr(chunk.usage, 'cache_read_input_tokens') and chunk.usage.cache_read_input_tokens is not None:
-                        streaming_metadata["usage"]["cache_read_input_tokens"] = chunk.usage.cache_read_input_tokens
-
-                    # prompt_tokens_details - save EXACTLY as received
-                    if hasattr(chunk.usage, 'prompt_tokens_details') and chunk.usage.prompt_tokens_details is not None:
-                        details = chunk.usage.prompt_tokens_details
-                        if "prompt_tokens_details" not in streaming_metadata["usage"]:
-                            streaming_metadata["usage"]["prompt_tokens_details"] = {}
-                        if hasattr(details, 'cached_tokens') and details.cached_tokens is not None:
-                            streaming_metadata["usage"]["prompt_tokens_details"]["cached_tokens"] = details.cached_tokens
+                # Store the complete LiteLLM response chunk when we get usage data
+                if hasattr(chunk, 'usage') and chunk.usage and final_llm_response is None:
+                    logger.info(f"🔍 STORING COMPLETE LiteLLM RESPONSE CHUNK AS RECEIVED")
+                    final_llm_response = chunk  # Store the entire chunk object as-is
+                    logger.info(f"🔍 STORED MODEL: {getattr(chunk, 'model', 'NO_MODEL')}")
+                    logger.info(f"🔍 STORED USAGE: {chunk.usage}")
+                    logger.info(f"🔍 STORED RESPONSE TYPE: {type(chunk)}")
 
                 if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'finish_reason') and chunk.choices[0].finish_reason:
                     finish_reason = chunk.choices[0].finish_reason
@@ -352,13 +354,13 @@ class ResponseProcessor:
                             # print("[THINKING]: ", end='', flush=True)
                             has_printed_thinking_prefix = True
                         # print(delta.reasoning_content, end='', flush=True)
-                        # Store reasoning content separately from main content
+                        # Append reasoning to main content to be saved in the final message
                         reasoning_content = delta.reasoning_content
                         # logger.debug(f"Processing reasoning_content: type={type(reasoning_content)}, value={reasoning_content}")
                         if isinstance(reasoning_content, list):
                             reasoning_content = ''.join(str(item) for item in reasoning_content)
-                        # logger.debug(f"About to concatenate reasoning_content to accumulated_thinking")
-                        accumulated_thinking += reasoning_content
+                        # logger.debug(f"About to concatenate reasoning_content (type={type(reasoning_content)}) to accumulated_content (type={type(accumulated_content)})")
+                        accumulated_content += reasoning_content
 
                     # Process content chunk
                     if delta and hasattr(delta, 'content') and delta.content:
@@ -509,99 +511,24 @@ class ResponseProcessor:
                                 tool_index += 1
 
                 if finish_reason == "xml_tool_limit_reached":
-                    self.trace.event(name="xml_tool_call_limit_reached_continuing_for_usage", level="DEFAULT", status_message=(f"XML tool call limit reached, continuing to collect usage data"))
-                    
-                    # If we already have usage data, we can safely break now
-                    if (streaming_metadata["usage"]["total_tokens"] > 0 or 
-                        streaming_metadata["usage"]["prompt_tokens"] > 0 or 
-                        streaming_metadata["usage"]["completion_tokens"] > 0):
-                        logger.info("✅ Got usage data after tool limit, safe to exit stream processing")
-                        break
-                    
-                    # Otherwise continue processing to collect usage data from final chunks
+                    logger.info("Stopping stream processing after loop due to XML tool call limit")
+                    self.trace.event(name="stopping_stream_processing_after_loop_due_to_xml_tool_call_limit", level="DEFAULT", status_message=(f"Stopping stream processing after loop due to XML tool call limit"))
+                    break
 
             logger.info(f"Stream complete. Total chunks: {chunk_count}")
             
-            # Extract final cache metrics
-            final_cache_creation = streaming_metadata['usage'].get('cache_creation_input_tokens', 0)
-            # Try cache_read_input_tokens first (Anthropic standard), then fallback to prompt_tokens_details.cached_tokens
-            final_cache_read = streaming_metadata['usage'].get('cache_read_input_tokens', 0)
-            if final_cache_read == 0:
-                final_cache_read = streaming_metadata['usage'].get('prompt_tokens_details', {}).get('cached_tokens', 0)
-
-            final_prompt_tokens = streaming_metadata['usage'].get('prompt_tokens', 0)
-            final_completion_tokens = streaming_metadata['usage'].get('completion_tokens', 0)
+            # Calculate response time if we have timing data
+            response_ms = None
+            if first_chunk_time and last_chunk_time:
+                response_ms = (last_chunk_time - first_chunk_time) * 1000
             
-            logger.info(f"Final usage: prompt={final_prompt_tokens}, completion={final_completion_tokens}")
-            
-            # Cache info will be logged by thread_manager during billing
-
-            # Note: cache_metrics is now None since we removed the probe
-            # All cache data should be captured directly from streaming chunks above
-            
-            # For Anthropic models, wait a bit for usage data since it often arrives in final chunks
-            is_anthropic = any(provider in llm_model.lower() for provider in ['anthropic', 'claude', 'sonnet', 'haiku', 'opus'])
-            
-            if (is_anthropic and 
-                streaming_metadata["usage"]["total_tokens"] == 0 and 
-                streaming_metadata["usage"]["prompt_tokens"] == 0 and 
-                streaming_metadata["usage"]["completion_tokens"] == 0):
-                
-                logger.info("⏳ ANTHROPIC TOKEN WAIT: Waiting for usage data from Anthropic...")
-                
-                # Wait up to 2 seconds for Anthropic usage data
-                max_wait_time = 2.0
-                wait_interval = 0.1
-                waited_time = 0.0
-                
-                while (waited_time < max_wait_time and 
-                       streaming_metadata["usage"]["total_tokens"] == 0 and 
-                       streaming_metadata["usage"]["prompt_tokens"] == 0 and 
-                       streaming_metadata["usage"]["completion_tokens"] == 0):
-                    await asyncio.sleep(wait_interval)
-                    waited_time += wait_interval
-                
-                if streaming_metadata["usage"]["total_tokens"] > 0:
-                    logger.info(f"✅ ANTHROPIC DELAYED DATA: Got usage after {waited_time:.1f}s wait - prompt={streaming_metadata['usage']['prompt_tokens']}, completion={streaming_metadata['usage']['completion_tokens']}")
-                else:
-                    logger.warning(f"⚠️ ANTHROPIC TIMEOUT: No usage data after {waited_time:.1f}s wait, falling back to estimation")
-            
-            # DEBUG: Log what token data we actually have before deciding to estimate
-            logger.info(f"🔍 TOKEN DATA CHECK: total={streaming_metadata['usage']['total_tokens']}, prompt={streaming_metadata['usage']['prompt_tokens']}, completion={streaming_metadata['usage']['completion_tokens']}")
-            
-            # Only use LiteLLM estimation if we have NO token data from the provider at all
-            if (streaming_metadata["usage"]["total_tokens"] == 0 and 
-                streaming_metadata["usage"]["prompt_tokens"] == 0 and 
-                streaming_metadata["usage"]["completion_tokens"] == 0):
-                logger.info("🔥 NO PROVIDER TOKEN DATA: Using LiteLLM token counting fallback")
-                
-                try:
-                    from litellm import token_counter
-                    
-                    prompt_tokens = token_counter(
-                        model=llm_model,
-                        messages=prompt_messages
-                    )
-
-                    completion_tokens = token_counter(
-                        model=llm_model,
-                        text=accumulated_content or ""
-                    )
-
-                    streaming_metadata["usage"]["prompt_tokens"]      = prompt_tokens
-                    streaming_metadata["usage"]["completion_tokens"]  = completion_tokens
-                    streaming_metadata["usage"]["total_tokens"]       = prompt_tokens + completion_tokens
-
-                    logger.info(
-                        f"🔥 Estimated tokens – prompt: {prompt_tokens}, "
-                        f"completion: {completion_tokens}, total: {prompt_tokens + completion_tokens}"
-                    )
-                    self.trace.event(name="usage_calculated_with_litellm_token_counter", level="DEFAULT", status_message=(f"Usage calculated with litellm.token_counter"))
-                except Exception as e:
-                    logger.warning(f"Failed to calculate usage: {str(e)}")
-                    self.trace.event(name="failed_to_calculate_usage", level="WARNING", status_message=(f"Failed to calculate usage: {str(e)}"))
+            # Log what we captured
+            if final_llm_response:
+                logger.info(f"✅ Captured complete LiteLLM response object")
+                logger.info(f"🔍 RESPONSE MODEL: {getattr(final_llm_response, 'model', 'NO_MODEL')}")
+                logger.info(f"🔍 RESPONSE USAGE: {getattr(final_llm_response, 'usage', 'NO_USAGE')}")
             else:
-                logger.info(f"✅ PROVIDER TOKEN DATA: Using Anthropic-provided tokens: prompt={streaming_metadata['usage']['prompt_tokens']}, completion={streaming_metadata['usage']['completion_tokens']}")
+                logger.warning("⚠️ No complete LiteLLM response captured from streaming chunks")
 
             tool_results_buffer = []
             if pending_tool_executions:
@@ -902,23 +829,23 @@ class ResponseProcessor:
                 )
                 if finish_msg_obj: yield format_for_yield(finish_msg_obj)
                 
-                # Save assistant_response_end BEFORE terminating
+                # Save llm_response_end BEFORE terminating
                 if last_assistant_message_object:
                     try:
-                        # Calculate response time if we have timing data
-                        if streaming_metadata["first_chunk_time"] and streaming_metadata["last_chunk_time"]:
-                            streaming_metadata["response_ms"] = (streaming_metadata["last_chunk_time"] - streaming_metadata["first_chunk_time"]) * 1000
-
-                        # Create a LiteLLM-like response object for streaming (before termination)
-                        # Check if we have any actual usage data
-                        has_usage_data = (
-                            streaming_metadata["usage"]["prompt_tokens"] > 0 or
-                            streaming_metadata["usage"]["completion_tokens"] > 0 or
-                            streaming_metadata["usage"]["total_tokens"] > 0
-                        )
-                        
-                        assistant_end_content = {
-                            "choices": [
+                        # Use the complete LiteLLM response object as received
+                        if final_llm_response:
+                            logger.info("✅ Using complete LiteLLM response for llm_response_end (before termination)")
+                            # Serialize the complete response object as-is
+                            llm_end_content = self._serialize_model_response(final_llm_response)
+                            
+                            # Add streaming flag and response timing if available
+                            llm_end_content["streaming"] = True
+                            if response_ms:
+                                llm_end_content["response_ms"] = response_ms
+                                
+                            # For streaming responses, we need to construct the choices manually
+                            # since the streaming chunk doesn't have the complete message structure
+                            llm_end_content["choices"] = [
                                 {
                                     "finish_reason": finish_reason or "stop",
                                     "index": 0,
@@ -928,54 +855,59 @@ class ResponseProcessor:
                                         "tool_calls": complete_native_tool_calls or None
                                     }
                                 }
-                            ],
-                            "created": streaming_metadata.get("created"),
-                            "model": streaming_metadata.get("model", llm_model),
-                            "usage": streaming_metadata["usage"],  # Always include usage like LiteLLM does
-                            "streaming": True,  # Add flag to indicate this was reconstructed from streaming
-                        }
+                            ]
+                            llm_end_content["llm_response_id"] = llm_response_id
+                        else:
+                            logger.warning("⚠️ No complete LiteLLM response available, skipping llm_response_end")
+                            llm_end_content = None
                         
-                        # DEBUG: Log the streaming metadata usage before saving assistant_end_content
-                        logger.info(f"🔍 RESPONSE PROCESSOR STREAMING USAGE (before termination): {streaming_metadata['usage']}")
-                        
-                        # Only include response_ms if we have timing data
-                        if streaming_metadata.get("response_ms"):
-                            assistant_end_content["response_ms"] = streaming_metadata["response_ms"]
-                        
-                        await self.add_message(
-                            thread_id=thread_id,
-                            type="assistant_response_end",
-                            content=assistant_end_content,
-                            is_llm_message=False,
-                            metadata={"thread_run_id": thread_run_id}
-                        )
-                        logger.debug("Assistant response end saved for stream (before termination)")
+                        # Only save if we have content
+                        if llm_end_content:
+                            await self.add_message(
+                                thread_id=thread_id,
+                                type="llm_response_end",
+                                content=llm_end_content,
+                                is_llm_message=False,
+                                metadata={
+                                    "thread_run_id": thread_run_id,
+                                    "llm_response_id": llm_response_id
+                                }
+                            )
+                            llm_response_end_saved = True
+                        logger.info(f"✅ llm_response_end saved for call #{auto_continue_count + 1} (before termination)")
                     except Exception as e:
-                        logger.error(f"Error saving assistant response end for stream (before termination): {str(e)}")
-                        self.trace.event(name="error_saving_assistant_response_end_for_stream_before_termination", level="ERROR", status_message=(f"Error saving assistant response end for stream (before termination): {str(e)}"))
+                        logger.error(f"Error saving llm_response_end (before termination): {str(e)}")
+                        self.trace.event(name="error_saving_llm_response_end_before_termination", level="ERROR", status_message=(f"Error saving llm_response_end (before termination): {str(e)}"))
                 
                 # Skip all remaining processing and go to finally block
                 return
 
-            # --- Save and Yield assistant_response_end ---
-            # Only save assistant_response_end if not auto-continuing (response is actually complete)
+            # --- Save and Yield llm_response_end ---
+            # Only save llm_response_end if not auto-continuing (response is actually complete)
             if not should_auto_continue:
-                if last_assistant_message_object: # Only save if assistant message was saved
+                if last_assistant_message_object:
                     try:
-                        # Calculate response time if we have timing data
-                        if streaming_metadata["first_chunk_time"] and streaming_metadata["last_chunk_time"]:
-                            streaming_metadata["response_ms"] = (streaming_metadata["last_chunk_time"] - streaming_metadata["first_chunk_time"]) * 1000
-
-                        # Create a LiteLLM-like response object for streaming
-                        # Check if we have any actual usage data
-                        has_usage_data = (
-                            streaming_metadata["usage"]["prompt_tokens"] > 0 or
-                            streaming_metadata["usage"]["completion_tokens"] > 0 or
-                            streaming_metadata["usage"]["total_tokens"] > 0
-                        )
-                        
-                        assistant_end_content = {
-                            "choices": [
+                        # Use the complete LiteLLM response object as received
+                        if final_llm_response:
+                            logger.info("✅ Using complete LiteLLM response for llm_response_end (normal completion)")
+                            
+                            # Log the complete response object for debugging
+                            logger.info(f"🔍 COMPLETE RESPONSE OBJECT: {final_llm_response}")
+                            logger.info(f"🔍 RESPONSE OBJECT TYPE: {type(final_llm_response)}")
+                            logger.info(f"🔍 RESPONSE OBJECT DICT: {final_llm_response.__dict__ if hasattr(final_llm_response, '__dict__') else 'NO_DICT'}")
+                            
+                            # Serialize the complete response object as-is
+                            llm_end_content = self._serialize_model_response(final_llm_response)
+                            logger.info(f"🔍 SERIALIZED CONTENT: {llm_end_content}")
+                            
+                            # Add streaming flag and response timing if available
+                            llm_end_content["streaming"] = True
+                            if response_ms:
+                                llm_end_content["response_ms"] = response_ms
+                                
+                            # For streaming responses, we need to construct the choices manually
+                            # since the streaming chunk doesn't have the complete message structure
+                            llm_end_content["choices"] = [
                                 {
                                     "finish_reason": finish_reason or "stop",
                                     "index": 0,
@@ -985,31 +917,30 @@ class ResponseProcessor:
                                         "tool_calls": complete_native_tool_calls or None
                                     }
                                 }
-                            ],
-                            "created": streaming_metadata.get("created"),
-                            "model": streaming_metadata.get("model", llm_model),
-                            "usage": streaming_metadata["usage"],  # Always include usage like LiteLLM does
-                            "streaming": True,  # Add flag to indicate this was reconstructed from streaming
-                        }
-                        
-                        # DEBUG: Log the streaming metadata usage before saving assistant_end_content
-                        logger.info(f"🔍 RESPONSE PROCESSOR STREAMING USAGE (normal): {streaming_metadata['usage']}")
-                        
-                        # Only include response_ms if we have timing data
-                        if streaming_metadata.get("response_ms"):
-                            assistant_end_content["response_ms"] = streaming_metadata["response_ms"]
-                        
-                        await self.add_message(
-                            thread_id=thread_id,
-                            type="assistant_response_end",
-                            content=assistant_end_content,
-                            is_llm_message=False,
-                            metadata={"thread_run_id": thread_run_id}
-                        )
-                        logger.debug("Assistant response end saved for stream")
+                            ]
+                            llm_end_content["llm_response_id"] = llm_response_id
+                                
+                            # DEBUG: Log the actual response usage
+                            logger.info(f"🔍 RESPONSE PROCESSOR COMPLETE USAGE (normal): {llm_end_content.get('usage', 'NO_USAGE')}")
+                            logger.info(f"🔍 FINAL LLM END CONTENT: {llm_end_content}")
+                            
+                            await self.add_message(
+                                thread_id=thread_id,
+                                type="llm_response_end",
+                                content=llm_end_content,
+                                is_llm_message=False,
+                                metadata={
+                                    "thread_run_id": thread_run_id,
+                                    "llm_response_id": llm_response_id
+                                }
+                            )
+                            llm_response_end_saved = True
+                        else:
+                            logger.warning("⚠️ No complete LiteLLM response available, skipping llm_response_end")
+                        logger.info(f"✅ llm_response_end saved for call #{auto_continue_count + 1} (normal completion)")
                     except Exception as e:
-                        logger.error(f"Error saving assistant response end for stream: {str(e)}")
-                        self.trace.event(name="error_saving_assistant_response_end_for_stream", level="ERROR", status_message=(f"Error saving assistant response end for stream: {str(e)}"))
+                        logger.error(f"Error saving llm_response_end: {str(e)}")
+                        self.trace.event(name="error_saving_llm_response_end", level="ERROR", status_message=(f"Error saving llm_response_end: {str(e)}"))
 
         except Exception as e:
             # Use ErrorProcessor for consistent error handling
@@ -1027,21 +958,79 @@ class ResponseProcessor:
             raise
 
         finally:
-            # Update continuous state for potential auto-continue
+            if not llm_response_end_saved and last_assistant_message_object:
+                try:
+                    logger.info(f"💰 BULLETPROOF BILLING: Saving llm_response_end in finally block for call #{auto_continue_count + 1}")
+                    if final_llm_response:
+                        logger.info("💰 Using exact usage from LLM response")
+                        llm_end_content = self._serialize_model_response(final_llm_response)
+                    else:
+                        logger.warning("💰 No LLM response with usage - ESTIMATING token usage for billing")
+                        estimated_usage = self._estimate_token_usage(prompt_messages, accumulated_content, llm_model)
+                        llm_end_content = {
+                            "model": llm_model,
+                            "usage": estimated_usage
+                        }
+                    
+                    llm_end_content["streaming"] = True
+                    llm_end_content["llm_response_id"] = llm_response_id
+                    
+                    response_ms = None
+                    if first_chunk_time and last_chunk_time:
+                        response_ms = int((last_chunk_time - first_chunk_time) * 1000)
+                        llm_end_content["response_ms"] = response_ms
+                    
+                    llm_end_content["choices"] = [
+                        {
+                            "finish_reason": finish_reason or "interrupted",
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": accumulated_content,
+                                "tool_calls": complete_native_tool_calls or None
+                            }
+                        }
+                    ]
+                    
+                    usage_info = llm_end_content.get('usage', {})
+                    is_estimated = usage_info.get('estimated', False)
+                    logger.info(f"💰 BILLING RECOVERY - Usage ({'ESTIMATED' if is_estimated else 'EXACT'}): {usage_info}")
+                    
+                    await self.add_message(
+                        thread_id=thread_id,
+                        type="llm_response_end",
+                        content=llm_end_content,
+                        is_llm_message=False,
+                        metadata={
+                            "thread_run_id": thread_run_id,
+                            "llm_response_id": llm_response_id
+                        }
+                    )
+                    llm_response_end_saved = True
+                    logger.info(f"✅ BILLING SUCCESS: Saved llm_response_end for call #{auto_continue_count + 1} ({'estimated' if is_estimated else 'exact'} usage)")
+                    
+                except Exception as billing_e:
+                    logger.error(f"❌ CRITICAL BILLING FAILURE: Could not save llm_response_end: {str(billing_e)}", exc_info=True)
+                    self.trace.event(
+                        name="critical_billing_failure_in_finally", 
+                        level="ERROR", 
+                        status_message=(f"Failed to save llm_response_end for billing: {str(billing_e)}")
+                    )
+            elif llm_response_end_saved:
+                logger.debug(f"✅ Billing already handled for call #{auto_continue_count + 1} (llm_response_end was saved earlier)")
+            
             if should_auto_continue:
                 continuous_state['accumulated_content'] = accumulated_content
                 continuous_state['sequence'] = __sequence
                 
                 logger.debug(f"Updated continuous state for auto-continue with {len(accumulated_content)} chars")
             else:
-                # Set the final output in the generation object if provided
                 if generation and 'accumulated_content' in locals():
                     try:
-                        # Update generation with usage metrics before ending
-                        if streaming_metadata and streaming_metadata.get("usage"):
+                        if final_llm_response and hasattr(final_llm_response, 'usage'):
                             generation.update(
-                                usage=streaming_metadata["usage"],
-                                model=streaming_metadata.get("model", llm_model)
+                                usage=final_llm_response.usage.model_dump() if hasattr(final_llm_response.usage, 'model_dump') else dict(final_llm_response.usage),
+                                model=getattr(final_llm_response, 'model', llm_model)
                             )
                         generation.end(output=accumulated_content)
                         logger.debug(f"Set generation output: {len(accumulated_content)} chars with usage metrics")
@@ -1465,42 +1454,12 @@ class ResponseProcessor:
             function_name = tool_call["function_name"]
             arguments = tool_call["arguments"]
 
+            logger.debug(f"🔧 EXECUTING TOOL: {function_name}")
+            # logger.debug(f"📝 RAW ARGUMENTS TYPE: {type(arguments)}")
+            logger.debug(f"📝 RAW ARGUMENTS VALUE: {arguments}")
             self.trace.event(name="executing_tool", level="DEFAULT", status_message=(f"Executing tool: {function_name} with arguments: {arguments}"))
-            
-            # Check tool credit cost if thread_id is provided
-            if thread_id:
-                try:
-                    from core.services.billing_wrapper import can_user_afford_tool_unified, charge_tool_usage_unified
-                    from core.services.supabase import DBConnection
-                    
-                    db = DBConnection()
-                    client = await db.client
-                    
-                    # Get user_id from thread
-                    thread_result = await client.table('threads').select('account_id').eq('thread_id', thread_id).execute()
-                    if thread_result.data and len(thread_result.data) > 0:
-                        user_id = thread_result.data[0]['account_id']
-                        
-                        # Check if user can afford this tool
-                        affordability = await can_user_afford_tool_unified(client, user_id, function_name)
-                        
-                        if not affordability['can_use']:
-                            logger.warning(f"User {user_id} cannot afford tool {function_name}. Required: ${affordability['required_cost']:.4f}, Available: ${affordability['current_balance']:.4f}")
-                            span.end(status_message="insufficient_credits", level="WARNING")
-                            return ToolResult(
-                                success=False, 
-                                output=f"Insufficient credits for tool '{function_name}'. Required: ${affordability['required_cost']:.4f}, Available: ${affordability['current_balance']:.4f}"
-                            )
-                except Exception as credit_check_error:
-                    logger.error(f"Error checking tool credits: {credit_check_error}")
-                    # Continue with tool execution if credit check fails
-            
-            if isinstance(arguments, str):
-                try:
-                    arguments = safe_json_parse(arguments)
-                except json.JSONDecodeError:
-                    arguments = {"text": arguments}
-            
+
+
             # Get available functions from tool registry
             logger.debug(f"🔍 Looking up tool function: {function_name}")
             available_functions = self.tool_registry.get_available_functions()
@@ -1517,16 +1476,14 @@ class ResponseProcessor:
             logger.debug(f"✅ Found tool function for '{function_name}'")
             # logger.debug(f"🔧 Tool function type: {type(tool_fn)}")
 
-            # Handle arguments - if it's a string, try to parse it, otherwise pass as-is (FROM SUNA)
+            # Handle arguments - if it's a string, try to parse it, otherwise pass as-is
             if isinstance(arguments, str):
                 logger.debug(f"🔄 Parsing string arguments for {function_name}")
                 try:
                     parsed_args = safe_json_parse(arguments)
                     if isinstance(parsed_args, dict):
                         # logger.debug(f"✅ Parsed arguments as dict: {parsed_args}")
-                        # Validate and provide default values for required parameters
-                        validated_args = self._validate_and_fix_tool_arguments(function_name, parsed_args)
-                        result = await tool_fn(**validated_args)
+                        result = await tool_fn(**parsed_args)
                     else:
                         logger.debug(f"🔄 Arguments parsed as non-dict, passing as single argument")
                         result = await tool_fn(arguments)
@@ -1538,9 +1495,7 @@ class ResponseProcessor:
                     # logger.debug(f"🔄 Falling back to raw arguments")
                     if isinstance(arguments, dict):
                         # logger.debug(f"🔄 Fallback: unpacking dict arguments")
-                        # Validate and provide default values for required parameters
-                        validated_args = self._validate_and_fix_tool_arguments(function_name, arguments)
-                        result = await tool_fn(**validated_args)
+                        result = await tool_fn(**arguments)
                     else:
                         # logger.debug(f"🔄 Fallback: passing as single argument")
                         result = await tool_fn(arguments)
@@ -1548,10 +1503,7 @@ class ResponseProcessor:
                 # logger.debug(f"✅ Arguments are not string, unpacking dict: {type(arguments)}")
                 if isinstance(arguments, dict):
                     # logger.debug(f"🔄 Unpacking dict arguments for tool call")
-                    
-                    # Validate and provide default values for required parameters
-                    validated_args = self._validate_and_fix_tool_arguments(function_name, arguments)
-                    result = await tool_fn(**validated_args)
+                    result = await tool_fn(**arguments)
                 else:
                     # logger.debug(f"🔄 Passing non-dict arguments as single parameter")
                     result = await tool_fn(arguments)
@@ -1560,7 +1512,7 @@ class ResponseProcessor:
             # logger.debug(f"📤 Result type: {type(result)}")
             logger.debug(f"📤 Result: {result}")
 
-            # Validate result is a ToolResult object (FROM SUNA)
+            # Validate result is a ToolResult object
             if not isinstance(result, ToolResult):
                 logger.warning(f"⚠️ Tool returned non-ToolResult object: {type(result)}")
                 # Convert to ToolResult if possible
@@ -1571,24 +1523,6 @@ class ResponseProcessor:
                     logger.error(f"❌ Tool returned invalid result type: {type(result)}")
                     result = ToolResult(success=False, output=f"Tool returned invalid result type: {type(result)}")
 
-            # Charge for tool usage if successful and thread_id is provided (PRESERVE YOUR LOGIC)
-            if result.success and thread_id and 'user_id' in locals():
-                try:
-                    if 'affordability' in locals() and affordability['required_cost'] > 0:
-                        charge_result = await charge_tool_usage_unified(
-                            client,
-                            user_id,
-                            function_name,
-                            thread_id,
-                            message_id
-                        )
-                        if charge_result['success']:
-                            logger.debug(f"Charged ${charge_result['cost_charged']:.4f} for tool {function_name}. New balance: ${charge_result['new_balance']:.4f}")
-                        else:
-                            logger.error(f"Failed to charge for tool {function_name}")
-                except Exception as charge_error:
-                    logger.error(f"Error charging for tool usage: {charge_error}")
-                    # Don't fail the tool execution if charging fails
 
             span.end(status_message="tool_executed", output=str(result))
             return result
@@ -1601,62 +1535,10 @@ class ResponseProcessor:
             span.end(status_message="critical_error", output=str(e), level="ERROR")
             return ToolResult(success=False, output=f"Critical error executing tool: {str(e)}")
 
-    def _validate_and_fix_tool_arguments(self, function_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate and fix tool arguments, providing defaults for required parameters."""
-        try:
-            # Get the tool function to inspect its signature
-            available_functions = self.tool_registry.get_available_functions()
-            tool_fn = available_functions.get(function_name)
-            
-            if not tool_fn:
-                logger.warning(f"Tool function '{function_name}' not found for validation")
-                return arguments
-            
-            # Import inspect to get function signature
-            import inspect
-            
-            # Get the function signature
-            sig = inspect.signature(tool_fn)
-            validated_args = arguments.copy()
-            
-            # Check for required parameters and provide defaults
-            for param_name, param in sig.parameters.items():
-                if param_name not in validated_args:
-                    if param.default == inspect.Parameter.empty:
-                        # This is a required parameter without a default
-                        if function_name == "ask" and param_name == "text":
-                            # Special case for ask tool - provide a default question
-                            validated_args[param_name] = "I need more information to proceed. Could you please provide additional details?"
-                            logger.debug(f"🔧 Added default 'text' parameter for ask tool")
-                        elif function_name == "web_browser_takeover" and param_name == "text":
-                            # Special case for web_browser_takeover tool
-                            validated_args[param_name] = "I need your help with browser interaction. Please take over the browser to complete this task."
-                            logger.debug(f"🔧 Added default 'text' parameter for web_browser_takeover tool")
-                        else:
-                            # For other required parameters, provide a generic default
-                            if param.annotation == str:
-                                validated_args[param_name] = f"Please provide {param_name}"
-                            elif param.annotation == int:
-                                validated_args[param_name] = 0
-                            elif param.annotation == bool:
-                                validated_args[param_name] = False
-                            else:
-                                validated_args[param_name] = None
-                            logger.debug(f"🔧 Added default value for required parameter '{param_name}' in {function_name}")
-            
-            logger.debug(f"✅ Validated arguments for {function_name}: {validated_args}")
-            return validated_args
-            
-        except Exception as e:
-            logger.error(f"❌ Error validating tool arguments for {function_name}: {str(e)}")
-            # Return original arguments if validation fails
-            return arguments
-
     async def _execute_tools(
-        self, 
-        tool_calls: List[Dict[str, Any]], 
-        execution_strategy: ToolExecutionStrategy = "sequential",
-        thread_id: str = None
+        self,
+        tool_calls: List[Dict[str, Any]],
+        execution_strategy: ToolExecutionStrategy = "sequential"
     ) -> List[Tuple[Dict[str, Any], ToolResult]]:
         """Execute tool calls with the specified strategy.
 
@@ -1707,7 +1589,7 @@ class ResponseProcessor:
             logger.error(f"❌ Tool calls that caused dispatch failure: {tool_calls}")
             raise
 
-    async def _execute_tools_sequentially(self, tool_calls: List[Dict[str, Any]], thread_id: str = None) -> List[Tuple[Dict[str, Any], ToolResult]]:
+    async def _execute_tools_sequentially(self, tool_calls: List[Dict[str, Any]]) -> List[Tuple[Dict[str, Any], ToolResult]]:
         """Execute tool calls sequentially and return results.
 
         This method executes tool calls one after another, waiting for each tool to complete
@@ -1800,7 +1682,7 @@ class ResponseProcessor:
 
             return completed_results + error_results
 
-    async def _execute_tools_in_parallel(self, tool_calls: List[Dict[str, Any]], thread_id: str = None) -> List[Tuple[Dict[str, Any], ToolResult]]:
+    async def _execute_tools_in_parallel(self, tool_calls: List[Dict[str, Any]]) -> List[Tuple[Dict[str, Any], ToolResult]]:
         """Execute tool calls in parallel and return results.
 
         This method executes all tool calls simultaneously using asyncio.gather, which

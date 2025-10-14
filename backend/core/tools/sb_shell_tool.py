@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any
 import time
 import asyncio
 from uuid import uuid4
-from core.agentpress.tool import ToolResult, openapi_schema, usage_example
+from core.agentpress.tool import ToolResult, openapi_schema
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
 
@@ -14,7 +14,6 @@ class SandboxShellTool(SandboxToolsBase):
     def __init__(self, project_id: str, thread_manager: ThreadManager):
         super().__init__(project_id, thread_manager)
         self._sessions: Dict[str, str] = {}  # Maps session names to session IDs
-        self.workspace_path = "/workspace"  # Ensure we're always operating in /workspace
 
     async def _ensure_session(self, session_name: str = "default") -> str:
         """Ensure a session exists and return its ID."""
@@ -73,32 +72,6 @@ class SandboxShellTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="execute_command">
-        <parameter name="command">npm run dev</parameter>
-        <parameter name="session_name">dev_server</parameter>
-        </invoke>
-        </function_calls>
-
-        <!-- Example 2: Running in Specific Directory -->
-        <function_calls>
-        <invoke name="execute_command">
-        <parameter name="command">npm run build</parameter>
-        <parameter name="folder">frontend</parameter>
-        <parameter name="session_name">build_process</parameter>
-        </invoke>
-        </function_calls>
-
-        <!-- Example 3: Blocking command (wait for completion) -->
-        <function_calls>
-        <invoke name="execute_command">
-        <parameter name="command">npm install</parameter>
-        <parameter name="blocking">true</parameter>
-        <parameter name="timeout">300</parameter>
-        </invoke>
-        </function_calls>
-        ''')
     async def execute_command(
         self, 
         command: str, 
@@ -253,21 +226,6 @@ class SandboxShellTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="check_command_output">
-        <parameter name="session_name">dev_server</parameter>
-        </invoke>
-        </function_calls>
-        
-        <!-- Example 2: Check final output and kill session -->
-        <function_calls>
-        <invoke name="check_command_output">
-        <parameter name="session_name">build_process</parameter>
-        <parameter name="kill_session">true</parameter>
-        </invoke>
-        </function_calls>
-        ''')
     async def check_command_output(
         self,
         session_name: str,
@@ -319,13 +277,6 @@ class SandboxShellTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="terminate_command">
-        <parameter name="session_name">dev_server</parameter>
-        </invoke>
-        </function_calls>
-        ''')
     async def terminate_command(
         self,
         session_name: str
@@ -360,12 +311,6 @@ class SandboxShellTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="list_commands">
-        </invoke>
-        </function_calls>
-        ''')
     async def list_commands(self) -> ToolResult:
         try:
             # Ensure sandbox is initialized

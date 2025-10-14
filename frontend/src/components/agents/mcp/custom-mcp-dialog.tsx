@@ -169,15 +169,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
     setValidationError(null);
 
     try {
-      const configToSave = { 
-        url: configText.trim(),
-        headers: headers.reduce((acc, h) => {
-          if (h.key.trim() && h.value.trim()) {
-            acc[h.key.trim()] = h.value.trim();
-          }
-          return acc;
-        }, {} as Record<string, string>)
-      };
+      const configToSave: any = { url: configText.trim() };
       
       onSave({
         name: serverName,

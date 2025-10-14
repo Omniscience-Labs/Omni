@@ -91,109 +91,6 @@ export default function AgentsPage() {
 
   const activeTab = useMemo(() => {
     const tab = searchParams.get('tab');
-    return tab || 'my-agents';
-  }, [searchParams]);
-
-
-  const agentsQueryParams: AgentsParams = useMemo(() => {
-    const params: AgentsParams = {
-      page: agentsPage,
-      limit: agentsPageSize,
-      search: agentsSearchQuery || undefined,
-      sort_by: agentsSortBy,
-      sort_order: agentsSortOrder,
-      content_type: "agents",
-    };
-
-    if (agentsFilters.hasDefaultAgent) {
-      params.has_default = true;
-    }
-    if (agentsFilters.hasMcpTools) {
-      params.has_mcp_tools = true;
-    }
-    if (agentsFilters.hasAgentpressTools) {
-      params.has_agentpress_tools = true;
-    }
-    if (agentsFilters.selectedTools.length > 0) {
-      params.tools = agentsFilters.selectedTools.join(',');
-    }
-
-    return params;
-  }, [agentsPage, agentsPageSize, agentsSearchQuery, agentsSortBy, agentsSortOrder, agentsFilters]);
-
-  const marketplaceQueryParams = useMemo(() => {
-    const params: any = {
-      page: marketplacePage,
-      limit: marketplacePageSize,
-      search: marketplaceSearchQuery || undefined,
-      tags: marketplaceSelectedTags.length > 0 ? marketplaceSelectedTags.join(',') : undefined,
-      sort_by: "download_count",
-      sort_order: "desc"
-    };
-    
-    if (marketplaceFilter === 'kortix') {
-      params.is_kortix_team = true;
-    } else if (marketplaceFilter === 'community') {
-      params.is_kortix_team = false;
-    } else if (marketplaceFilter === 'mine') {
-      params.mine = true;
-    }
-    
-    return params;
-  }, [marketplacePage, marketplacePageSize, marketplaceSearchQuery, marketplaceSelectedTags, marketplaceFilter]);
-
-  const templatesQueryParams = useMemo(() => ({
-    page: templatesPage,
-    limit: templatesPageSize,
-    search: templatesSearchQuery || undefined,
-    sort_by: templatesSortBy,
-    sort_order: templatesSortOrder
-  }), [templatesPage, templatesPageSize, templatesSearchQuery, templatesSortBy, templatesSortOrder]);
-
-  const { data: agentsResponse, isLoading: agentsLoading, error: agentsError, refetch: loadAgents } = useAgents(agentsQueryParams);
-  const { data: marketplaceTemplates, isLoading: marketplaceLoading } = useMarketplaceTemplates(marketplaceQueryParams);
-
-  const templatesAgentsQueryParams = useMemo(() => ({
-    ...agentsQueryParams,
-    page: templatesPage,
-    limit: templatesPageSize,
-    search: templatesSearchQuery || undefined,
-    sort_by: templatesSortBy,
-    sort_order: templatesSortOrder,
-    content_type: "templates"
-  }), [templatesPage, templatesPageSize, templatesSearchQuery, templatesSortBy, templatesSortOrder]);
-  
-  const { data: templatesResponse, isLoading: templatesLoading, error: templatesError } = useAgents(templatesAgentsQueryParams);
-  const myTemplates = templatesResponse?.agents;
-  const templatesPagination = templatesResponse?.pagination;
-  
-  const updateAgentMutation = useUpdateAgent();
-  const { optimisticallyUpdateAgent, revertOptimisticUpdate } = useOptimisticAgentUpdate();
-  const { deleteAgent, isDeletingAgent, isDeleting } = useAgentDeletionState();
-  const installTemplateMutation = useInstallTemplate();
-  const unpublishMutation = useUnpublishTemplate();
-  const publishMutation = usePublishTemplate();
-  const createTemplateMutation = useCreateTemplate();
-  const deleteTemplateMutation = useDeleteTemplate();
-
-  const agents = agentsResponse?.agents || [];
-  const agentsPagination = agentsResponse?.pagination;
-
-  const allMarketplaceItems = useMemo(() => {
-    const items: MarketplaceTemplate[] = [];
-    if (marketplaceTemplates?.templates) {
-      marketplaceTemplates.templates.forEach(template => {
-        const item: MarketplaceTemplate = {
-          id: template.template_id,
-          creator_id: template.creator_id,
-          name: template.name,
-          description: template.description,
-          tags: template.tags || [],
-          download_count: template.download_count || 0,
-          creator_name: template.creator_name || 'Anonymous',
-          created_at: template.created_at,
-          marketplace_published_at: template.marketplace_published_at,
-          profile_image_url: template.profile_image_url,
           icon_name: template.icon_name,
           icon_color: template.icon_color,
           icon_background: template.icon_background,
@@ -201,6 +98,8 @@ export default function AgentsPage() {
           is_kortix_team: template.is_kortix_team,
           mcp_requirements: template.mcp_requirements,
           metadata: template.metadata,
+          usage_examples: template.usage_examples,
+          config: template.config,
         };
 
         items.push(item);
@@ -321,7 +220,9 @@ export default function AgentsPage() {
     item: MarketplaceTemplate, 
     instanceName?: string, 
     profileMappings?: Record<string, string>, 
-    customMcpConfigs?: Record<string, Record<string, any>>
+    customMcpConfigs?: Record<string, Record<string, any>>,
+    triggerConfigs?: Record<string, Record<string, any>>,
+    triggerVariables?: Record<string, Record<string, string>>
   ) => {
     setInstallingItemId(item.id);
     
@@ -361,18 +262,37 @@ export default function AgentsPage() {
         return;
       }
 
+      console.log('Installing template with:', {
+        template_id: item.template_id,
+        instance_name: instanceName,
+        profile_mappings: profileMappings,
+        custom_mcp_configs: customMcpConfigs,
+        trigger_configs: triggerConfigs,
+        trigger_variables: triggerVariables
+      });
+      
       const result = await installTemplateMutation.mutateAsync({
         template_id: item.template_id,
         instance_name: instanceName,
         profile_mappings: profileMappings,
-        custom_mcp_configs: customMcpConfigs
+        custom_mcp_configs: customMcpConfigs,
+        trigger_configs: triggerConfigs,
+        trigger_variables: triggerVariables
       });
+      
+      console.log('Installation result:', result);
 
       if (result.status === 'installed') {
         toast.success(`Agent "${instanceName}" installed successfully!`);
         setShowInstallDialog(false);
         handleTabChange('my-agents');
       } else if (result.status === 'configs_required') {
+        if (result.missing_trigger_variables && Object.keys(result.missing_trigger_variables).length > 0) {
+          toast.warning('Please provide values for template trigger variables.');
+          setInstallingItemId('');
+          return;
+        }
+        
         if (result.missing_regular_credentials && result.missing_regular_credentials.length > 0) {
           const updatedRequirements = [
             ...(item.mcp_requirements || []),
@@ -396,7 +316,12 @@ export default function AgentsPage() {
           
           toast.warning('Additional configurations required. Please complete the setup.');
           return;
+        } else if (result.missing_custom_configs && result.missing_custom_configs.length > 0) {
+          console.error('Missing custom configs:', result.missing_custom_configs);
+          toast.error('Please provide all required custom MCP configurations');
+          return;
         } else {
+          console.error('Unknown config required response:', result);
           toast.error('Please provide all required configurations');
           return;
         }
@@ -437,7 +362,6 @@ export default function AgentsPage() {
 
   const getItemStyling = (item: MarketplaceTemplate) => {
     return {
-      avatar: '🤖',
       color: '#6366f1',
     };
   };
@@ -499,7 +423,7 @@ export default function AgentsPage() {
     });
   };
 
-  const handlePublish = async (preferences: SharingPreferences) => {
+  const handlePublish = async (usageExamples: any[]) => {
     if (!publishDialog) return;
 
     try {
@@ -511,15 +435,7 @@ export default function AgentsPage() {
         const result = await createTemplateMutation.mutateAsync({
           agent_id: publishDialog.templateId,
           make_public: true,
-          sharing_preferences: {
-            include_system_prompt: preferences.include_system_prompt,
-            include_model_settings: preferences.include_model_settings,
-            include_default_tools: preferences.include_default_tools,
-            include_integrations: preferences.include_integrations,
-            include_knowledge_bases: preferences.include_knowledge_bases,
-            include_playbooks: preferences.include_playbooks,
-            include_triggers: preferences.include_triggers
-          }
+          usage_examples: usageExamples
         });
         
         toast.success(`${publishDialog.templateName} has been published to the marketplace`);
@@ -528,15 +444,7 @@ export default function AgentsPage() {
         
         await publishMutation.mutateAsync({
           template_id: publishDialog.templateId,
-          sharing_preferences: {
-            include_system_prompt: preferences.include_system_prompt,
-            include_model_settings: preferences.include_model_settings,
-            include_default_tools: preferences.include_default_tools,
-            include_integrations: preferences.include_integrations,
-            include_knowledge_bases: preferences.include_knowledge_bases,
-            include_playbooks: preferences.include_playbooks,
-            include_triggers: preferences.include_triggers
-          }
+          usage_examples: usageExamples
         });
         
         toast.success(`${publishDialog.templateName} has been published to the marketplace`);
@@ -553,7 +461,6 @@ export default function AgentsPage() {
 
   const getTemplateStyling = (template: any) => {
     return {
-      avatar: '🤖',
       color: '#6366f1',
     };
   };
@@ -612,6 +519,7 @@ export default function AgentsPage() {
             />
           )}
 
+          {/* Marketplace tab is disabled
           {activeTab === "marketplace" && (
             <MarketplaceTab
               marketplaceSearchQuery={marketplaceSearchQuery}
@@ -633,7 +541,7 @@ export default function AgentsPage() {
               onMarketplacePageSizeChange={handleMarketplacePageSizeChange}
               marketplacePagination={marketplaceTemplates?.pagination}
             />
-          )}
+          )} */}
         </div>
 
         <EnhancedPublishDialog
