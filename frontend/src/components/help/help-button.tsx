@@ -53,6 +53,7 @@ export function HelpButton() {
           {isExpanded && (
             <>
               {/* Popup Options Container with Background */}
+              {/* mb-4 provides adequate spacing (16px) between popup and button for better visual separation */}
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
