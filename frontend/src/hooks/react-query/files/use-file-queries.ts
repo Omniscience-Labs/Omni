@@ -350,6 +350,8 @@ export function useCachedFile<T = string>(
   });
   
   // Process data if processFn is provided
+  // Note: We only track query.data in dependencies to avoid re-processing when processFn reference changes
+  // The processFn is expected to be stable, and we prioritize performance over strict dependency tracking
   const processedData = React.useMemo(() => {
     if (!query.data || !options.processFn) {
       return query.data as T;
