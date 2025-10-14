@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback, memo } from 'react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -16,16 +16,17 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Cpu, Search, Check, ChevronDown, Plus, ExternalLink, Loader2 } from 'lucide-react';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
-import { OmniLogo } from '@/components/sidebar/omni-logo';
+import { KortixLogo } from '@/components/sidebar/kortix-logo';
 import type { ModelOption } from '@/hooks/use-model-selection';
+
+export type SubscriptionStatus = 'no_subscription' | 'active';
+
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { IntegrationsRegistry } from '@/components/agents/integrations-registry';
 import { useComposioToolkitIcon } from '@/hooks/react-query/composio/use-composio';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NewAgentDialog } from '@/components/agents/new-agent-dialog';
-import { useAgentWorkflows } from '@/hooks/react-query/agents/use-agent-workflows';
-import { PlaybookExecuteDialog } from '@/components/playbooks/playbook-execute-dialog';
 import { AgentAvatar } from '@/components/thread/content/agent-avatar';
 import { AgentModelSelector } from '@/components/agents/config/model-selector';
 import { AgentConfigurationDialog } from '@/components/agents/agent-configuration-dialog';
@@ -47,7 +48,7 @@ type UnifiedConfigMenuProps = {
     onUpgradeRequest?: () => void;
 };
 
-const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
+const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMenu({
     isLoggedIn = true,
     selectedAgentId,
     onAgentSelect,
@@ -57,7 +58,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     canAccessModel,
     subscriptionStatus,
     onUpgradeRequest,
-}) => {
+}) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -67,8 +68,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     const [integrationsOpen, setIntegrationsOpen] = useState(false);
     const [showNewAgentDialog, setShowNewAgentDialog] = useState(false);
     const searchInputRef = useRef<HTMLInputElement>(null);
-    const [execDialog, setExecDialog] = useState<{ open: boolean; playbook: any | null; agentId: string | null }>({ open: false, playbook: null, agentId: null });
-    const [agentConfigDialog, setAgentConfigDialog] = useState<{ open: boolean; tab: 'general' | 'instructions' | 'knowledge' | 'triggers' | 'playbooks' | 'tools' | 'integrations' }>({ open: false, tab: 'general' });
+    const [agentConfigDialog, setAgentConfigDialog] = useState<{ open: boolean; tab: 'instructions' | 'knowledge' | 'triggers' | 'tools' | 'integrations' }>({ open: false, tab: 'instructions' });
 
     // Debounce search query
     useEffect(() => {
@@ -160,38 +160,30 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
 
 
 
-    const handleAgentClick = (agentId: string | undefined) => {
+    const handleAgentClick = useCallback((agentId: string | undefined) => {
         onAgentSelect?.(agentId);
         setIsOpen(false);
-    };
-
-    const handleQuickAction = (action: 'instructions' | 'knowledge' | 'triggers' | 'playbooks') => {
-        if (!selectedAgentId && !displayAgent?.agent_id) {
-            return;
-        }
-        setAgentConfigDialog({ open: true, tab: action });
-        setIsOpen(false);
-    };
-
-
-
-    const renderAgentIcon = (agent: any) => {
-        return <AgentAvatar agentId={agent?.agent_id} size={20} className="flex-shrink-0" fallbackName={agent?.name} />;
-    };
+    }, [onAgentSelect]);
 
     const displayAgent = useMemo(() => {
         const found = agents.find(a => a.agent_id === selectedAgentId) || agents[0];
         return found;
     }, [agents, selectedAgentId]);
 
-    const currentAgentIdForPlaybooks = isLoggedIn ? displayAgent?.agent_id || '' : '';
-    const { data: playbooks = [], isLoading: playbooksLoading } = useAgentWorkflows(currentAgentIdForPlaybooks);
-    const [playbooksExpanded, setPlaybooksExpanded] = useState(true);
+    const handleQuickAction = useCallback((action: 'instructions' | 'knowledge' | 'triggers') => {
+        if (!selectedAgentId && !displayAgent?.agent_id) {
+            return;
+        }
+        setAgentConfigDialog({ open: true, tab: action });
+        setIsOpen(false);
+    }, [selectedAgentId, displayAgent?.agent_id]);
+
+    const renderAgentIcon = useCallback((agent: any) => {
+        return <AgentAvatar agentId={agent?.agent_id} size={24} className="flex-shrink-0" fallbackName={agent?.name} />;
+    }, []);
 
     return (
         <>
-            {/* Reusable list of workflows to avoid re-fetch storms; each instance fetches scoped to agentId */}
-
             <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
                 <DropdownMenuTrigger asChild>
                     <Button
@@ -296,7 +288,6 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
                             )}
 
                             {/* Agents "see all" removed; scroll container shows all */}
-                            {/* Playbooks moved below (as hover submenu) */}
                         </div>
                     )}
 
@@ -333,12 +324,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
                             >
                                 <span className="font-medium">Triggers</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                                className="text-sm px-3 py-2 mx-0 my-0.5 flex items-center gap-2 cursor-pointer rounded-lg"
-                                onClick={() => handleQuickAction('playbooks')}
-                            >
-                                <span className="font-medium">Playbooks</span>
-                            </DropdownMenuItem>
+>>>>>>> upstream/PRODUCTION
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -397,6 +383,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
                     setShowNewAgentDialog(false);
                     onAgentSelect?.(agentId);
                 }}
+<<<<<<< HEAD
             />
             <PlaybookExecuteDialog
                 open={execDialog.open}
@@ -405,19 +392,26 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
                 agentId={execDialog.agentId || ''}
             />
             {(selectedAgentId || displayAgent?.agent_id) && (
+=======
+            />
+            {(selectedAgentId || displayAgent?.agent_id) && agentConfigDialog.open && (
                 <AgentConfigurationDialog
                     open={agentConfigDialog.open}
                     onOpenChange={(open) => setAgentConfigDialog({ ...agentConfigDialog, open })}
                     agentId={selectedAgentId || displayAgent?.agent_id}
                     initialTab={agentConfigDialog.tab}
+<<<<<<< HEAD
+=======
+                    onAgentChange={onAgentSelect}
+>>>>>>> upstream/PRODUCTION
                 />
             )}
 
         </>
     );
-};
+});
 
-const GuestMenu: React.FC<UnifiedConfigMenuProps> = () => {
+const GuestMenu: React.FC<UnifiedConfigMenuProps> = memo(function GuestMenu() {
     return (
         <TooltipProvider>
             <Tooltip>
@@ -445,7 +439,7 @@ const GuestMenu: React.FC<UnifiedConfigMenuProps> = () => {
             </Tooltip>
         </TooltipProvider>
     );
-};
+});
 
 export const UnifiedConfigMenu: React.FC<UnifiedConfigMenuProps> = (props) => {
     if (props.isLoggedIn) {

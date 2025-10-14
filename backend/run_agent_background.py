@@ -67,10 +67,9 @@ except Exception as e:
     dramatiq.set_broker(stub_broker)
     print("⚠️ Using StubBroker as fallback - background tasks will not be processed")
 
-
 _initialized = False
 db = DBConnection()
-instance_id = "single"
+instance_id = ""
 
 async def initialize():
     """Initialize the agent API with resources from the main API."""
@@ -134,12 +133,7 @@ async def run_agent_background(
     thread_id: str,
     instance_id: str,
     project_id: str,
-    model_name: str = "Claude Sonnet 4",
-    enable_thinking: Optional[bool] = False,
-    reasoning_effort: Optional[str] = 'low',
-    stream: bool = True,
-    enable_context_manager: bool = True,
-    enable_prompt_caching: bool = True,
+    model_name: str = "openai/gpt-5-mini",
     agent_config: Optional[dict] = None,
     request_id: Optional[str] = None
 ):
@@ -184,7 +178,7 @@ async def run_agent_background(
 
     effective_model = model_manager.resolve_model_id(model_name)
     
-    logger.info(f"🚀 Using model: {effective_model} (thinking: {enable_thinking}, reasoning_effort: {reasoning_effort})")
+    logger.info(f"🚀 Using model: {effective_model}")
     
     client = await db.client
     start_time = datetime.now(timezone.utc)
@@ -243,11 +237,8 @@ async def run_agent_background(
 
         # Initialize agent generator
         agent_gen = run_agent(
-            thread_id=thread_id, project_id=project_id, stream=stream,
+            thread_id=thread_id, project_id=project_id,
             model_name=effective_model,
-            enable_thinking=enable_thinking, reasoning_effort=reasoning_effort,
-            enable_context_manager=enable_context_manager,
-            enable_prompt_caching=enable_prompt_caching,
             agent_config=agent_config,
             trace=trace,
         )
@@ -287,19 +278,6 @@ async def run_agent_background(
         if final_status == "running":
              final_status = "completed"
              duration = (datetime.now(timezone.utc) - start_time).total_seconds()
-             logger.debug(f"Agent run {agent_run_id} completed normally (duration: {duration:.2f}s, responses: {total_responses})")
-             logger.info(f"Agent run {agent_run_id} completed normally (duration: {duration:.2f}s, responses: {total_responses})")
-             
-             # Store conversation memory asynchronously in background
-             try:
-                 store_conversation_memory_background.send(
-                     thread_id=thread_id,
-                     additional_context=f"Agent run {agent_run_id} completed successfully after {duration:.2f}s with {total_responses} responses",
-                     agent_run_id=agent_run_id
-                 )
-             except Exception as e:
-                 logger.warning(f"Failed to dispatch conversation memory storage on completion: {str(e)}")
-             
              logger.info(f"Agent run {agent_run_id} completed normally (duration: {duration:.2f}s, responses: {total_responses})")
              completion_message = {"type": "status", "status": "completed", "message": "Agent run completed successfully"}
              trace.span(name="agent_run_completed").end(status_message="agent_run_completed")
@@ -487,8 +465,6 @@ async def update_agent_run_status(
 
         if error:
             update_data["error"] = error
-
-
 
         # Retry up to 3 times
         for retry in range(3):

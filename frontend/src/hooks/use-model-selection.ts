@@ -49,6 +49,7 @@ export const useModelSelection = () => {
   const { data: subscriptionData } = useSubscriptionData();
   const { selectedModel, setSelectedModel } = useModelStore();
 
+<<<<<<< HEAD
   // Transform API data to ModelOption format with fallback models (like PRODUCTION)
   const availableModels = useMemo<ModelOption[]>(() => {
     let models: ModelOption[] = [];
@@ -93,11 +94,27 @@ export const useModelSelection = () => {
     }
     
     return models.sort((a, b) => {
+=======
+  // Transform API data to ModelOption format
+  const availableModels = useMemo<ModelOption[]>(() => {
+    if (!modelsData?.models) return [];
+    
+    return modelsData.models.map(model => ({
+      id: model.id, // Always use the actual model ID
+      label: model.display_name || model.short_name || model.id,
+      requiresSubscription: model.requires_subscription || false,
+      priority: model.priority || 0,
+      recommended: model.recommended || false,
+      capabilities: model.capabilities || [],
+      contextWindow: model.context_window || 128000,
+    })).sort((a, b) => {
+>>>>>>> upstream/PRODUCTION
       // Sort by recommended first, then priority, then name
       if (a.recommended !== b.recommended) return a.recommended ? -1 : 1;
       if (a.priority !== b.priority) return b.priority - a.priority;
       return a.label.localeCompare(b.label);
     });
+<<<<<<< HEAD
   }, [modelsData, isLoading]);
 
   // Get accessible models based on subscription (matching PRODUCTION pattern)
@@ -110,6 +127,12 @@ export const useModelSelection = () => {
       return availableModels; // All models accessible in enterprise mode
     }
     
+=======
+  }, [modelsData]);
+
+  // Get accessible models based on subscription
+  const accessibleModels = useMemo(() => {
+>>>>>>> upstream/PRODUCTION
     const hasActiveSubscription = subscriptionData?.status === 'active' || subscriptionData?.status === 'trialing';
     return availableModels.filter(model => hasActiveSubscription || !model.requiresSubscription);
   }, [availableModels, subscriptionData]);

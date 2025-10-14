@@ -184,46 +184,7 @@ export default function CreditTransactions({ accountId }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Enterprise Balance Summary Card */}
-      {isEnterpriseMode && billingStatus?.enterprise_info && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Enterprise Usage Summary</CardTitle>
-            <CardDescription>Your monthly usage limits and current spending</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <div className="text-2xl font-bold">
-                  ${billingStatus.enterprise_info.current_usage?.toFixed(2) || '0.00'}
-                </div>
-                <p className="text-xs text-muted-foreground">Current Month Usage</p>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-green-500" />
-                  <span className="text-lg font-semibold">
-                    ${billingStatus.enterprise_info.remaining?.toFixed(2) || '0.00'}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">Remaining This Month</p>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-blue-500" />
-                  <span className="text-lg font-semibold">
-                    ${billingStatus.enterprise_info.monthly_limit?.toFixed(2) || '0.00'}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">Monthly Limit</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Non-Enterprise Balance Summary Card */}
-      {!isEnterpriseMode && currentBalance && (
+      {currentBalance && (
         <Card>
           <CardHeader>
             <CardTitle>Current Balance</CardTitle>

@@ -18,6 +18,7 @@ from langfuse.client import StatefulGenerationClient, StatefulTraceClient
 from core.services.langfuse import langfuse
 from datetime import datetime, timezone
 from core.billing.billing_integration import billing_integration
+from litellm.utils import token_counter
 
 ToolChoice = Literal["auto", "required", "none"]
 
@@ -102,13 +103,11 @@ class ThreadManager:
 
         try:
             result = await client.table('messages').insert(data_to_insert).execute()
-            # logger.debug(f"Successfully added message to thread {thread_id}")
 
             if result.data and len(result.data) > 0 and 'message_id' in result.data[0]:
                 saved_message = result.data[0]
                 
-                # Handle billing for assistant response end messages
-                if type == "assistant_response_end" and isinstance(content, dict):
+                if type == "llm_response_end" and isinstance(content, dict):
                     await self._handle_billing(thread_id, content, saved_message)
                 
                 return saved_message
@@ -120,18 +119,17 @@ class ThreadManager:
             raise
 
     async def _handle_billing(self, thread_id: str, content: dict, saved_message: dict):
-        """Handle billing for LLM usage."""
         try:
-            usage = content.get("usage", {})
+            llm_response_id = content.get("llm_response_id", "unknown")
+            logger.info(f"💰 Processing billing for LLM response: {llm_response_id}")
             
-            # DEBUG: Log the complete usage object to see what data we have
-            logger.info(f"🔍 THREAD MANAGER USAGE: {usage}")
-            logger.info(f"🔍 THREAD MANAGER CONTENT: {content}")
+            usage = content.get("usage", {})
             
             prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
             completion_tokens = int(usage.get("completion_tokens", 0) or 0)
+            is_estimated = usage.get("estimated", False)
+            is_fallback = usage.get("fallback", False)
             
-            # Try cache_read_input_tokens first (Anthropic standard), then fallback to prompt_tokens_details.cached_tokens
             cache_read_tokens = int(usage.get("cache_read_input_tokens", 0) or 0)
             if cache_read_tokens == 0:
                 cache_read_tokens = int(usage.get("prompt_tokens_details", {}).get("cached_tokens", 0) or 0)
@@ -139,8 +137,8 @@ class ThreadManager:
             cache_creation_tokens = int(usage.get("cache_creation_input_tokens", 0) or 0)
             model = content.get("model")
             
-            # DEBUG: Log what we detected
-            logger.info(f"🔍 CACHE DETECTION: cache_read={cache_read_tokens}, cache_creation={cache_creation_tokens}, prompt={prompt_tokens}")
+            usage_type = "FALLBACK ESTIMATE" if is_fallback else ("ESTIMATED" if is_estimated else "EXACT")
+            logger.info(f"💰 Usage type: {usage_type} - prompt={prompt_tokens}, completion={completion_tokens}, cache_read={cache_read_tokens}, cache_creation={cache_creation_tokens}")
             
             client = await self.db.client
             thread_row = await client.table('threads').select('account_id').eq('thread_id', thread_id).limit(1).execute()
@@ -162,56 +160,14 @@ class ThreadManager:
                     completion_tokens=completion_tokens,
                     model=model or "unknown",
                     message_id=saved_message['message_id'],
-                    thread_id=thread_id,
                     cache_read_tokens=cache_read_tokens,
                     cache_creation_tokens=cache_creation_tokens
                 )
                 
                 if deduct_result.get('success'):
-                    logger.info(f"✅ [BILLING] Successfully deducted ${deduct_result.get('cost', 0):.6f}")
+                    logger.info(f"Successfully deducted ${deduct_result.get('cost', 0):.6f}")
                 else:
-                    # CRITICAL: Billing deduction failed after LLM call
-                    # This means we were charged by the provider but couldn't charge the user
-                    error_msg = deduct_result.get('error', 'Unknown billing error')
-                    logger.error(
-                        f"❌ [BILLING CRITICAL] Failed to deduct credits after LLM call: {error_msg}",
-                        extra={
-                            "user_id": user_id,
-                            "thread_id": thread_id,
-                            "message_id": saved_message['message_id'],
-                            "cost": deduct_result.get('cost', 0),
-                            "prompt_tokens": prompt_tokens,
-                            "completion_tokens": completion_tokens,
-                            "model": model
-                        }
-                    )
-                    
-                    # Add a status message to the thread indicating billing failure
-                    try:
-                        client = await self.db.client
-                        await client.table('messages').insert({
-                            'thread_id': thread_id,
-                            'type': 'status',
-                            'content': {
-                                'status_type': 'billing_failure',
-                                'message': f'Billing limit exceeded. {error_msg}',
-                                'severity': 'critical'
-                            },
-                            'is_llm_message': False
-                        }).execute()
-                    except Exception as msg_error:
-                        logger.error(f"Failed to add billing failure message: {msg_error}")
-                    
-                    # Raise exception to stop further execution
-                    # This will prevent additional LLM calls from being made
-                    raise ValueError(f"Billing deduction failed: {error_msg}")
-                    
-        except ValueError as e:
-            # Re-raise billing errors to stop execution
-            if "Billing deduction failed" in str(e):
-                logger.error(f"❌ [BILLING] Propagating billing error to stop execution: {e}")
-                raise
-            logger.error(f"Error handling billing: {str(e)}", exc_info=True)
+                    logger.error(f"Failed to deduct credits: {deduct_result}")
         except Exception as e:
             logger.error(f"Error handling billing: {str(e)}", exc_info=True)
 
@@ -272,17 +228,9 @@ class ThreadManager:
         tool_choice: ToolChoice = "auto",
         native_max_auto_continues: int = 25,
         max_xml_tool_calls: int = 0,
-        enable_thinking: Optional[bool] = False,
-        reasoning_effort: Optional[str] = 'low',
-        generation: Optional[StatefulGenerationClient] = None,
-        enable_prompt_caching: bool = True,
-        enable_context_manager: Optional[bool] = None,
     ) -> Union[Dict[str, Any], AsyncGenerator]:
         """Run a conversation thread with LLM integration and tool execution."""
         logger.debug(f"🚀 Starting thread execution for {thread_id} with model {llm_model}")
-
-        # Determine if context manager should be used (default to True)
-        use_context_manager = enable_context_manager if enable_context_manager is not None else True
 
         # Ensure we have a valid ProcessorConfig object
         if processor_config is None:
@@ -306,9 +254,8 @@ class ThreadManager:
         if native_max_auto_continues == 0:
             result = await self._execute_run(
                 thread_id, system_prompt, llm_model, llm_temperature, llm_max_tokens,
-                tool_choice, config, stream, enable_thinking, reasoning_effort,
-                generation, auto_continue_state, temporary_message, enable_prompt_caching,
-                use_context_manager
+                tool_choice, config, stream,
+                generation, auto_continue_state, temporary_message
             )
             
             # If result is an error dict, convert it to a generator that yields the error
@@ -320,18 +267,16 @@ class ThreadManager:
         # Auto-continue execution
         return self._auto_continue_generator(
             thread_id, system_prompt, llm_model, llm_temperature, llm_max_tokens,
-            tool_choice, config, stream, enable_thinking, reasoning_effort,
+            tool_choice, config, stream,
             generation, auto_continue_state, temporary_message,
-            native_max_auto_continues, enable_prompt_caching, use_context_manager
+            native_max_auto_continues
         )
 
     async def _execute_run(
         self, thread_id: str, system_prompt: Dict[str, Any], llm_model: str,
         llm_temperature: float, llm_max_tokens: Optional[int], tool_choice: ToolChoice,
-        config: ProcessorConfig, stream: bool, enable_thinking: Optional[bool],
-        reasoning_effort: Optional[str], generation: Optional[StatefulGenerationClient],
-        auto_continue_state: Dict[str, Any], temporary_message: Optional[Dict[str, Any]] = None,
-        enable_prompt_caching: bool = False, use_context_manager: bool = True
+        config: ProcessorConfig, stream: bool, generation: Optional[StatefulGenerationClient],
+        auto_continue_state: Dict[str, Any], temporary_message: Optional[Dict[str, Any]] = None
     ) -> Union[Dict[str, Any], AsyncGenerator]:
         """Execute a single LLM run."""
         
@@ -349,20 +294,28 @@ class ThreadManager:
                 partial_content = auto_continue_state['continuous_state']['accumulated_content']
                 messages.append({"role": "assistant", "content": partial_content})
 
-            # Apply context compression if enabled
-            if use_context_manager:
+            # ===== CENTRAL CONFIGURATION =====
+            ENABLE_CONTEXT_MANAGER = True   # Set to False to disable context compression
+            ENABLE_PROMPT_CACHING = True    # Set to False to disable prompt caching
+            # ==================================
+
+            # Apply context compression
+            if ENABLE_CONTEXT_MANAGER:
                 logger.debug(f"Context manager enabled, compressing {len(messages)} messages")
                 context_manager = ContextManager()
+
                 compressed_messages = context_manager.compress_messages(
-                    messages, llm_model, max_tokens=llm_max_tokens
+                    messages, llm_model, max_tokens=llm_max_tokens, 
+                    actual_total_tokens=None,  # Will be calculated inside
+                    system_prompt=system_prompt # KEY FIX: No caching during compression
                 )
                 logger.debug(f"Context compression completed: {len(messages)} -> {len(compressed_messages)} messages")
                 messages = compressed_messages
             else:
                 logger.debug("Context manager disabled, using raw messages")
 
-            # Apply caching if enabled
-            if enable_prompt_caching:
+            # Apply caching
+            if ENABLE_PROMPT_CACHING:
                 prepared_messages = apply_anthropic_caching_strategy(system_prompt, messages, llm_model)
                 prepared_messages = validate_cache_blocks(prepared_messages, llm_model)
             else:
@@ -370,25 +323,10 @@ class ThreadManager:
 
             # Get tool schemas if needed
             openapi_tool_schemas = self.tool_registry.get_openapi_schemas() if config.native_tool_calling else None
-            if openapi_tool_schemas:
-                logger.debug(f"🔧 [TOOLS_SETUP] Using {len(openapi_tool_schemas)} native tool schemas for {llm_model}")
-            else:
-                logger.debug(f"🔧 [TOOLS_SETUP] No native tool schemas (native_tool_calling={config.native_tool_calling})")
 
             # Update generation tracking
             if generation:
                 try:
-                    # Convert tools to simple format for Langfuse (expects strings, not complex objects)
-                    tools_for_langfuse = None
-                    if openapi_tool_schemas:
-                        # Extract tool names from schema objects for Langfuse tracking
-                        tool_names = [
-                            tool.get("function", {}).get("name", "unknown_tool") 
-                            if isinstance(tool, dict) else str(tool)
-                            for tool in openapi_tool_schemas
-                        ]
-                        tools_for_langfuse = f"{len(tool_names)} tools: {', '.join(tool_names[:10])}" + ("..." if len(tool_names) > 10 else "")
-                    
                     generation.update(
                         input=prepared_messages,
                         start_time=datetime.now(timezone.utc),
@@ -396,63 +334,16 @@ class ThreadManager:
                         model_parameters={
                             "max_tokens": llm_max_tokens,
                             "temperature": llm_temperature,
-                            "enable_thinking": enable_thinking,
-                            "reasoning_effort": reasoning_effort,
                             "tool_choice": tool_choice,
-                            "tools": tools_for_langfuse,
+                            "tools": openapi_tool_schemas,
                         }
                     )
                 except Exception as e:
                     logger.warning(f"Failed to update Langfuse generation: {e}")
 
-            # CRITICAL: Pre-flight billing check before EVERY LLM call
-            # This catches violations mid-execution (e.g., during auto-continue or tool loops)
-            try:
-                from core.billing.billing_integration import billing_integration
-                
-                # Get account_id for this thread
-                client = await self.db.client
-                thread_row = await client.table('threads').select('account_id').eq('thread_id', thread_id).limit(1).execute()
-                if thread_row.data and len(thread_row.data) > 0:
-                    account_id = thread_row.data[0]['account_id']
-                    
-                    # Check if user can proceed (with $5 threshold)
-                    can_run, message, reservation_id = await billing_integration.check_and_reserve_credits(account_id)
-                    
-                    if not can_run:
-                        error_message = f"Usage limit reached: {message}"
-                        logger.error(f"❌ [BILLING GUARD] Pre-flight check failed for account {account_id}: {message}")
-                        
-                        # Add status message to thread
-                        try:
-                            await client.table('messages').insert({
-                                'thread_id': thread_id,
-                                'type': 'status',
-                                'content': {
-                                    'status_type': 'billing_limit_reached',
-                                    'message': error_message,
-                                    'severity': 'error'
-                                },
-                                'is_llm_message': False
-                            }).execute()
-                        except Exception as msg_error:
-                            logger.error(f"Failed to add limit reached message: {msg_error}")
-                        
-                        return {
-                            "type": "status", 
-                            "status": "error", 
-                            "message": error_message
-                        }
-                    else:
-                        logger.debug(f"✅ [BILLING GUARD] Pre-flight check passed for account {account_id}")
-            except Exception as billing_error:
-                logger.error(f"❌ [BILLING GUARD] Error during pre-flight check: {billing_error}", exc_info=True)
-                # FAIL SAFE: If billing check fails, don't proceed
-                return {
-                    "type": "status",
-                    "status": "error",
-                    "message": f"Billing system error: {str(billing_error)}"
-                }
+            # Log final prepared messages token count
+            final_prepared_tokens = token_counter(model=llm_model, messages=prepared_messages)
+            logger.info(f"📤 Final prepared messages being sent to LLM: {final_prepared_tokens} tokens")
 
             # Make LLM call
             try:
@@ -462,9 +353,7 @@ class ThreadManager:
                     max_tokens=llm_max_tokens,
                     tools=openapi_tool_schemas,
                     tool_choice=tool_choice if config.native_tool_calling else "none",
-                    stream=stream,
-                    enable_thinking=enable_thinking,
-                    reasoning_effort=reasoning_effort
+                    stream=stream
                 )
             except LLMError as e:
                 return {"type": "status", "status": "error", "message": str(e)}
@@ -499,11 +388,9 @@ class ThreadManager:
     async def _auto_continue_generator(
         self, thread_id: str, system_prompt: Dict[str, Any], llm_model: str,
         llm_temperature: float, llm_max_tokens: Optional[int], tool_choice: ToolChoice,
-        config: ProcessorConfig, stream: bool, enable_thinking: Optional[bool],
-        reasoning_effort: Optional[str], generation: Optional[StatefulGenerationClient],
+        config: ProcessorConfig, stream: bool, generation: Optional[StatefulGenerationClient],
         auto_continue_state: Dict[str, Any], temporary_message: Optional[Dict[str, Any]],
-        native_max_auto_continues: int, enable_prompt_caching: bool = False,
-        use_context_manager: bool = True
+        native_max_auto_continues: int
     ) -> AsyncGenerator:
         """Generator that handles auto-continue logic."""
         logger.debug(f"Starting auto-continue generator, max: {native_max_auto_continues}")
@@ -520,10 +407,9 @@ class ThreadManager:
             try:
                 response_gen = await self._execute_run(
                     thread_id, system_prompt, llm_model, llm_temperature, llm_max_tokens,
-                    tool_choice, config, stream, enable_thinking, reasoning_effort,
+                    tool_choice, config, stream,
                     generation, auto_continue_state,
-                    temporary_message if auto_continue_state['count'] == 0 else None,
-                    enable_prompt_caching, use_context_manager
+                    temporary_message if auto_continue_state['count'] == 0 else None
                 )
 
                 # Handle error responses
@@ -561,7 +447,7 @@ class ThreadManager:
             except Exception as e:
                 if "AnthropicException - Overloaded" in str(e):
                     logger.error(f"Anthropic overloaded, falling back to OpenRouter")
-                    llm_model = f"openrouter/{llm_model.replace('-20250514', '')}"
+                    llm_model = f"openrouter/{llm_model.replace('-20250514', '')}")
                     auto_continue_state['active'] = True
                     continue
                 else:
