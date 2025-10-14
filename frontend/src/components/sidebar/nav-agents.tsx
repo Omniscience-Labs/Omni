@@ -141,8 +141,8 @@ const ThreadItem: React.FC<{
         });
         
         toast.success('Chat renamed successfully');
-        queryClient.invalidateQueries({ queryKey: threadKeys.project(thread.projectId) });
-        queryClient.invalidateQueries({ queryKey: projectKeys.all() });
+        queryClient.invalidateQueries({ queryKey: threadKeys.byProject(thread.projectId) });
+        queryClient.invalidateQueries({ queryKey: projectKeys.all });
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : 'Failed to rename chat';
