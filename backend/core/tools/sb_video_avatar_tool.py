@@ -1336,6 +1336,174 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 
         except Exception as e:
             return self.fail_response(f"Failed to check translation status: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "list_my_videos",
+            "description": "List all your generated videos with their status, URLs, and metadata. Useful for managing your video library.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of videos to return (default: 20)",
+                        "default": 20
+                    }
+                },
+                "required": []
+            }
+        }
+    })
+    async def list_my_videos(self, limit: int = 20) -> ToolResult:
+        """List all generated videos."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.heygen_base_url}/v1/video.list?limit={limit}",
+                    headers=self._get_heygen_headers(),
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    return self.fail_response(f"API error: {response.status_code} - {response.text}")
+                
+                result = response.json()
+                videos = result.get("data", {}).get("videos", [])
+                
+                if not videos:
+                    return self.success_response("No videos found in your library.")
+                
+                response_text = f"📹 **Your Video Library ({len(videos)} videos)**:\n\n"
+                for i, video in enumerate(videos, 1):
+                    video_id = video.get("video_id")
+                    status = video.get("status")
+                    title = video.get("title", "Untitled")
+                    created = video.get("created_at", "Unknown")
+                    video_url = video.get("video_url", "Processing...")
+                    
+                    response_text += f"{i}. **{title}**\n"
+                    response_text += f"   ID: `{video_id}`\n"
+                    response_text += f"   Status: {status}\n"
+                    response_text += f"   Created: {created}\n"
+                    if video_url != "Processing...":
+                        response_text += f"   URL: {video_url}\n"
+                    response_text += "\n"
+                
+                return self.success_response(response_text)
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to list videos: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "delete_video",
+            "description": "Delete a video from your HeyGen library. This is permanent and cannot be undone.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "video_id": {
+                        "type": "string",
+                        "description": "ID of the video to delete"
+                    }
+                },
+                "required": ["video_id"]
+            }
+        }
+    })
+    async def delete_video(self, video_id: str) -> ToolResult:
+        """Delete a video."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.delete(
+                    f"{self.heygen_base_url}/v1/video/{video_id}",
+                    headers=self._get_heygen_headers(),
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    return self.fail_response(f"API error: {response.status_code} - {response.text}")
+                
+                logger.info(f"🗑️ Deleted video: {video_id}")
+                return self.success_response(f"✅ Video `{video_id}` deleted successfully.")
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to delete video: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "get_account_usage",
+            "description": "Check your HeyGen account credits, usage statistics, and remaining quota. Useful for monitoring API usage and costs.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    })
+    async def get_account_usage(self) -> ToolResult:
+        """Get account usage and credit information."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            async with httpx.AsyncClient() as client:
+                # Get user info
+                info_response = await client.get(
+                    f"{self.heygen_base_url}/v1/user/info",
+                    headers=self._get_heygen_headers(),
+                    timeout=30.0
+                )
+                
+                if info_response.status_code != 200:
+                    return self.fail_response(f"API error: {info_response.status_code} - {info_response.text}")
+                
+                info_result = info_response.json()
+                user_data = info_result.get("data", {})
+                
+                # Get usage stats
+                usage_response = await client.get(
+                    f"{self.heygen_base_url}/v1/user/usage",
+                    headers=self._get_heygen_headers(),
+                    timeout=30.0
+                )
+                
+                usage_data = {}
+                if usage_response.status_code == 200:
+                    usage_result = usage_response.json()
+                    usage_data = usage_result.get("data", {})
+                
+                # Format response
+                response_text = "💳 **Account Usage & Credits**\n\n"
+                
+                if user_data:
+                    response_text += f"**Account**: {user_data.get('email', 'N/A')}\n"
+                    response_text += f"**Plan**: {user_data.get('plan_type', 'N/A')}\n\n"
+                    
+                    credits = user_data.get("remaining_credits", "N/A")
+                    total_credits = user_data.get("total_credits", "N/A")
+                    response_text += f"**Credits**:\n"
+                    response_text += f"• Remaining: {credits}\n"
+                    response_text += f"• Total: {total_credits}\n\n"
+                
+                if usage_data:
+                    response_text += f"**Usage Statistics**:\n"
+                    response_text += f"• Videos Generated: {usage_data.get('video_count', 0)}\n"
+                    response_text += f"• Minutes Used: {usage_data.get('minutes_used', 0)}\n"
+                    response_text += f"• API Calls: {usage_data.get('api_calls', 0)}\n"
+                
+                return self.success_response(response_text)
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to get account usage: {str(e)}")
     
     # Helper methods
 
