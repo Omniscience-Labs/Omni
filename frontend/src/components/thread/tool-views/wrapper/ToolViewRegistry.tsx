@@ -224,7 +224,6 @@ const defaultRegistry: ToolViewRegistryType = {
   'discover-user-mcp-servers': DiscoverUserMcpServersToolView,
   'configure-agent-integration': ConfigureAgentIntegrationToolView,
   'create-agent-scheduled-trigger': CreateAgentScheduledTriggerToolView,
-<<<<<<< HEAD
   'list-agent-workflows': ListAgentWorkflowsToolView,
 
   // Video Avatar tools
@@ -234,8 +233,6 @@ const defaultRegistry: ToolViewRegistryType = {
   'check-video-status': VideoAvatarToolView,
   'list-avatar-options': VideoAvatarToolView,
   'close-avatar-session': VideoAvatarToolView,
-=======
->>>>>>> upstream/PRODUCTION
 };
 
 class ToolViewRegistry {

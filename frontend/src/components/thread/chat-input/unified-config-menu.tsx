@@ -324,7 +324,6 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
                             >
                                 <span className="font-medium">Triggers</span>
                             </DropdownMenuItem>
->>>>>>> upstream/PRODUCTION
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -390,8 +389,6 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
                     onOpenChange={(open) => setAgentConfigDialog({ ...agentConfigDialog, open })}
                     agentId={selectedAgentId || displayAgent?.agent_id}
                     initialTab={agentConfigDialog.tab}
-<<<<<<< HEAD
-=======
                     onAgentChange={onAgentSelect}
                 />
             )}

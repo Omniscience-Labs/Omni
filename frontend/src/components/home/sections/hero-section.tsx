@@ -975,7 +975,7 @@ export function HeroSection() {
                 className="text-primary font-bold drop-shadow-lg"
               />
             </div>
-          </motion.div>
+          </div>
         </motion.div>
 
 
