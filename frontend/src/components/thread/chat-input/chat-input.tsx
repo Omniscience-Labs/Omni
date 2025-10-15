@@ -21,6 +21,135 @@ import { Loader2, ArrowUp } from 'lucide-react';
 import { VoiceRecorder } from './voice-recorder';
 import { UnifiedConfigMenu } from './unified-config-menu';
 import { AttachmentGroup } from '../attachment-group';
+import { cn } from '@/lib/utils';
+import { useModelSelection } from '@/hooks/use-model-selection';
+import { useFileDelete } from '@/hooks/react-query/files';
+import { useQueryClient } from '@tanstack/react-query';
+import { ToolCallInput } from './floating-tool-preview';
+import { ChatSnack } from './chat-snack';
+import { Brain, Zap, Database, ArrowDown, Wrench } from 'lucide-react';
+import { useComposioToolkitIcon } from '@/hooks/react-query/composio/use-composio';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { IntegrationsRegistry } from '@/components/agents/integrations-registry';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useSubscriptionData } from '@/contexts/SubscriptionContext';
+import { isLocalMode } from '@/lib/config';
+import { BillingModal } from '@/components/billing/billing-modal';
+import { AgentConfigurationDialog } from '@/components/agents/agent-configuration-dialog';
+import posthog from 'posthog-js';
+
+export type SubscriptionStatus = 'no_subscription' | 'active';
+
+export interface ChatInputHandles {
+  getPendingFiles: () => File[];
+  clearPendingFiles: () => void;
+}
+
+export interface ChatInputProps {
+  onSubmit: (
+    message: string,
+    options?: {
+      model_name?: string;
+      agent_id?: string;
+    },
+  ) => void;
+  placeholder?: string;
+  loading?: boolean;
+  disabled?: boolean;
+  isAgentRunning?: boolean;
+  onStopAgent?: () => void;
+  autoFocus?: boolean;
+  value?: string;
+  onChange?: (value: string) => void;
+  onFileBrowse?: () => void;
+  sandboxId?: string;
+  hideAttachments?: boolean;
+  selectedAgentId?: string;
+  onAgentSelect?: (agentId: string | undefined) => void;
+  agentName?: string;
+  messages?: any[];
+  bgColor?: string;
+  toolCalls?: ToolCallInput[];
+  toolCallIndex?: number;
+  showToolPreview?: boolean;
+  onExpandToolPreview?: () => void;
+  isLoggedIn?: boolean;
+  enableAdvancedConfig?: boolean;
+  onConfigureAgent?: (agentId: string) => void;
+  hideAgentSelection?: boolean;
+  defaultShowSnackbar?: 'tokens' | 'upgrade' | false;
+  showToLowCreditUsers?: boolean;
+  agentMetadata?: {
+    is_suna_default?: boolean;
+  };
+  showScrollToBottomIndicator?: boolean;
+  onScrollToBottom?: () => void;
+}
+
+export interface UploadedFile {
+  name: string;
+  path: string;
+  size: number;
+  type: string;
+  localUrl?: string;
+}
+
+
+
+export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
+  (
+    {
+      onSubmit,
+      placeholder = 'Describe what you need help with...',
+      loading = false,
+      disabled = false,
+      isAgentRunning = false,
+      onStopAgent,
+      autoFocus = true,
+      value: controlledValue,
+      onChange: controlledOnChange,
+      onFileBrowse,
+      sandboxId,
+      hideAttachments = false,
+      selectedAgentId,
+      onAgentSelect,
+      agentName,
+      messages = [],
+      bgColor = 'bg-card',
+      toolCalls = [],
+      toolCallIndex = 0,
+      showToolPreview = false,
+      onExpandToolPreview,
+      isLoggedIn = true,
+      enableAdvancedConfig = false,
+      onConfigureAgent,
+      hideAgentSelection = false,
+      defaultShowSnackbar = false,
+      showToLowCreditUsers = true,
+      agentMetadata,
+      showScrollToBottomIndicator = false,
+      onScrollToBottom,
+    },
+    ref,
+  ) => {
+    const isControlled =
+      controlledValue !== undefined && controlledOnChange !== undefined;
+
+    const [uncontrolledValue, setUncontrolledValue] = useState('');
+    const value = isControlled ? controlledValue : uncontrolledValue;
+
+    const isSunaAgent = agentMetadata?.is_suna_default || false;
+
+    const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+    const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
+    const [isDraggingOver, setIsDraggingOver] = useState(false);
+
+    const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
+    const [showSnackbar, setShowSnackbar] = useState(defaultShowSnackbar);
+    const [userDismissedUsage, setUserDismissedUsage] = useState(false);
+    const [billingModalOpen, setBillingModalOpen] = useState(false);
     const [agentConfigDialog, setAgentConfigDialog] = useState<{ open: boolean; tab: 'instructions' | 'knowledge' | 'triggers' | 'tools' | 'integrations' }>({ open: false, tab: 'instructions' });
     const [mounted, setMounted] = useState(false);
 
@@ -148,7 +277,6 @@ import { AttachmentGroup } from '../attachment-group';
       }
 
       const baseModelName = getActualModelId(selectedModel);
->>>>>>> upstream/PRODUCTION
 
       posthog.capture("task_prompt_submitted", { message });
 
@@ -483,14 +611,63 @@ import { AttachmentGroup } from '../attachment-group';
                     <span className="text-xs font-medium">Integrations</span>
                   </button>
                   <button
+                    onClick={() => setAgentConfigDialog({ open: true, tab: 'tools' })}
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
+                  >
+                    <Wrench className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="text-xs font-medium">Tools</span>
+                  </button>                  
+                  <button
+                    onClick={() => setAgentConfigDialog({ open: true, tab: 'instructions' })}
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
+                  >
+                    <Brain className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="text-xs font-medium">Instructions</span>
+                  </button>
+                  <button
+                    onClick={() => setAgentConfigDialog({ open: true, tab: 'knowledge' })}
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
+                  >
+                    <Database className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="text-xs font-medium">Knowledge</span>
+                  </button>
+
+                  <button
+                    onClick={() => setAgentConfigDialog({ open: true, tab: 'triggers' })}
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
+                  >
+                    <Zap className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="text-xs font-medium">Triggers</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <Dialog open={registryDialogOpen} onOpenChange={setRegistryDialogOpen}>
+            <DialogContent className="p-0 max-w-6xl h-[90vh] overflow-hidden">
+              <DialogHeader className="sr-only">
+                <DialogTitle>Integrations</DialogTitle>
+              </DialogHeader>
+              <IntegrationsRegistry
+                showAgentSelector={true}
+                selectedAgentId={selectedAgentId}
+                onAgentChange={onAgentSelect}
+                onToolsSelected={(profileId, selectedTools, appName, appSlug) => {
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+          <BillingModal
+            open={billingModalOpen}
+            onOpenChange={setBillingModalOpen}
+          />
           {selectedAgentId && agentConfigDialog.open && (
             <AgentConfigurationDialog
               open={agentConfigDialog.open}
               onOpenChange={(open) => setAgentConfigDialog({ ...agentConfigDialog, open })}
               agentId={selectedAgentId}
               initialTab={agentConfigDialog.tab}
-<<<<<<< HEAD
-=======
               onAgentChange={onAgentSelect}
             />
           )}

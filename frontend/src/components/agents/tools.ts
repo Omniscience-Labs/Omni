@@ -85,12 +85,8 @@ export const getToolDisplayName = (toolName: string): string => {
       'sb_design_tool': 'Design Tool',
 
       'sb_sheets_tool': 'Spreadsheets',
-<<<<<<< HEAD
       'podcast_tool': 'Podcast Generator',
       // 'sb_web_dev_tool': 'Web Development',
-
-=======
->>>>>>> upstream/PRODUCTION
       
       'browser_tool': 'Browser Automation',
       'sb_custom_automation_tool': 'Custom Automation',

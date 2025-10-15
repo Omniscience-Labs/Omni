@@ -320,8 +320,8 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
 }) => {
   const [currentStep, setCurrentStep] = useState<'setup' | 'schedule' | 'execute'>('setup');
   const [selectedPreset, setSelectedPreset] = useState<string>('');
->>>>>>> upstream/PRODUCTION
   const [timezone, setTimezone] = useState<string>(config.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [scheduleTabValue, setScheduleTabValue] = useState<'quick' | 'recurring' | 'one-time' | 'advanced'>('quick');
 
   // Recurring schedule state
   const [scheduleType, setScheduleType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
@@ -416,8 +416,6 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
     }
   };
 
-<<<<<<< HEAD
-=======
   const handleRecurringScheduleChange = () => {
     const cronExpression = generateCronFromRecurring();
     console.log('Generated cron expression:', cronExpression, {

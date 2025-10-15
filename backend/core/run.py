@@ -47,10 +47,8 @@ from core.tools.sb_upload_file_tool import SandboxUploadFileTool
 from core.tools.sb_custom_automation_tool import SandboxCustomAutomationTool
 from core.tools.podcast_tool import SandboxPodcastTool
 from core.tools.sb_docs_tool import SandboxDocsTool
-            # ('sb_document_parser_tool', SandboxDocumentParserTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-        ]
-        
-        for tool_name, tool_class, kwargs in sandbox_tools:
+
+class ToolManager:
             if tool_name not in disabled_tools:
                 # Check for granular method control
                 enabled_methods = self._get_enabled_methods_for_tool(tool_name)

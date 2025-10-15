@@ -697,22 +697,8 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                                             <div className="text-center space-y-3">
                                                 <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
                                                 <p className="text-sm text-muted-foreground">Loading trigger configuration...</p>
-                                                            disabled={(isEditMode ? updateTrigger.isPending : createTrigger.isPending) || !name.trim() || !profileId || !isConfigValid || !prompt.trim()}
-                                                            size="sm"
-                                                        >
-                                                            {(isEditMode ? updateTrigger.isPending : createTrigger.isPending) ? (
-                                                                <>
-                                                                    <Loader2 className="h-3 w-3 animate-spin mr-2" />
-                                                                    {isEditMode ? 'Updating...' : 'Creating...'}
-                                                                </>
-                                                            ) : (
-                                                                isEditMode ? 'Update Trigger' : 'Create Trigger'
-                                                            )}
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </>
+                                            </div>
+                                        </div>
                                     ) : null}
                                 </div>
                             )}

@@ -122,19 +122,16 @@ export function HeroSection() {
   const { billingError, handleBillingError, clearBillingError } =
     useBillingError();
   const { data: accounts } = useAccounts({ enabled: !!user });
->>>>>>> upstream/PRODUCTION
   const personalAccount = accounts?.find((account) => account.personal_account);
   const { onOpen } = useModal();
   const initiateAgentMutation = useInitiateAgentMutation();
   const [initiatedThreadId, setInitiatedThreadId] = useState<string | null>(null);
   const threadQuery = useThreadQuery(initiatedThreadId || '');
+  const chatInputRef = useRef<ChatInputHandles>(null);
 
-  // Initialize agent selection from localStorage when agents are loaded
-  useEffect(() => {
-    if (agents.length > 0) {
-      initializeFromAgents(agents);
-    }
-  }, [agents, initializeFromAgents]);
+  // Fetch agents for selection
+  const { data: agentsResponse } = useAgents({}, { enabled: !!user });
+  const agents = agentsResponse?.agents || [];
 
   // Initialize agent selection from localStorage when agents are loaded
   useEffect(() => {
@@ -390,17 +387,12 @@ export function HeroSection() {
     }
   }, [threadQuery.data, initiatedThreadId, router]);
 
-<<<<<<< HEAD
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!inputValue.trim()) return;
-=======
   // Handle ChatInput submission
   const handleChatInputSubmit = async (
     message: string,
-    options?: { model_name?: string }
+    options?: { model_name?: string; agent_id?: string }
   ) => {
-    if ((!message.trim() && !chatInputRef.current?.getPendingFiles().length) || isSubmitting) return;
+    if (!message.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
     setAuthError(null);
@@ -408,19 +400,18 @@ export function HeroSection() {
     try {
       // If not authenticated, show auth dialog
       if (!user) {
-        localStorage.setItem(PENDING_PROMPT_KEY, inputValue.trim());
+        localStorage.setItem(PENDING_PROMPT_KEY, message.trim());
         setAuthDialogOpen(true);
+        setIsSubmitting(false);
         return;
       }
 
-      // Add files if any
-      files.forEach((file) => {
-        const normalizedName = normalizeFilenameToNFC(file.name);
-        formData.append('files', file, normalizedName);
-      });
+      const formData = new FormData();
+      formData.append('prompt', message);
 
+      if (options?.agent_id) formData.append('agent_id', options.agent_id);
       if (options?.model_name) formData.append('model_name', options.model_name);
-      formData.append('stream', 'true'); // Always stream for better UX
+      formData.append('stream', 'true');
       formData.append('enable_context_manager', 'false');
 
       const result = await initiateAgentMutation.mutateAsync(formData);
@@ -428,7 +419,6 @@ export function HeroSection() {
       if (result.thread_id) {
         setInitiatedThreadId(result.thread_id);
         setInputValue('');
-        router.push(`/agents/${result.thread_id}`);
       } else {
         throw new Error('Failed to create agent');
       }
@@ -463,13 +453,6 @@ export function HeroSection() {
       }
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSubmit(e as any);
     }
   };
 
