@@ -2,6 +2,7 @@ import httpx
 import json
 import asyncio
 import os
+import re
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from core.agentpress.tool import Tool, ToolResult, openapi_schema, usage_example
@@ -77,12 +78,61 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         self.heygen_base_url = "https://api.heygen.com"
         self.active_sessions: Dict[str, str] = {}  # Maps session names to session IDs
         
+        # Extract default avatar ID from system prompt if specified
+        self.default_avatar_id = self._extract_default_avatar_id()
+        
         if not self.heygen_api_key:
             logger.warning("HeyGen API key not configured. Video avatar functionality will be limited.")
         else:
             # Log key info for debugging (first/last chars only for security)
             key_preview = f"{self.heygen_api_key[:8]}...{self.heygen_api_key[-8:]}" if len(self.heygen_api_key) > 16 else "short_key"
             logger.info(f"HeyGen API key configured successfully: {key_preview}")
+            
+        if self.default_avatar_id:
+            logger.info(f"🎭 Default avatar ID configured from system prompt: {self.default_avatar_id}")
+    
+    def _extract_default_avatar_id(self) -> Optional[str]:
+        """
+        Extract default avatar ID from system prompt if specified.
+        
+        Supports multiple formats:
+        - default_avatar_id: wayne_business
+        - DEFAULT_AVATAR_ID: wayne_business  
+        - heygen_avatar_id: Kristin_public_3_20240108
+        - HEYGEN_AVATAR_ID: Kristin_public_3_20240108
+        - avatar_id: josh_lite3_20230714
+        - AVATAR_ID: josh_lite3_20230714
+        """
+        try:
+            if not self.thread_manager or not self.thread_manager.agent_config:
+                return None
+            
+            system_prompt = self.thread_manager.agent_config.get('system_prompt', '')
+            if not system_prompt:
+                return None
+            
+            # Try multiple patterns to extract avatar ID
+            patterns = [
+                r'default_avatar_id:\s*([^\s\n]+)',
+                r'DEFAULT_AVATAR_ID:\s*([^\s\n]+)',
+                r'heygen_avatar_id:\s*([^\s\n]+)',
+                r'HEYGEN_AVATAR_ID:\s*([^\s\n]+)',
+                r'avatar_id:\s*([^\s\n]+)',
+                r'AVATAR_ID:\s*([^\s\n]+)',
+            ]
+            
+            for pattern in patterns:
+                match = re.search(pattern, system_prompt, re.IGNORECASE)
+                if match:
+                    avatar_id = match.group(1).strip()
+                    logger.info(f"Found default avatar ID in system prompt: {avatar_id}")
+                    return avatar_id
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Error extracting default avatar ID from system prompt: {e}")
+            return None
     
     def _get_heygen_headers(self) -> Dict[str, str]:
         """Get standard headers for HeyGen API requests."""
@@ -110,7 +160,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                     },
                     "avatar_id": {
                         "type": "string",
-                        "description": "HeyGen avatar ID to use. Use 'default' or specific avatar IDs from HeyGen",
+                        "description": "HeyGen avatar ID to use. Use 'default' to use the avatar configured in system prompt (or Kristin if not configured), or specify a HeyGen avatar ID directly. To configure a default avatar, add 'default_avatar_id: YOUR_AVATAR_ID' to the agent's system prompt.",
                         "default": "default"
                     },
                     "voice_id": {
@@ -189,6 +239,13 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
             logger.info(f"Starting avatar video generation with key: {key_preview}")
             logger.info(f"Starting avatar video generation: {video_title}")
             
+            # Determine which avatar ID to use
+            resolved_avatar_id = avatar_id
+            if avatar_id == "default":
+                # Use system prompt configured default, or fallback to Kristin
+                resolved_avatar_id = self.default_avatar_id or "Kristin_public_3_20240108"
+                logger.info(f"Using resolved default avatar: {resolved_avatar_id}")
+            
             # Prepare video generation request
             voice_config = {
                 "type": "text",
@@ -210,7 +267,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 "video_inputs": [{
                     "character": {
                         "type": "avatar",
-                        "avatar_id": avatar_id if avatar_id != "default" else "Kristin_public_3_20240108",
+                        "avatar_id": resolved_avatar_id,
                         "avatar_style": "normal"
                     },
                     "voice": voice_config,
@@ -260,14 +317,14 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 logger.info(f"🎬 ===== VIDEO GENERATION STARTED =====")
                 logger.info(f"📋 JOB ID: {video_id}")
                 logger.info(f"📝 TEXT: '{text}'")
-                logger.info(f"👤 AVATAR: {avatar_id}")
+                logger.info(f"👤 AVATAR: {resolved_avatar_id}" + (f" (from system prompt default)" if avatar_id == "default" and self.default_avatar_id else ""))
                 logger.info(f"🔒 EXACT TEXT: {preserve_exact_text}")
                 logger.info(f"=========================================")
                 
                 # Smart async polling approach
                 if async_polling:
                     logger.info(f"🎬 Starting async video generation for '{video_title}' (ID: {video_id})")
-                    return await self._async_poll_and_download(video_id, video_title, text, avatar_id, voice_id, max_wait_time)
+                    return await self._async_poll_and_download(video_id, video_title, text, resolved_avatar_id, voice_id, max_wait_time)
                     
                 elif wait_for_completion:
                     # Traditional blocking approach 
@@ -276,14 +333,14 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                         download_path = await self._download_video(video_url, video_title, video_id)
                         if download_path:
                             # Save metadata
-                            await self._save_video_metadata(video_id, video_title, text, avatar_id, voice_id, download_path)
+                            await self._save_video_metadata(video_id, video_title, text, resolved_avatar_id, voice_id, download_path)
                             
                             logger.info(f"Successfully generated and downloaded video: {download_path}")
                             return self.success_response(
                                 f"Avatar video generated successfully! Video saved as: {download_path}\n"
                                 f"Video ID: {video_id}\n"
                                 f"Title: {video_title}\n"
-                                f"Avatar: {avatar_id}\n"
+                                f"Avatar: {resolved_avatar_id}\n"
                                 f"Text: {text[:100]}{'...' if len(text) > 100 else ''}",
                                 attachments=[download_path]
                             )
@@ -294,11 +351,15 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                         return self.fail_response("Video generation timed out or failed")
                 else:
                     # Quick return approach - ALWAYS show job ID prominently
+                    avatar_info = f"{resolved_avatar_id}"
+                    if avatar_id == "default" and self.default_avatar_id:
+                        avatar_info += " (from system prompt)"
+                    
                     return self.success_response(
                         f"🎬 **AVATAR VIDEO GENERATION STARTED!**\n\n"
                         f"📋 **JOB ID**: `{video_id}` ⭐\n"
                         f"📝 **REQUESTED TEXT**: \"{text}\"\n"
-                        f"👤 **AVATAR**: {avatar_id}\n"
+                        f"👤 **AVATAR**: {avatar_info}\n"
                         f"🎙️ **VOICE**: {voice_id}\n\n" 
                         f"📹 **STATUS**: Processing (typically 30-60 seconds)\n"
                         f"🔍 **TRACK PROGRESS**: Use `check_video_status('{video_id}')` to check and download\n\n"
