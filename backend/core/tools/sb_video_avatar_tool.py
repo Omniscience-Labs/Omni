@@ -412,7 +412,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "create_avatar_session",
-            "description": "Create a new interactive video avatar session with customizable settings. This sets up the avatar with specified appearance, voice, and behavioral parameters.",
+            "description": "Create a streaming avatar token for real-time interactive avatars. NOTE: Streaming avatars require WebRTC and work best in frontend applications. For pre-recorded videos, use generate_avatar_video instead. This creates a session token that can be used in a web/mobile app.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -572,14 +572,25 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 logger.info(f"Avatar session '{session_name}' created successfully with ID: {session_id}")
                 
                 return self.success_response(
-                    f"Interactive avatar session '{session_name}' created successfully!\n"
-                    f"Session ID: {session_id}\n"
-                    f"Avatar: {avatar_name} ({avatar_id})\n"
-                    f"Voice: {selected_voice} ({voice_emotion})\n"
-                    f"Quality: {quality}\n"
-                    f"Voice Chat: {'Enabled' if enable_voice_chat else 'Disabled'}\n"
-                    f"Language: {language}\n\n"
-                    f"You can now use make_avatar_speak to make the avatar talk, or other session management commands."
+                    f"🎭 **Streaming Avatar Session Token Created!**\n\n"
+                    f"**Session Name**: {session_name}\n"
+                    f"**Session ID**: `{session_id}`\n"
+                    f"**Token**: `{session_token[:20]}...`\n"
+                    f"**Avatar**: {avatar_name} ({avatar_id})\n"
+                    f"**Voice**: {selected_voice} ({voice_emotion})\n"
+                    f"**Quality**: {quality}\n"
+                    f"**Language**: {language}\n\n"
+                    f"⚠️ **IMPORTANT NOTES**:\n"
+                    f"1. Streaming avatars require WebRTC and work best in frontend apps\n"
+                    f"2. This token is valid for establishing a client-side connection\n"
+                    f"3. For simple video generation, use `generate_avatar_video` instead\n\n"
+                    f"📱 **Frontend Integration Example**:\n"
+                    f"```javascript\n"
+                    f"const peerConnection = new RTCPeerConnection();\n"
+                    f"// Use session_token: {session_token[:20]}...\n"
+                    f"// Connect to HeyGen's WebRTC service\n"
+                    f"```\n\n"
+                    f"💡 **Tip**: If you just want to create a video, use `generate_avatar_video` - it's much simpler!"
                 )
                 
         except Exception as e:
@@ -591,7 +602,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "make_avatar_speak",
-            "description": "Make an avatar in an active session speak the provided text. The avatar will generate speech and display the corresponding lip-sync animation.",
+            "description": "Send a speak command to a streaming avatar session. NOTE: This requires an active WebRTC connection established on the frontend. For simple video creation, use generate_avatar_video instead.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -1493,54 +1504,214 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 return self.fail_response("HeyGen API key not configured.")
             
             async with httpx.AsyncClient() as client:
-                # Get user info
-                info_response = await client.get(
-                    f"{self.heygen_base_url}/v1/user/info",
+                # Get remaining quota - this is the correct HeyGen endpoint
+                quota_response = await client.get(
+                    f"{self.heygen_base_url}/v2/user/remaining_quota",
                     headers=self._get_heygen_headers(),
                     timeout=30.0
                 )
                 
-                if info_response.status_code != 200:
-                    return self.fail_response(f"API error: {info_response.status_code} - {info_response.text}")
+                if quota_response.status_code != 200:
+                    return self.fail_response(f"API error: {quota_response.status_code} - {quota_response.text}")
                 
-                info_result = info_response.json()
-                user_data = info_result.get("data", {})
-                
-                # Get usage stats
-                usage_response = await client.get(
-                    f"{self.heygen_base_url}/v1/user/usage",
-                    headers=self._get_heygen_headers(),
-                    timeout=30.0
-                )
-                
-                usage_data = {}
-                if usage_response.status_code == 200:
-                    usage_result = usage_response.json()
-                    usage_data = usage_result.get("data", {})
+                result = quota_response.json()
+                data = result.get("data", {})
                 
                 # Format response
-                response_text = "💳 **Account Usage & Credits**\n\n"
+                response_text = "💳 **HeyGen Account Credits & Usage**\n\n"
                 
-                if user_data:
-                    response_text += f"**Account**: {user_data.get('email', 'N/A')}\n"
-                    response_text += f"**Plan**: {user_data.get('plan_type', 'N/A')}\n\n"
-                    
-                    credits = user_data.get("remaining_credits", "N/A")
-                    total_credits = user_data.get("total_credits", "N/A")
-                    response_text += f"**Credits**:\n"
-                    response_text += f"• Remaining: {credits}\n"
-                    response_text += f"• Total: {total_credits}\n\n"
+                # Credits information
+                remaining = data.get("remaining", 0)
+                total = data.get("total", 0)
+                used = total - remaining if total > 0 else 0
+                percentage_used = (used / total * 100) if total > 0 else 0
                 
-                if usage_data:
-                    response_text += f"**Usage Statistics**:\n"
-                    response_text += f"• Videos Generated: {usage_data.get('video_count', 0)}\n"
-                    response_text += f"• Minutes Used: {usage_data.get('minutes_used', 0)}\n"
-                    response_text += f"• API Calls: {usage_data.get('api_calls', 0)}\n"
+                response_text += f"**Credit Balance**:\n"
+                response_text += f"• Remaining: **{remaining:.2f}** credits\n"
+                response_text += f"• Total Quota: {total:.2f} credits\n"
+                response_text += f"• Used: {used:.2f} credits ({percentage_used:.1f}%)\n\n"
+                
+                # Usage breakdown if available
+                if "details" in data:
+                    details = data.get("details", {})
+                    response_text += f"**Usage Breakdown**:\n"
+                    for key, value in details.items():
+                        response_text += f"• {key.replace('_', ' ').title()}: {value}\n"
+                    response_text += "\n"
+                
+                # Status indicator
+                if remaining > total * 0.2:
+                    response_text += "✅ **Status**: Healthy credit balance\n"
+                elif remaining > 0:
+                    response_text += "⚠️ **Status**: Low credits - consider refilling\n"
+                else:
+                    response_text += "🚨 **Status**: No credits remaining - refill required\n"
+                
+                response_text += f"\n💡 **Tip**: Each video generation typically costs 1-3 credits depending on length and quality."
                 
                 return self.success_response(response_text)
                 
         except Exception as e:
             return self.fail_response(f"Failed to get account usage: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "get_streaming_avatar_guide",
+            "description": "Get a complete guide for integrating HeyGen streaming avatars into your web/mobile application. This explains the WebRTC setup, token usage, and best practices.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    })
+    async def get_streaming_avatar_guide(self) -> ToolResult:
+        """Provide comprehensive guide for streaming avatar integration."""
+        guide = """
+🎭 **HeyGen Streaming Avatar Integration Guide**
+
+## Overview
+Streaming avatars provide real-time, interactive video experiences where an AI avatar responds instantly to user input. This requires WebRTC and is designed for frontend applications.
+
+## ⚠️ When to Use Each Feature
+
+### Use `generate_avatar_video()` when:
+- Creating pre-recorded videos (most common use case)
+- Generating content for social media (TikTok, Reels, YouTube)
+- Making personalized videos at scale
+- Need downloadable MP4 files
+- ✅ Works in sandbox/backend ✅
+
+### Use Streaming Avatars when:
+- Building interactive chat interfaces
+- Creating virtual assistants with real-time responses
+- Live customer service avatars
+- Real-time presentations
+- ⚠️ Requires frontend WebRTC integration ⚠️
+
+## 🔧 Streaming Avatar Setup (3 Steps)
+
+### Step 1: Create Token (Backend)
+```python
+# Use create_avatar_session() to get a session token
+result = await create_avatar_session(
+    session_name="customer_support",
+    selected_avatar="kristin_professional",
+    quality="high"
+)
+# Extract token from result
+```
+
+### Step 2: Establish WebRTC Connection (Frontend)
+```javascript
+// In your React/Vue/vanilla JS app
+const StreamingAvatar = async (token) => {
+  const pc = new RTCPeerConnection({
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+  });
+  
+  // Create data channel for commands
+  const dataChannel = pc.createDataChannel('heygen');
+  
+  // Add video element to display avatar
+  const video = document.getElementById('avatar-video');
+  pc.ontrack = (event) => {
+    video.srcObject = event.streams[0];
+  };
+  
+  // Connect to HeyGen's WebRTC endpoint using token
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  
+  const response = await fetch('https://api.heygen.com/v1/streaming.start', {
+    method: 'POST',
+    headers: { 'x-api-key': YOUR_API_KEY },
+    body: JSON.stringify({
+      session_id: SESSION_ID,
+      sdp: offer
+    })
+  });
+  
+  const answer = await response.json();
+  await pc.setRemoteDescription(answer.data.sdp);
+};
+```
+
+### Step 3: Send Commands
+```javascript
+// Make avatar speak
+dataChannel.send(JSON.stringify({
+  type: 'repeat',
+  text: 'Hello! How can I help you today?'
+}));
+
+// Stop speaking
+dataChannel.send(JSON.stringify({
+  type: 'stop'
+}));
+```
+
+## 📦 Pre-built Solutions
+
+### React SDK
+```bash
+npm install @heygen/streaming-avatar
+```
+
+```jsx
+import StreamingAvatar from '@heygen/streaming-avatar';
+
+function App() {
+  return (
+    <StreamingAvatar
+      token={YOUR_TOKEN}
+      onStart={() => console.log('Avatar started')}
+      onSpeak={(text) => console.log('Avatar spoke:', text)}
+    />
+  );
+}
+```
+
+## 🎯 Best Practices
+
+1. **Token Security**: Generate tokens server-side, never expose API key in frontend
+2. **Connection Lifecycle**: Close sessions when done to save credits
+3. **Error Handling**: Implement reconnection logic for network issues
+4. **Latency**: Use high-quality network, avoid VPNs for best performance
+5. **Testing**: Test across browsers (Chrome/Edge recommended)
+
+## 💡 Quick Decision Tree
+
+```
+Need avatar video?
+├─ Pre-recorded content? → use generate_avatar_video()
+├─ Real-time interaction? → use streaming avatars (requires WebRTC setup)
+└─ Personalized at scale? → use generate_from_template()
+```
+
+## 🚀 Next Steps
+
+For pre-recorded videos (recommended):
+- Use `generate_avatar_video()` - simple, works everywhere
+- Add `aspect_ratio="9:16"` for TikTok/Reels
+- Use templates for personalization at scale
+
+For streaming (advanced):
+- Create session token with `create_avatar_session()`
+- Integrate HeyGen React SDK or build custom WebRTC
+- Refer to: https://docs.heygen.com/docs/streaming-avatar
+
+## ❓ Common Issues
+
+**"Session not found"**: Streaming requires WebRTC connection, can't be used directly from backend
+**"Connection failed"**: Check network/firewall, WebRTC needs UDP ports
+**"Want simpler solution"**: Use `generate_avatar_video()` instead - much easier!
+
+---
+📧 Questions? Check HeyGen docs: https://docs.heygen.com/
+        """
+        return self.success_response(guide)
 
     # ==================== TEMPLATE API - Personalized Videos at Scale ====================
     
