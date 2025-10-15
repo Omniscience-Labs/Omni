@@ -184,6 +184,12 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                         "description": "Video quality setting",
                         "default": "medium"
                     },
+                    "aspect_ratio": {
+                        "type": "string",
+                        "enum": ["16:9", "9:16", "1:1"],
+                        "description": "Video aspect ratio - 16:9 (horizontal/YouTube), 9:16 (vertical/TikTok/Reels/Shorts), 1:1 (square/Instagram)",
+                        "default": "16:9"
+                    },
                     "async_polling": {
                         "type": "boolean",
                         "description": "Use smart async polling - starts generation, polls intelligently, downloads to sandbox when ready",
@@ -212,7 +218,13 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         <parameter name="voice_id">professional_female_1</parameter>
         <parameter name="video_title">Customer Service Introduction</parameter>
         <parameter name="background_color">#f0f8ff</parameter>
+        <parameter name="aspect_ratio">16:9</parameter>
         <parameter name="async_polling">true</parameter>
+        </invoke>
+        <!-- For TikTok/Reels/Shorts (vertical UGC): -->
+        <invoke name="generate_avatar_video">
+        <parameter name="text">Check out this amazing tip!</parameter>
+        <parameter name="aspect_ratio">9:16</parameter>
         </invoke>
         </function_calls>
     ''')
@@ -225,6 +237,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         video_title: str = "Avatar Video",
         background_color: str = "#ffffff",
         video_quality: str = "medium",
+        aspect_ratio: str = "16:9",
         async_polling: bool = True,
         wait_for_completion: bool = False,
         max_wait_time: int = 300
@@ -263,6 +276,14 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 })
                 logger.info(f"🔒 Exact text preservation enabled for: '{text}'")
             
+            # Calculate dimensions based on aspect ratio
+            dimension_map = {
+                "16:9": {"width": 1280, "height": 720},    # Horizontal (YouTube, standard)
+                "9:16": {"width": 720, "height": 1280},    # Vertical (TikTok, Reels, Shorts)
+                "1:1": {"width": 1080, "height": 1080}     # Square (Instagram feed)
+            }
+            dimensions = dimension_map.get(aspect_ratio, dimension_map["16:9"])
+            
             video_data = {
                 "video_inputs": [{
                     "character": {
@@ -276,14 +297,15 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                         "value": background_color
                     }
                 }],
-                "dimension": {
-                    "width": 1280,
-                    "height": 720
-                },
-                "aspect_ratio": "16:9",
+                "dimension": dimensions,
+                "aspect_ratio": aspect_ratio,
                 "test": False,
                 "caption": False
             }
+            
+            # Log UGC format if vertical
+            if aspect_ratio == "9:16":
+                logger.info(f"📱 Generating VERTICAL video (UGC format) for TikTok/Reels/Shorts")
             
             # Add quality settings
             quality_settings = {
@@ -355,12 +377,27 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                     if avatar_id == "default" and self.default_avatar_id:
                         avatar_info += " (from system prompt)"
                     
+                    # Format type indicator based on aspect ratio
+                    format_emoji = {
+                        "16:9": "🖥️",
+                        "9:16": "📱",
+                        "1:1": "⬛"
+                    }.get(aspect_ratio, "🎬")
+                    
+                    format_name = {
+                        "16:9": "Horizontal (YouTube/standard)",
+                        "9:16": "Vertical UGC (TikTok/Reels/Shorts)",
+                        "1:1": "Square (Instagram)"
+                    }.get(aspect_ratio, "Standard")
+                    
                     return self.success_response(
                         f"🎬 **AVATAR VIDEO GENERATION STARTED!**\n\n"
                         f"📋 **JOB ID**: `{video_id}` ⭐\n"
                         f"📝 **REQUESTED TEXT**: \"{text}\"\n"
                         f"👤 **AVATAR**: {avatar_info}\n"
-                        f"🎙️ **VOICE**: {voice_id}\n\n" 
+                        f"🎙️ **VOICE**: {voice_id}\n"
+                        f"{format_emoji} **FORMAT**: {aspect_ratio} - {format_name}\n"
+                        f"📐 **DIMENSIONS**: {dimensions['width']}x{dimensions['height']}\n\n" 
                         f"📹 **STATUS**: Processing (typically 30-60 seconds)\n"
                         f"🔍 **TRACK PROGRESS**: Use `check_video_status('{video_id}')` to check and download\n\n"
                         f"**⚠️ IMPORTANT**: HeyGen may slightly modify your text for natural speech. The exact text above was requested."
@@ -1504,6 +1541,206 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 
         except Exception as e:
             return self.fail_response(f"Failed to get account usage: {str(e)}")
+
+    # ==================== TEMPLATE API - Personalized Videos at Scale ====================
+    
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "list_video_templates",
+            "description": "List all available video templates. Templates allow you to create personalized videos at scale by filling in variables.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    })
+    async def list_video_templates(self) -> ToolResult:
+        """List all available video templates."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.heygen_base_url}/v1/template.list",
+                    headers=self._get_heygen_headers(),
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    return self.fail_response(f"API error: {response.status_code} - {response.text}")
+                
+                result = response.json()
+                templates = result.get("data", {}).get("templates", [])
+                
+                if not templates:
+                    return self.success_response("No templates found. Create templates in the HeyGen dashboard first.")
+                
+                response_text = f"📋 **Video Templates ({len(templates)} available)**:\n\n"
+                for i, template in enumerate(templates, 1):
+                    template_id = template.get("template_id")
+                    name = template.get("name", "Untitled")
+                    variables = template.get("variables", [])
+                    
+                    response_text += f"{i}. **{name}**\n"
+                    response_text += f"   ID: `{template_id}`\n"
+                    response_text += f"   Variables: {len(variables)} ({', '.join([v.get('name', '?') for v in variables[:3]])}{'...' if len(variables) > 3 else ''})\n\n"
+                
+                return self.success_response(response_text)
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to list templates: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "get_template_details",
+            "description": "Get detailed information about a specific template, including all variables that can be personalized.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "template_id": {
+                        "type": "string",
+                        "description": "ID of the template to get details for"
+                    }
+                },
+                "required": ["template_id"]
+            }
+        }
+    })
+    async def get_template_details(self, template_id: str) -> ToolResult:
+        """Get template details including variables."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.heygen_base_url}/v1/template/{template_id}",
+                    headers=self._get_heygen_headers(),
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    return self.fail_response(f"API error: {response.status_code} - {response.text}")
+                
+                result = response.json()
+                template = result.get("data", {})
+                
+                name = template.get("name", "Untitled")
+                variables = template.get("variables", [])
+                
+                response_text = f"📋 **Template: {name}**\n\n"
+                response_text += f"**ID**: `{template_id}`\n\n"
+                response_text += f"**Variables ({len(variables)})**:\n"
+                
+                for var in variables:
+                    var_name = var.get("name")
+                    var_type = var.get("type", "text")
+                    required = var.get("required", False)
+                    default = var.get("default_value", "")
+                    
+                    response_text += f"\n• **{var_name}** ({var_type})\n"
+                    response_text += f"  Required: {'Yes' if required else 'No'}\n"
+                    if default:
+                        response_text += f"  Default: \"{default}\"\n"
+                
+                response_text += f"\n\n**Usage Example**:\n"
+                response_text += f"```\ngenerate_from_template(\n"
+                response_text += f"  template_id='{template_id}',\n"
+                response_text += f"  variables={{\n"
+                for var in variables[:3]:
+                    var_name = var.get("name")
+                    response_text += f"    '{var_name}': 'Your value here',\n"
+                response_text += f"  }}\n)\n```"
+                
+                return self.success_response(response_text)
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to get template details: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "generate_from_template",
+            "description": "Generate a personalized video from a template. Perfect for creating hundreds or thousands of unique videos by filling in variables like names, companies, data points, etc.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "template_id": {
+                        "type": "string",
+                        "description": "ID of the template to use"
+                    },
+                    "variables": {
+                        "type": "object",
+                        "description": "Dictionary of variable names and values to personalize the video (e.g., {'customer_name': 'John Doe', 'company': 'Acme Corp'})"
+                    },
+                    "video_title": {
+                        "type": "string",
+                        "description": "Title for the generated video",
+                        "default": "Template Video"
+                    }
+                },
+                "required": ["template_id", "variables"]
+            }
+        }
+    })
+    async def generate_from_template(
+        self,
+        template_id: str,
+        variables: Dict[str, str],
+        video_title: str = "Template Video"
+    ) -> ToolResult:
+        """Generate a video from a template with variables."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            template_data = {
+                "template_id": template_id,
+                "variables": variables,
+                "title": video_title
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.heygen_base_url}/v3/template/{template_id}",
+                    headers=self._get_heygen_headers(),
+                    json=template_data,
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    return self.fail_response(f"Template API error: {response.status_code} - {response.text}")
+                
+                result = response.json()
+                video_id = result.get("data", {}).get("video_id")
+                
+                if not video_id:
+                    return self.fail_response("Failed to get video ID from template response")
+                
+                logger.info(f"🎨 Template video generation started: {video_id}")
+                
+                # Format variables for display
+                var_display = "\n".join([f"  • {k}: \"{v}\"" for k, v in variables.items()])
+                
+                return self.success_response(
+                    f"🎨 **Template Video Generation Started!**\n\n"
+                    f"**Video ID**: `{video_id}`\n"
+                    f"**Template**: {template_id}\n"
+                    f"**Title**: {video_title}\n\n"
+                    f"**Variables**:\n{var_display}\n\n"
+                    f"⏳ **Status**: Processing (typically 60-90 seconds)\n\n"
+                    f"**Next Steps**:\n"
+                    f"1. Use `check_video_status('{video_id}')` to check progress\n"
+                    f"2. Video will auto-download when complete\n\n"
+                    f"💡 **Tip**: You can generate thousands of personalized videos by calling this with different variables!"
+                )
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to generate from template: {str(e)}")
     
     # Helper methods
 
