@@ -8,6 +8,116 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Settings,
+  Wrench,
+  Server,
+  BookOpen,
+  Zap,
+  Download,
+  Loader2,
+  Check,
+  X,
+  Edit3,
+  Save,
+  Brain,
+  ChevronDown,
+  Search,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { KortixLogo } from '@/components/sidebar/kortix-logo';
+
+import { useAgentVersionData } from '@/hooks/use-agent-version-data';
+import { useUpdateAgent, useAgents } from '@/hooks/react-query/agents/use-agents';
+import { useUpdateAgentMCPs } from '@/hooks/react-query/agents/use-update-agent-mcps';
+import { useExportAgent } from '@/hooks/react-query/agents/use-agent-export-import';
+import { ExpandableMarkdownEditor } from '@/components/ui/expandable-markdown-editor';
+import { AgentModelSelector } from './config/model-selector';
+import { AgentToolsConfiguration } from './agent-tools-configuration';
+import { GranularToolConfiguration } from './tools/granular-tool-configuration';
+import { AgentMCPConfiguration } from './agent-mcp-configuration';
+import { AgentKnowledgeBaseManager } from './knowledge-base/agent-kb-tree';
+import { AgentTriggersConfiguration } from './triggers/agent-triggers-configuration';
+import { AgentAvatar } from '../thread/content/agent-avatar';
+import { AgentIconEditorDialog } from './config/agent-icon-editor-dialog';
+import { AgentVersionSwitcher } from './agent-version-switcher';
+import { DEFAULT_AGENTPRESS_TOOLS, ensureCoreToolsEnabled } from './tools';
+
+interface AgentConfigurationDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  agentId: string;
+  initialTab?: 'instructions' | 'tools' | 'integrations' | 'knowledge' | 'triggers';
+  onAgentChange?: (agentId: string) => void;
+}
+
+export function AgentConfigurationDialog({
+  open,
+  onOpenChange,
+  agentId,
+  initialTab = 'instructions',
+  onAgentChange,
+}: AgentConfigurationDialogProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+
+  const { agent, versionData, isViewingOldVersion, isLoading, error } = useAgentVersionData({ agentId });
+  const { data: agentsResponse, refetch: refetchAgents } = useAgents({}, { 
+    enabled: !!onAgentChange,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always'
+  });
+  const agents = agentsResponse?.agents || [];
+
+  const updateAgentMutation = useUpdateAgent();
+  const updateAgentMCPsMutation = useUpdateAgentMCPs();
+  const exportMutation = useExportAgent();
+
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [isIconEditorOpen, setIsIconEditorOpen] = useState(false);
+  
+  // Debug state changes
+  useEffect(() => {
+    console.log('Icon editor open state changed:', isIconEditorOpen);
+  }, [isIconEditorOpen]);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [open, initialTab]);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    system_prompt: '',
+    model: undefined as string | undefined,
+    agentpress_tools: DEFAULT_AGENTPRESS_TOOLS as Record<string, any>,
+    configured_mcps: [] as any[],
+    custom_mcps: [] as any[],
+    is_default: false,
     icon_name: null as string | null,
     icon_color: '#000000',
     icon_background: '#e5e5e5',
@@ -33,10 +143,239 @@ import {
 
     const newFormData = {
       name: configSource.name || '',
+      system_prompt: configSource.system_prompt || '',
+      model: configSource.model || undefined,
+      agentpress_tools: ensureCoreToolsEnabled(configSource.agentpress_tools || DEFAULT_AGENTPRESS_TOOLS),
+      configured_mcps: configSource.configured_mcps || [],
+      custom_mcps: configSource.custom_mcps || [],
+      is_default: configSource.is_default || false,
+      icon_name: configSource.icon_name || null,
+      icon_color: configSource.icon_color || '#000000',
+      icon_background: configSource.icon_background || '#e5e5e5',
+    };
+
+    setFormData(newFormData);
+    setOriginalFormData(newFormData);
+    setEditName(configSource.name || '');
+  }, [agent, versionData]);
+
+  const isSunaAgent = agent?.metadata?.is_suna_default || false;
+  const restrictions = agent?.metadata?.restrictions || {};
+  const isNameEditable = !isViewingOldVersion && (restrictions.name_editable !== false) && !isSunaAgent;
+  const isSystemPromptEditable = !isViewingOldVersion && (restrictions.system_prompt_editable !== false) && !isSunaAgent;
+  const areToolsEditable = !isViewingOldVersion && (restrictions.tools_editable !== false) && !isSunaAgent;
+
+  const hasChanges = useMemo(() => {
+    return JSON.stringify(formData) !== JSON.stringify(originalFormData);
+  }, [formData, originalFormData]);
+
+  const handleSaveAll = async () => {
+    if (!hasChanges) return;
+
+    setIsSaving(true);
+    try {
+      const updateData: any = {
+        agentId,
+        name: formData.name,
         system_prompt: formData.system_prompt,
         agentpress_tools: formData.agentpress_tools,
       };
 
+      if (formData.model !== undefined && formData.model !== null) updateData.model = formData.model;
+      if (formData.icon_name !== undefined) updateData.icon_name = formData.icon_name;
+      if (formData.icon_color !== undefined) updateData.icon_color = formData.icon_color;
+      if (formData.icon_background !== undefined) updateData.icon_background = formData.icon_background;
+      if (formData.is_default !== undefined) updateData.is_default = formData.is_default;
+
+      const updatedAgent = await updateAgentMutation.mutateAsync(updateData);
+
+      const mcpsChanged =
+        JSON.stringify(formData.configured_mcps) !== JSON.stringify(originalFormData.configured_mcps) ||
+        JSON.stringify(formData.custom_mcps) !== JSON.stringify(originalFormData.custom_mcps);
+
+      if (mcpsChanged) {
+        await updateAgentMCPsMutation.mutateAsync({
+          agentId,
+          configured_mcps: formData.configured_mcps,
+          custom_mcps: formData.custom_mcps,
+          replace_mcps: true
+        });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['versions', 'list', agentId] });
+      queryClient.invalidateQueries({ queryKey: ['agents', 'detail', agentId] });
+
+      if (updatedAgent.current_version_id) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete('version');
+        const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
+        router.push(newUrl);
+      }
+
+      setOriginalFormData(formData);
+      toast.success('Agent configuration saved successfully');
+    } catch (error) {
+      console.error('Failed to save changes:', error);
+      toast.error('Failed to save changes');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleNameSave = () => {
+    if (!editName.trim()) {
+      setEditName(formData.name);
+      setIsEditingName(false);
+      return;
+    }
+
+    if (!isNameEditable) {
+      if (isSunaAgent) {
+        toast.error("Name cannot be edited", {
+          description: "Suna's name is managed centrally and cannot be changed.",
+        });
+      }
+      setEditName(formData.name);
+      setIsEditingName(false);
+      return;
+    }
+
+    setFormData(prev => ({ ...prev, name: editName }));
+    setIsEditingName(false);
+  };
+
+  const handleSystemPromptChange = (value: string) => {
+    if (!isSystemPromptEditable) {
+      if (isSunaAgent) {
+        toast.error("System prompt cannot be edited", {
+          description: "Suna's system prompt is managed centrally.",
+        });
+      }
+      return;
+    }
+
+    setFormData(prev => ({ ...prev, system_prompt: value }));
+  };
+
+  const handleModelChange = (model: string) => {
+    setFormData(prev => ({ ...prev, model: model || undefined }));
+  };
+
+  const handleToolsChange = (tools: Record<string, boolean | { enabled: boolean; description: string }>) => {
+    if (!areToolsEditable) {
+      if (isSunaAgent) {
+        toast.error("Tools cannot be edited", {
+          description: "Suna's tools are managed centrally.",
+        });
+      }
+      return;
+    }
+
+    const toolsWithCoreEnabled = ensureCoreToolsEnabled(tools);
+    setFormData(prev => ({ ...prev, agentpress_tools: toolsWithCoreEnabled }));
+  };
+
+  const handleMCPChange = async (updates: { configured_mcps: any[]; custom_mcps: any[] }) => {
+    // Update local state immediately
+    setFormData(prev => ({
+      ...prev,
+      configured_mcps: updates.configured_mcps || [],
+      custom_mcps: updates.custom_mcps || []
+    }));
+
+    // Save MCP changes immediately to backend
+    try {
+      await updateAgentMCPsMutation.mutateAsync({
+        agentId,
+        configured_mcps: updates.configured_mcps || [],
+        custom_mcps: updates.custom_mcps || [],
+        replace_mcps: true
+      });
+
+      // Update original form data to reflect the save
+      setOriginalFormData(prev => ({
+        ...prev,
+        configured_mcps: updates.configured_mcps || [],
+        custom_mcps: updates.custom_mcps || []
+      }));
+
+      toast.success('Integration settings updated');
+    } catch (error) {
+      console.error('Failed to save MCP changes:', error);
+      toast.error('Failed to save integration changes');
+    }
+  };
+
+
+  const handleIconChange = async (iconName: string | null, iconColor: string, iconBackground: string) => {
+    // First update the local state
+    setFormData(prev => ({
+      ...prev,
+      icon_name: iconName,
+      icon_color: iconColor,
+      icon_background: iconBackground,
+    }));
+
+    // Then immediately save to backend
+    try {
+      const updateData: any = {
+        agentId,
+        icon_name: iconName,
+        icon_color: iconColor,
+        icon_background: iconBackground,
+      };
+
+      await updateAgentMutation.mutateAsync(updateData);
+      
+      // Update original form data to reflect the save
+      setOriginalFormData(prev => ({
+        ...prev,
+        icon_name: iconName,
+        icon_color: iconColor,
+        icon_background: iconBackground,
+      }));
+
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['agents', 'detail', agentId] });
+      queryClient.invalidateQueries({ queryKey: ['versions', 'list', agentId] });
+      
+      toast.success('Agent icon updated successfully!');
+    } catch (error) {
+      console.error('Failed to update agent icon:', error);
+      toast.error('Failed to update agent icon. Please try again.');
+      
+      // Revert the local state on error
+      setFormData(prev => ({
+        ...prev,
+        icon_name: originalFormData.icon_name,
+        icon_color: originalFormData.icon_color,
+        icon_background: originalFormData.icon_background,
+      }));
+    }
+  };
+
+  const handleExport = () => {
+    exportMutation.mutate(agentId);
+  };
+
+  const handleClose = (open: boolean) => {
+    if (!open && hasChanges) {
+      setFormData(originalFormData);
+      setEditName(originalFormData.name);
+    }
+    onOpenChange(open);
+  };
+
+  if (error) {
+    return null;
+  }
+
+  const tabItems = [
+    // { id: 'general', label: 'General', icon: Settings, disabled: false },
+    { id: 'instructions', label: 'Instructions', icon: Brain, disabled: isSunaAgent },
+    { id: 'tools', label: 'Tools', icon: Wrench, disabled: isSunaAgent },
+    { id: 'integrations', label: 'Integrations', icon: Server, disabled: false },
+    { id: 'knowledge', label: 'Knowledge', icon: BookOpen, disabled: false },
     { id: 'triggers', label: 'Triggers', icon: Zap, disabled: false },
   ];
 
