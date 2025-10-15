@@ -912,6 +912,431 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
             logger.error(f"Diagnostic process failed: {e}", exc_info=True)
             return self.fail_response(f"Sandbox diagnostic process failed: {str(e)}")
 
+    # ==================== NEW ENDPOINTS - HeyGen API Complete Integration ====================
+    
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "list_all_avatars",
+            "description": "Get all available HeyGen avatars with their IDs, names, preview images, and voices. Use this to dynamically select avatars instead of hardcoded options.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    })
+    async def list_all_avatars(self) -> ToolResult:
+        """List all available HeyGen avatars from the API."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.heygen_base_url}/v2/avatars",
+                    headers=self._get_heygen_headers(),
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    return self.fail_response(f"HeyGen API error: {response.status_code} - {response.text}")
+                
+                result = response.json()
+                avatars = result.get("data", {}).get("avatars", [])
+                
+                if not avatars:
+                    return self.success_response("No avatars found.")
+                
+                avatar_list = []
+                for avatar in avatars:
+                    avatar_info = {
+                        "id": avatar.get("avatar_id"),
+                        "name": avatar.get("avatar_name"),
+                        "gender": avatar.get("gender"),
+                        "preview_image": avatar.get("preview_image_url"),
+                        "preview_video": avatar.get("preview_video_url"),
+                        "available_voices": avatar.get("available_voices", [])
+                    }
+                    avatar_list.append(avatar_info)
+                
+                logger.info(f"Retrieved {len(avatar_list)} avatars from HeyGen")
+                
+                # Format response
+                response_text = f"📋 **Available Avatars ({len(avatar_list)} total)**:\n\n"
+                for i, avatar in enumerate(avatar_list[:20], 1):  # Show first 20
+                    response_text += f"{i}. **{avatar['name']}** (ID: `{avatar['id']}`)\n"
+                    response_text += f"   Gender: {avatar['gender']}, Voices: {len(avatar['available_voices'])}\n\n"
+                
+                if len(avatar_list) > 20:
+                    response_text += f"\n... and {len(avatar_list) - 20} more avatars available.\n"
+                
+                return self.success_response(response_text)
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to list avatars: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "list_all_voices",
+            "description": "Get all available HeyGen voices with their IDs, languages, genders, and styles. Use this to select appropriate voices for avatars.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "language": {
+                        "type": "string",
+                        "description": "Filter by language code (e.g., 'en', 'es', 'fr'). Leave empty for all languages.",
+                        "default": ""
+                    }
+                },
+                "required": []
+            }
+        }
+    })
+    async def list_all_voices(self, language: str = "") -> ToolResult:
+        """List all available HeyGen voices."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            url = f"{self.heygen_base_url}/v2/voices"
+            if language:
+                url += f"?language={language}"
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    url,
+                    headers=self._get_heygen_headers(),
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    return self.fail_response(f"HeyGen API error: {response.status_code} - {response.text}")
+                
+                result = response.json()
+                voices = result.get("data", {}).get("voices", [])
+                
+                if not voices:
+                    return self.success_response(f"No voices found{' for language: ' + language if language else ''}.")
+                
+                voice_list = []
+                for voice in voices:
+                    voice_info = {
+                        "id": voice.get("voice_id"),
+                        "name": voice.get("display_name"),
+                        "language": voice.get("language"),
+                        "gender": voice.get("gender"),
+                        "style": voice.get("style", "standard"),
+                        "preview_audio": voice.get("preview_audio_url")
+                    }
+                    voice_list.append(voice_info)
+                
+                logger.info(f"Retrieved {len(voice_list)} voices from HeyGen")
+                
+                # Format response
+                filter_text = f" (Language: {language})" if language else ""
+                response_text = f"🎙️ **Available Voices ({len(voice_list)} total{filter_text})**:\n\n"
+                for i, voice in enumerate(voice_list[:30], 1):  # Show first 30
+                    response_text += f"{i}. **{voice['name']}** (ID: `{voice['id']}`)\n"
+                    response_text += f"   Language: {voice['language']}, Gender: {voice['gender']}, Style: {voice['style']}\n\n"
+                
+                if len(voice_list) > 30:
+                    response_text += f"\n... and {len(voice_list) - 30} more voices available.\n"
+                
+                return self.success_response(response_text)
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to list voices: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "create_photo_avatar",
+            "description": "Upload a photo and create a custom talking avatar from it. Perfect for personalized videos using real faces. The photo will be turned into an avatar that can speak any text you provide.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "photo_path": {
+                        "type": "string",
+                        "description": "Path to the photo file in the sandbox workspace (e.g., '/workspace/my_photo.jpg')"
+                    },
+                    "avatar_name": {
+                        "type": "string",
+                        "description": "Name for this custom avatar",
+                        "default": "Custom Photo Avatar"
+                    }
+                },
+                "required": ["photo_path"]
+            }
+        }
+    })
+    async def create_photo_avatar(self, photo_path: str, avatar_name: str = "Custom Photo Avatar") -> ToolResult:
+        """Upload a photo and create a custom avatar from it."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            await self._ensure_sandbox()
+            
+            # Read photo from sandbox
+            logger.info(f"Reading photo from sandbox: {photo_path}")
+            photo_content = await self.sandbox.fs.read_file(photo_path)
+            
+            # Upload photo to HeyGen
+            async with httpx.AsyncClient() as client:
+                files = {"file": ("photo.jpg", photo_content, "image/jpeg")}
+                
+                response = await client.post(
+                    f"{self.heygen_base_url}/v2/photo_avatar/photo/upload",
+                    headers={"X-API-KEY": self.heygen_api_key},  # Don't include Content-Type for multipart
+                    files=files,
+                    timeout=60.0
+                )
+                
+                if response.status_code != 200:
+                    return self.fail_response(f"Photo upload failed: {response.status_code} - {response.text}")
+                
+                result = response.json()
+                photo_id = result.get("data", {}).get("photo_id")
+                
+                if not photo_id:
+                    return self.fail_response("Failed to get photo ID from upload response")
+                
+                logger.info(f"✅ Photo uploaded successfully: {photo_id}")
+                
+                return self.success_response(
+                    f"📸 **Photo Avatar Created Successfully!**\n\n"
+                    f"**Photo ID**: `{photo_id}`\n"
+                    f"**Name**: {avatar_name}\n\n"
+                    f"✅ Your photo has been uploaded and processed.\n\n"
+                    f"**Next Steps**:\n"
+                    f"1. Use `generate_photo_avatar_video(photo_id='{photo_id}', text='Your message')` to create videos\n"
+                    f"2. The avatar will use the face from your photo to speak any text\n\n"
+                    f"💡 **Tip**: Photo avatars are perfect for personalized sales videos, CEO messages, or custom content!"
+                )
+                
+        except Exception as e:
+            logger.error(f"Failed to create photo avatar: {e}", exc_info=True)
+            return self.fail_response(f"Failed to create photo avatar: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "generate_photo_avatar_video",
+            "description": "Generate a video using a custom photo avatar. The person in the photo will appear to speak your text.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "photo_id": {
+                        "type": "string",
+                        "description": "Photo ID from create_photo_avatar"
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "Text for the photo avatar to speak"
+                    },
+                    "voice_id": {
+                        "type": "string",
+                        "description": "Voice ID to use (use list_all_voices to see options)",
+                        "default": "default"
+                    },
+                    "video_title": {
+                        "type": "string",
+                        "description": "Title for the video",
+                        "default": "Photo Avatar Video"
+                    }
+                },
+                "required": ["photo_id", "text"]
+            }
+        }
+    })
+    async def generate_photo_avatar_video(
+        self, 
+        photo_id: str, 
+        text: str, 
+        voice_id: str = "default",
+        video_title: str = "Photo Avatar Video"
+    ) -> ToolResult:
+        """Generate a video with a custom photo avatar."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            video_data = {
+                "photo_id": photo_id,
+                "input_text": text,
+                "voice_id": voice_id if voice_id != "default" else "1bd001e7e50f421d891986aad5158bc8"
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.heygen_base_url}/v2/photo_avatar/photo/generate",
+                    headers=self._get_heygen_headers(),
+                    json=video_data,
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    return self.fail_response(f"HeyGen API error: {response.status_code} - {response.text}")
+                
+                result = response.json()
+                video_id = result.get("data", {}).get("video_id")
+                
+                if not video_id:
+                    return self.fail_response("Failed to get video ID from response")
+                
+                logger.info(f"🎬 Photo avatar video generation started: {video_id}")
+                
+                # Use async polling to download when ready
+                return await self._async_poll_and_download(video_id, video_title, text, photo_id, voice_id, 300)
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to generate photo avatar video: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "translate_video",
+            "description": "Translate an existing video into multiple languages. Translates both audio and optionally preserves the original voice. Perfect for reaching global audiences.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "video_id": {
+                        "type": "string",
+                        "description": "ID of the video to translate (from a previously generated video)"
+                    },
+                    "target_languages": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of target language codes (e.g., ['es', 'fr', 'de', 'ja']). Supports 40+ languages including: es (Spanish), fr (French), de (German), it (Italian), pt (Portuguese), zh (Chinese), ja (Japanese), ko (Korean), ar (Arabic), hi (Hindi), ru (Russian), and more."
+                    },
+                    "preserve_voice": {
+                        "type": "boolean",
+                        "description": "Use voice cloning to keep the original speaker's voice in translated languages",
+                        "default": True
+                    },
+                    "translate_title": {
+                        "type": "string",
+                        "description": "Title for the translated videos",
+                        "default": "Translated Video"
+                    }
+                },
+                "required": ["video_id", "target_languages"]
+            }
+        }
+    })
+    async def translate_video(
+        self,
+        video_id: str,
+        target_languages: List[str],
+        preserve_voice: bool = True,
+        translate_title: str = "Translated Video"
+    ) -> ToolResult:
+        """Translate a video into multiple languages."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            translation_data = {
+                "video_id": video_id,
+                "target_languages": target_languages,
+                "translate_audio": True,
+                "preserve_voice": preserve_voice
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.heygen_base_url}/v2/video_translate",
+                    headers=self._get_heygen_headers(),
+                    json=translation_data,
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    return self.fail_response(f"Translation API error: {response.status_code} - {response.text}")
+                
+                result = response.json()
+                translate_id = result.get("data", {}).get("translate_id")
+                
+                if not translate_id:
+                    return self.fail_response("Failed to get translation ID from response")
+                
+                logger.info(f"🌍 Video translation started: {translate_id} for languages: {', '.join(target_languages)}")
+                
+                return self.success_response(
+                    f"🌍 **Video Translation Started!**\n\n"
+                    f"**Translation ID**: `{translate_id}`\n"
+                    f"**Original Video**: {video_id}\n"
+                    f"**Target Languages**: {', '.join(target_languages)}\n"
+                    f"**Voice Preservation**: {'Yes (voice cloning)' if preserve_voice else 'No (synthetic voice)'}\n\n"
+                    f"⏳ **Status**: Processing (typically 5-15 minutes per language)\n\n"
+                    f"**Next Steps**:\n"
+                    f"1. Use `check_translation_status('{translate_id}')` to check progress\n"
+                    f"2. Translated videos will be available for download when complete\n\n"
+                    f"💡 **Tip**: Voice cloning keeps the original speaker's voice characteristics in the translated language!"
+                )
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to translate video: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "check_translation_status",
+            "description": "Check the status of a video translation job and get URLs for completed translations.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "translate_id": {
+                        "type": "string",
+                        "description": "Translation ID from translate_video"
+                    }
+                },
+                "required": ["translate_id"]
+            }
+        }
+    })
+    async def check_translation_status(self, translate_id: str) -> ToolResult:
+        """Check translation status."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.heygen_base_url}/v1/video_translate.get?translate_id={translate_id}",
+                    headers=self._get_heygen_headers(),
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    return self.fail_response(f"API error: {response.status_code} - {response.text}")
+                
+                result = response.json()
+                data = result.get("data", {})
+                status = data.get("status")
+                translations = data.get("translations", [])
+                
+                response_text = f"🌍 **Translation Status**: {status}\n\n"
+                response_text += f"**Translation ID**: `{translate_id}`\n"
+                response_text += f"**Languages**: {len(translations)}\n\n"
+                
+                if translations:
+                    response_text += "**Translations**:\n"
+                    for trans in translations:
+                        lang = trans.get("language")
+                        trans_status = trans.get("status")
+                        video_url = trans.get("video_url")
+                        response_text += f"\n• **{lang.upper()}**: {trans_status}\n"
+                        if video_url:
+                            response_text += f"  URL: {video_url}\n"
+                
+                return self.success_response(response_text)
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to check translation status: {str(e)}")
+    
     # Helper methods
 
     async def _simple_download_video(self, video_url: str, title: str, video_id: str) -> Optional[str]:
