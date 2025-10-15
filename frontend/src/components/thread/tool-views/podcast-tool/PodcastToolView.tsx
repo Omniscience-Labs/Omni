@@ -7,18 +7,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Headphones, 
-  Download, 
-  PlayCircle, 
   FileText, 
   Loader2, 
   CheckCircle2, 
   AlertTriangle,
-  Clock,
   Mic
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolViewProps } from '../types';
 import { LoadingState } from '../shared/LoadingState';
+import { MediaWatcher } from '@/components/thread/media-watcher';
 
 interface PodcastData {
   agent_run_id?: string;
@@ -320,43 +318,21 @@ export function PodcastToolView({
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button 
-                onClick={handleDownload}
-                disabled={isDownloading}
-                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white"
-              >
-                {isDownloading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Downloading...
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download "{podcastData.title || podcastData.podcast_title || 'Podcast'}"
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {/* Audio Player */}
+            {/* Media Watcher - Audio Player */}
             {audioUrl && (
-              <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border">
-                <div className="flex items-center gap-2 mb-3">
-                  <Mic className="h-4 w-4 text-rose-600" />
-                  <span className="font-medium text-sm">Audio Player</span>
-                </div>
-                <audio 
-                  controls 
-                  className="w-full"
-                  preload="metadata"
-                >
-                  <source src={audioUrl.replace('http://', 'https://')} type="audio/mpeg" />
-                  Your browser does not support the audio element.
-                </audio>
-              </div>
+              <MediaWatcher
+                mediaUrl={audioUrl.replace('http://', 'https://')}
+                mediaType="audio"
+                title={podcastData.title || podcastData.podcast_title || 'Agent Conversation Podcast'}
+                subtitle={podcastData.hosts ? `Hosts: ${podcastData.hosts}` : undefined}
+                showDownload={true}
+                onDownload={handleDownload}
+                isDownloading={isDownloading}
+                metadata={{
+                  format: 'MP3',
+                  ...(podcastData.message_count && { quality: `${podcastData.message_count} messages` })
+                }}
+              />
             )}
 
             {/* Inline Transcript */}
