@@ -47,8 +47,71 @@ from core.tools.sb_upload_file_tool import SandboxUploadFileTool
 from core.tools.sb_custom_automation_tool import SandboxCustomAutomationTool
 from core.tools.podcast_tool import SandboxPodcastTool
 from core.tools.sb_docs_tool import SandboxDocsTool
+from core.tools.people_search_tool import PeopleSearchTool
+from core.tools.company_search_tool import CompanySearchTool
+from core.tools.paper_search_tool import PaperSearchTool
+
+@dataclass
+class AgentConfig:
+    thread_id: str
+    project_id: str
+    native_max_auto_continues: int
+    max_iterations: int
+    model_name: str
+    agent_config: Optional[dict] = None
+    trace: Optional[StatefulTraceClient] = None
+    is_agent_builder: Optional[bool] = False
+    target_agent_id: Optional[str] = None
 
 class ToolManager:
+    def __init__(self, thread_manager: ThreadManager, project_id: str, thread_id: str, agent_config: Optional[dict] = None):
+        self.thread_manager = thread_manager
+        self.project_id = project_id
+        self.thread_id = thread_id
+        self.agent_config = agent_config
+        self.account_id = None
+    
+    def register_all_tools(self, agent_id: Optional[str] = None, disabled_tools: List[str] = None):
+        """Register all tools for the agent."""
+        if disabled_tools is None:
+            disabled_tools = []
+        
+        # Register sandbox tools
+        self._register_sandbox_tools(disabled_tools)
+        
+        # Register utility tools (data providers, search tools)
+        self._register_utility_tools(disabled_tools)
+        
+        # Register browser tool
+        self._register_browser_tool(disabled_tools)
+        
+        # Register agent builder tools if agent_id is provided
+        if agent_id:
+            self._register_agent_builder_tools(agent_id, disabled_tools)
+    
+    def _register_sandbox_tools(self, disabled_tools: List[str]):
+        """Register sandbox-related tools."""
+        sandbox_tools = [
+            ('sb_shell_tool', SandboxShellTool, {'project_id': self.project_id}),
+            ('sb_files_tool', SandboxFilesTool, {'project_id': self.project_id}),
+            ('sb_deploy_tool', SandboxDeployTool, {'project_id': self.project_id}),
+            ('sb_expose_tool', SandboxExposeTool, {'project_id': self.project_id}),
+            ('web_search_tool', SandboxWebSearchTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('image_search_tool', SandboxImageSearchTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_vision_tool', SandboxVisionTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_image_edit_tool', SandboxImageEditTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_design_tool', SandboxDesignerTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_presentation_outline_tool', SandboxPresentationOutlineTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_presentation_tool', SandboxPresentationTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_kb_tool', SandboxKbTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_sheets_tool', SandboxSheetsTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_upload_file_tool', SandboxUploadFileTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_custom_automation_tool', SandboxCustomAutomationTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_podcast_tool', SandboxPodcastTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            ('sb_docs_tool', SandboxDocsTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+        ]
+        
+        for tool_name, tool_class, kwargs in sandbox_tools:
             if tool_name not in disabled_tools:
                 # Check for granular method control
                 enabled_methods = self._get_enabled_methods_for_tool(tool_name)
