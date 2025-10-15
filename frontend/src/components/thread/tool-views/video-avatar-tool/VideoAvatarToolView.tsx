@@ -7,8 +7,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   CheckCircle, 
   AlertTriangle, 
-  Download, 
-  Play, 
   Video, 
   Clock, 
   User, 
@@ -20,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { parseToolResult } from '../tool-result-parser';
 import { useAuth } from '@/components/AuthProvider';
 import { toast } from 'sonner';
+import { MediaWatcher } from '@/components/thread/media-watcher';
 
 function getVideoUrl(sandboxId: string | undefined, path: string): string {
   if (!sandboxId) return path;
@@ -42,66 +41,6 @@ function toObject(val: any): any | null {
     return null;
   }
 }
-
-const VideoPlayer: React.FC<{ videoUrl: string; title: string; className?: string }> = ({ 
-  videoUrl, 
-  title, 
-  className 
-}) => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
-
-  const handleLoadStart = () => {
-    setIsLoading(true);
-    setHasError(false);
-  };
-
-  const handleCanPlay = () => {
-    setIsLoading(false);
-  };
-
-  const handleError = () => {
-    setIsLoading(false);
-    setHasError(true);
-  };
-
-  if (hasError) {
-    return (
-      <div className="flex flex-col items-center justify-center w-full h-64 bg-gradient-to-b from-red-50 to-red-100 dark:from-red-950/30 dark:to-red-900/20 rounded-lg border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300">
-        <AlertTriangle className="h-8 w-8 mb-2" />
-        <p className="text-sm font-medium">Unable to load video</p>
-        <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-1">
-          {title}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className={cn("relative w-full", className)}>
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg">
-          <div className="flex flex-col items-center">
-            <Loader2 className="h-8 w-8 animate-spin text-violet-600 mb-2" />
-            <p className="text-sm text-muted-foreground">Loading video...</p>
-          </div>
-        </div>
-      )}
-      <video
-        controls
-        className="w-full h-auto rounded-lg shadow-sm"
-        preload="metadata"
-        onLoadStart={handleLoadStart}
-        onCanPlay={handleCanPlay}
-        onError={handleError}
-        style={{ display: isLoading ? 'none' : 'block' }}
-      >
-        <source src={videoUrl} type="video/mp4" />
-        Your browser does not support the video element.
-      </video>
-    </div>
-  );
-};
 
 export function VideoAvatarToolView({
   name = 'generate_avatar_video',
@@ -312,30 +251,6 @@ export function VideoAvatarToolView({
                   </div>
                 )}
 
-                {/* Action Buttons */}
-                {videoData?.video_file && (
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <Button 
-                      onClick={handleDownload}
-                      disabled={isDownloading}
-                      className="flex-1 bg-violet-600 hover:bg-violet-700 text-white"
-                      size="lg"
-                    >
-                      {isDownloading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          Downloading...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-4 w-4 mr-2" />
-                          Download Video ({videoData.video_file})
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                )}
-                
                 {/* Show video ID even if no file yet (for processing videos) */}
                 {!videoData?.video_file && videoData?.video_id && (
                   <div className="bg-yellow-50 dark:bg-yellow-950/20 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
@@ -347,24 +262,26 @@ export function VideoAvatarToolView({
                       Video ID: <code className="bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">{videoData.video_id}</code>
                     </p>
                     <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                      The video is being generated. Download button will appear when ready.
+                      The video is being generated. It will appear below when ready.
                     </p>
                   </div>
                 )}
 
-                {/* Video Player */}
+                {/* Media Watcher - Video Player */}
                 {videoUrl && (
-                  <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Play className="h-4 w-4 text-violet-600" />
-                      <span className="font-medium text-sm">Video Player</span>
-                    </div>
-                    <VideoPlayer 
-                      videoUrl={videoUrl} 
-                      title={videoData?.title || 'Avatar Video'} 
-                      className="w-full"
-                    />
-                  </div>
+                  <MediaWatcher
+                    mediaUrl={videoUrl}
+                    mediaType="video"
+                    title={videoData?.title || 'Avatar Video'}
+                    subtitle={videoData?.avatar_info}
+                    showDownload={true}
+                    onDownload={handleDownload}
+                    isDownloading={isDownloading}
+                    metadata={{
+                      format: 'MP4',
+                      quality: 'HD',
+                    }}
+                  />
                 )}
 
                 {/* Tool Output */}
@@ -398,6 +315,3 @@ export function VideoAvatarToolView({
     </Card>
   );
 }
-
-// Export the video player for reuse
-export { VideoPlayer };

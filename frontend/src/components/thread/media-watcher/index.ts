@@ -1,0 +1,2 @@
+export { MediaWatcher } from './MediaWatcher';
+
