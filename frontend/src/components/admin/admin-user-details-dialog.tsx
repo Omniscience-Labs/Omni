@@ -28,6 +28,7 @@ import {
   AlertCircle,
   RefreshCw,
   Clock,
+  DollarSign,
   Infinity,
   MessageSquare,
   ExternalLink,

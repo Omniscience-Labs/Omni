@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bot, Menu, Plus, Zap, ChevronRight, BookOpen } from 'lucide-react';
+import { Bot, Menu, Plus, Zap, ChevronRight, ChevronLeft, BookOpen } from 'lucide-react';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
