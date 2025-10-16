@@ -91,23 +91,11 @@ export default function AgentsPage() {
 
   const activeTab = useMemo(() => {
     const tab = searchParams.get('tab');
-          icon_name: template.icon_name,
-          icon_color: template.icon_color,
-          icon_background: template.icon_background,
-          template_id: template.template_id,
-          is_kortix_team: template.is_kortix_team,
-          mcp_requirements: template.mcp_requirements,
-          metadata: template.metadata,
-          usage_examples: template.usage_examples,
-          config: template.config,
-        };
-
-        items.push(item);
-      });
+    if (tab === 'marketplace') {
+      return 'my-agents';
     }
-
-    return items;
-  }, [marketplaceTemplates]);
+    return tab || 'my-agents';
+  }, [searchParams]);
 
   const handleTabChange = (newTab: string) => {
     const params = new URLSearchParams(searchParams.toString());

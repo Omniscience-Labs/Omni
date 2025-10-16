@@ -977,8 +977,7 @@ export function HeroSection() {
             </div>
           </div>
         </motion.div>
-
-
+        
         {/* Video section positioned below the main content with better mobile spacing */}
         <motion.div 
           className="w-full max-w-6xl mx-auto mt-8 md:mt-12 lg:mt-16 mb-8 md:mb-16 relative z-30"
@@ -989,7 +988,7 @@ export function HeroSection() {
         >
           <HeroVideoSection />
         </motion.div>
-      </div>
+      </motion.div>
 
       {/* Auth Dialog with enhanced styling */}
       <Dialog open={authDialogOpen} onOpenChange={setAuthDialogOpen}>
