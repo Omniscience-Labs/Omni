@@ -1713,6 +1713,234 @@ For streaming (advanced):
         """
         return self.success_response(guide)
 
+    # ==================== UGC PRODUCT PLACEMENT - Authentic Product Showcase ====================
+    
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "upload_product_image",
+            "description": "Upload a product image for use in UGC videos with product placement. The avatar will interact with and showcase this product naturally. Best for e-commerce, ads, and product demos.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "image_path": {
+                        "type": "string",
+                        "description": "Path to the product image file (JPG, PNG). Should be clear, well-lit, and show the product prominently."
+                    },
+                    "product_name": {
+                        "type": "string",
+                        "description": "Name of the product for reference"
+                    }
+                },
+                "required": ["image_path", "product_name"]
+            }
+        }
+    })
+    async def upload_product_image(self, image_path: str, product_name: str) -> ToolResult:
+        """Upload a product image for UGC video generation."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            # Resolve the image path
+            if not os.path.isabs(image_path):
+                image_path = os.path.join(self.workspace_path, image_path)
+            
+            if not os.path.exists(image_path):
+                return self.fail_response(f"Image file not found: {image_path}")
+            
+            logger.info(f"Uploading product image: {product_name} from {image_path}")
+            
+            # Read and upload image
+            with open(image_path, 'rb') as f:
+                files = {
+                    'file': (os.path.basename(image_path), f, 'image/jpeg')
+                }
+                data = {
+                    'name': product_name
+                }
+                
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        f"{self.heygen_base_url}/v1/asset/upload",
+                        headers={'x-api-key': self.heygen_api_key},
+                        files=files,
+                        data=data,
+                        timeout=60.0
+                    )
+                    
+                    if response.status_code != 200:
+                        return self.fail_response(f"Upload failed: {response.status_code} - {response.text}")
+                    
+                    result = response.json()
+                    asset_id = result.get("data", {}).get("asset_id")
+                    asset_url = result.get("data", {}).get("url")
+                    
+                    if not asset_id:
+                        return self.fail_response("Failed to get asset ID from upload response")
+                    
+                    logger.info(f"Product image uploaded successfully: {asset_id}")
+                    
+                    return self.success_response(
+                        f"🎁 **Product Image Uploaded!**\n\n"
+                        f"**Product**: {product_name}\n"
+                        f"**Asset ID**: `{asset_id}`\n"
+                        f"**URL**: {asset_url}\n\n"
+                        f"✅ Ready to use in UGC videos!\n\n"
+                        f"**Next Step**: Use `generate_ugc_video()` with this asset_id to create a video where an avatar showcases your product."
+                    )
+                    
+        except Exception as e:
+            return self.fail_response(f"Failed to upload product image: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "generate_ugc_video",
+            "description": "Generate a UGC-style video with product placement where an avatar naturally showcases and interacts with your product. Perfect for TikTok ads, Instagram Reels, and authentic-looking product demos.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": "Script for the avatar to say while showcasing the product. Make it casual and authentic like real UGC content."
+                    },
+                    "product_asset_id": {
+                        "type": "string",
+                        "description": "Asset ID of the uploaded product image (from upload_product_image)"
+                    },
+                    "avatar_id": {
+                        "type": "string",
+                        "description": "Avatar ID to use. UGC avatars work best (e.g., 'josh_lite3_20230714' for casual style). Use list_all_avatars to see UGC options.",
+                        "default": "default"
+                    },
+                    "voice_id": {
+                        "type": "string",
+                        "description": "Voice ID. Casual, energetic voices work best for UGC.",
+                        "default": "default"
+                    },
+                    "video_title": {
+                        "type": "string",
+                        "description": "Title for the video",
+                        "default": "UGC Product Video"
+                    },
+                    "aspect_ratio": {
+                        "type": "string",
+                        "enum": ["9:16", "1:1", "16:9"],
+                        "description": "9:16 for TikTok/Reels (most common for UGC), 1:1 for Instagram feed, 16:9 for YouTube",
+                        "default": "9:16"
+                    }
+                },
+                "required": ["text", "product_asset_id"]
+            }
+        }
+    })
+    async def generate_ugc_video(
+        self,
+        text: str,
+        product_asset_id: str,
+        avatar_id: str = "default",
+        voice_id: str = "default",
+        video_title: str = "UGC Product Video",
+        aspect_ratio: str = "9:16"
+    ) -> ToolResult:
+        """Generate UGC video with product placement."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            # Resolve avatar
+            resolved_avatar_id = avatar_id
+            if avatar_id == "default":
+                if self.default_avatar_id:
+                    resolved_avatar_id = self.default_avatar_id
+                else:
+                    # Use a good default UGC avatar
+                    resolved_avatar_id = "josh_lite3_20230714"  # Casual, authentic UGC style
+            
+            logger.info(f"Generating UGC video with product {product_asset_id}")
+            
+            # Dimensions for aspect ratio
+            dimension_map = {
+                "16:9": {"width": 1280, "height": 720},
+                "9:16": {"width": 720, "height": 1280},
+                "1:1": {"width": 1080, "height": 1080}
+            }
+            dimensions = dimension_map.get(aspect_ratio, dimension_map["9:16"])
+            
+            # Voice configuration
+            voice_config = {
+                "type": "text",
+                "input_text": text,
+            }
+            
+            if voice_id != "default":
+                voice_config["voice_id"] = voice_id
+            
+            # UGC video with product placement
+            video_data = {
+                "video_inputs": [{
+                    "character": {
+                        "type": "avatar",
+                        "avatar_id": resolved_avatar_id,
+                        "avatar_style": "normal"
+                    },
+                    "voice": voice_config,
+                    "background": {
+                        "type": "color",
+                        "value": "#ffffff"
+                    },
+                    # Product placement element
+                    "product": {
+                        "type": "asset",
+                        "asset_id": product_asset_id,
+                        "placement": "natural"  # Avatar interacts naturally with product
+                    }
+                }],
+                "dimension": dimensions,
+                "aspect_ratio": aspect_ratio,
+                "test": False,
+                "caption": False,
+                "title": video_title
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.heygen_base_url}/v2/video/generate",
+                    headers=self._get_heygen_headers(),
+                    json=video_data,
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    return self.fail_response(f"UGC video generation failed: {response.status_code} - {response.text}")
+                
+                result = response.json()
+                video_id = result.get("data", {}).get("video_id")
+                
+                if not video_id:
+                    return self.fail_response("Failed to get video ID from response")
+                
+                logger.info(f"🎬 UGC video generation started: {video_id}")
+                
+                return self.success_response(
+                    f"🎬 **UGC Product Video Generation Started!**\n\n"
+                    f"📋 **Video ID**: `{video_id}`\n"
+                    f"📝 **Script**: \"{text[:100]}{'...' if len(text) > 100 else ''}\"\n"
+                    f"🎁 **Product**: Asset ID `{product_asset_id}`\n"
+                    f"👤 **Avatar**: {resolved_avatar_id}\n"
+                    f"📱 **Format**: {aspect_ratio} - Vertical UGC (TikTok/Reels style)\n"
+                    f"📐 **Dimensions**: {dimensions['width']}x{dimensions['height']}\n\n"
+                    f"⏳ **Status**: Processing (typically 60-90 seconds)\n\n"
+                    f"**Next Steps**:\n"
+                    f"1. Use `check_video_status('{video_id}')` to check progress\n"
+                    f"2. Video will auto-download when complete\n\n"
+                    f"💡 **Tip**: The avatar will naturally interact with your product for authentic UGC content!"
+                )
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to generate UGC video: {str(e)}")
+
     # ==================== TEMPLATE API - Personalized Videos at Scale ====================
     
     @openapi_schema({
