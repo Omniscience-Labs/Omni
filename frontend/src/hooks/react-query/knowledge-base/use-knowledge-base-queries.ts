@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { knowledgeBaseKeys } from './keys';
->>>>>>> upstream/PRODUCTION
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
@@ -151,7 +150,6 @@ export function useAgentKnowledgeBaseContext(agentId: string, maxTokens = 4000) 
   });
 }
 
-<<<<<<< HEAD
 // New hooks for file upload and git clone operations
 export function useUploadAgentFiles() {
   const queryClient = useQueryClient();
@@ -342,5 +340,4 @@ export function useUpdateAgentUnifiedAssignments() {
       toast.error(`Failed to update assignments: ${error.message}`);
     },
   });
-} 
-=======
+}

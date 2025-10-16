@@ -29,15 +29,11 @@ export const useSubscription = (enabled = true) => {
 };
 
 export const useCreditBalance = (enabled = true) => {
->>>>>>> upstream/PRODUCTION
   return useQuery({
     queryKey: billingKeys.balance(),
     queryFn: () => billingApiV2.getCreditBalance(),
     staleTime: 1000 * 30,
-<<<<<<< HEAD
     enabled: enabled && !isEnterpriseMode, // Disable the query in enterprise mode or when not enabled
-=======
-    enabled,
   });
 };
 

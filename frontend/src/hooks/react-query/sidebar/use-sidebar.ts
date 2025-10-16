@@ -113,14 +113,11 @@ export const processThreadsWithProjects = (
     // Use dedicated icon_name field from backend
     let displayName = project.name || 'Unnamed Project';
     const iconName = project.icon_name; // Get icon from dedicated database field
-<<<<<<< HEAD
     
     // Override display name for workflow threads
     if (thread.metadata?.is_workflow_execution && thread.metadata?.workflow_run_name) {
       displayName = thread.metadata.workflow_run_name;
     }
-=======
->>>>>>> upstream/PRODUCTION
 
     threadsWithProjects.push({
       threadId: thread.thread_id,

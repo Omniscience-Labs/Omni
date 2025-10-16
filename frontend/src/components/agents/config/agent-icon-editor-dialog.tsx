@@ -28,10 +28,6 @@ interface AgentIconEditorDialogProps {
   onClose: () => void;
   agentName?: string;
   agentDescription?: string;
-<<<<<<< HEAD:frontend/src/components/agents/config/profile-picture-dialog.tsx
-  onImageUpdate: (url: string | null) => void;
-=======
->>>>>>> upstream/PRODUCTION:frontend/src/components/agents/config/agent-icon-editor-dialog.tsx
   currentIconName?: string;
   currentIconColor?: string;
   currentBackgroundColor?: string;
@@ -43,10 +39,6 @@ export function AgentIconEditorDialog({
   onClose,
   agentName,
   agentDescription,
-<<<<<<< HEAD:frontend/src/components/agents/config/profile-picture-dialog.tsx
-  onImageUpdate,
-=======
->>>>>>> upstream/PRODUCTION:frontend/src/components/agents/config/agent-icon-editor-dialog.tsx
   currentIconName,
   currentIconColor = '#000000',
   currentBackgroundColor = '#F3F4F6',
@@ -56,8 +48,6 @@ export function AgentIconEditorDialog({
   const [iconColor, setIconColor] = useState(currentIconColor || '#000000');
   const [backgroundColor, setBackgroundColor] = useState(currentBackgroundColor || '#e5e5e5');
   
-<<<<<<< HEAD:frontend/src/components/agents/config/profile-picture-dialog.tsx
-=======
   // Debug props when dialog opens
   useEffect(() => {
     if (isOpen) {
@@ -71,7 +61,6 @@ export function AgentIconEditorDialog({
     }
   }, [isOpen, agentName, currentIconName, currentIconColor, currentBackgroundColor, onIconUpdate]);
   
->>>>>>> upstream/PRODUCTION:frontend/src/components/agents/config/agent-icon-editor-dialog.tsx
   const generateIconMutation = useGenerateAgentIcon();
 
   useEffect(() => {
@@ -89,32 +78,6 @@ export function AgentIconEditorDialog({
       onClose();
     }
   }, [selectedIcon, iconColor, backgroundColor, onIconUpdate, onClose]);
-
-  const handleAutoGenerate = useCallback(() => {
-    if (!agentName) {
-      toast.error('Agent name is required for auto-generation');
-      return;
-    }
-
-    generateIconMutation.mutate(
-      {
-        name: agentName,
-        description: agentDescription,
-      },
-      {
-        onSuccess: (result) => {
-          setSelectedIcon(result.icon_name);
-          setIconColor(result.icon_color);
-          setBackgroundColor(result.icon_background);
-          toast.success('Agent icon auto-generated!');
-        },
-        onError: (error) => {
-          console.error('Auto-generation failed:', error);
-          toast.error('Failed to auto-generate icon. Please try again.');
-        },
-      }
-    );
-  }, [agentName, agentDescription, generateIconMutation]);
 
   const handleAutoGenerate = useCallback(() => {
     if (!agentName) {
@@ -399,11 +362,7 @@ Customize Agent Icon
             </TabsContent>
           </Tabs>
         </div>
-<<<<<<< HEAD:frontend/src/components/agents/config/profile-picture-dialog.tsx
-        <DialogFooter className="px-6 py-4 shrink-0 border-t">
-=======
         <DialogFooter className="px-4 py-3 shrink-0 border-t">
->>>>>>> upstream/PRODUCTION:frontend/src/components/agents/config/agent-icon-editor-dialog.tsx
           <div className="flex items-center gap-2 mr-auto">
             <Button
               variant="outline"
