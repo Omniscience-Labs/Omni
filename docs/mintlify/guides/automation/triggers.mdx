@@ -13,7 +13,7 @@ Triggers start agent workflows automatically when specific conditions are met.
     React to real-time events from connected services
   </Card>
   <Card title="Schedule-Based" icon="clock">
-    Run at specific times or intervals
+    Run at specific times or intervals (most common)
   </Card>
   <Card title="Webhook-Based" icon="webhook">
     Trigger from external systems via HTTP
@@ -24,6 +24,88 @@ Triggers start agent workflows automatically when specific conditions are met.
 </CardGroup>
 
 ---
+
+## Schedule-Based Triggers
+
+The most common type - run agents automatically on a time-based schedule.
+
+<Steps>
+  <Step title="Create Schedule Trigger">
+    Navigate to agent settings or triggers page and click **Create Trigger**.
+    
+    **Basic Information**:
+    - **Title**: Descriptive name (e.g., "Every Wednesday Before Executive Meeting")
+    - **Description**: Optional details about what this trigger does
+    - **Agent**: Which agent should execute when triggered
+  </Step>
+  
+  <Step title="Choose Schedule Type">
+    Two scheduling options:
+    
+    <Tabs>
+      <Tab title="Quick Presets">
+        **Common Patterns** (select from dropdown):
+        - Every 5 minutes
+        - Every 15 minutes
+        - Every 30 minutes
+        - Every hour
+        - Daily at 9 AM
+        - Daily at 12 PM (noon)
+        - Twice daily
+        - Weekly on Monday
+        - Monthly
+        
+        Fast setup for standard schedules.
+      </Tab>
+      
+      <Tab title="Recurring Custom">
+        **Specific Days and Times**:
+        - Select specific day(s) of week
+        - Choose exact time
+        - Set timezone (e.g., Indianapolis Time)
+        - One-time execution option available
+        
+        **Example from Demo**:
+        ```
+        Schedule: Every Wednesday at 9:00 AM Indianapolis Time
+        Purpose: Pull latest intelligence before executive meeting
+        ```
+        
+        Full control over scheduling pattern.
+      </Tab>
+    </Tabs>
+  </Step>
+  
+  <Step title="Set Execution Method">
+    Choose what the agent should do when triggered:
+    - **Run with Prompt**: Specify exact task in text field
+    - **Execute Workflow**: Run a saved workflow
+    - **Custom Instructions**: Provide detailed steps
+    
+    **Example Prompt**:
+    ```
+    "Get my latest Intel from the past week's emails"
+    "Pull stock information for [TICKER] and send report"
+    "Summarize customer feedback from support inbox"
+    ```
+  </Step>
+  
+  <Step title="Enable/Disable">
+    **Activation Control**:
+    - Toggle **Enabled** to activate the trigger
+    - Toggle **Disabled** to pause without deleting
+    - View next scheduled execution time
+    - See execution history
+    
+    <Check>
+      Trigger created! It will run automatically on your specified schedule.
+    </Check>
+  </Step>
+</Steps>
+
+---
+
+{/* #TODO: Verify event-based triggers - not demonstrated in demo transcript */}
 
 ## Event-Based Triggers
 
@@ -180,6 +262,8 @@ React to events from your integrated services.
 </Steps>
 
 ---
+
+{/* #TODO: Verify webhook triggers - not demonstrated in demo transcript */}
 
 ## Webhook Triggers
 
