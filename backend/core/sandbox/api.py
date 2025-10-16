@@ -233,19 +233,82 @@ async def read_file(
     # Verify the user has access to this sandbox
     await verify_sandbox_access_optional(client, sandbox_id, user_id)
     
-    try:
-        # Get sandbox using the safer method
-        sandbox = await get_sandbox_by_id_safely(client, sandbox_id)
-        
-        # Read file directly - don't check existence first with a separate call
+    max_retries = 2
+    last_error = None
+
+    for attempt in range(max_retries):
         try:
-            content = await sandbox.fs.download_file(path)
-        except Exception as download_err:
-            logger.error(f"Error downloading file {path} from sandbox {sandbox_id}: {str(download_err)}")
-            raise HTTPException(
-                status_code=404, 
-                detail=f"Failed to download file: {str(download_err)}"
-            )
+            # Get sandbox using the safer method
+            sandbox = await get_sandbox_by_id_safely(client, sandbox_id)
+
+            # Verify sandbox is in a running state before attempting file operations
+            if hasattr(sandbox, 'state') and str(sandbox.state) not in ['RUNNING', 'STARTING']:
+                logger.warning(f"Sandbox {sandbox_id} is in state {sandbox.state}, not running. Attempting to restart...")
+
+                # Try to restart the sandbox
+                try:
+                    from core.sandbox.sandbox import get_or_start_sandbox
+                    sandbox = await get_or_start_sandbox(sandbox_id)
+                    logger.info(f"Successfully restarted sandbox {sandbox_id}")
+                except Exception as restart_error:
+                    logger.error(f"Failed to restart sandbox {sandbox_id}: {str(restart_error)}")
+                    raise HTTPException(
+                        status_code=503,
+                        detail=f"Sandbox is not available and could not be restarted: {str(restart_error)}"
+                    )
+
+            # Read file directly - don't check existence first with a separate call
+            try:
+                content = await sandbox.fs.download_file(path)
+                logger.debug(f"Successfully downloaded file {path} from sandbox {sandbox_id} on attempt {attempt + 1}")
+                break  # Success, exit retry loop
+
+            except Exception as download_err:
+                last_error = download_err
+                error_msg = str(download_err)
+
+                # Check if this is a "sandbox not running" error
+                if "Sandbox is not running" in error_msg or "not running" in error_msg.lower():
+                    logger.warning(f"Sandbox {sandbox_id} became unavailable during file download on attempt {attempt + 1}. Error: {error_msg}")
+
+                    if attempt < max_retries - 1:  # Don't retry on last attempt
+                        logger.info(f"Retrying file download for sandbox {sandbox_id}, attempt {attempt + 2}/{max_retries}")
+                        continue  # Retry the operation
+                    else:
+                        logger.error(f"All retry attempts failed for sandbox {sandbox_id}. Final error: {error_msg}")
+                        raise HTTPException(
+                            status_code=503,
+                            detail=f"Sandbox became unavailable during file access: {error_msg}"
+                        )
+                else:
+                    # For other types of errors, don't retry
+                    logger.error(f"Error downloading file {path} from sandbox {sandbox_id}: {error_msg}")
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Failed to download file: {error_msg}"
+                    )
+
+        except HTTPException:
+            # Re-raise HTTP exceptions as-is
+            raise
+        except Exception as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                logger.warning(f"Attempt {attempt + 1} failed for sandbox {sandbox_id}, will retry: {str(e)}")
+                continue
+            else:
+                logger.error(f"All attempts failed for sandbox {sandbox_id}. Final error: {str(e)}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to access sandbox after {max_retries} attempts: {str(e)}"
+                )
+
+    if last_error and not content:
+        # This shouldn't happen due to the break above, but just in case
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unexpected error after successful download: {str(last_error)}"
+        )
         
         # Return a Response object with the content directly
         filename = os.path.basename(path)
@@ -262,12 +325,6 @@ async def read_file(
             media_type="application/octet-stream",
             headers={"Content-Disposition": content_disposition}
         )
-    except HTTPException:
-        # Re-raise HTTP exceptions without wrapping
-        raise
-    except Exception as e:
-        logger.error(f"Error reading file in sandbox {sandbox_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/sandboxes/{sandbox_id}/files")
 async def delete_file(
