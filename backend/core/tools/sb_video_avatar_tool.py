@@ -141,6 +141,149 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
             "Content-Type": "application/json"
         }
 
+    # ==================== VIDEO GENERATION GUIDE ====================
+    
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "explain_video_options",
+            "description": "CALL THIS FIRST when user asks to create/generate a video but hasn't specified what kind or what information they have. Explains all video generation options and what information is needed for each type. Helps users choose the right approach and tells them what to provide.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    })
+    async def explain_video_options(self) -> ToolResult:
+        """Comprehensive guide to all video generation options - call this first for generic video requests."""
+        guide = """
+🎬 **HeyGen Video Generation - Complete Guide**
+
+I can create several types of videos! Let me help you choose the best option:
+
+---
+
+## 📹 **1. STANDARD AVATAR VIDEO** (Most Common)
+**Best for**: Presentations, explainers, social media content, announcements
+
+**What you need to provide**:
+- ✅ **Script/Text**: What should the avatar say?
+- 📐 **Format** (optional): Horizontal (16:9), Vertical TikTok/Reels (9:16), or Square (1:1)
+- 👤 **Avatar** (optional): I'll use a good default if not specified
+- 🎙️ **Voice** (optional): Professional, casual, etc.
+
+**Example request**: 
+*"Create a video explaining our new product features. Make it vertical for TikTok."*
+
+**What I'll do**: Generate the video with `generate_avatar_video()`
+
+---
+
+## 🎁 **2. UGC PRODUCT VIDEO** (For E-commerce/Ads)
+**Best for**: Product demonstrations, TikTok ads, authentic-looking reviews
+
+**What you need to provide**:
+- 🖼️ **PRODUCT IMAGE FIRST** (clear photo of your product)
+- 📝 **Script** about the product (casual, authentic tone works best)
+- 📐 **Format**: Usually vertical (9:16) for TikTok/Reels
+
+**Example request**: 
+*"I want to create a UGC-style ad for my skincare product"*
+
+**What I'll do**: 
+1. Ask you to provide/upload the product image
+2. Upload it with `upload_product_image()`
+3. Generate UGC video with `generate_ugc_video()` - avatar naturally showcases your product!
+
+**⚠️ Important**: I need the product image BEFORE making the video.
+
+---
+
+## 📋 **3. TEMPLATE VIDEO** (Personalized at Scale)
+**Best for**: Personalized customer videos, bulk video generation with variable data
+
+**What you need to provide**:
+- 📝 **Template ID** (templates must be created in HeyGen dashboard first)
+- 🔤 **Variable values** (names, companies, data points, etc.)
+
+**Example request**: 
+*"Generate personalized welcome videos for each customer using my template"*
+
+**What I'll do**: 
+1. Show available templates with `list_video_templates()`
+2. Check template variables with `get_template_details()`
+3. Generate with `generate_from_template()`
+
+**⚠️ Important**: Templates must exist in your HeyGen dashboard first.
+
+---
+
+## 🎭 **4. STREAMING AVATAR** (Real-time Interactive)
+**Best for**: Live customer service, interactive demos, conversational agents
+
+**What you need to provide**:
+- 🎯 **Use case description**
+- 👤 **Avatar preference**
+- 🎙️ **Voice and personality settings**
+
+**Example request**: 
+*"Set up an interactive avatar for customer support that answers questions in real-time"*
+
+**What I'll do**: Create a live session with `create_avatar_session()`
+
+**⚠️ Important**: This is for REAL-TIME interaction. For pre-recorded videos, use option 1.
+
+---
+
+## 🤔 **Quick Decision Helper**
+
+Tell me what you want:
+
+1️⃣ **"Make a video where an avatar says [text]"** 
+   → Standard Avatar Video ✅
+
+2️⃣ **"Avatar showing off my product in a video"** 
+   → UGC Product Video (need product image!) 📸
+
+3️⃣ **"100+ personalized videos with different names/data"** 
+   → Template Video (need templates set up) 📋
+
+4️⃣ **"Live interactive avatar responding in real-time"** 
+   → Streaming Avatar 🎭
+
+---
+
+## 💡 **What Should You Tell Me?**
+
+For the best video, please share:
+
+✅ **What type of video?** (presentation, ad, tutorial, announcement)
+✅ **The script/message** (what should the avatar say?)
+✅ **Where will you use it?** 
+   - TikTok/Reels/Shorts → 9:16 vertical
+   - YouTube → 16:9 horizontal
+   - Instagram feed → 1:1 square
+✅ **For product videos**: Share your product image
+✅ **Tone**: Professional, casual, energetic, calm?
+
+---
+
+## 📊 **Most Popular**
+
+- **90%** use: Standard Avatar Video (easiest!)
+- **7%** use: UGC Product Video (great for e-commerce)
+- **2%** use: Templates (bulk personalization)
+- **1%** use: Streaming (advanced)
+
+---
+
+**What type of video would you like? Tell me more and I'll get you exactly what you need!** 🎬
+        """
+        return self.success_response(guide)
+
+    # ==================== CORE VIDEO GENERATION ====================
+
     @openapi_schema({
         "type": "function",
         "function": {
@@ -602,7 +745,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "make_avatar_speak",
-            "description": "Send a speak command to a streaming avatar session. NOTE: This requires an active WebRTC connection established on the frontend. For simple video creation, use generate_avatar_video instead.",
+            "description": "Send text to an active streaming avatar session. Call this MULTIPLE TIMES to keep the session going - each call sends new text for the avatar to speak. Perfect for conversational agents, tutorials, or any multi-part content. Session stays active until you close it.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -612,7 +755,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                     },
                     "text": {
                         "type": "string",
-                        "description": "Text for the avatar to speak"
+                        "description": "Text for the avatar to speak. You can call this function repeatedly with different text to continue the conversation."
                     },
                     "task_type": {
                         "type": "string",
@@ -627,10 +770,20 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
     })
     @usage_example('''
         <function_calls>
+        <!-- First message -->
         <invoke name="make_avatar_speak">
         <parameter name="session_name">sales_demo_avatar</parameter>
         <parameter name="text">Hello! I'm excited to tell you about our amazing new features.</parameter>
         <parameter name="task_type">repeat</parameter>
+        </invoke>
+        <!-- Send more messages to keep session going -->
+        <invoke name="make_avatar_speak">
+        <parameter name="session_name">sales_demo_avatar</parameter>
+        <parameter name="text">Our new AI-powered analytics can help you boost conversions by up to 300%.</parameter>
+        </invoke>
+        <invoke name="make_avatar_speak">
+        <parameter name="session_name">sales_demo_avatar</parameter>
+        <parameter name="text">Want to see a demo? Let me show you how it works!</parameter>
         </invoke>
         </function_calls>
     ''')
@@ -640,13 +793,19 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         text: str,
         task_type: str = "repeat"
     ) -> ToolResult:
-        """Make an avatar speak the provided text."""
+        """Make an avatar speak the provided text in an active session. Can be called multiple times to continue conversation."""
         try:
             if session_name not in self.active_sessions:
-                return self.fail_response(f"No active session found with name '{session_name}'. Create a session first using create_avatar_session.")
+                return self.fail_response(
+                    f"❌ No active session found with name '{session_name}'.\n\n"
+                    f"**Create a session first**:\n"
+                    f"1. Use `create_avatar_session(session_name='{session_name}', ...)` to start\n"
+                    f"2. Then call `make_avatar_speak()` to send text\n\n"
+                    f"💡 **Tip**: Sessions let you send multiple messages without regenerating!"
+                )
             
             session_id = self.active_sessions[session_name]
-            logger.info(f"Making avatar speak in session '{session_name}': {text[:50]}...")
+            logger.info(f"📢 Making avatar speak in session '{session_name}': {text[:50]}...")
             
             # Prepare speak request
             speak_data = {
@@ -667,7 +826,13 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 if response.status_code != 200:
                     error_msg = f"HeyGen API error: {response.status_code} - {response.text}"
                     logger.error(error_msg)
-                    return self.fail_response(error_msg)
+                    return self.fail_response(
+                        f"❌ Failed to send speak command\n\n"
+                        f"**Error**: {error_msg}\n\n"
+                        f"💡 **Troubleshooting**:\n"
+                        f"- Session might have expired (timeout after 10-15 min inactivity)\n"
+                        f"- Try creating new session with `create_avatar_session()`"
+                    )
                 
                 result = response.json()
                 
@@ -675,12 +840,20 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                     return self.fail_response(f"HeyGen speak task failed: {result.get('message', 'Unknown error')}")
                 
                 task_id = result.get("data", {}).get("task_id")
+                duration = result.get("data", {}).get("duration_ms", 0) / 1000 if "duration_ms" in result.get("data", {}) else 0
                 
                 return self.success_response(
-                    f"Avatar is now speaking in session '{session_name}'!\n"
-                    f"Task ID: {task_id}\n"
-                    f"Text: {text}\n"
-                    f"Task Type: {task_type}"
+                    f"🗣️ **Avatar Speaking!**\n\n"
+                    f"**Session**: {session_name}\n"
+                    f"**Task ID**: `{task_id}`\n"
+                    f"**Text**: \"{text[:100]}{'...' if len(text) > 100 else ''}\"\n"
+                    f"**Duration**: ~{duration:.1f}s\n\n"
+                    f"✅ **Session Still Active!**\n\n"
+                    f"**Keep the conversation going**:\n"
+                    f"- Call `make_avatar_speak(session_name='{session_name}', text='...')` again\n"
+                    f"- Send as many messages as you want\n"
+                    f"- Each message queues up in the session\n\n"
+                    f"💡 **Tip**: Use `close_avatar_session('{session_name}')` when done."
                 )
                 
         except Exception as e:
