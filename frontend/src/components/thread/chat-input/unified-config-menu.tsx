@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { Cpu, Search, Check, ChevronDown, Plus, ExternalLink, Loader2 } from 'lucide-react';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import type { ModelOption } from '@/hooks/use-model-selection';
 
 export type SubscriptionStatus = 'no_subscription' | 'active';

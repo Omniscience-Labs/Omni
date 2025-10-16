@@ -14,6 +14,7 @@ import {
 import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { AgentLoader } from './loader';
 import { AgentAvatar, AgentName } from './agent-avatar';
+import { CopyMessageButton } from '@/components/thread/copy-message-button';
 import { parseXmlToolCalls, isNewXmlFormat } from '@/components/thread/tool-views/xml-parser';
 import { ShowToolStream } from './ShowToolStream';
 import { ComposioUrlDetector } from './composio-url-detector';
