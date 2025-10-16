@@ -6,7 +6,6 @@ import {
   checkBillingStatus,
   CreateCheckoutSessionRequest
 } from '@/lib/api';
->>>>>>> upstream/PRODUCTION
 
 // useAvailableModels has been moved to use-model-selection.ts for better consolidation
 
@@ -37,7 +36,6 @@ export const useCreateCheckoutSession = createMutationHook(
   }
 );
 
-<<<<<<< HEAD
 export const useAdminUserUsageLogs = (accountId: string, page: number = 0, itemsPerPage: number = 1000, days: number = 30) => 
   createQueryHook(
     ['admin-user-usage', accountId, page, itemsPerPage, days],
@@ -56,5 +54,4 @@ export const useAdminUserUsageLogs = (accountId: string, page: number = 0, items
       refetchOnWindowFocus: false,
       enabled: !!accountId, // Only run if accountId is provided
     }
-  )(); 
-=======
+  )();

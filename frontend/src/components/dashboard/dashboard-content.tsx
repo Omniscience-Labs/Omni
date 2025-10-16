@@ -387,7 +387,6 @@ export function DashboardContent() {
       <div className="flex flex-col h-screen w-full overflow-hidden">
         <div className="flex-1 overflow-y-auto">
           <div className="min-h-full flex flex-col">
->>>>>>> upstream/PRODUCTION
             <div className="flex-1 flex items-center justify-center px-4 py-8">
               <div className="w-full max-w-[650px] flex flex-col items-center justify-center space-y-4 md:space-y-6">
                 <div className="flex flex-col items-center text-center w-full">
@@ -477,8 +476,6 @@ export function DashboardContent() {
           open={showConfigDialog}
           onOpenChange={setShowConfigDialog}
           agentId={configAgentId}
-<<<<<<< HEAD
-=======
           onAgentChange={(newAgentId) => {
             setConfigAgentId(newAgentId);
             setSelectedAgent(newAgentId);
