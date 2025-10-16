@@ -229,33 +229,76 @@ class TriggerService:
     async def _save_trigger(self, trigger: Trigger) -> None:
         client = await self._db.client
         
-        # Store provider_id as a proper column, not in config
-        await client.table('agent_triggers').insert({
-            'trigger_id': trigger.trigger_id,
-            'agent_id': trigger.agent_id,
-            'provider_id': trigger.provider_id,
-            'trigger_type': trigger.trigger_type.value,
-            'name': trigger.name,
-            'description': trigger.description,
-            'is_active': trigger.is_active,
-            'config': trigger.config,
-            'created_at': trigger.created_at.isoformat(),
-            'updated_at': trigger.updated_at.isoformat()
-        }).execute()
+        # Try to store provider_id as a column (new method)
+        # If column doesn't exist, fall back to storing in config (old method)
+        try:
+            await client.table('agent_triggers').insert({
+                'trigger_id': trigger.trigger_id,
+                'agent_id': trigger.agent_id,
+                'provider_id': trigger.provider_id,
+                'trigger_type': trigger.trigger_type.value,
+                'name': trigger.name,
+                'description': trigger.description,
+                'is_active': trigger.is_active,
+                'config': trigger.config,
+                'created_at': trigger.created_at.isoformat(),
+                'updated_at': trigger.updated_at.isoformat()
+            }).execute()
+        except Exception as e:
+            # Check if error is about missing provider_id column
+            error_msg = str(e)
+            if 'provider_id' in error_msg and ('PGRST204' in error_msg or 'column' in error_msg.lower()):
+                logger.warning("provider_id column not found, falling back to storing in config")
+                # Fall back to old method: store provider_id in config
+                config_with_provider = {**trigger.config, "provider_id": trigger.provider_id}
+                await client.table('agent_triggers').insert({
+                    'trigger_id': trigger.trigger_id,
+                    'agent_id': trigger.agent_id,
+                    'trigger_type': trigger.trigger_type.value,
+                    'name': trigger.name,
+                    'description': trigger.description,
+                    'is_active': trigger.is_active,
+                    'config': config_with_provider,
+                    'created_at': trigger.created_at.isoformat(),
+                    'updated_at': trigger.updated_at.isoformat()
+                }).execute()
+            else:
+                # Re-raise if it's a different error
+                raise
     
     async def _update_trigger(self, trigger: Trigger) -> None:
         client = await self._db.client
         
-        # Store provider_id as a proper column, not in config
-        await client.table('agent_triggers').update({
-            'provider_id': trigger.provider_id,
-            'trigger_type': trigger.trigger_type.value,
-            'name': trigger.name,
-            'description': trigger.description,
-            'is_active': trigger.is_active,
-            'config': trigger.config,
-            'updated_at': trigger.updated_at.isoformat()
-        }).eq('trigger_id', trigger.trigger_id).execute()
+        # Try to store provider_id as a column (new method)
+        # If column doesn't exist, fall back to storing in config (old method)
+        try:
+            await client.table('agent_triggers').update({
+                'provider_id': trigger.provider_id,
+                'trigger_type': trigger.trigger_type.value,
+                'name': trigger.name,
+                'description': trigger.description,
+                'is_active': trigger.is_active,
+                'config': trigger.config,
+                'updated_at': trigger.updated_at.isoformat()
+            }).eq('trigger_id', trigger.trigger_id).execute()
+        except Exception as e:
+            # Check if error is about missing provider_id column
+            error_msg = str(e)
+            if 'provider_id' in error_msg and ('PGRST204' in error_msg or 'column' in error_msg.lower()):
+                logger.warning("provider_id column not found, falling back to storing in config")
+                # Fall back to old method: store provider_id in config
+                config_with_provider = {**trigger.config, "provider_id": trigger.provider_id}
+                await client.table('agent_triggers').update({
+                    'trigger_type': trigger.trigger_type.value,
+                    'name': trigger.name,
+                    'description': trigger.description,
+                    'is_active': trigger.is_active,
+                    'config': config_with_provider,
+                    'updated_at': trigger.updated_at.isoformat()
+                }).eq('trigger_id', trigger.trigger_id).execute()
+            else:
+                # Re-raise if it's a different error
+                raise
     
     def _map_to_trigger(self, data: Dict[str, Any]) -> Trigger:
         config_data = data.get('config', {})
