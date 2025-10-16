@@ -1,14 +1,11 @@
 'use client';
 import { HeroVideoSection } from '@/components/home/sections/hero-video-section';
 import { siteConfig } from '@/lib/home';
-import { ArrowRight, X, AlertCircle, Sparkles } from 'lucide-react';
-import { GradientText } from '@/components/animate-ui/text/gradient';
+import { ArrowRight, Github, X, AlertCircle, Square } from 'lucide-react';
 import { FlickeringGrid } from '@/components/home/ui/flickering-grid';
-import { LampContainer } from '@/components/ui/lamp';
-import { FlipWords } from '@/components/ui/flip-words';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useState, useEffect, useRef, FormEvent } from 'react';
-import { useScroll, motion } from 'motion/react';
+import { useScroll } from 'motion/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
@@ -18,16 +15,10 @@ import {
   ProjectLimitError,
 } from '@/lib/api';
 import { useInitiateAgentMutation } from '@/hooks/react-query/dashboard/use-initiate-agent';
-import { BillingModal } from '@/components/billing/billing-modal';
-import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog';
-import { ProjectLimitDialog } from '@/components/billing/project-limit-dialog';
-import { CreditsLimitDialog } from '@/components/billing/credits-limit-dialog';
 import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
 import { generateThreadName } from '@/lib/actions/threads';
 import GoogleSignIn from '@/components/GoogleSignIn';
-import MicrosoftSignIn from '@/components/MicrosoftSignIn';
-import { Input } from '@/components/ui/input';
-import { SubmitButton } from '@/components/ui/submit-button';
+import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import {
   Dialog,
   DialogContent,
@@ -41,17 +32,14 @@ import { useBillingError } from '@/hooks/useBillingError';
 import { useAccounts } from '@/hooks/use-accounts';
 import { isLocalMode, config } from '@/lib/config';
 import { toast } from 'sonner';
-import { useModal } from '@/hooks/use-modal-store';
-import { createClient } from '@/lib/supabase/client';
-import { CheckIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { BillingModal } from '@/components/billing/billing-modal';
 import GitHubSignIn from '@/components/GithubSignIn';
 import { ChatInput, ChatInputHandles } from '@/components/thread/chat-input/chat-input';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 import { createQueryHook } from '@/hooks/use-query';
 import { agentKeys } from '@/hooks/react-query/agents/keys';
 import { getAgents } from '@/hooks/react-query/agents/utils';
-import { useAgents } from '@/hooks/react-query/agents/use-agents';
+import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog';
 import { Examples } from '@/components/dashboard/examples';
 import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 
@@ -59,7 +47,6 @@ import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 const BlurredDialogOverlay = () => (
   <DialogOverlay className="bg-background/40 backdrop-blur-md" />
 );
-
 
 // Rotating text component for job types
 const RotatingText = ({ 
@@ -123,14 +110,36 @@ export function HeroSection() {
     useBillingError();
   const { data: accounts } = useAccounts({ enabled: !!user });
   const personalAccount = accounts?.find((account) => account.personal_account);
-  const { onOpen } = useModal();
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const initiateAgentMutation = useInitiateAgentMutation();
   const [initiatedThreadId, setInitiatedThreadId] = useState<string | null>(null);
   const threadQuery = useThreadQuery(initiatedThreadId || '');
   const chatInputRef = useRef<ChatInputHandles>(null);
+  const [showAgentLimitDialog, setShowAgentLimitDialog] = useState(false);
+  const [agentLimitData, setAgentLimitData] = useState<{
+    runningCount: number;
+    runningThreadIds: string[];
+  } | null>(null);
 
   // Fetch agents for selection
-  const { data: agentsResponse } = useAgents({}, { enabled: !!user });
+  const { data: agentsResponse } = createQueryHook(
+    agentKeys.list({
+      limit: 100,
+      sort_by: 'name',
+      sort_order: 'asc'
+    }),
+    () => getAgents({
+      limit: 100,
+      sort_by: 'name',
+      sort_order: 'asc'
+    }),
+    {
+      enabled: !!user && !isLoading,
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+    }
+  )();
+
   const agents = agentsResponse?.agents || [];
 
   // Initialize agent selection from localStorage when agents are loaded
@@ -142,200 +151,9 @@ export function HeroSection() {
 
   // Auth dialog state
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-  
-  // Payment and limit dialog state
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showAgentLimitDialog, setShowAgentLimitDialog] = useState(false);
-  const [agentLimitData, setAgentLimitData] = useState<{runningCount: number; runningThreadIds: string[]} | null>(null);
-  const [showProjectLimitDialog, setShowProjectLimitDialog] = useState(false);
-  const [projectLimitData, setProjectLimitData] = useState<{currentCount: number; limit: number; tierName: string} | null>(null);
-  const [showCreditsLimitDialog, setShowCreditsLimitDialog] = useState(false);
-  const [creditsLimitData, setCreditsLimitData] = useState<{message: string; currentUsage?: number; limit?: number; creditBalance?: number; isEnterprise?: boolean} | null>(null);
-
-  // FlipWords arrays for value proposition
-  const moreWords = ["research", "analysis", "automation", "productivity", "insights", "results", "growth", "efficiency"];
-  const lessWords = ["effort", "time", "work", "stress", "cost", "manual work", "overhead", "resources"];
 
   useEffect(() => {
     setMounted(true);
-    
-    // Detect Safari browser
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    if (isSafari) {
-      document.documentElement.classList.add('is-safari');
-    }
-    
-    // Inject critical CSS immediately to prevent gray border flash
-    // Safari requires extensive border overrides due to:
-    // 1. Different handling of CSS custom properties in shadow DOM
-    // 2. Border inheritance issues with Tailwind classes
-    // 3. WebKit-specific rendering of border styles
-    // 4. Issues with border: 0 vs border: none specificity
-    const style = document.createElement('style');
-    style.textContent = `
-      /* Emergency CSS to prevent gray borders */
-      #hero,
-      #hero *,
-      #hero *::before,
-      #hero *::after,
-      [data-hero-element],
-      [data-hero-element]::before,
-      [data-hero-element]::after {
-        border: 0 !important;
-        border-color: transparent !important;
-        outline: none !important;
-      }
-      
-      /* Specifically override global border color CSS variables in hero section */
-      #hero {
-        --border: transparent !important;
-        --input: transparent !important;
-        --ring: transparent !important;
-        --border-border: transparent !important;
-      }
-      
-      /* Force transparent borders on all potential border elements */
-      #hero .border,
-      #hero .border-t,
-      #hero .border-r,
-      #hero .border-b,
-      #hero .border-l,
-      #hero .border-x,
-      #hero .border-y,
-      #hero .border-input,
-      #hero [class*="border-"],
-      #hero [class*="border "],
-      #hero [class*=" border"] {
-        border-color: transparent !important;
-      }
-      
-      /* Ensure motion divs have no borders */
-      #hero div[style*="transform"] {
-        border: 0 !important;
-        border-color: transparent !important;
-      }
-      
-      /* Safari-specific fixes */
-      @supports (-webkit-appearance: none) {
-        #hero,
-        #hero * {
-          border: 0 !important;
-          border-color: transparent !important;
-          -webkit-border-before: none !important;
-          -webkit-border-after: none !important;
-          -webkit-border-start: none !important;
-          -webkit-border-end: none !important;
-        }
-        
-        #hero input,
-        #hero input[type="text"],
-        #hero .hero-input {
-          border: 0 !important;
-          border-color: transparent !important;
-          -webkit-appearance: none !important;
-          -webkit-border-before: none !important;
-          -webkit-border-after: none !important;
-          -webkit-border-start: none !important;
-          -webkit-border-end: none !important;
-          background-clip: padding-box !important;
-          -webkit-background-clip: padding-box !important;
-        }
-        
-        /* Force Safari to respect transparent borders */
-        #hero [class*="border"],
-        #hero [class*="border-"] {
-          border-image: none !important;
-          border-style: solid !important;
-          border-color: transparent !important;
-          border-width: 0 !important;
-        }
-      }
-      
-      /* Additional Safari mobile fixes */
-      @supports (-webkit-touch-callout: none) {
-        #hero input {
-          -webkit-user-select: text !important;
-          -webkit-touch-callout: default !important;
-          border: 0 !important;
-          outline: 0 !important;
-        }
-      }
-      
-      /* Safari-specific data attribute targeting */
-      @supports (-webkit-appearance: none) {
-        #hero [data-safari-fix="true"] {
-          border: 1px solid rgba(34, 211, 238, 0.3) !important;
-          border-width: 1px !important;
-          border-style: solid !important;
-          border-color: rgba(34, 211, 238, 0.3) !important;
-        }
-        
-        #hero [data-safari-fix="true"] * {
-          border: none !important;
-          border-style: none !important;
-          border-width: 0 !important;
-          border-color: transparent !important;
-        }
-      }
-      
-      /* Hero input container with cyan glow border */
-      #hero .hero-input-container {
-        border: 1px solid rgba(34, 211, 238, 0.3) !important;
-      }
-      
-      /* Safari browser class targeting */
-      .is-safari #hero,
-      .is-safari #hero * {
-        border: none !important;
-        border-style: none !important;
-        border-width: 0 !important;
-        border-color: transparent !important;
-        border-image: none !important;
-      }
-      
-      .is-safari #hero .hero-input-container {
-        border: 1px solid rgba(34, 211, 238, 0.3) !important;
-        border-width: 1px !important;
-        border-style: solid !important;
-        border-color: rgba(34, 211, 238, 0.3) !important;
-      }
-      
-      .is-safari #hero input {
-        border: none !important;
-        border-style: none !important;
-        border-width: 0 !important;
-        border-color: transparent !important;
-        -webkit-appearance: none !important;
-      }
-    `;
-    style.id = 'hero-critical-css';
-    
-    // Insert at the very beginning of head
-    const firstChild = document.head.firstChild;
-    if (firstChild) {
-      document.head.insertBefore(style, firstChild);
-    } else {
-      document.head.appendChild(style);
-    }
-    
-    // Add 'loaded' class after a short delay to re-enable transitions
-    const heroSection = document.getElementById('hero');
-    if (heroSection) {
-      setTimeout(() => {
-        heroSection.classList.add('loaded');
-      }, 100);
-    }
-    
-    // Cleanup on unmount
-    return () => {
-      const styleEl = document.getElementById('hero-critical-css');
-      if (styleEl) {
-        styleEl.remove();
-      }
-      // Remove Safari class
-      document.documentElement.classList.remove('is-safari');
-    };
   }, []);
 
   // Detect when scrolling is active to reduce animation complexity
@@ -381,7 +199,7 @@ export function HeroSection() {
       if (thread.project_id) {
         router.push(`/projects/${thread.project_id}/thread/${initiatedThreadId}`);
       } else {
-        router.push(`/thread/${initiatedThreadId}`);
+        router.push(`/agents/${initiatedThreadId}`);
       }
       setInitiatedThreadId(null);
     }
@@ -390,48 +208,54 @@ export function HeroSection() {
   // Handle ChatInput submission
   const handleChatInputSubmit = async (
     message: string,
-    options?: { model_name?: string; agent_id?: string }
+    options?: { model_name?: string }
   ) => {
-    if (!message.trim() || isSubmitting) return;
+    if ((!message.trim() && !chatInputRef.current?.getPendingFiles().length) || isSubmitting) return;
 
+    // If user is not logged in, save prompt and show auth dialog
+    if (!user && !isLoading) {
+      localStorage.setItem(PENDING_PROMPT_KEY, message.trim());
+      setAuthDialogOpen(true);
+      return;
+    }
+
+    // User is logged in, create the agent with files like dashboard does
     setIsSubmitting(true);
-    setAuthError(null);
-
     try {
-      // If not authenticated, show auth dialog
-      if (!user) {
-        localStorage.setItem(PENDING_PROMPT_KEY, message.trim());
-        setAuthDialogOpen(true);
-        setIsSubmitting(false);
-        return;
-      }
+      const files = chatInputRef.current?.getPendingFiles() || [];
+      localStorage.removeItem(PENDING_PROMPT_KEY);
 
       const formData = new FormData();
       formData.append('prompt', message);
 
-      if (options?.agent_id) formData.append('agent_id', options.agent_id);
+      // Add selected agent if one is chosen
+      if (selectedAgentId) {
+        formData.append('agent_id', selectedAgentId);
+      }
+
+      // Add files if any
+      files.forEach((file) => {
+        const normalizedName = normalizeFilenameToNFC(file.name);
+        formData.append('files', file, normalizedName);
+      });
+
       if (options?.model_name) formData.append('model_name', options.model_name);
-      formData.append('stream', 'true');
+      formData.append('stream', 'true'); // Always stream for better UX
       formData.append('enable_context_manager', 'false');
 
       const result = await initiateAgentMutation.mutateAsync(formData);
 
       if (result.thread_id) {
         setInitiatedThreadId(result.thread_id);
-        setInputValue('');
       } else {
-        throw new Error('Failed to create agent');
+        throw new Error('Agent initiation did not return a thread_id.');
       }
+
+      chatInputRef.current?.clearPendingFiles();
+      setInputValue('');
     } catch (error: any) {
       if (error instanceof BillingError) {
-        setCreditsLimitData({
-          message: error.detail.message || "You've exhausted your available credits.",
-          currentUsage: error.detail.currentUsage,
-          limit: error.detail.limit,
-          creditBalance: error.detail.creditBalance,
-          isEnterprise: process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true' || error.detail.is_enterprise || false,
-        });
-        setShowCreditsLimitDialog(true);
+        setShowPaymentModal(true);
       } else if (error instanceof AgentRunLimitError) {
         const { running_thread_ids, running_count } = error.detail;
         
@@ -441,504 +265,126 @@ export function HeroSection() {
         });
         setShowAgentLimitDialog(true);
       } else if (error instanceof ProjectLimitError) {
-        setProjectLimitData({
-          currentCount: error.detail.current_count,
-          limit: error.detail.limit,
-          tierName: error.detail.tier_name,
-        });
-        setShowProjectLimitDialog(true);
+        setShowPaymentModal(true);
       } else {
-        const errorMessage = error?.message || 'An unexpected error occurred';
-        toast.error(errorMessage);
+        const isConnectionError =
+          error instanceof TypeError &&
+          error.message.includes('Failed to fetch');
+        if (!isLocalMode() || isConnectionError) {
+          toast.error(
+            error.message || 'Failed to create agent. Please try again.',
+          );
+        }
       }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleSignIn = async (prevState: any, formData: FormData) => {
-    setAuthError(null);
-    
-    try {
-      const email = formData.get('email') as string;
-      const password = formData.get('password') as string;
-      
-      if (!email || !email.includes('@')) {
-        setAuthError('Please enter a valid email address');
-        return;
-      }
-
-      if (!password || password.length < 6) {
-        setAuthError('Password must be at least 6 characters');
-        return;
-      }
-
-      const supabase = createClient();
-
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        setAuthError(error.message || 'Could not authenticate user');
-        return;
-      }
-
-      // Authentication successful - the auth state change will be handled by useEffect
-      // and will redirect to dashboard
-      
-    } catch (error: any) {
-      console.error('Sign in error:', error);
-      setAuthError(error.message || 'Failed to sign in');
-    }
-  };
-
   return (
-    <section id="hero" className="w-full relative overflow-hidden min-h-[100svh] flex items-center justify-center">
-      {/* Immediate inline styles to prevent FOUC */}
-      <link 
-        rel="stylesheet" 
-        href={`data:text/css,${encodeURIComponent(`
-          /* Override CSS variables for hero section */
-          #hero {
-            --border: transparent !important;
-            --input: transparent !important;
-            --ring: transparent !important;
-            --border-border: transparent !important;
-          }
-          
-          /* Reset all element borders in hero section */
-          #hero,
-          #hero *,
-          #hero *::before,
-          #hero *::after {
-            border: 0 !important;
-            border-color: transparent !important;
-            outline: none !important;
-            box-shadow: none !important;
-          }
-          
-          /* Prevent any Tailwind border classes from applying */
-          #hero .border,
-          #hero .border-t,
-          #hero .border-r,
-          #hero .border-b,
-          #hero .border-l,
-          #hero .border-x,
-          #hero .border-y,
-          #hero .border-input,
-          #hero [class*="border-"],
-          #hero [class*="border "],
-          #hero [class*=" border"] {
-            border-color: transparent !important;
-          }
-          
-          /* Override input specific styles */
-          #hero input,
-          #hero input:focus,
-          #hero input:hover,
-          #hero input:active {
-            border: 0 !important;
-            border-color: transparent !important;
-            outline: none !important;
-            box-shadow: none !important;
-          }
-          
-          /* Safari-specific fixes */
-          @supports (-webkit-appearance: none) {
-            #hero,
-            #hero * {
-              border: none !important;
-              border-style: none !important;
-              border-width: 0 !important;
-              border-color: transparent !important;
-              -webkit-border-before: none !important;
-              -webkit-border-after: none !important;
-              -webkit-border-start: none !important;
-              -webkit-border-end: none !important;
-            }
-            
-            #hero input {
-              -webkit-appearance: none !important;
-              border: none !important;
-              border-style: none !important;
-              border-width: 0 !important;
-              border-color: transparent !important;
-              -webkit-tap-highlight-color: transparent !important;
-            }
-          }
-          
-          #hero .hero-input-container {
-            border: 1px solid rgba(34, 211, 238, 0.3) !important;
-            border-radius: 9999px !important;
-            background-color: rgba(255, 255, 255, 0.1) !important;
-            backdrop-filter: blur(12px) !important;
-            -webkit-backdrop-filter: blur(12px) !important;
-          }
-          
-          /* Safari input container override */
-          @supports (-webkit-appearance: none) {
-            #hero .hero-input-container {
-              border: 1px solid rgba(34, 211, 238, 0.3) !important;
-              border-width: 1px !important;
-              border-style: solid !important;
-              border-color: rgba(34, 211, 238, 0.3) !important;
-            }
-          }
-          
-          @media (prefers-color-scheme: dark) {
-            #hero .hero-input-container {
-              background-color: rgba(0, 0, 0, 0.1) !important;
-            }
-          }
-        `)}`}
+    <section id="hero" className="w-full relative overflow-hidden">
+      <BillingModal 
+        open={showPaymentModal} 
+        onOpenChange={setShowPaymentModal}
+        showUsageLimitAlert={true}
       />
-      {/* Critical CSS to prevent border flash */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        /* Critical CSS to prevent gray border flash and shape issues on page load */
-        
-        /* Override CSS variables in hero section scope */
-        #hero {
-          --border: transparent !important;
-          --input: transparent !important;
-          --ring: transparent !important;
-          --border-border: transparent !important;
-        }
-        
-        /* Safari-specific variable fixes */
-        @supports (-webkit-appearance: none) {
-          #hero {
-            --border: transparent !important;
-            --input: transparent !important;
-            --ring: transparent !important;
-            --border-border: transparent !important;
-          }
-        }
-        
-        /* Target all hero elements by data attribute to ensure specificity */
-        [data-hero-element] {
-          border: 0 !important;
-          border-color: transparent !important;
-          outline: none !important;
-        }
-        
-        [data-hero-element]::before,
-        [data-hero-element]::after {
-          border: 0 !important;
-          border-color: transparent !important;
-        }
-        
-        /* Reset all borders in hero section first */
-        #hero,
-        #hero *,
-        #hero *::before,
-        #hero *::after {
-          border: 0 !important;
-          border-color: transparent !important;
-          outline: none !important;
-        }
-        
-        /* Target ALL elements to prevent gray borders */
-        #hero * {
-          border-color: transparent !important;
-        }
-        
-        /* Specifically target border utility classes */
-        #hero .border,
-        #hero .border-t,
-        #hero .border-r,
-        #hero .border-b,
-        #hero .border-l,
-        #hero .border-x,
-        #hero .border-y,
-        #hero .border-input,
-        #hero [class*="border-"],
-        #hero [class*="border "],
-        #hero [class*=" border"] {
-          border-color: transparent !important;
-        }
-        
-        /* Override Input component border styles */
-        #hero input,
-        #hero input[type="text"],
-        #hero input[type="email"],
-        #hero input[type="password"] {
-          border: 0 !important;
-          border-color: transparent !important;
-          outline: none !important;
-          box-shadow: none !important;
-        }
-        
-        /* Ensure motion divs have no borders */
-        #hero div[style*="transform"],
-        #hero [data-framer-component-type] {
-          border: 0 !important;
-          border-color: transparent !important;
-        }
-        
-        /* Safari-specific fixes for all elements */
-        @supports (-webkit-appearance: none) {
-          #hero,
-          #hero *,
-          #hero *::before,
-          #hero *::after {
-            border: none !important;
-            border-style: none !important;
-            border-width: 0 !important;
-            border-color: transparent !important;
-            border-image: none !important;
-            -webkit-border-before: none !important;
-            -webkit-border-after: none !important;
-            -webkit-border-start: none !important;
-            -webkit-border-end: none !important;
-            outline: none !important;
-            outline-style: none !important;
-            outline-width: 0 !important;
-          }
-          
-          /* Safari input specific */
-          #hero input,
-          #hero .hero-input,
-          #hero input[type="text"] {
-            -webkit-appearance: none !important;
-            border: none !important;
-            border-style: none !important;
-            border-width: 0 !important;
-            border-color: transparent !important;
-            background-clip: padding-box !important;
-            -webkit-background-clip: padding-box !important;
-            -webkit-tap-highlight-color: transparent !important;
-          }
-          
-          /* Safari border class override */
-          #hero [class*="border"],
-          #hero .border-input {
-            border: none !important;
-            border-style: none !important;
-            border-width: 0 !important;
-            border-color: transparent !important;
-          }
-        }
-        
-        /* Motion wrapper specific styles */
-        #hero .flex.items-center.w-full {
-          border: none !important;
-        }
-        
-        /* Hero input wrapper motion div */
-        #hero .hero-input-wrapper {
-          border: none !important;
-          background: transparent !important;
-          box-shadow: none !important;
-        }
-        
-        /* Form and all its children */
-        #hero-form,
-        #hero-form * {
-          border-color: transparent !important;
-        }
-        
-        /* The relative wrapper div */
-        #hero-form > div.relative {
-          border: none !important;
-          background: transparent !important;
-        }
-        
-        /* Glow effect div */
-        #hero .hero-glow-effect {
-          border: none !important;
-          opacity: 0 !important;
-          background: transparent !important;
-          box-shadow: none !important;
-        }
-        
-        /* Loaded state for glow effect */
-        #hero.loaded .hero-glow-effect {
-          background: linear-gradient(to right, rgba(34, 211, 238, 0.2), rgba(34, 211, 238, 0.1), rgba(34, 211, 238, 0.2)) !important;
-          opacity: 0 !important;
-          transition: opacity 500ms cubic-bezier(0.4, 0, 0.2, 1) !important;
-        }
-        
-        #hero.loaded .group:hover .hero-glow-effect,
-        #hero.loaded .group:focus-within .hero-glow-effect {
-          opacity: 1 !important;
-        }
-        
-        /* Prevent border animations during load */
-        #hero *,
-        #hero *::before,
-        #hero *::after {
-          transition: none !important;
-          animation: none !important;
-        }
-        
-        /* Re-enable transitions after load */
-        #hero.loaded .hero-input-container,
-        #hero.loaded .hero-glow-effect,
-        #hero.loaded button,
-        #hero.loaded input {
-          transition-property: border-color, background-color, opacity, transform, box-shadow !important;
-          transition-duration: 300ms !important;
-          transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
-        }
-        
-        /* Ensure no borders on motion divs */
-        #hero [data-framer-component-type] {
-          border: none !important;
-        }
-        
-        /* Main input container */
-        #hero .hero-input-container {
-          border: 1px solid rgba(34, 211, 238, 0.3) !important;
-          border-width: 1px !important;
-          border-style: solid !important;
-          border-radius: 9999px !important; /* rounded-full */
-          background-color: rgba(255, 255, 255, 0.1) !important;
-          backdrop-filter: blur(12px) !important;
-          -webkit-backdrop-filter: blur(12px) !important;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
-          padding-left: 1.5rem !important;
-          padding-right: 1.5rem !important;
-          display: flex !important;
-          align-items: center !important;
-          position: relative !important;
-          transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1) !important;
-          /* Prevent any size changes */
-          width: 100% !important;
-          height: auto !important;
-          min-height: 4rem !important; /* h-16 */
-          overflow: hidden !important;
-        }
-        
-        /* Safari-specific input container fix - must come after general Safari fixes */
-        @supports (-webkit-appearance: none) {
-          #hero .hero-input-container {
-            border: 1px solid rgba(34, 211, 238, 0.3) !important;
-            border-width: 1px !important;
-            border-style: solid !important;
-            border-color: rgba(34, 211, 238, 0.3) !important;
-            -webkit-border-before: initial !important;
-            -webkit-border-after: initial !important;
-            -webkit-border-start: initial !important;
-            -webkit-border-end: initial !important;
-          }
-        }
-        @media (prefers-color-scheme: dark) {
-          #hero .hero-input-container {
-            background-color: rgba(0, 0, 0, 0.1) !important;
-          }
-        }
-        @media (min-width: 1024px) {
-          #hero .hero-input-container {
-            min-height: 4.5rem !important; /* lg:h-18 */
-          }
-        }
-        #hero .hero-input-container:hover {
-          border-color: rgba(34, 211, 238, 0.5) !important;
-          background-color: rgba(255, 255, 255, 0.15) !important;
-        }
-        @media (prefers-color-scheme: dark) {
-          #hero .hero-input-container:hover {
-            background-color: rgba(0, 0, 0, 0.15) !important;
-          }
-        }
-        #hero .hero-input-container:focus-within {
-          border-color: rgba(34, 211, 238, 0.7) !important;
-          background-color: rgba(255, 255, 255, 0.2) !important;
-        }
-        @media (prefers-color-scheme: dark) {
-          #hero .hero-input-container:focus-within {
-            background-color: rgba(0, 0, 0, 0.2) !important;
-          }
-        }
-        #hero .hero-input-container * {
-          border: none !important;
-          outline: none !important;
-        }
-        #hero .hero-input-container input {
-          border: 0 !important;
-          outline: none !important;
-          -webkit-appearance: none !important;
-          -moz-appearance: none !important;
-          appearance: none !important;
-          background: transparent !important;
-          width: 100% !important;
-          flex: 1 !important;
-        }
-        #hero .hero-input {
-          border: 0 !important;
-          border-color: transparent !important;
-          outline: none !important;
-          box-shadow: none !important;
-          -webkit-appearance: none !important;
-          -moz-appearance: none !important;
-          appearance: none !important;
-        }
-        #hero .hero-input:focus,
-        #hero .hero-input:hover,
-        #hero .hero-input:active {
-          border: 0 !important;
-          border-color: transparent !important;
-          outline: none !important;
-          box-shadow: none !important;
-        }
-        #hero .hero-input-container button {
-          border-radius: 9999px !important;
-        }
-        /* Ensure form and glow don't affect sizing */
-        #hero form {
-          width: 100% !important;
-          position: relative !important;
-        }
-        #hero form > div:first-child {
-          position: relative !important;
-        }
-        #hero .hero-input-container + div {
-          pointer-events: none !important;
-        }
-      `}} />
+      <div className="relative flex flex-col items-center w-full px-4 sm:px-6">
+        {/* Left side flickering grid with gradient fades */}
+        <div className="hidden sm:block absolute left-0 top-0 h-[500px] sm:h-[600px] md:h-[800px] w-1/4 sm:w-1/3 -z-10 overflow-hidden">
+          {/* Horizontal fade from left to right */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-background z-10" />
 
-      <div className="relative flex flex-col items-center w-full px-6 z-20">
-        {/* Center content */}
-        <motion.div 
-          className="relative z-30 max-w-4xl mx-auto h-full w-full flex flex-col gap-8 lg:gap-12 items-center justify-center -mt-16 md:-mt-20"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-        >
-          {/* Hero text with improved typography */}
-          <motion.div 
-            className="flex flex-col items-center justify-center gap-4 md:gap-6 text-center relative z-40"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.8 }}
+          {/* Vertical fade from top */}
+          <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-background via-background/90 to-transparent z-10" />
+
+          {/* Vertical fade to bottom */}
+          <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/90 to-transparent z-10" />
+
+          {mounted && (
+            <FlickeringGrid
+              className="h-full w-full"
+              squareSize={tablet ? 2 : 2.5}
+              gridGap={tablet ? 2 : 2.5}
+              color="var(--secondary)"
+              maxOpacity={tablet ? 0.2 : 0.4}
+              flickerChance={isScrolling ? 0.005 : (tablet ? 0.015 : 0.03)} // Lower performance impact on mobile
+            />
+          )}
+        </div>
+
+        {/* Right side flickering grid with gradient fades */}
+        <div className="hidden sm:block absolute right-0 top-0 h-[500px] sm:h-[600px] md:h-[800px] w-1/4 sm:w-1/3 -z-10 overflow-hidden">
+          {/* Horizontal fade from right to left */}
+          <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-background z-10" />
+
+          {/* Vertical fade from top */}
+          <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-background via-background/90 to-transparent z-10" />
+
+          {/* Vertical fade to bottom */}
+          <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/90 to-transparent z-10" />
+
+          {mounted && (
+            <FlickeringGrid
+              className="h-full w-full"
+              squareSize={tablet ? 2 : 2.5}
+              gridGap={tablet ? 2 : 2.5}
+              color="var(--secondary)"
+              maxOpacity={tablet ? 0.2 : 0.4}
+              flickerChance={isScrolling ? 0.005 : (tablet ? 0.015 : 0.03)} // Lower performance impact on mobile
+            />
+          )}
+        </div>
+
+        {/* Center content background with rounded bottom */}
+        <div className="absolute inset-x-0 sm:inset-x-1/6 md:inset-x-1/4 top-0 h-[500px] sm:h-[600px] md:h-[800px] -z-20 bg-background rounded-b-xl"></div>
+
+        <div className="relative z-10 pt-16 sm:pt-24 md:pt-32 mx-auto h-full w-full max-w-6xl flex flex-col items-center justify-center">
+          {/* <p className="border border-border bg-accent rounded-full text-sm h-8 px-3 flex items-center gap-2">
+            {hero.badgeIcon}
+            {hero.badge}
+          </p> */}
+
+          {/* <Link
+            href={hero.githubUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group border border-border/50 bg-background hover:bg-accent/20 hover:border-secondary/40 rounded-full text-sm h-8 px-3 flex items-center gap-2 transition-all duration-300 shadow-sm hover:shadow-md hover:scale-105 hover:-translate-y-0.5"
           >
-            {/* Badge with enhanced styling - moved above the main heading */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.1, duration: 0.6 }}
-              className="relative z-50 mb-2"
-            >
-              <Link
-                href="#enterprise"
-                className="group relative inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/20 backdrop-blur-sm px-4 py-2 text-sm transition-all duration-300 hover:border-border/70 hover:bg-background/30 hover:shadow-lg hover:shadow-primary/20"
+            {hero.badgeIcon}
+            <span className="font-medium text-muted-foreground text-xs tracking-wide group-hover:text-primary transition-colors duration-300">
+              {hero.badge}
+            </span>
+            <span className="inline-flex items-center justify-center size-3.5 rounded-full bg-muted/30 group-hover:bg-secondary/30 transition-colors duration-300">
+              <svg
+                width="8"
+                height="8"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-muted-foreground group-hover:text-primary"
               >
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  <GradientText 
-                    text={hero.badge}
-                    gradient="linear-gradient(90deg, #3b82f6 0%, #a855f7 20%, #ec4899 50%, #a855f7 80%, #3b82f6 100%)"
-                    transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-                    className="font-medium text-xs tracking-wider uppercase group-hover:opacity-90 transition-opacity duration-300"
-                  />
-                </div>
-                <div className="inline-flex items-center justify-center size-4 rounded-full bg-primary/20 group-hover:bg-primary/30 transition-colors duration-300">
-                  <ArrowRight className="h-2.5 w-2.5 text-primary group-hover:translate-x-0.5 transition-transform duration-300" />
-                </div>
-              </Link>
-            </motion.div>
+                <path
+                  d="M7 17L17 7M17 7H8M17 7V16"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+          </Link> */}
+          <div className="flex flex-col items-center justify-center gap-3 sm:gap-4 pt-8 sm:pt-12 max-w-4xl mx-auto">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-medium tracking-tighter text-balance text-center px-2">
+              <span className="text-primary">Hire Kortix for </span>
+              <RotatingText 
+                texts={['Research', 'Presentations', 'Docs', 'Spreadsheets', 'Design', 'Data Analysis', 'Email Management', 'Social Media', 'SEO', 'Lead Generation', 'Customer Support', 'Content Creation', 'Project Management', 'Sales', 'Marketing', 'Analytics']}
+                className="text-secondary"
+              />
+            </h1>
+            <p className="text-base md:text-lg text-center text-muted-foreground font-medium text-balance leading-relaxed tracking-tight max-w-2xl px-2">
+            Deploy AI Workers that run your business autonomously.
+            </p>
+          </div>
 
           <div className="flex flex-col items-center w-full max-w-3xl mx-auto gap-2 flex-wrap justify-center px-2 sm:px-0">
             <div className="w-full relative">
@@ -958,139 +404,88 @@ export function HeroSection() {
                   enableAdvancedConfig={false}
                 />
               </div>
+              {/* Subtle glow effect */}
+              <div className="absolute -bottom-4 inset-x-0 h-6 bg-secondary/20 blur-xl rounded-full -z-10 opacity-70"></div>
             </div>
-
-            {/* Desktop: Inline layout */}
-            <div className="hidden sm:flex items-center justify-center flex-wrap gap-2">
-              <span className="drop-shadow-md">80% more</span>
-              <FlipWords 
-                words={moreWords} 
-                duration={3000}
-                className="text-primary font-bold drop-shadow-lg"
-              />
-              <span className="drop-shadow-md">with 20% the</span>
-              <FlipWords 
-                words={lessWords} 
-                duration={4500}
-                className="text-primary font-bold drop-shadow-lg"
-              />
+            
+            {/* Examples section - right after chat input */}
+            <div className="w-full pt-2">
+              <Examples onSelectPrompt={setInputValue} count={tablet ? 2 : 4} />
             </div>
           </div>
-        </motion.div>
-        
-        {/* Video section positioned below the main content with better mobile spacing */}
-        <motion.div 
-          className="w-full max-w-6xl mx-auto mt-8 md:mt-12 lg:mt-16 mb-8 md:mb-16 relative z-30"
-          style={{ display: 'none' }} // Temporarily hide the video section
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1, duration: 1 }}
-        >
-          <HeroVideoSection />
-        </motion.div>
-      </motion.div>
 
-      {/* Auth Dialog with enhanced styling */}
+        </div>
+
+      </div>
+        <div className="mb-8 sm:mb-16 sm:mt-32 mx-auto"></div>
+
+      {/* Auth Dialog */}
       <Dialog open={authDialogOpen} onOpenChange={setAuthDialogOpen}>
         <BlurredDialogOverlay />
-        <DialogContent className="sm:max-w-md rounded-2xl bg-background/95 dark:bg-background/95 backdrop-blur-xl border border-border/50 shadow-2xl">
-          <DialogHeader className="space-y-4">
+        <DialogContent className="sm:max-w-md rounded-xl bg-background border border-border">
+          <DialogHeader>
             <div className="flex items-center justify-between">
-              <DialogTitle className="text-2xl font-semibold tracking-tight">
+              <DialogTitle className="text-xl font-medium">
                 Sign in to continue
               </DialogTitle>
+              {/* <button 
+                onClick={() => setAuthDialogOpen(false)}
+                className="rounded-full p-1 hover:bg-muted transition-colors"
+              >
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button> */}
             </div>
-            <DialogDescription className="text-muted-foreground text-base">
-              Sign in or create an account to start using Operator
+            <DialogDescription className="text-muted-foreground">
+              Sign in or create an account to talk with Suna
             </DialogDescription>
           </DialogHeader>
 
-          {/* Auth error message */}
-          {authError && (
-            <div className="mb-4 p-4 rounded-xl flex items-center gap-3 bg-destructive/10 border border-destructive/20 text-destructive">
-              <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              <span className="text-sm font-medium">{authError}</span>
-            </div>
-          )}
 
-          {/* Social Sign In Options */}
-          <div className="w-full space-y-3">
+
+          {/* OAuth Sign In */}
+          <div className="w-full">
             <GoogleSignIn returnUrl="/dashboard" />
-            <MicrosoftSignIn returnUrl="/dashboard" />
+            <GitHubSignIn returnUrl="/dashboard" />
           </div>
 
           {/* Divider */}
-          <div className="relative my-8">
+          <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border/50"></div>
+              <div className="w-full border-t border-border"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-background text-muted-foreground font-medium">
+              <span className="px-2 bg-[#F3F4F6] dark:bg-[#F9FAFB]/[0.02] text-muted-foreground">
                 or continue with email
               </span>
             </div>
           </div>
 
-          {/* Sign in form with enhanced styling */}
-          <form className="space-y-4">
-            <div>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="Enter your email"
-                className="h-12 rounded-xl bg-background/50 border-border/50 focus:border-secondary/50 transition-colors"
-                required
-              />
-            </div>
+          {/* Sign in options */}
+          <div className="space-y-4 pt-4">
+            <Link
+              href={`/auth?returnUrl=${encodeURIComponent('/dashboard')}`}
+              className="flex h-12 items-center justify-center w-full text-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md"
+              onClick={() => setAuthDialogOpen(false)}
+            >
+              Sign in with email
+            </Link>
 
-            <div>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Enter your password"
-                className="h-12 rounded-xl bg-background/50 border-border/50 focus:border-secondary/50 transition-colors"
-                required
-              />
-            </div>
+            <Link
+              href={`/auth?mode=signup&returnUrl=${encodeURIComponent('/dashboard')}`}
+              className="flex h-12 items-center justify-center w-full text-center rounded-full border border-border bg-background hover:bg-accent/20 transition-all"
+              onClick={() => setAuthDialogOpen(false)}
+            >
+              Create new account
+            </Link>
+          </div>
 
-            <div className="space-y-4 pt-4">
-              <SubmitButton
-                formAction={handleSignIn}
-                className="w-full h-12 rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/90 transition-all shadow-lg hover:shadow-secondary/25"
-                pendingText="Signing in..."
-              >
-                Sign in
-              </SubmitButton>
-
-              <Link
-                href={`/auth?mode=signup&returnUrl=${encodeURIComponent('/dashboard')}`}
-                className="flex h-12 items-center justify-center w-full text-center rounded-xl border border-border/50 bg-background/50 hover:bg-secondary/5 hover:border-secondary/30 transition-all"
-                onClick={() => setAuthDialogOpen(false)}
-              >
-                Create new account
-              </Link>
-            </div>
-
-            <div className="text-center pt-4">
-              <Link
-                href={`/auth?returnUrl=${encodeURIComponent('/dashboard')}`}
-                className="text-sm text-secondary hover:text-secondary/80 font-medium transition-colors"
-                onClick={() => setAuthDialogOpen(false)}
-              >
-                More sign in options
-              </Link>
-            </div>
-          </form>
-
-          <div className="mt-6 text-center text-xs text-muted-foreground/80">
+          <div className="mt-4 text-center text-xs text-muted-foreground">
             By continuing, you agree to our{' '}
-            <Link href="/terms" className="text-secondary hover:text-secondary/80 font-medium">
+            <Link href="/terms" className="text-primary hover:underline">
               Terms of Service
             </Link>{' '}
             and{' '}
-            <Link href="/privacy" className="text-secondary hover:text-secondary/80 font-medium">
+            <Link href="/privacy" className="text-primary hover:underline">
               Privacy Policy
             </Link>
           </div>
@@ -1105,50 +500,15 @@ export function HeroSection() {
         accountId={personalAccount?.account_id}
         onDismiss={clearBillingError}
         isOpen={!!billingError}
-        isEnterprise={process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true'}
       />
 
-      {/* Billing Modal */}
-      <BillingModal 
-        open={showPaymentModal} 
-        onOpenChange={setShowPaymentModal}
-        showUsageLimitAlert={true}
-      />
-
-      {/* Agent Limit Dialog */}
       {agentLimitData && (
         <AgentRunLimitDialog
           open={showAgentLimitDialog}
           onOpenChange={setShowAgentLimitDialog}
           runningCount={agentLimitData.runningCount}
           runningThreadIds={agentLimitData.runningThreadIds}
-          projectId={undefined}
-        />
-      )}
-
-      {/* Project Limit Dialog */}
-      {projectLimitData && (
-        <ProjectLimitDialog
-          open={showProjectLimitDialog}
-          onOpenChange={setShowProjectLimitDialog}
-          currentCount={projectLimitData.currentCount}
-          limit={projectLimitData.limit}
-          tierName={projectLimitData.tierName}
-          onUpgrade={() => setShowPaymentModal(true)}
-        />
-      )}
-
-      {/* Credits Limit Dialog */}
-      {creditsLimitData && (
-        <CreditsLimitDialog
-          open={showCreditsLimitDialog}
-          onOpenChange={setShowCreditsLimitDialog}
-          message={creditsLimitData.message}
-          currentUsage={creditsLimitData.currentUsage}
-          limit={creditsLimitData.limit}
-          creditBalance={creditsLimitData.creditBalance}
-          isEnterprise={creditsLimitData.isEnterprise}
-          onUpgrade={() => setShowPaymentModal(true)}
+          projectId={undefined} // Hero section doesn't have a specific project context
         />
       )}
     </section>
