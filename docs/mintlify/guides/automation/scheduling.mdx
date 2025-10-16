@@ -8,6 +8,10 @@ icon: "clock"
 
 Run agents and workflows automatically at specific times without manual intervention.
 
+<Info>
+  Scheduling is configured through the **Triggers** system. See [Triggers guide](/guides/automation/triggers) for complete setup instructions including the demo example: "Every Wednesday Before Executive Meeting".
+</Info>
+
 {/* 
   📸 MEDIA PLACEHOLDER: Schedule Dashboard
   - List of scheduled tasks
@@ -38,7 +42,19 @@ Run agents and workflows automatically at specific times without manual interven
 
 <Tabs>
   <Tab title="Simple Schedules">
-    **Common Patterns**:
+    **Quick Presets** (select from dropdown):
+    
+    - Every 5 minutes
+    - Every 15 minutes
+    - Every 30 minutes
+    - Every hour
+    - Daily at 9 AM
+    - Daily at 12 PM (noon)
+    - Twice daily
+    - Weekly on Monday
+    - Monthly on 1st
+
+    **Traditional Cron Patterns** (if you prefer):
 
     | Pattern | Cron Expression | Description |
     |---------|----------------|-------------|
@@ -48,7 +64,7 @@ Run agents and workflows automatically at specific times without manual interven
     | Weekly on Monday | `0 9 * * 1` | Mondays at 9:00 AM |
     | Monthly on 1st | `0 9 1 * *` | 1st of month at 9:00 AM |
 
-    No cron expertise needed - use presets.
+    No cron expertise needed - use presets or visual builder.
 
     {/* 
       📸 MEDIA PLACEHOLDER: Schedule Presets
@@ -60,8 +76,26 @@ Run agents and workflows automatically at specific times without manual interven
     */}
   </Tab>
 
-  <Tab title="Custom Schedules">
-    **Advanced Patterns**:
+  <Tab title="Recurring Custom">
+    **Specific Days and Times**:
+    - Select specific day(s) of week
+    - Choose exact time  
+    - Set timezone (e.g., Indianapolis Time, EST, PST)
+    - One-time execution option available
+    
+    **Examples**:
+    ```
+    Every Wednesday at 9 AM Indianapolis Time
+    (for weekly executive meeting prep)
+    
+    Every Monday at 8 AM EST
+    (for weekly reports)
+    
+    First day of month at 9 AM
+    (for monthly summaries)
+    ```
+    
+    **Advanced Cron Patterns**:
     ```
     First Monday of each quarter at 2 PM:
     0 14 1-7 1,4,7,10 1
@@ -73,10 +107,8 @@ Run agents and workflows automatically at specific times without manual interven
     0 9,17 * * *
     ```
 
-    Use cron expression builder for complex patterns.
-
     <Tip>
-      Use our visual cron builder - no need to memorize syntax.
+      Most users prefer the visual schedule builder over cron expressions.
     </Tip>
   </Tab>
 </Tabs>

@@ -13,7 +13,7 @@ Once connected, agents can manage your Gmail account through natural conversatio
     Check inbox, search messages, read threads
   </Card>
   <Card title="Send Messages" icon="paper-plane">
-    Compose and send emails with attachments
+    Compose and send emails (see note about attachments below)
   </Card>
   <Card title="Organize" icon="folder">
     Apply labels, mark as read, archive, star
@@ -22,6 +22,17 @@ Once connected, agents can manage your Gmail account through natural conversatio
     Find emails by sender, subject, date, labels
   </Card>
 </CardGroup>
+
+<Warning>
+  **Gmail Attachment Limitation**: The Gmail API currently does not support sending emails with file attachments through automation.
+  
+  **Workaround**:
+  1. Agent can draft the email content and save it
+  2. Go to the **Files panel** and download the attachment files
+  3. Manually send the email through Gmail with downloaded attachments
+  
+  Alternatively, the agent can compose the email and you can copy the text to send manually with attachments.
+</Warning>
 
 ---
 
@@ -65,16 +76,21 @@ Once connected, agents can manage your Gmail account through natural conversatio
   </Step>
 
   <Step title="Assign to Agents">
-    Choose which agents can access Gmail:
-    - All agents
-    - Specific agents only
-    - Different permissions per agent
+    The Gmail connection (profile) is now available:
+    - Shows in your list of integration profiles
+    - Can be used by any agent
+    - Create additional Gmail profiles for different accounts
+    - Example: "Marketing Gmail", "Support Gmail", "Personal Gmail"
 
     <Check>
       Gmail connected! Test with: "What are my unread emails?"
     </Check>
   </Step>
 </Steps>
+
+<Info>
+  **Multiple Gmail Accounts**: You can create multiple Gmail integration profiles. Name each profile clearly (e.g., "Marketing Email", "Support Email") and select which profile an agent should use in its integration settings.
+</Info>
 
 ---
 
@@ -108,12 +124,33 @@ Once connected, agents can manage your Gmail account through natural conversatio
     "Draft an email to john@example.com:
     - Subject: Q4 Partnership Proposal
     - Thank them for meeting last week
-    - Attach our proposal deck
     - Suggest next steps
     - Professional and warm tone"
     ```
 
-    Agent composes, you review before sending.
+    Agent composes complete email with subject, body, and formatting.
+    
+    **Example from Demo**:
+    ```
+    "Send all the above information including the image and 
+    presentation along with phone number to [email]"
+    
+    Result: Agent sends email with:
+    - Professional greeting
+    - All requested information formatted nicely
+    - Company details and contact info
+    - Note about attachments (see limitation below)
+    ```
+    
+    <Warning>
+      **Attachments Workaround**: When agent says "I've sent the email but couldn't attach files due to API limitations":
+      1. Check the email was sent successfully
+      2. Go to Files panel in Omni
+      3. Download the files you need to attach
+      4. Reply to the sent email manually with attachments
+      
+      Or have agent draft without sending, copy text, and send manually with attachments from start.
+    </Warning>
   </Tab>
 
   <Tab title="Follow-Up Automation">

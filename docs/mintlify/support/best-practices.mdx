@@ -39,26 +39,33 @@ Expert recommendations for power users and teams.
   <Accordion title="Focused Purpose" icon="bullseye">
     **One Agent, One Job**:
 
-    ❌ **Bad**: "General Assistant" that does everything
+    ❌ **Bad**: Using OMNI agent for everything
     ```
-    - Research
-    - Content creation
-    - Data analysis
-    - Customer support
-    - Development
-    (tries to be everything, excels at nothing)
+    Problem: OMNI is a "super smart computer" that can do anything
+    
+    Risk: For simple tasks, it might:
+    - Overcomplicate solutions
+    - Build entire programming languages for simple documents
+    - Take longer and cost more than necessary
+    - Give inconsistent results for same request
     ```
 
-    ✅ **Good**: Specialized agents
+    ✅ **Good**: Specialized agents for recurring tasks
     ```
-    - Research Agent: Just research and analysis
-    - Content Agent: Just content creation
-    - Data Agent: Just data processing
-    - Support Agent: Just customer support
+    - Quotation Agent: Generate quotes consistently
+    - Report Agent: Weekly reports in same format
+    - Email Agent: Draft responses in company voice
+    - Research Agent: Industry analysis with citations
     (each excels at its specific domain)
     ```
 
-    Specialists outperform generalists.
+    <Warning>
+      **Watch for Overcomplications**: If your agent starts doing something excessive (like building a new language to create a document), stop the chat immediately. Either be more specific in your request or create/use a specialized agent for that task type.
+    </Warning>
+    
+    **When to Use OMNI vs Specialized**:
+    - OMNI: One-off tasks, exploration, new requests
+    - Specialized: Recurring tasks, consistent format needed, specific workflows
   </Accordion>
 
   <Accordion title="Detailed System Prompts" icon="file-lines">
@@ -126,7 +133,38 @@ Expert recommendations for power users and teams.
     - Use descriptive filenames
     - Update with product changes
 
+    **Real Example**:
+    ```
+    Electrical Quotation Agent Knowledge Base:
+    - NECA manual (material cost reference)
+    - Historic quotations (pricing patterns)
+    - Labor hour standards
+    - Company letterhead (default file)
+    
+    Result: Agent generates accurate quotes by referencing 
+    proven standards and past work
+    ```
+
     Clean knowledge base = better responses.
+  </Accordion>
+  
+  <Accordion title="Use Help Button for Agent Creation" icon="life-ring">
+    **Work with Omni Team**:
+    
+    Instead of struggling to create complex agents yourself:
+    1. Click the **Help** button
+    2. Select **Agent Request**
+    3. Describe your use case and workflow
+    4. Schedule 30-minute consultation
+    5. Omni team builds optimized agent for you
+    
+    **Benefits**:
+    - Leverage Omni team's prompt engineering expertise
+    - Avoid common configuration mistakes
+    - Get best practices built in
+    - Save time and get better results
+    
+    Included in Professional and Enterprise plans.
   </Accordion>
 </AccordionGroup>
 
@@ -348,6 +386,16 @@ Expert recommendations for power users and teams.
 
 ## Cost Optimization
 
+<Info>
+  **Cost Transparency**: View detailed usage and costs in **Settings → Transactions**. This page shows:
+  - Cost per conversation
+  - Tool usage breakdown
+  - Daily/weekly/monthly spending
+  - Which agents cost the most
+  
+  Omni is actively working to reduce these costs continuously. Pricing you see today will likely decrease over time.
+</Info>
+
 <CardGroup cols={2}>
   <Card title="Choose Right Models" icon="microchip">
     Fast models for simple tasks, advanced models for complex reasoning
@@ -362,10 +410,16 @@ Expert recommendations for power users and teams.
     Process multiple items together
   </Card>
   <Card title="Monitor Usage" icon="chart-line">
-    Track which agents/workflows cost most
+    Track which agents/workflows cost most (Settings → Transactions)
   </Card>
   <Card title="Archive Inactive" icon="box-archive">
-    Remove or pause unused agents
+    Remove or pause unused agents and delete old chats
+  </Card>
+  <Card title="Stop Runaway Tasks" icon="hand">
+    If agent is overcomplicating, stop the chat early to avoid unnecessary costs
+  </Card>
+  <Card title="Use Specialized Agents" icon="bullseye">
+    Focused agents complete tasks faster than general OMNI agent
   </Card>
 </CardGroup>
 
@@ -435,6 +489,9 @@ Expert recommendations for power users and teams.
 <Warning>
   **Don't Do These**:
 
+  ❌ **Entering passwords or sensitive credentials in chat**
+  → Use integrations and OAuth instead - never type passwords in messages
+
   ❌ Creating too many similar agents
   → Create one well-configured agent instead
 
@@ -458,7 +515,14 @@ Expert recommendations for power users and teams.
 
   ❌ Granting excessive permissions
   → Principle of least privilege
+  
+  ❌ Using OMNI agent for specialized recurring tasks
+  → Create dedicated agents for consistency
 </Warning>
+
+<Info>
+  **Security Best Practice**: Never type passwords, API keys, or sensitive credentials directly in chat messages. Use Omni's integration system which handles authentication securely through OAuth.
+</Info>
 
 ---
 
