@@ -13,6 +13,85 @@ const PUBLIC_ROUTES = [
   '/legal',
   '/api/auth',
   '/share', // Shared content should be public
+  '/templates', // Template pages should be public
+  '/enterprise', // Enterprise page should be public
+];
+
+// Routes that require authentication but are related to billing/trials
+const BILLING_ROUTES = [
+  '/activate-trial',
+  '/subscription',
+];
+
+// Routes that require authentication and active subscription
+const PROTECTED_ROUTES = [
+  '/dashboard',
+  '/agents',
+  '/projects',
+  '/settings',
+];
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  
+  // Skip middleware for static files and API routes
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon') ||
+    pathname.includes('.') ||
+    pathname.startsWith('/api/')
+  ) {
+    return NextResponse.next();
+  }
+
+  // Allow all public routes without any checks
+  if (PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))) {
+    return NextResponse.next();
+  }
+
+  // Everything else requires authentication
+  let supabaseResponse = NextResponse.next({
+    request,
+  });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          supabaseResponse = NextResponse.next({
+            request,
+          });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  try {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    // Redirect to auth if not authenticated
+    if (authError || !user) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/auth';
+      url.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(url);
+    }
+
+    // Skip billing checks in local mode
+    const isLocalMode = process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
+    if (isLocalMode) {
+      return supabaseResponse;
+    }
+
     // Skip billing checks for billing-related routes
     if (BILLING_ROUTES.some(route => pathname.startsWith(route))) {
       return supabaseResponse;
