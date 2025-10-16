@@ -37,6 +37,23 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import ColorThief from 'colorthief';
+import { AgentAvatar } from '@/components/thread/content/agent-avatar';
+
+interface MarketplaceTemplate {
+  template_id: string;
+  creator_id: string;
+  name: string;
+  description: string | null;
+  system_prompt: string;
+  mcp_requirements: any[];
+  agentpress_tools: Record<string, any>;
+  tags: string[];
+  is_public: boolean;
+  is_kortix_team: boolean;
+  marketplace_published_at: string | null;
+  download_count: number;
+  created_at: string;
+  updated_at: string;
   icon_name: string | null;
   icon_color: string | null;
   icon_background: string | null;
