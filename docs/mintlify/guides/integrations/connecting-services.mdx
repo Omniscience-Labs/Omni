@@ -8,9 +8,17 @@ icon: "plug"
 
 All integrations follow a secure, standardized connection flow.
 
+<Info>
+  **Integration Profiles**: You can create multiple connections to the same service (e.g., separate Gmail profiles for "Marketing", "Support", and "Personal"). Each connection is called a "profile" and can be used by different agents.
+</Info>
+
 <Steps>
   <Step title="Navigate to Integrations">
-    Go to **Settings** → **Integrations** or click any **Connect** button in agent configuration.
+    Access integrations from two locations:
+    - **Agent Settings** → **Integrations** tab (agent-specific)
+    - **Settings** → **Integrations** (global view)
+    
+    You'll see available integrations organized by category.
 
     {/* 
       📸 MEDIA PLACEHOLDER: Integrations Page
@@ -22,9 +30,27 @@ All integrations follow a secure, standardized connection flow.
   </Step>
 
   <Step title="Select Service to Connect">
-    Browse or search for the service you want to integrate.
-
-    Popular services shown first with install counts and ratings.
+    **Find Your Integration**:
+    1. Use search bar to find service (e.g., "Outlook", "OneDrive", "Dropbox")
+    2. Click on the integration card
+    3. Click **Create New Connection**
+    
+    You'll be prompted to name this connection.
+  </Step>
+  
+  <Step title="Name Your Connection Profile">
+    Give this connection a descriptive name:
+    ```
+    Examples:
+    - "Houston Email" (for work Outlook)
+    - "Marketing Gmail" (for marketing emails)
+    - "Work OneDrive" (for corporate files)
+    - "Support Email" (for customer support)
+    ```
+    
+    <Tip>
+      Profile names help you remember which account is connected, especially when you have multiple connections to the same service type.
+    </Tip>
   </Step>
 
   <Step title="Review Permissions">
@@ -68,12 +94,21 @@ All integrations follow a secure, standardized connection flow.
   </Step>
 
   <Step title="Authenticate">
-    Click **Connect [Service]** and complete OAuth flow:
-    1. Redirected to service login
-    2. Log in with your credentials
-    3. Review permission request
-    4. Click **Allow** or **Authorize**
-    5. Redirected back to Omni
+    Click **Connect** button and complete OAuth flow:
+    1. Popup window opens (allow popups in browser)
+    2. Log in to the service with your credentials
+    3. Review permission request from Omni
+    4. Click **Allow**, **Authorize**, or **Accept**
+    5. Window closes and you're back in Omni
+    
+    <Warning>
+      **Enterprise Services**: Outlook, OneDrive, and other Microsoft services may require IT administrator approval before you can connect. If you see "Admin consent required" or similar error:
+      
+      1. Contact your IT department
+      2. Ask them to approve Omni in Microsoft 365 admin console
+      3. They need to whitelist Omni as an approved app
+      4. Then retry the connection
+    </Warning>
 
     {/* 
       📸 MEDIA PLACEHOLDER: OAuth Flow
@@ -88,12 +123,36 @@ All integrations follow a secure, standardized connection flow.
     </Tip>
   </Step>
 
-  <Step title="Configure Integration">
-    Set integration-specific options:
-    - Which folders/channels to access
-    - Default settings
-    - Notification preferences
-    - Usage limits
+  <Step title="Select Tools to Enable">
+    **Choose Specific Capabilities**:
+    
+    After authentication succeeds, you'll see a list of available tools for this integration. Toggle switches to enable/disable each capability:
+    
+    **Example - OneDrive Tools**:
+    ```
+    ☑ List files and folders
+    ☑ Download files
+    ☑ Read file contents
+    ☐ Upload files (optional)
+    ☐ Delete files (optional - usually keep off for safety)
+    ```
+    
+    **Example - Gmail Tools**:
+    ```
+    ☑ Read emails
+    ☑ Send emails
+    ☑ Search inbox
+    ☐ Delete emails (optional)
+    ☐ Manage labels (optional)
+    ```
+    
+    Only enable what you actually need for security and focus.
+  </Step>
+  
+  <Step title="Save Tools Configuration">
+    Click the **Save Tools** button to confirm your selections.
+    
+    Your choices are saved and the integration is now active.
 
     {/* 
       📸 MEDIA PLACEHOLDER: Integration Config
@@ -105,20 +164,8 @@ All integrations follow a secure, standardized connection flow.
     */}
   </Step>
 
-  <Step title="Assign to Agents">
-    Enable for specific agents:
-    - Select agents from list
-    - Or enable for all agents
-    - Set per-agent permissions
-    - Configure tool subsets
-
-    <Check>
-      Integration active and ready to use!
-    </Check>
-  </Step>
-
   <Step title="Test Connection">
-    Verify it works:
+    Integration profile is now ready to use. Verify it works:
     ```
     Ask agent: "List my recent Gmail messages"
     Expected: Agent retrieves and displays emails
@@ -130,15 +177,37 @@ All integrations follow a secure, standardized connection flow.
 
 ---
 
-## Managing Connections
+## Managing Integration Profiles
 
 <Tabs>
+  <Tab title="View All Profiles">
+    See all your integration connections:
+    - Organized by service type
+    - Each profile shows connection status
+    - Multiple profiles per service listed
+    - Last successful sync time
+    - Profile name prominently displayed
+    
+    **Example View**:
+    ```
+    Gmail:
+    - Marketing Gmail (Connected ✓)
+    - Support Gmail (Connected ✓)
+    
+    OneDrive:
+    - Work OneDrive (Connected ✓)
+    
+    Outlook:
+    - Houston Email (Pending IT Approval ⚠️)
+    ```
+  </Tab>
+  
   <Tab title="Active Integrations">
-    View all connected services:
-    - Connection status
+    Filter to view connected services only:
+    - Connection status (Active, Pending, Error)
     - Last successful sync
     - Usage statistics
-    - Assigned agents
+    - Which agents use each profile
 
     {/* 
       📸 MEDIA PLACEHOLDER: Active Integrations List
@@ -220,6 +289,40 @@ All integrations follow a secure, standardized connection flow.
 
 ---
 
+## Integration Profiles System
+
+<Info>
+  **Key Concept**: Profiles let you have multiple connections to the same service type. For example:
+  
+  **Gmail Profiles**:
+  - "Marketing Gmail" → marketing@company.com
+  - "Support Gmail" → support@company.com  
+  - "Personal Gmail" → yourname@gmail.com
+  
+  Different agents can use different profiles. A support agent uses the Support Gmail profile, while a marketing agent uses the Marketing Gmail profile.
+</Info>
+
+**Viewing Your Profiles**:
+
+Access **Settings → Integrations** or agent **Integrations tab** to see:
+- All service types (Gmail, Outlook, OneDrive, etc.)
+- Multiple profiles under each service
+- Connection status for each profile
+- Last sync time
+- Which agents use which profiles
+
+**Creating Additional Profiles**:
+
+Already have OneDrive connected but need a second account?
+1. Go to Integrations
+2. Find OneDrive  
+3. Click **Create New Connection** (even though one exists)
+4. Name it differently ("Personal OneDrive" vs "Work OneDrive")
+5. Authenticate with different Microsoft account
+6. Select tools and save
+
+---
+
 ## Best Practices
 
 <CardGroup cols={2}>
@@ -228,6 +331,9 @@ All integrations follow a secure, standardized connection flow.
   </Card>
   <Card title="Minimal Permissions" icon="shield-halved">
     Grant only the permissions your agents actually need
+  </Card>
+  <Card title="Name Profiles Clearly" icon="tag">
+    Use descriptive names like "Houston Email" not "Connection 1"
   </Card>
   <Card title="Regular Audits" icon="clipboard-check">
     Review connected services quarterly and remove unused ones
@@ -239,7 +345,10 @@ All integrations follow a secure, standardized connection flow.
     Track API calls to stay within rate limits
   </Card>
   <Card title="Document Setup" icon="file-lines">
-    Keep notes on which account was used for each integration
+    Keep notes on which account was used for each profile
+  </Card>
+  <Card title="Check IT Requirements" icon="shield">
+    For enterprise services, confirm IT approval before attempting connection
   </Card>
 </CardGroup>
 

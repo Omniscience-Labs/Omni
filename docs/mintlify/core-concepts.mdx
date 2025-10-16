@@ -32,10 +32,14 @@ Omni is built around a few key concepts that work together to create powerful, a
   <Card title="Marketplace Ready" icon="store">
     Share your agents with the team or install pre-built agents from the marketplace
   </Card>
-  <Card title="Always Learning" icon="brain">
-    Agents improve over time as they work with your knowledge base and integrations
+  <Card title="Automatic Task Breakdown" icon="list-check">
+    Agents automatically break complex requests into smaller tasks and show their plan
   </Card>
 </CardGroup>
+
+<Info>
+  **How Agents Work**: When you give an agent a complex task, it automatically breaks it down into smaller steps (e.g., "Creating tasks: 1. Research and image collection 2. Content creation 3. Communication"). This planning is done by the AI's own reasoning, not pre-programmed steps.
+</Info>
 
 {/* 
   📸 MEDIA PLACEHOLDER: Agent Card Examples
@@ -118,11 +122,17 @@ Each thread is a conversation with an agent where you can:
 
 Every agent operates in a secure, isolated **sandbox** - a containerized environment where code executes and files are managed.
 
+<Info>
+  **Chat Workspaces**: Each chat you create has its own isolated workspace - think of it as giving the agent its own computer for that conversation. Files created in one chat are separate from other chats. This keeps work organized and prevents conflicts.
+</Info>
+
 ### What's Inside the Sandbox?
 
 <AccordionGroup>
   <Accordion title="File System" icon="folder-tree">
-    A complete file system where agents can create, edit, and organize files. All your project files live here.
+    A complete file system where agents can create, edit, and organize files. All files for a chat live in that chat's workspace.
+    
+    Access files through the **Files panel** on the right side of the chat interface. Download files to your computer or share them with others.
     
     {/* 
       📸 MEDIA PLACEHOLDER: File Browser Interface
@@ -147,6 +157,8 @@ Every agent operates in a secure, isolated **sandbox** - a containerized environ
   </Accordion>
 
   <Accordion title="Browser Access" icon="browser">
+    {/* #TODO: Verify browser automation - mentioned in docs but not demonstrated in demo transcript */}
+    
     A headless Chromium browser for web automation, scraping, and testing. Agents can navigate websites just like you do.
     
     {/* 

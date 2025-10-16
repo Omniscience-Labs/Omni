@@ -27,7 +27,83 @@ Agents create professional content across formats and platforms.
   <Card title="Visual Content" icon="image">
     Infographics, social graphics, thumbnails
   </Card>
+  <Card title="Presentations" icon="presentation">
+    Slide decks with AI-generated content
+  </Card>
+  <Card title="Business Documents" icon="file-contract">
+    Quotations, proposals, contracts
+  </Card>
 </CardGroup>
+
+---
+
+## Presentation Generation
+
+Create professional slide decks from simple prompts:
+
+<Steps>
+  <Step title="Describe Your Presentation">
+    ```
+    "Create a simple presentation about the importance of wearing 
+    gloves while touching live wires - make it really funny"
+    
+    Or more detailed:
+    
+    "Create a 10-slide safety presentation about electrical PPE:
+    - Slide 1: Title slide
+    - Slide 2-3: Why safety matters (statistics)
+    - Slide 4-7: Required equipment with images
+    - Slide 8-9: Real incident examples
+    - Slide 10: Compliance and conclusion"
+    ```
+    
+    The more specific you are, the better the output.
+  </Step>
+  
+  <Step title="Agent Generates Content">
+    Agent creates the full presentation:
+    - Researches topic if needed
+    - Structures slides logically
+    - Writes engaging content
+    - Can include humor if requested
+    - Generates as HTML preview and PPTX
+    
+    <Tip>
+      Be specific about tone. The same presentation can be "professional and data-driven" or "funny and engaging" based on your prompt.
+    </Tip>
+  </Step>
+  
+  <Step title="Download and Edit">
+    - Preview in browser
+    - Download as PowerPoint (.pptx)
+    - Edit in PowerPoint or Google Slides
+    - Add custom branding and images
+    
+    <Check>
+      Presentation ready to customize and present!
+    </Check>
+  </Step>
+</Steps>
+
+---
+
+## Image Generation
+
+Create custom visuals from text descriptions:
+
+**Example from Demo**:
+```
+"Generate an image of Houston Electric-related: an electrician 
+and a robot dog like Unitree next to them in front of a solar 
+panel area"
+
+Result: Professional electrician in work uniform and hard hat 
+standing next to a futuristic robot dog in a solar panel field
+```
+
+<Tip>
+  **Detailed Prompts = Better Images**: Describe style, setting, subjects, mood, lighting, and composition for best results. The AI converts your description into detailed image generation prompts automatically.
+</Tip>
 
 ---
 
@@ -240,6 +316,71 @@ Agents create professional content across formats and platforms.
     ```
 
     Platform-compliant ad text.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Business Document Generation
+
+<AccordionGroup>
+  <Accordion title="Electrical/Service Quotations" icon="file-invoice-dollar">
+    **Automated Quotation Generation** (Real-world example):
+    
+    ```
+    Agent: Electrical Quotation Specialist
+    
+    Knowledge Base:
+    - NECA manual (material cost reference)
+    - Historic quotations (pricing patterns)
+    - Labor hour standards
+    - Company letterhead template (default file)
+    
+    Input: Project scope and requirements
+    
+    Process:
+    1. Agent analyzes project requirements
+    2. Looks up material costs from NECA manual
+    3. Calculates labor hours using standards
+    4. References similar past projects for accuracy
+    5. Generates quotation on company letterhead
+    6. Formats in standard company style
+    
+    Output: Professional quotation document ready for review
+    ```
+    
+    **Example Task**:
+    ```
+    "Create a quotation for installing a 120-volt outdoor security 
+    camera with power supply:
+    - Location: Building exterior
+    - Distance from panel: 150 feet
+    - Conduit type: EMT
+    - Wire size: 6 AWG
+    - Include all materials and labor"
+    ```
+    
+    **Agent Actions**:
+    - Searches knowledge base for EMT conduit installation labor hours
+    - Looks up wire pulling costs for 6 AWG conductors
+    - References historic camera installation projects
+    - Calculates total material and labor costs
+    - Formats on Houston Electric letterhead (from default files)
+    - Produces accurate, professional quotation
+    
+    <Warning>
+      **Human Verification Required**: Always review generated quotations before sending to customers. Verify:
+      - Material pricing is current
+      - Labor hours are accurate
+      - Calculations are correct
+      - Project scope fully captured
+      
+      The agent accelerates quotation creation but doesn't replace human expertise and approval.
+    </Warning>
+    
+    <Tip>
+      **Setup Recommendation**: Work with the Omni team to create industry-specific quotation agents. They'll help configure knowledge bases, default files, and prompts for optimal results.
+    </Tip>
   </Accordion>
 </AccordionGroup>
 
