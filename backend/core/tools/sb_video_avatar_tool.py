@@ -1886,6 +1886,270 @@ For streaming (advanced):
         """
         return self.success_response(guide)
 
+    # ==================== WEBHOOK MANAGEMENT - Production Automation ====================
+    
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "register_webhook",
+            "description": "Register a webhook endpoint to receive real-time notifications when videos complete. This is more efficient than polling - HeyGen will notify your server instantly when videos are ready. Required for production automation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "webhook_url": {
+                        "type": "string",
+                        "description": "Your public HTTPS URL that will receive webhook notifications (e.g., 'https://yourdomain.com/webhooks/heygen')"
+                    },
+                    "events": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Events to subscribe to: 'video.completed', 'video.failed', 'avatar_video.success', 'avatar_video.fail'",
+                        "default": ["video.completed", "video.failed"]
+                    }
+                },
+                "required": ["webhook_url"]
+            }
+        }
+    })
+    async def register_webhook(
+        self,
+        webhook_url: str,
+        events: List[str] = ["video.completed", "video.failed"]
+    ) -> ToolResult:
+        """Register a webhook endpoint with HeyGen."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            # Validate URL
+            if not webhook_url.startswith("https://"):
+                return self.fail_response("Webhook URL must use HTTPS for security.")
+            
+            logger.info(f"Registering webhook: {webhook_url} for events: {events}")
+            
+            webhook_data = {
+                "url": webhook_url,
+                "events": events
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.heygen_base_url}/v1/webhook",
+                    headers=self._get_heygen_headers(),
+                    json=webhook_data,
+                    timeout=30.0
+                )
+                
+                if response.status_code not in [200, 201]:
+                    return self.fail_response(f"Failed to register webhook: {response.status_code} - {response.text}")
+                
+                result = response.json()
+                webhook_id = result.get("data", {}).get("webhook_id")
+                
+                if not webhook_id:
+                    return self.fail_response("Failed to get webhook ID from response")
+                
+                logger.info(f"Webhook registered successfully: {webhook_id}")
+                
+                return self.success_response(
+                    f"🔔 **Webhook Registered Successfully!**\n\n"
+                    f"**Webhook ID**: `{webhook_id}`\n"
+                    f"**URL**: {webhook_url}\n"
+                    f"**Events**: {', '.join(events)}\n\n"
+                    f"✅ **You'll now receive instant notifications when:**\n"
+                    f"- Videos complete (no more polling!)\n"
+                    f"- Videos fail (immediate error handling)\n"
+                    f"- Avatar videos succeed/fail\n\n"
+                    f"**Your webhook endpoint should:**\n"
+                    f"1. Accept POST requests\n"
+                    f"2. Verify HeyGen signature (use `verify_webhook_signature()`)\n"
+                    f"3. Return 200 OK quickly\n"
+                    f"4. Process async (don't block response)\n\n"
+                    f"**Example webhook payload:**\n"
+                    f"```json\n"
+                    f"{{\n"
+                    f'  "event": "video.completed",\n'
+                    f'  "video_id": "abc123",\n'
+                    f'  "video_url": "https://...",\n'
+                    f'  "timestamp": "2025-10-16T12:00:00Z"\n'
+                    f"}}\n"
+                    f"```\n\n"
+                    f"💡 **Tip**: Save this webhook_id to manage it later!"
+                )
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to register webhook: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "list_webhooks",
+            "description": "List all registered webhook endpoints and their status. Shows which webhooks are active and what events they're listening to.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    })
+    async def list_webhooks(self) -> ToolResult:
+        """List all registered webhooks."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.heygen_base_url}/v1/webhook",
+                    headers=self._get_heygen_headers(),
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    return self.fail_response(f"Failed to list webhooks: {response.status_code} - {response.text}")
+                
+                result = response.json()
+                webhooks = result.get("data", {}).get("webhooks", [])
+                
+                if not webhooks:
+                    return self.success_response(
+                        "📭 **No Webhooks Registered**\n\n"
+                        "You don't have any webhooks set up yet.\n\n"
+                        "**To enable instant notifications:**\n"
+                        "Use `register_webhook(webhook_url='https://yourserver.com/webhook')` "
+                        "to get real-time updates when videos complete!"
+                    )
+                
+                response_text = f"🔔 **Registered Webhooks ({len(webhooks)})**\n\n"
+                
+                for i, webhook in enumerate(webhooks, 1):
+                    webhook_id = webhook.get("webhook_id")
+                    url = webhook.get("url")
+                    events = webhook.get("events", [])
+                    status = webhook.get("status", "active")
+                    created_at = webhook.get("created_at", "")
+                    
+                    status_emoji = "✅" if status == "active" else "❌"
+                    
+                    response_text += f"{i}. **Webhook ID**: `{webhook_id}`\n"
+                    response_text += f"   {status_emoji} **Status**: {status}\n"
+                    response_text += f"   **URL**: {url}\n"
+                    response_text += f"   **Events**: {', '.join(events)}\n"
+                    response_text += f"   **Created**: {created_at}\n\n"
+                
+                response_text += f"💡 **Manage webhooks**: Use `update_webhook()` or `delete_webhook()` with the webhook ID"
+                
+                return self.success_response(response_text)
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to list webhooks: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "delete_webhook",
+            "description": "Delete a registered webhook endpoint. Stops receiving notifications for that webhook.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "webhook_id": {
+                        "type": "string",
+                        "description": "ID of the webhook to delete (from list_webhooks or register_webhook)"
+                    }
+                },
+                "required": ["webhook_id"]
+            }
+        }
+    })
+    async def delete_webhook(self, webhook_id: str) -> ToolResult:
+        """Delete a webhook endpoint."""
+        try:
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            logger.info(f"Deleting webhook: {webhook_id}")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.delete(
+                    f"{self.heygen_base_url}/v1/webhook/{webhook_id}",
+                    headers=self._get_heygen_headers(),
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    return self.fail_response(f"Failed to delete webhook: {response.status_code} - {response.text}")
+                
+                logger.info(f"Webhook deleted successfully: {webhook_id}")
+                
+                return self.success_response(
+                    f"🗑️ **Webhook Deleted**\n\n"
+                    f"**Webhook ID**: `{webhook_id}`\n\n"
+                    f"✅ This webhook has been removed.\n"
+                    f"You'll no longer receive notifications to this endpoint.\n\n"
+                    f"💡 **Tip**: Use `list_webhooks()` to see remaining webhooks."
+                )
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to delete webhook: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "verify_webhook_signature",
+            "description": "Helper to verify that a webhook request actually came from HeyGen (security). Use this in your webhook endpoint to validate incoming requests.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "payload": {
+                        "type": "string",
+                        "description": "The raw webhook payload body (JSON string)"
+                    },
+                    "signature": {
+                        "type": "string",
+                        "description": "The 'X-HeyGen-Signature' header from the webhook request"
+                    }
+                },
+                "required": ["payload", "signature"]
+            }
+        }
+    })
+    async def verify_webhook_signature(self, payload: str, signature: str) -> ToolResult:
+        """Verify webhook signature for security."""
+        try:
+            import hmac
+            import hashlib
+            
+            if not self.heygen_api_key:
+                return self.fail_response("HeyGen API key not configured.")
+            
+            # Compute HMAC signature
+            expected_signature = hmac.new(
+                self.heygen_api_key.encode(),
+                payload.encode(),
+                hashlib.sha256
+            ).hexdigest()
+            
+            # Constant-time comparison
+            is_valid = hmac.compare_digest(signature, expected_signature)
+            
+            if is_valid:
+                return self.success_response(
+                    f"✅ **Webhook Signature Valid**\n\n"
+                    f"This webhook request is authentic and came from HeyGen.\n"
+                    f"Safe to process the payload."
+                )
+            else:
+                return self.fail_response(
+                    f"❌ **Invalid Webhook Signature**\n\n"
+                    f"This request did NOT come from HeyGen!\n"
+                    f"**Do not process this webhook** - it may be malicious.\n\n"
+                    f"Expected: {expected_signature}\n"
+                    f"Received: {signature}"
+                )
+                
+        except Exception as e:
+            return self.fail_response(f"Failed to verify webhook signature: {str(e)}")
+
     # ==================== UGC PRODUCT PLACEMENT - Authentic Product Showcase ====================
     
     @openapi_schema({
