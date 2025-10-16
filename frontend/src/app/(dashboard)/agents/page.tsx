@@ -89,6 +89,52 @@ export default function AgentsPage() {
   const [showAgentLimitDialog, setShowAgentLimitDialog] = useState(false);
   const [agentLimitError, setAgentLimitError] = useState<AgentCountLimitError | null>(null);
 
+  // Hooks
+  const agentsParams: AgentsParams = {
+    page: agentsPage,
+    page_size: agentsPageSize,
+    search: agentsSearchQuery,
+    sort_by: agentsSortBy,
+    sort_order: agentsSortOrder,
+    has_default_agent: agentsFilters.hasDefaultAgent || undefined,
+    has_mcp_tools: agentsFilters.hasMcpTools || undefined,
+    has_agentpress_tools: agentsFilters.hasAgentpressTools || undefined,
+  };
+
+  const { data: agentsData, isLoading: agentsLoading } = useAgents(agentsParams);
+  const agents = agentsData?.agents || [];
+  const agentsPagination = agentsData?.pagination;
+
+  const updateAgentMutation = useUpdateAgent();
+  const { mutateAsync: deleteAgent } = useDeleteAgent();
+  const { optimisticallyUpdateAgent, revertOptimisticUpdate } = useOptimisticAgentUpdate();
+  const { isDeletingAgent } = useAgentDeletionState();
+
+  const { data: marketplaceTemplates, isLoading: marketplaceLoading } = useMarketplaceTemplates({
+    page: marketplacePage,
+    page_size: marketplacePageSize,
+    search: marketplaceSearchQuery,
+    tags: marketplaceSelectedTags,
+    sort_by: marketplaceSortBy,
+  });
+
+  const installTemplateMutation = useInstallTemplate();
+
+  const { data: myTemplatesData, isLoading: templatesLoading, error: templatesError } = useMyTemplates({
+    page: templatesPage,
+    page_size: templatesPageSize,
+    search: templatesSearchQuery,
+    sort_by: templatesSortBy,
+    sort_order: templatesSortOrder,
+  });
+  const myTemplates = myTemplatesData?.templates || [];
+  const templatesPagination = myTemplatesData?.pagination;
+
+  const unpublishMutation = useUnpublishTemplate();
+  const publishMutation = usePublishTemplate();
+  const createTemplateMutation = useCreateTemplate();
+  const deleteTemplateMutation = useDeleteTemplate();
+
   const activeTab = useMemo(() => {
     const tab = searchParams.get('tab');
     if (tab === 'marketplace') {
@@ -127,16 +173,17 @@ export default function AgentsPage() {
     setTemplatesPage(1);
   }, [templatesSearchQuery, templatesSortBy, templatesSortOrder]);
 
-  useEffect(() => {
-    const agentId = searchParams.get('agent');
-    if (agentId && allMarketplaceItems.length > 0) {
-      const sharedAgent = allMarketplaceItems.find(agent => agent.id === agentId);
-      if (sharedAgent) {
-        setSelectedItem(sharedAgent);
-        setShowPreviewDialog(true);
-      }
-    }
-  }, [searchParams, allMarketplaceItems]);
+  // Disabled marketplace agent preview from URL
+  // useEffect(() => {
+  //   const agentId = searchParams.get('agent');
+  //   if (agentId && marketplaceTemplates?.templates) {
+  //     const sharedAgent = marketplaceTemplates.templates.find(agent => agent.id === agentId);
+  //     if (sharedAgent) {
+  //       setSelectedItem(sharedAgent);
+  //       setShowPreviewDialog(true);
+  //     }
+  //   }
+  // }, [searchParams, marketplaceTemplates]);
 
   const handleDeleteAgent = async (agentId: string) => {
     try {
