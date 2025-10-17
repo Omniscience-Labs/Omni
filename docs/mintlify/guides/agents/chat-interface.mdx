@@ -11,16 +11,16 @@ The chat interface is your primary workspace for collaborating with agents.
 {/* 
   📸 MEDIA PLACEHOLDER: Complete Chat Interface
   - Full-width screenshot showing all interface elements
-  - Left: Thread history sidebar
+  - Left: Thread history sidebar (chat list)
   - Center: Conversation area with messages
-  - Right: File browser and tool status
-  - Bottom: Input field with attachments
+  - Right: File browser and workspace
+  - Bottom: Input field with voice, attachments, agent switcher
   - Size: 2400x1400px
 */}
 
 <CardGroup cols={3}>
-  <Card title="Thread Management" icon="list">
-    Organize conversations by topic or project
+  <Card title="Chat Management" icon="list">
+    Up to 500 chats per user, easily organize and delete
   </Card>
   <Card title="Real-Time Updates" icon="bolt">
     Watch agents work with live progress indicators
@@ -28,40 +28,163 @@ The chat interface is your primary workspace for collaborating with agents.
   <Card title="Rich Output" icon="image">
     View files, visualizations, and formatted results
   </Card>
+  <Card title="Voice & Text Input" icon="microphone">
+    Type or speak your requests naturally
+  </Card>
+  <Card title="Mobile Friendly" icon="mobile">
+    Full functionality on mobile web browsers
+  </Card>
+  <Card title="File Workspace" icon="folder">
+    All generated files accessible in dedicated panel
+  </Card>
 </CardGroup>
+
+## Input Methods
+
+<Tabs>
+  <Tab title="Text Input" icon="keyboard">
+    **Type Your Requests**:
+    - Click the input field at bottom of screen
+    - Type your request or task
+    - Press `Enter` to send or click the send button
+    - Use `Shift + Enter` for new lines
+    
+    Most precise for complex, detailed requests.
+  </Tab>
+  
+  <Tab title="Voice Recording" icon="microphone">
+    **Speak Your Requests**:
+    1. Click the **microphone button** next to the send button
+    2. Speak clearly while recording indicator shows
+    3. Click **Stop Recording** when finished
+    4. Audio automatically transcribed and sent
+    
+    <Tip>
+      Voice recording works best in quiet environments. The system transcribes your speech into text before processing.
+    </Tip>
+    
+    <Warning>
+      **Note**: Voice recording may not work properly during video calls as the microphone is in use. Use text input if you're in a meeting.
+    </Warning>
+  </Tab>
+  
+  <Tab title="File Attachments" icon="paperclip">
+    **Upload Files with Requests**:
+    - Click attachment icon (📎) in input area
+    - Select files from your computer (up to 500MB each)
+    - Drag and drop also supported
+    - Multiple files can be attached at once
+    
+    **Larger Files**: For files over 500MB, connect OneDrive or cloud storage integration to access them directly.
+  </Tab>
+</Tabs>
+
 
 ---
 
-## Starting a Conversation
+## Chat Management
 
 <Tabs>
-  <Tab title="New Thread" icon="plus">
-    Create a fresh conversation:
-    1. Select an agent from your workspace
-    2. Click **New Thread** or use keyboard shortcut `Cmd/Ctrl + N`
-    3. Start with your request
+  <Tab title="Creating Chats" icon="plus">
+    **Start New Conversations**:
+    - Type in the input field to automatically create a new chat
+    - Or start typing with a specific agent selected
+    - Each chat is independent with its own workspace and files
+    
+    <Info>
+      You can have up to **500 chats** per user. Delete old chats when you reach the limit.
+    </Info>
+  </Tab>
 
+  <Tab title="Organizing Chats" icon="list">
+    **Left Sidebar Chat List**:
+    - All your chats appear chronologically
+    - Today's chats listed first
+    - Past month's chats below
+    - Hover over any chat to see action menu
+    
+    **Auto-Naming**: Chats are named based on your first message. Rename them for clarity:
+    ```
+    Good: "Electrical Quotation - Smith Project"
+    Poor: "Google search image related"
+    ```
+  </Tab>
+
+  <Tab title="Deleting Chats" icon="trash">
+    **Clean Up Your Workspace**:
+    1. Hover over a chat in the left sidebar
+    2. Click the checkbox that appears
+    3. Select multiple chats if needed
+    4. Click **Delete** to remove them
+    
+    <Warning>
+      **Deleted chats cannot be recovered**. Download any important files first.
+    </Warning>
+    
+    **Bulk Delete**: Select multiple chats at once to delete in batch when you approach the 500 chat limit.
+  </Tab>
+  
+  <Tab title="Renaming Chats" icon="pen">
+    **Keep Chats Organized**:
+    - Hover over a chat in the sidebar
+    - Click to select it
+    - Look for rename option in action menu
+    - Give it a descriptive name
+    
     <Tip>
-      Give your thread a descriptive name for easy reference later.
+      Rename chats immediately while context is fresh. Use naming patterns like "[Project] - [Task Type]" for easy searching later.
     </Tip>
   </Tab>
-
-  <Tab title="Continue Existing" icon="arrow-right">
-    Pick up where you left off:
-    - Browse thread history in left sidebar
-    - Click any thread to resume
-    - Context is maintained automatically
-    - All previous files remain accessible
-  </Tab>
-
-  <Tab title="From Template" icon="file-lines">
-    Use saved workflows:
-    - Select a workflow template
-    - Fill in required variables
-    - Agent follows predefined steps
-    - Consistent results every time
-  </Tab>
 </Tabs>
+
+## Accessing Chats on Mobile
+
+Omni's full chat interface works on mobile web browsers:
+
+<Steps>
+  <Step title="Open on Mobile Browser">
+    Navigate to your organization's Omni URL on your phone's browser (Safari, Chrome, etc.)
+  </Step>
+  
+  <Step title="Sign In with SSO">
+    Use the same **Continue with Microsoft** or Google login process
+  </Step>
+  
+  <Step title="Switch Agents on Mobile">
+    **Agent Switcher Location** (different from desktop):
+    - Look at the text input area at the bottom
+    - Find the dropdown button **left of the microphone icon**
+    - Tap it to see list of available agents
+    - Select the agent you want to use
+    
+    <Info>
+      On mobile, the agent switcher is integrated into the input bar for easy thumb access.
+    </Info>
+  </Step>
+  
+  <Step title="Use Voice Input">
+    Tap the **microphone button** to speak your requests - particularly useful on mobile devices
+  </Step>
+</Steps>
+
+## Chat Lifecycle & Limitations
+
+<Warning>
+  **Inactive Chat Behavior**: Chats older than 30 days may experience issues:
+  - Conversation history remains accessible
+  - You can continue chatting in old threads
+  - **Files may fail to load** in very old chats
+  
+  **Workaround**: If files won't load in an old chat:
+  1. Copy the text of your original request
+  2. Create a new chat with the same agent
+  3. Paste the request to get fresh results
+  4. Files will be accessible in the new chat
+</Warning>
+
+<Info>
+  **Chat Workspace**: Each chat has its own isolated workspace (like its own computer). Files created in one chat are separate from other chats. This keeps your work organized but means you can't directly reference files across chats.
+</Info>
 
 ---
 
@@ -323,7 +446,11 @@ Handle documents and data within conversations.
     - Images (JPG, PNG)
     - Code files (any language)
 
-    Maximum size: 100MB per file
+    Maximum size: **500MB per file**
+    
+    <Info>
+      For files larger than 500MB, use the OneDrive integration to access files directly from your cloud storage.
+    </Info>
 
     {/* 
       📸 MEDIA PLACEHOLDER: File Upload Interface
@@ -357,7 +484,21 @@ Handle documents and data within conversations.
 
 ### Working with Generated Files
 
+All files created by the agent appear in the **Files panel** on the right side of the chat interface.
+
 <Tabs>
+  <Tab title="Files Panel" icon="folder">
+    **Access Your Workspace**:
+    - Located on the right side of the screen
+    - Shows all files in the current chat's workspace
+    - Each chat has its own isolated file workspace
+    - Click any file to preview or download
+    
+    <Info>
+      Think of the Files panel as the chat's computer desktop. Everything the agent creates is stored here.
+    </Info>
+  </Tab>
+
   <Tab title="Preview" icon="eye">
     View files directly in the interface:
     - Text files: Rendered with syntax highlighting
@@ -370,9 +511,9 @@ Handle documents and data within conversations.
 
   <Tab title="Download" icon="download">
     Save to your computer:
-    - Single file: Click download icon
-    - Multiple files: Batch download as ZIP
-    - Entire project: Export all files
+    - Single file: Click download icon in Files panel
+    - Multiple files: Select and batch download
+    - All files visible in your browser's downloads folder
 
     {/* 
       📸 MEDIA PLACEHOLDER: File Actions Menu
@@ -462,6 +603,8 @@ You: "Export this as a PDF and send me a shareable link"
 </Tip>
 
 ---
+
+{/* #TODO: Verify keyboard shortcuts - not demonstrated in demo transcript */}
 
 ## Keyboard Shortcuts
 
