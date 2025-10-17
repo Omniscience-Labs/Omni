@@ -65,12 +65,56 @@ Extend agent capabilities by connecting to 150+ popular services powered by Comp
 ## How Integrations Work
 
 <Steps>
-  <Step title="Connect Service">
-    Authenticate once using secure OAuth:
-    - Click integration in Omni
-    - Log in to the service
-    - Authorize permissions
-    - Connection established
+  <Step title="Navigate to Integrations">
+    Access integration settings:
+    - Go to agent settings
+    - Click **Integrations** tab
+    - Or access from Settings → Integrations globally
+    
+    You'll see all available integrations organized by category.
+  </Step>
+
+  <Step title="Create Connection">
+    **Start Integration Process**:
+    1. Search for the service you want (e.g., "Outlook", "OneDrive", "Gmail")
+    2. Click **Create New Connection**
+    3. Give your connection a name (e.g., "Houston Email", "Marketing Gmail")
+    4. Click **Connect**
+    
+    <Tip>
+      **Integration Profiles**: Name your connections descriptively. You can create multiple profiles for the same service - like separate Gmail connections for marketing, support, and personal use.
+    </Tip>
+  </Step>
+
+  <Step title="Authenticate with OAuth">
+    Complete secure OAuth flow:
+    - Popup window opens (allow popups for Omni)
+    - Log in to the service with your credentials
+    - Review requested permissions
+    - Click **Authorize** or **Allow**
+    - Redirected back to Omni
+    
+    <Warning>
+      **Enterprise Note**: Some integrations like Outlook may require IT admin approval before connecting. Contact your IT department if you see authorization errors.
+    </Warning>
+  </Step>
+  
+  <Step title="Select Tools">
+    **Choose Specific Capabilities**:
+    - Integration shows available tools (e.g., for Gmail: send mail, read mail, create drafts, manage labels)
+    - Toggle on the tools you want this agent to access
+    - Toggle off capabilities you don't need
+    - Click **Save Tools** to confirm
+    
+    **Example - Outlook**:
+    ```
+    Available Tools:
+    ☑ Read emails
+    ☑ Send emails
+    ☑ Create calendar events
+    ☐ Delete emails (leave off for safety)
+    ☐ Manage contacts (not needed for this agent)
+    ```
 
     {/* 
       🎥 VIDEO PLACEHOLDER: Integration Flow (25 seconds)
@@ -86,17 +130,19 @@ Extend agent capabilities by connecting to 150+ popular services powered by Comp
     </Info>
   </Step>
 
-  <Step title="Enable for Agents">
-    Choose which agents can use the integration:
-    - All agents (default)
-    - Specific agents only
-    - Custom per-agent permissions
-
-    Different agents can have different access levels.
+  <Step title="Connection Complete">
+    Your integration profile is now active:
+    - Shows as "Connected" in integrations list
+    - Available for use in agent conversations
+    - Can create additional profiles for same service if needed
+    
+    <Check>
+      Integration connected successfully! Test it by asking the agent to use the service.
+    </Check>
   </Step>
 
   <Step title="Agents Gain Tools">
-    Integrated services provide new capabilities:
+    Agents automatically gain capabilities from connected integrations:
     
     **Gmail Connected** → Agents can:
     - Read emails
@@ -439,6 +485,64 @@ Omni supports 150+ integrations through Composio MCP. Browse by category to find
 
 ---
 
+## Featured Integration: OneDrive
+
+OneDrive integration is particularly powerful for accessing large files and enterprise documents:
+
+<AccordionGroup>
+  <Accordion title="OneDrive Capabilities" icon="cloud">
+    **What You Can Do**:
+    - List all files and folders in your OneDrive
+    - Download files directly to agent workspace
+    - Read file contents without downloading (more efficient)
+    - Access files larger than 500MB upload limit
+    - Work with enterprise document libraries
+    
+    **Example Commands**:
+    ```
+    "What items do I have in my OneDrive?"
+    "Download the file named 'Houston Agents.pdf' from OneDrive attachments folder"
+    "Read the content of the latest report in my OneDrive Documents folder"
+    ```
+  </Accordion>
+  
+  <Accordion title="OneDrive Setup" icon="plug">
+    **Quick Setup**:
+    1. In agent Integrations tab, search for "OneDrive"
+    2. Click **Create New Connection**
+    3. Name it (e.g., "Work OneDrive")
+    4. Click **Connect** and authorize
+    5. Select which OneDrive tools to enable
+    6. Click **Save Tools**
+    
+    <Check>
+      OneDrive integration enables seamless access to enterprise files without manual uploads.
+    </Check>
+  </Accordion>
+  
+  <Accordion title="Download vs Read" icon="arrows-split">
+    **Choose the Right Approach**:
+    
+    **Download File** (when you need to keep it):
+    - File copied to chat workspace
+    - Accessible even if OneDrive changes
+    - Takes time for large files
+    - Uses workspace storage
+    
+    **Read Content** (recommended for most cases):
+    - Agent reads directly from OneDrive
+    - No download needed
+    - Faster for large files
+    - Always accesses latest version
+    
+    <Tip>
+      For files over 100MB, use "Read Content" instead of downloading to save time and storage.
+    </Tip>
+  </Accordion>
+</AccordionGroup>
+
+---
+
 ## Popular Integration Guides
 
 Detailed setup guides for the most commonly used integrations:
@@ -455,6 +559,12 @@ Detailed setup guides for the most commonly used integrations:
   </Card>
   <Card title="Google Calendar" icon="calendar" href="/guides/integrations/calendar">
     Scheduling automation and availability management
+  </Card>
+  <Card title="Outlook" icon="microsoft" href="/guides/integrations/outlook">
+    Enterprise email and calendar integration (requires IT approval)
+  </Card>
+  <Card title="Dropbox" icon="dropbox" href="/guides/integrations/dropbox">
+    Cloud file storage and collaboration
   </Card>
 </CardGroup>
 

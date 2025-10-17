@@ -50,25 +50,35 @@ icon: "circle-question"
 
     **Starter**: $29/user/month
     - 3 agents
+    - 500 chats per user
     - Basic tools
     - 100MB knowledge base
+    - 500MB file uploads
     - Community support
 
     **Professional**: $99/user/month
     - 10 agents
+    - 500 chats per user
     - All tools
     - 1GB knowledge base
+    - 500MB file uploads
     - Email support
     - Workflows & scheduling
 
     **Enterprise**: Custom pricing
     - Unlimited agents
+    - 500 chats per user
     - Custom integrations
+    - 500MB file uploads
     - Dedicated support
     - SSO & advanced security
     - SLA guarantees
 
     [View detailed pricing →](https://www.becomeomni.com/pricing)
+    
+    <Info>
+      **Cost Transparency**: View your usage and costs in Settings → Transactions. Omni is actively working to reduce pricing continuously.
+    </Info>
   </Accordion>
 </AccordionGroup>
 
@@ -84,6 +94,39 @@ icon: "circle-question"
     - **Enterprise**: Unlimited
 
     You can delete unused agents to free up slots.
+  </Accordion>
+  
+  <Accordion title="How many chats can I have?" icon="comments">
+    **Chat Limits**: 500 chats per user across all plans
+    
+    **When you reach 500**:
+    - You'll need to delete old chats to create new ones
+    - Hover over chats in left sidebar and select checkbox
+    - Use bulk delete to remove multiple chats at once
+    - Download important files before deleting chats
+    
+    <Tip>
+      The limit increased from 100 to 500 chats. If you run into the limit, clean up chats you no longer need.
+    </Tip>
+  </Accordion>
+  
+  <Accordion title="What happens to old chats?" icon="clock">
+    **Chat Aging Behavior**:
+    - Chats remain accessible indefinitely
+    - Conversation history preserved
+    - Chats older than ~30 days may have file access issues
+    
+    **Issue**: Files may fail to load in very old chats
+    
+    **Workaround**:
+    ```
+    1. Copy the text of your original request from old chat
+    2. Create a new chat with the same agent
+    3. Paste the request to regenerate results
+    4. Files will be accessible in the new chat workspace
+    ```
+    
+    This is especially useful for recurring tasks like quotations - just copy the scope of work to a new chat and get fresh results.
   </Accordion>
 
   <Accordion title="Can agents work together?" icon="users">
@@ -185,12 +228,45 @@ icon: "circle-question"
 ## Billing & Plans
 
 <AccordionGroup>
+  <Accordion title="Where can I view my usage and costs?" icon="chart-bar">
+    **Cost Transparency**:
+    
+    Navigate to **Settings → Transactions** to view:
+    - Cost per conversation
+    - Each tool usage and associated cost
+    - Daily, weekly, monthly spending totals
+    - Which agents are most expensive
+    - Detailed breakdown by task type
+    
+    <Tip>
+      Omni is actively working to reduce costs. Check back regularly as pricing decreases over time.
+    </Tip>
+  </Accordion>
+
   <Accordion title="Can I change plans?" icon="arrow-up-right">
     **Upgrading**: Immediate access to new features, prorated billing
 
     **Downgrading**: At end of billing cycle, no immediate changes
 
     Change plans anytime in Settings → Billing.
+  </Accordion>
+  
+  <Accordion title="Do I need to manage a password?" icon="key">
+    **SSO-Based Authentication**:
+    
+    Most Omni deployments use Single Sign-On (SSO):
+    - **Enterprise Users**: Log in with company credentials (Microsoft, Google)
+    - **No Separate Password**: Your company manages authentication
+    - **Two-Factor Auth**: Uses your organization's 2FA
+    
+    **Password Changes**: 
+    - Change password in your company's system (e.g., Microsoft 365)
+    - Omni automatically uses updated credentials
+    - No need to update password in Omni separately
+    
+    <Info>
+      The Settings → Change Password option is only relevant for non-SSO accounts. Most enterprise users can ignore this section.
+    </Info>
   </Accordion>
 
   <Accordion title="What counts as usage?" icon="calculator">
@@ -320,6 +396,16 @@ icon: "circle-question"
 ---
 
 ## Getting Help
+
+<Warning>
+  **Help Button**: Click the large **Help** button visible throughout Omni to:
+  - **Report a Bug**: Submit issues with screenshots
+  - **Send Feedback**: Share ideas and feature requests
+  - **Request an Agent**: Schedule call with Omni team to build custom agents
+  - **Customer Support**: Book time directly with Omni staff
+  
+  Most users prefer the Help button - it's the fastest way to get assistance!
+</Warning>
 
 <CardGroup cols={2}>
   <Card title="Documentation" icon="book">
