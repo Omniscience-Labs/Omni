@@ -47,9 +47,33 @@ Integrate with Microsoft Outlook and Office 365 for enterprise email and calenda
     - Review requested permissions
     - Click **Accept**
 
+    <Warning>
+      **Enterprise IT Approval Required**: Many organizations require IT administrator approval before connecting third-party applications like Omni to Outlook.
+      
+      If you see an authorization error, contact your IT department to approve the Omni integration for your organization. They'll need to whitelist Omni in your Microsoft 365 admin console.
+    </Warning>
+
     <Info>
       Omni requests permissions for: Mail (read/send), Calendar (read/write), Contacts (read), Tasks (read/write).
     </Info>
+  </Step>
+  
+  <Step title="Select Tools">
+    **Choose Outlook Capabilities**:
+    
+    After authentication, select which tools to enable:
+    - ☑ Read emails
+    - ☑ Send emails  
+    - ☑ Create calendar events
+    - ☑ Update calendar events
+    - ☐ Delete emails (optional, for safety)
+    - ☐ Manage contacts (optional)
+    
+    Toggle on only what you need, then click **Save Tools**.
+    
+    <Tip>
+      Each tool you enable can be toggled individually. Start conservative and add more capabilities as needed.
+    </Tip>
   </Step>
 
   <Step title="Configure Mail Settings">

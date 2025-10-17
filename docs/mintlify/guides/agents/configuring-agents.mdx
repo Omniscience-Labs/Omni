@@ -54,10 +54,19 @@ Agent settings are organized into focused sections for easy management.
 
   <Tab title="Tools" icon="toolbox">
     **Capability Management**:
-    - Enable/disable core tools
+    - Enable/disable core tools with toggle switches
     - Configure tool-specific settings
     - Set usage limits
     - View tool documentation
+    
+    **Tool Configuration Workflow**:
+    1. Toggle switches on/off for each tool you want enabled
+    2. Click **Save Tools** to apply changes
+    3. Tools immediately available in agent conversations
+    
+    <Tip>
+      Only enable tools your agent actually needs. For example, an Electrical Quotation agent doesn't need video generation or podcast tools - keeping it focused improves performance.
+    </Tip>
 
     {/* 
       📸 MEDIA PLACEHOLDER: Tools Configuration Panel
@@ -65,6 +74,7 @@ Agent settings are organized into focused sections for easy management.
       - Each tool shows description and status
       - Include "Advanced Settings" for complex tools
       - Display usage statistics per tool
+      - Show "Save Tools" button prominently
       - Size: 1800x1000px
     */}
   </Tab>
@@ -72,15 +82,23 @@ Agent settings are organized into focused sections for easy management.
   <Tab title="Integrations" icon="plug">
     **Connected Services**:
     - OAuth connections
-    - API key management
+    - Multiple profiles per service (e.g., marketing Gmail + personal Gmail)
     - Integration health status
     - Service-specific permissions
+    
+    **Integration Profiles**:
+    - Create multiple connections to the same service type
+    - Example: "Marketing Email" and "Support Email" both using Gmail
+    - Each agent can use different profiles
+    - Easily switch between work and personal accounts
 
     {/* 
       📸 MEDIA PLACEHOLDER: Integrations Panel
       - Cards showing connected services with status
+      - Multiple profiles for same service visible
       - Green checkmarks for active connections
       - "Connect" buttons for available services
+      - Profile names displayed (e.g., "Marketing Gmail", "Personal Gmail")
       - Last sync time and error indicators
       - Size: 1600x800px
     */}
@@ -92,6 +110,12 @@ Agent settings are organized into focused sections for easy management.
     - Agent-specific folders
     - File upload interface
     - Search configuration
+    
+    **Example Knowledge Base Usage**:
+    - NECA manual for material cost lookup
+    - Historic quotations for pricing reference
+    - Company policies and procedures
+    - Product documentation and specs
 
     {/* 
       📸 MEDIA PLACEHOLDER: Knowledge Base Settings
@@ -99,8 +123,35 @@ Agent settings are organized into focused sections for easy management.
       - File upload drag-and-drop area
       - Storage usage meter
       - Sync schedule options
+      - Show example: "NECA Manual", "Historic Quotations" folders
       - Size: 1600x900px
     */}
+  </Tab>
+  
+  <Tab title="Default Files" icon="file-lines">
+    **Pre-loaded Files for Every Chat**:
+    - Upload files that appear in every new chat automatically
+    - Perfect for: Company letterheads, templates, standard forms
+    - Agent has immediate access without re-uploading
+    
+    **Example Use Case**:
+    ```
+    Electrical Quotation Agent:
+    - Default File: Houston Electric Letterhead.docx
+    
+    Result: Every quotation automatically formatted 
+    on company letterhead
+    ```
+    
+    <Info>
+      Default files save time by pre-loading templates and branding materials. The agent automatically uses them when creating documents.
+    </Info>
+    
+    **How to Add**:
+    1. Go to agent settings
+    2. Find "Default Files" section
+    3. Upload your template files
+    4. Every new chat will have these files in the workspace
   </Tab>
 </Tabs>
 
