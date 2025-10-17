@@ -157,7 +157,7 @@ class MCPToolExecutor:
         url = custom_config['url']
         
         try:
-            async with asyncio.timeout(30):
+            async with asyncio.timeout(360):
                 async with streamablehttp_client(url) as (read, write, _):
                     async with ClientSession(read, write) as session:
                         await session.initialize()
