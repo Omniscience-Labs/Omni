@@ -8,6 +8,16 @@ icon: "wrench"
 
 Start here for fast problem identification.
 
+<Warning>
+  **Use the Help Button First**: Click the prominent **Help** button in Omni to:
+  - Report bugs with screenshots
+  - Submit feedback and feature requests
+  - Request custom agent creation (schedule a call)
+  - Get direct support from the Omni team
+  
+  The help button creates tracked tickets that the team monitors closely. Response typically within 24 hours.
+</Warning>
+
 <Steps>
   <Step title="Check System Status">
     Visit [status.becomeomni.com](https://status.becomeomni.com) for:
@@ -194,13 +204,34 @@ Start here for fast problem identification.
     <AccordionGroup>
       <Accordion title="File upload failing" icon="upload">
         **Troubleshooting**:
-        - Check file size (varies by plan)
+        - Check file size (maximum 500MB per upload)
         - Verify format is supported
         - Ensure storage quota available
         - Try smaller file or different format
         - Check network connection
 
-        **Large Files**: Break into smaller parts.
+        **Files Over 500MB**: Use OneDrive or other cloud storage integration to access large files directly instead of uploading.
+      </Accordion>
+      
+      <Accordion title="Old chat files won't load" icon="folder-xmark">
+        **Known Issue**: Chats older than ~30 days may have file loading problems
+        
+        **Symptoms**:
+        - Conversation history loads fine
+        - Can send new messages
+        - Files panel shows "Failed to load files" error
+        - Download buttons don't work
+        
+        **Solution**:
+        1. This is expected behavior for archived chats
+        2. Copy your original request text from the old chat
+        3. Create a new chat with the same agent
+        4. Paste the request to regenerate results
+        5. All files will be fresh and accessible
+        
+        <Tip>
+          For recurring tasks (like quotations), keep a template of your request to easily recreate in new chats when needed.
+        </Tip>
       </Accordion>
 
       <Accordion title="Knowledge base search not finding content" icon="magnifying-glass-minus">
@@ -308,19 +339,45 @@ Start here for fast problem identification.
     **Still Slow?**: May be network or device issue.
   </Accordion>
 
-  <Accordion title="Agent takes too long" icon="hourglass-half">
-    **Expected Times**:
-    - Simple questions: 5-15 seconds
-    - Research tasks: 1-5 minutes
-    - Data analysis: 2-10 minutes
-    - Complex workflows: 5-30 minutes
+      <Accordion title="Agent takes too long" icon="hourglass-half">
+        **Expected Times**:
+        - Simple questions: 5-15 seconds
+        - Research tasks: 1-5 minutes
+        - Data analysis: 2-10 minutes
+        - Complex workflows: 5-30 minutes
 
-    **If Unusually Slow**:
-    - Complex task (normal)
-    - Tool issues (check logs)
-    - Rate limits (wait)
-    - High load time (try later)
-  </Accordion>
+        **If Unusually Slow**:
+        - Complex task (normal)
+        - Tool issues (check logs)
+        - Rate limits (wait)
+        - High load time (try later)
+        
+        <Warning>
+          **OMNI Agent Overcomplications**: If using the general OMNI agent for simple tasks, it may overcomplicate things (e.g., "building a whole new programming language to create a document").
+          
+          **Solution**: Stop the chat if it's going off track. Either:
+          - Be more specific in your request
+          - Use a specialized agent for recurring tasks
+          - Click the Help button to request a custom agent
+        </Warning>
+      </Accordion>
+      
+      <Accordion title="Reached 500 chat limit" icon="layer-group">
+        **Chat Limit Reached**:
+        - Each user can have 500 active chats
+        - Delete old chats to create new ones
+        
+        **Bulk Delete Process**:
+        1. Go to chat list in left sidebar
+        2. Hover over chats to see checkbox
+        3. Select multiple chats you don't need
+        4. Click **Delete** button
+        5. Confirm deletion
+        
+        <Info>
+          Download any important files before deleting chats. You can select many chats at once for batch deletion.
+        </Info>
+      </Accordion>
 
   <Accordion title="File processing stuck" icon="spinner">
     **If Processing Takes >5 Minutes**:
