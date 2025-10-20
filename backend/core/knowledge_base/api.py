@@ -481,20 +481,80 @@ async def get_folder_entries(
         # Get current account_id from user
         account_id = await get_user_account_id(client, user_id)
         
-        # Use the SQL function to get unified entries (more efficient, single query)
-        result = await client.rpc(
-            'get_unified_folder_entries',
-            {
-                'p_folder_id': folder_id,
-                'p_account_id': account_id,
-                'p_include_inactive': include_inactive
-            }
-        ).execute()
-
-        # Supabase responses don't have .error attribute - errors are raised as exceptions
-        entries = result.data if result.data else []
+        # Verify folder belongs to account
+        folder_check = await client.from_('knowledge_base_folders').select('folder_id').eq(
+            'folder_id', folder_id
+        ).eq('account_id', account_id).execute()
         
-        # FastAPI should handle JSON serialization automatically
+        if not folder_check.data:
+            raise HTTPException(status_code=404, detail="Folder not found or access denied")
+        
+        # Fetch regular file entries from knowledge_base_entries table
+        files_query = client.from_('knowledge_base_entries').select(
+            'entry_id, filename, summary, usage_context, is_active, created_at, updated_at, file_size, mime_type, account_id, folder_id'
+        ).eq('folder_id', folder_id).eq('account_id', account_id)
+        
+        if not include_inactive:
+            files_query = files_query.eq('is_active', True)
+        
+        files_result = await files_query.order('created_at', desc=True).execute()
+        
+        # Fetch cloud KB entries from llamacloud_knowledge_bases table
+        cloud_query = client.from_('llamacloud_knowledge_bases').select(
+            'kb_id, name, description, summary, index_name, usage_context, is_active, created_at, updated_at, account_id, folder_id'
+        ).eq('folder_id', folder_id).eq('account_id', account_id)
+        
+        if not include_inactive:
+            cloud_query = cloud_query.eq('is_active', True)
+        
+        cloud_result = await cloud_query.order('created_at', desc=True).execute()
+        
+        # Transform and merge entries into unified format
+        entries = []
+        
+        # Add file entries
+        for file_entry in (files_result.data or []):
+            entries.append({
+                'entry_id': file_entry['entry_id'],
+                'entry_type': 'file',
+                'name': file_entry['filename'],
+                'filename': file_entry['filename'],
+                'summary': file_entry.get('summary'),
+                'description': None,
+                'usage_context': file_entry.get('usage_context'),
+                'is_active': file_entry.get('is_active', True),
+                'created_at': file_entry['created_at'],
+                'updated_at': file_entry['updated_at'],
+                'file_size': file_entry.get('file_size'),
+                'mime_type': file_entry.get('mime_type'),
+                'index_name': None,
+                'account_id': file_entry['account_id'],
+                'folder_id': file_entry['folder_id']
+            })
+        
+        # Add cloud KB entries
+        for cloud_entry in (cloud_result.data or []):
+            entries.append({
+                'entry_id': cloud_entry['kb_id'],
+                'entry_type': 'cloud_kb',
+                'name': cloud_entry['name'],
+                'filename': None,
+                'summary': cloud_entry.get('summary') or cloud_entry.get('description'),
+                'description': cloud_entry.get('description'),
+                'usage_context': cloud_entry.get('usage_context'),
+                'is_active': cloud_entry.get('is_active', True),
+                'created_at': cloud_entry['created_at'],
+                'updated_at': cloud_entry['updated_at'],
+                'file_size': None,
+                'mime_type': None,
+                'index_name': cloud_entry.get('index_name'),
+                'account_id': cloud_entry['account_id'],
+                'folder_id': cloud_entry['folder_id']
+            })
+        
+        # Sort by created_at descending
+        entries.sort(key=lambda x: x['created_at'], reverse=True)
+        
         return {"entries": entries}
         
     except HTTPException:
