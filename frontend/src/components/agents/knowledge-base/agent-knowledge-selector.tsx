@@ -120,41 +120,47 @@ export function AgentKnowledgeSelector({ agentId }: AgentKnowledgeSelectorProps)
 
   const handleFolderToggle = async (folderId: string, entries: FolderEntry[]) => {
     const isCurrentlyAssigned = isFolderAssigned(folderId, entries);
-    const newAssignments = new Set(localAssignments.folders);
+    const newFolderAssignments = new Set(localAssignments.folders);
 
     if (isCurrentlyAssigned) {
       // Remove all entries of this folder
-      entries.forEach(entry => newAssignments.delete(entry.entry_id));
+      entries.forEach(entry => newFolderAssignments.delete(entry.entry_id));
     } else {
       // Add all entries of this folder
-      entries.forEach(entry => newAssignments.add(entry.entry_id));
+      entries.forEach(entry => newFolderAssignments.add(entry.entry_id));
     }
 
     setLocalAssignments(prev => ({
       ...prev,
-      folders: newAssignments,
+      folders: newFolderAssignments,
     }));
 
-    // Update on server
-    await updateAssignments(Array.from(newAssignments), Array.from(localAssignments.llamacloud));
+    // Update on server - use the NEW state values, not old ones
+    await updateAssignments(
+      Array.from(newFolderAssignments) as string[], 
+      Array.from(localAssignments.llamacloud) as string[]
+    );
   };
 
   const handleLlamaCloudToggle = async (kbId: string) => {
-    const newAssignments = new Set(localAssignments.llamacloud);
+    const newLlamaCloudAssignments = new Set(localAssignments.llamacloud);
     
-    if (newAssignments.has(kbId)) {
-      newAssignments.delete(kbId);
+    if (newLlamaCloudAssignments.has(kbId)) {
+      newLlamaCloudAssignments.delete(kbId);
     } else {
-      newAssignments.add(kbId);
+      newLlamaCloudAssignments.add(kbId);
     }
 
     setLocalAssignments(prev => ({
       ...prev,
-      llamacloud: newAssignments,
+      llamacloud: newLlamaCloudAssignments,
     }));
 
-    // Update on server
-    await updateAssignments(Array.from(localAssignments.folders), Array.from(newAssignments));
+    // Update on server - use the NEW state values, not old ones
+    await updateAssignments(
+      Array.from(localAssignments.folders) as string[], 
+      Array.from(newLlamaCloudAssignments) as string[]
+    );
   };
 
   const updateAssignments = async (regularEntryIds: string[], llamacloudKbIds: string[]) => {
@@ -166,6 +172,7 @@ export function AgentKnowledgeSelector({ agentId }: AgentKnowledgeSelectorProps)
           llamacloud_kb_ids: llamacloudKbIds,
         },
       });
+      toast.success('Knowledge base assignments updated successfully');
     } catch (error) {
       console.error('Failed to update assignments:', error);
       toast.error('Failed to update knowledge base assignments');
@@ -306,7 +313,7 @@ function FolderItem({
   agentId: string;
   isExpanded: boolean;
   onToggleExpand: () => void;
-  onToggleAssignment: (folderId: string, entries: FolderEntry[]) => void;
+  onToggleAssignment: (folderId: string, entries: FolderEntry[]) => Promise<void>;
   isFolderAssigned: (folderId: string, entries: FolderEntry[]) => boolean;
   isFolderPartiallyAssigned: (folderId: string, entries: FolderEntry[]) => boolean;
   localAssignments: { folders: Set<string>; llamacloud: Set<string> };
