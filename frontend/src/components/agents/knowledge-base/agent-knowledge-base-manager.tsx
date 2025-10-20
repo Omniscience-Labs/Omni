@@ -70,6 +70,7 @@ import { LlamaCloudKnowledgeBaseManager } from '../llamacloud-knowledge-base/lla
 import { useAgentLlamaCloudKnowledgeBases, useCreateLlamaCloudKnowledgeBase } from '@/hooks/react-query/llamacloud-knowledge-base/use-llamacloud-knowledge-base-queries';
 import { createClient } from '@/lib/supabase/client';
 import { SharedTreeItem } from '@/components/knowledge-base/shared-kb-tree';
+import { AgentKnowledgeSelector } from './agent-knowledge-selector';
 
 import {
   Code2 as SiJavascript,
@@ -835,6 +836,15 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
     }
   };
 
+  // Simply use the new AgentKnowledgeSelector component
+  return (
+    <div className="h-full">
+      <AgentKnowledgeSelector agentId={agentId} />
+    </div>
+  );
+
+  // Old implementation kept below for reference (can be removed later)
+  /*
   if (isLoading || cloudKBLoading) {
     return <AgentKnowledgeBaseSkeleton />;
   }
