@@ -1,4 +1,5 @@
 import os
+import asyncio
 import urllib.parse
 from typing import Optional
 
@@ -273,6 +274,8 @@ async def read_file(
 
                     if attempt < max_retries - 1:  # Don't retry on last attempt
                         logger.info(f"Retrying file download for sandbox {sandbox_id}, attempt {attempt + 2}/{max_retries}")
+                        # brief backoff to allow sandbox/filesystem to fully start
+                        await asyncio.sleep(0.4)
                         continue  # Retry the operation
                     else:
                         logger.error(f"All retry attempts failed for sandbox {sandbox_id}. Final error: {error_msg}")
@@ -295,6 +298,8 @@ async def read_file(
             last_error = e
             if attempt < max_retries - 1:
                 logger.warning(f"Attempt {attempt + 1} failed for sandbox {sandbox_id}, will retry: {str(e)}")
+                # brief backoff between retries
+                await asyncio.sleep(0.4)
                 continue
             else:
                 logger.error(f"All attempts failed for sandbox {sandbox_id}. Final error: {str(e)}")
@@ -303,28 +308,35 @@ async def read_file(
                     detail=f"Failed to access sandbox after {max_retries} attempts: {str(e)}"
                 )
 
-    if last_error and not content:
-        # This shouldn't happen due to the break above, but just in case
+    # Guard: if content was never set, error out clearly
+    try:
+        content  # type: ignore[name-defined]
+    except NameError:
         raise HTTPException(
-            status_code=500,
-            detail=f"Unexpected error after successful download: {str(last_error)}"
+            status_code=500 if last_error else 404,
+            detail=(f"Failed to access sandbox after {max_retries} attempts: {str(last_error)}" if last_error else "File content not available")
         )
-        
-        # Return a Response object with the content directly
-        filename = os.path.basename(path)
-        logger.debug(f"Successfully read file {filename} from sandbox {sandbox_id}")
-        
-        # Ensure proper encoding by explicitly using UTF-8 for the filename in Content-Disposition header
-        # This applies RFC 5987 encoding for the filename to support non-ASCII characters
-        import urllib.parse
-        encoded_filename = urllib.parse.quote(filename, safe='')
-        content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}"
-        
-        return Response(
-            content=content,
-            media_type="application/octet-stream",
-            headers={"Content-Disposition": content_disposition}
-        )
+
+    # Return a Response object with the content directly
+    filename = os.path.basename(path)
+    logger.debug(f"Successfully read file {filename} from sandbox {sandbox_id}")
+    
+    # Ensure proper encoding by explicitly using UTF-8 for the filename in Content-Disposition header
+    # This applies RFC 5987 encoding for the filename to support non-ASCII characters
+    import urllib.parse
+    encoded_filename = urllib.parse.quote(filename, safe='')
+    content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}"
+    
+    # Best-effort content type detection
+    import mimetypes
+    guessed_type, _ = mimetypes.guess_type(filename)
+    media_type = guessed_type or "application/octet-stream"
+    
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": content_disposition}
+    )
 
 @router.delete("/sandboxes/{sandbox_id}/files")
 async def delete_file(
