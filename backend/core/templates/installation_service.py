@@ -730,19 +730,50 @@ class InstallationService:
         
         for kb_ref in kb_references:
             try:
-                # Use the OLD system (agent_llamacloud_knowledge_bases table)
-                # This is what the frontend/backend API expects
-                await client.table('agent_llamacloud_knowledge_bases').insert({
+                # Use the NEW unified system (global KB + assignments)
+                # Step 1: Check if this KB already exists in global pool for this account
+                existing_kb = await client.table('llamacloud_knowledge_bases').select('kb_id').eq(
+                    'account_id', account_id
+                ).eq('index_name', kb_ref['index_name']).execute()
+                
+                if existing_kb.data:
+                    # KB already exists in this account, just create assignment
+                    kb_id = existing_kb.data[0]['kb_id']
+                    logger.info(f"KB '{kb_ref['name']}' already exists in account, reusing kb_id: {kb_id}")
+                else:
+                    # Step 2: Create new entry in global KB pool
+                    # Add note that this came from agent sharing
+                    description = kb_ref.get('description', '')
+                    if description:
+                        description += f"\n\n(Shared via marketplace agent)"
+                    else:
+                        description = "(Shared via marketplace agent)"
+                    
+                    kb_result = await client.table('llamacloud_knowledge_bases').insert({
+                        'account_id': account_id,
+                        'name': kb_ref['name'],
+                        'index_name': kb_ref['index_name'],
+                        'description': description,
+                        'is_active': True
+                    }).execute()
+                    
+                    if not kb_result.data:
+                        raise Exception("Failed to create KB in global pool")
+                    
+                    kb_id = kb_result.data[0]['kb_id']
+                    logger.info(f"Created global KB '{kb_ref['name']}' with kb_id: {kb_id}")
+                
+                # Step 3: Create assignment (link agent to KB)
+                # Use upsert to handle duplicates gracefully
+                await client.table('agent_llamacloud_kb_assignments').upsert({
                     'agent_id': agent_id,
+                    'kb_id': kb_id,
                     'account_id': account_id,
-                    'name': kb_ref['name'],
-                    'index_name': kb_ref['index_name'],
-                    'description': kb_ref.get('description'),
-                    'is_active': True
-                }).execute()
+                    'enabled': True
+                }, on_conflict='agent_id,kb_id').execute()
                 
                 copied_count += 1
-                logger.info(f"Added LlamaCloud KB '{kb_ref['name']}' (index: {kb_ref['index_name']}) to agent {agent_id}")
+                logger.info(f"Assigned LlamaCloud KB '{kb_ref['name']}' (index: {kb_ref['index_name']}) to agent {agent_id}")
                 
             except Exception as e:
                 failed_count += 1
