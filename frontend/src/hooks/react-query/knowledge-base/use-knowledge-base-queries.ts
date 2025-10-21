@@ -390,4 +390,67 @@ export function useUpdateAgentUnifiedAssignments() {
       toast.error(`Failed to update assignments: ${error.message}`);
     },
   });
+}
+
+// New hooks for fetching all user folders (not agent-specific)
+export function useAllUserFolders() {
+  const { getHeaders } = useAuthHeaders();
+  
+  return useQuery({
+    queryKey: ['knowledge-base', 'folders', 'all'],
+    queryFn: async () => {
+      const headers = await getHeaders();
+      const response = await fetch(`${API_URL}/knowledge-base/folders`, { headers });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Failed to fetch folders');
+      }
+      
+      return await response.json();
+    },
+  });
+}
+
+// Hook to fetch entries for a specific folder
+export function useFolderEntries(folderId: string) {
+  const { getHeaders } = useAuthHeaders();
+  
+  return useQuery({
+    queryKey: ['knowledge-base', 'folders', folderId, 'entries'],
+    queryFn: async () => {
+      const headers = await getHeaders();
+      const response = await fetch(`${API_URL}/knowledge-base/folders/${folderId}/entries`, { headers });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Failed to fetch folder entries');
+      }
+      
+      const data = await response.json();
+      // Handle both array and object response formats
+      return Array.isArray(data) ? { entries: data } : data;
+    },
+    enabled: !!folderId,
+  });
+}
+
+// Hook to fetch all root-level LlamaCloud KBs (not agent-specific)
+export function useAllRootLlamaCloudKBs() {
+  const { getHeaders } = useAuthHeaders();
+  
+  return useQuery({
+    queryKey: ['knowledge-base', 'llamacloud', 'root'],
+    queryFn: async () => {
+      const headers = await getHeaders();
+      const response = await fetch(`${API_URL}/knowledge-base/llamacloud/root`, { headers });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Failed to fetch root LlamaCloud KBs');
+      }
+      
+      return await response.json();
+    },
+  });
 } 

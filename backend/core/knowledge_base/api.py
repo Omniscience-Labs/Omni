@@ -481,20 +481,80 @@ async def get_folder_entries(
         # Get current account_id from user
         account_id = await get_user_account_id(client, user_id)
         
-        # Use the SQL function to get unified entries (more efficient, single query)
-        result = await client.rpc(
-            'get_unified_folder_entries',
-            {
-                'p_folder_id': folder_id,
-                'p_account_id': account_id,
-                'p_include_inactive': include_inactive
-            }
-        ).execute()
-
-        # Supabase responses don't have .error attribute - errors are raised as exceptions
-        entries = result.data if result.data else []
+        # Verify folder belongs to account
+        folder_check = await client.from_('knowledge_base_folders').select('folder_id').eq(
+            'folder_id', folder_id
+        ).eq('account_id', account_id).execute()
         
-        # FastAPI should handle JSON serialization automatically
+        if not folder_check.data:
+            raise HTTPException(status_code=404, detail="Folder not found or access denied")
+        
+        # Fetch regular file entries from knowledge_base_entries table
+        files_query = client.from_('knowledge_base_entries').select(
+            'entry_id, filename, summary, usage_context, is_active, created_at, updated_at, file_size, mime_type, account_id, folder_id'
+        ).eq('folder_id', folder_id).eq('account_id', account_id)
+        
+        if not include_inactive:
+            files_query = files_query.eq('is_active', True)
+        
+        files_result = await files_query.order('created_at', desc=True).execute()
+        
+        # Fetch cloud KB entries from llamacloud_knowledge_bases table
+        cloud_query = client.from_('llamacloud_knowledge_bases').select(
+            'kb_id, name, description, summary, index_name, usage_context, is_active, created_at, updated_at, account_id, folder_id'
+        ).eq('folder_id', folder_id).eq('account_id', account_id)
+        
+        if not include_inactive:
+            cloud_query = cloud_query.eq('is_active', True)
+        
+        cloud_result = await cloud_query.order('created_at', desc=True).execute()
+        
+        # Transform and merge entries into unified format
+        entries = []
+        
+        # Add file entries
+        for file_entry in (files_result.data or []):
+            entries.append({
+                'entry_id': file_entry['entry_id'],
+                'entry_type': 'file',
+                'name': file_entry['filename'],
+                'filename': file_entry['filename'],
+                'summary': file_entry.get('summary'),
+                'description': None,
+                'usage_context': file_entry.get('usage_context'),
+                'is_active': file_entry.get('is_active', True),
+                'created_at': file_entry['created_at'],
+                'updated_at': file_entry['updated_at'],
+                'file_size': file_entry.get('file_size'),
+                'mime_type': file_entry.get('mime_type'),
+                'index_name': None,
+                'account_id': file_entry['account_id'],
+                'folder_id': file_entry['folder_id']
+            })
+        
+        # Add cloud KB entries
+        for cloud_entry in (cloud_result.data or []):
+            entries.append({
+                'entry_id': cloud_entry['kb_id'],
+                'entry_type': 'cloud_kb',
+                'name': cloud_entry['name'],
+                'filename': None,
+                'summary': cloud_entry.get('summary') or cloud_entry.get('description'),
+                'description': cloud_entry.get('description'),
+                'usage_context': cloud_entry.get('usage_context'),
+                'is_active': cloud_entry.get('is_active', True),
+                'created_at': cloud_entry['created_at'],
+                'updated_at': cloud_entry['updated_at'],
+                'file_size': None,
+                'mime_type': None,
+                'index_name': cloud_entry.get('index_name'),
+                'account_id': cloud_entry['account_id'],
+                'folder_id': cloud_entry['folder_id']
+            })
+        
+        # Sort by created_at descending
+        entries.sort(key=lambda x: x['created_at'], reverse=True)
+        
         return {"entries": entries}
         
     except HTTPException:
@@ -687,8 +747,9 @@ async def get_agent_unified_knowledge_base(
                 regular_entries.append(entry)
                 total_tokens += estimated_tokens
         
-        # Get LlamaCloud knowledge base entries using existing system
-        llamacloud_result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
+        # Get LlamaCloud knowledge base entries using the assignment system
+        # This ensures agents can ONLY access KBs explicitly assigned to them
+        llamacloud_result = await client.rpc('get_agent_assigned_llamacloud_kbs', {
             'p_agent_id': agent_id,
             'p_include_inactive': include_inactive
         }).execute()
@@ -697,7 +758,7 @@ async def get_agent_unified_knowledge_base(
         
         for kb_data in llamacloud_result.data or []:
             kb = LlamaCloudKnowledgeBaseResponse(
-                id=kb_data['id'],
+                id=kb_data['kb_id'],  # get_agent_assigned_llamacloud_kbs returns 'kb_id' not 'id'
                 name=kb_data['name'],
                 index_name=kb_data['index_name'],
                 description=kb_data['description'],
@@ -1204,13 +1265,12 @@ async def get_agent_unified_assignments(
         regular_result = await client.from_("agent_knowledge_entry_assignments").select("entry_id, enabled").eq("agent_id", agent_id).execute()
         regular_assignments = {row['entry_id']: row['enabled'] for row in regular_result.data}
         
-        # Get LlamaCloud KB assignments using existing system
-        llamacloud_result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
-            'p_agent_id': agent_id,
-            'p_include_inactive': False
-        }).execute()
+        # Get LlamaCloud KB assignments from the new assignment table
+        llamacloud_result = await client.from_("agent_llamacloud_kb_assignments").select(
+            "kb_id, enabled"
+        ).eq("agent_id", agent_id).execute()
         
-        llamacloud_assignments = {kb_data['id']: kb_data['is_active'] for kb_data in llamacloud_result.data or []}
+        llamacloud_assignments = {row['kb_id']: row['enabled'] for row in llamacloud_result.data}
         
         return UnifiedAssignmentResponse(
             regular_assignments=regular_assignments,
@@ -1252,9 +1312,24 @@ async def update_agent_unified_assignments(
                 "enabled": True
             }).execute()
         
-        # Note: LlamaCloud KB assignments are currently managed through direct agent-specific creation
-        # The existing system creates LlamaCloud KBs directly for agents rather than having a separate assignment system
-        # For now, we'll keep the existing behavior and only update regular KB assignments
+        # Update LlamaCloud KB assignments
+        # Delete existing LlamaCloud KB assignments for this agent
+        await client.from_("agent_llamacloud_kb_assignments").delete().eq("agent_id", agent_id).execute()
+        
+        # Insert new LlamaCloud KB assignments
+        for kb_id in request.llamacloud_kb_ids:
+            # Verify the KB exists and belongs to the account
+            kb_check = await client.from_('llamacloud_knowledge_bases').select('kb_id').eq(
+                'kb_id', kb_id
+            ).eq('account_id', account_id).execute()
+            
+            if kb_check.data:
+                await client.from_("agent_llamacloud_kb_assignments").insert({
+                    "agent_id": agent_id,
+                    "kb_id": kb_id,
+                    "account_id": account_id,
+                    "enabled": True
+                }).execute()
         
         return {"message": "Unified agent assignments updated successfully", "regular_count": len(request.regular_entry_ids), "llamacloud_count": len(request.llamacloud_kb_ids)}
         
@@ -1353,14 +1428,15 @@ async def get_agent_llamacloud_knowledge_bases(
     include_inactive: bool = False,
     user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
-    """Get all LlamaCloud knowledge bases for an agent"""
+    """Get all LlamaCloud knowledge bases assigned to an agent (respects assignments only)"""
     try:
         client = await db.client
 
         # Verify agent access
         await verify_and_get_agent_authorization(client, agent_id, user_id)
 
-        result = await client.rpc('get_agent_llamacloud_knowledge_bases', {
+        # Use assignment-based RPC to ensure agents only access assigned KBs
+        result = await client.rpc('get_agent_assigned_llamacloud_kbs', {
             'p_agent_id': agent_id,
             'p_include_inactive': include_inactive
         }).execute()
@@ -1369,7 +1445,7 @@ async def get_agent_llamacloud_knowledge_bases(
         
         for kb_data in result.data or []:
             kb = LlamaCloudKnowledgeBaseResponse(
-                id=kb_data['id'],
+                id=kb_data['kb_id'],  # get_agent_assigned_llamacloud_kbs returns 'kb_id' not 'id'
                 name=kb_data['name'],
                 index_name=kb_data['index_name'],
                 description=kb_data['description'],
