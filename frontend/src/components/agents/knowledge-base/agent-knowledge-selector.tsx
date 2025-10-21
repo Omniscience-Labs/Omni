@@ -23,6 +23,8 @@ import {
 } from '@/hooks/react-query/knowledge-base/use-knowledge-base-queries';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Info } from 'lucide-react';
 
 interface AgentKnowledgeSelectorProps {
   agentId: string;
@@ -244,6 +246,15 @@ export function AgentKnowledgeSelector({ agentId }: AgentKnowledgeSelectorProps)
 
   return (
     <div className="flex flex-col h-full">
+      {/* Info Alert about Sharing */}
+      <Alert className="mb-4 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900">
+        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        <AlertDescription className="text-xs text-blue-900 dark:text-blue-100">
+          <strong>Agent Sharing:</strong> When you share an agent to the marketplace, only <strong>LlamaCloud Knowledge Bases</strong> are included. 
+          Files and folders remain private and are not shared with other users.
+        </AlertDescription>
+      </Alert>
+
       {/* Header with search */}
       <div className="mb-4">
         <div className="relative">
