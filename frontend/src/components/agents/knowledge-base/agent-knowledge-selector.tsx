@@ -75,6 +75,15 @@ export function AgentKnowledgeSelector({ agentId }: AgentKnowledgeSelectorProps)
   const folders: Folder[] = foldersData || [];
   const llamaCloudKBs: LlamaCloudKB[] = llamaCloudData?.entries || [];
 
+  // Expand all folders by default when they load
+  useEffect(() => {
+    if (folders.length > 0 && expandedFolders.size === 0) {
+      const allFolderIds = new Set(folders.map(f => f.folder_id));
+      setExpandedFolders(allFolderIds);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folders]);
+
   // Initialize local assignments from server data
   useEffect(() => {
     if (assignmentsData) {
@@ -128,6 +137,27 @@ export function AgentKnowledgeSelector({ agentId }: AgentKnowledgeSelectorProps)
     } else {
       // Add all entries of this folder
       entries.forEach(entry => newFolderAssignments.add(entry.entry_id));
+    }
+
+    setLocalAssignments(prev => ({
+      ...prev,
+      folders: newFolderAssignments,
+    }));
+
+    // Update on server - use the NEW state values, not old ones
+    await updateAssignments(
+      Array.from(newFolderAssignments) as string[], 
+      Array.from(localAssignments.llamacloud) as string[]
+    );
+  };
+
+  const handleIndividualFileToggle = async (entryId: string) => {
+    const newFolderAssignments = new Set(localAssignments.folders);
+    
+    if (newFolderAssignments.has(entryId)) {
+      newFolderAssignments.delete(entryId);
+    } else {
+      newFolderAssignments.add(entryId);
     }
 
     setLocalAssignments(prev => ({
@@ -242,9 +272,11 @@ export function AgentKnowledgeSelector({ agentId }: AgentKnowledgeSelectorProps)
             isExpanded={expandedFolders.has(folder.folder_id)}
             onToggleExpand={() => toggleFolder(folder.folder_id)}
             onToggleAssignment={handleFolderToggle}
+            onToggleIndividualFile={handleIndividualFileToggle}
             isFolderAssigned={isFolderAssigned}
             isFolderPartiallyAssigned={isFolderPartiallyAssigned}
             localAssignments={localAssignments}
+            isSaving={updateAssignmentsMutation.isPending}
           />
         ))}
 
@@ -305,18 +337,22 @@ function FolderItem({
   isExpanded,
   onToggleExpand,
   onToggleAssignment,
+  onToggleIndividualFile,
   isFolderAssigned,
   isFolderPartiallyAssigned,
   localAssignments,
+  isSaving,
 }: {
   folder: Folder;
   agentId: string;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onToggleAssignment: (folderId: string, entries: FolderEntry[]) => Promise<void>;
+  onToggleIndividualFile: (entryId: string) => Promise<void>;
   isFolderAssigned: (folderId: string, entries: FolderEntry[]) => boolean;
   isFolderPartiallyAssigned: (folderId: string, entries: FolderEntry[]) => boolean;
   localAssignments: { folders: Set<string>; llamacloud: Set<string> };
+  isSaving: boolean;
 }) {
   const { data: entriesData, isLoading: entriesLoading } = useFolderEntries(
     isExpanded ? folder.folder_id : ''
@@ -391,34 +427,36 @@ function FolderItem({
                 const isCloudKB = entry.entry_type === 'cloud_kb';
                 const EntryIcon = isCloudKB ? Database : FileIcon;
                 const displayName = entry.name || entry.filename || 'Unnamed';
+                const isAssigned = localAssignments.folders.has(entry.entry_id);
                 
                 return (
                   <div
                     key={entry.entry_id}
                     className={cn(
-                      "flex items-center space-x-2 p-2 rounded text-xs",
-                      localAssignments.folders.has(entry.entry_id)
-                        ? "bg-primary/10"
-                        : "hover:bg-muted"
+                      "flex items-center justify-between space-x-2 p-2 rounded text-xs hover:bg-muted transition-colors",
+                      isAssigned && "bg-primary/5"
                     )}
                   >
-                    <EntryIcon 
-                      className={cn(
-                        "h-3 w-3 flex-shrink-0",
-                        isCloudKB ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"
-                      )} 
+                    <div className="flex items-center space-x-2 flex-1 min-w-0">
+                      <EntryIcon 
+                        className={cn(
+                          "h-3 w-3 flex-shrink-0",
+                          isCloudKB ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"
+                        )} 
+                      />
+                      <span className="truncate flex-1">{displayName}</span>
+                      {isCloudKB && (
+                        <Badge variant="outline" className="text-xs py-0 px-1 bg-blue-50 dark:bg-blue-900/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800">
+                          CLOUD
+                        </Badge>
+                      )}
+                    </div>
+                    <Switch
+                      checked={isAssigned}
+                      onCheckedChange={() => onToggleIndividualFile(entry.entry_id)}
+                      disabled={isSaving}
+                      className="scale-75"
                     />
-                    <span className="truncate flex-1">{displayName}</span>
-                    {isCloudKB && (
-                      <Badge variant="outline" className="text-xs py-0 px-1 bg-blue-50 dark:bg-blue-900/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800">
-                        CLOUD
-                      </Badge>
-                    )}
-                    {localAssignments.folders.has(entry.entry_id) && (
-                      <Badge variant="secondary" className="text-xs py-0 px-1">
-                        Enabled
-                      </Badge>
-                    )}
                   </div>
                 );
               })}
