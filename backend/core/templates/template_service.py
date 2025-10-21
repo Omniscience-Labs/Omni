@@ -230,6 +230,12 @@ class TemplateService:
         # Apply sharing preferences during sanitization
         sanitized_config = await self._sanitize_config_for_template(version_config, sharing_preferences, agent_id)
         
+        # Fetch LlamaCloud KB references for this agent if knowledge bases should be included
+        kb_references = []
+        if sharing_preferences.get('include_knowledge_bases', True):
+            kb_references = await self._extract_llamacloud_kb_references(agent_id)
+            logger.debug(f"Extracted {len(kb_references)} LlamaCloud KB references from agent {agent_id}")
+        
         template = AgentTemplate(
             template_id=str(uuid4()),
             creator_id=creator_id,
@@ -245,7 +251,8 @@ class TemplateService:
             icon_background=agent.get('icon_background'),
             metadata={
                 **agent.get('metadata', {}),
-                'source_agent_id': agent_id
+                'source_agent_id': agent_id,
+                'llamacloud_knowledge_bases': kb_references  # ✅ Store KB references!
             },
             sharing_preferences=sharing_preferences
 
@@ -562,6 +569,58 @@ class TemplateService:
             logger.info(f"Triggers will be excluded during template installation for agent {agent_id}")
         
         return filtered_config
+    
+    async def _extract_llamacloud_kb_references(self, agent_id: str) -> List[Dict[str, Any]]:
+        """Extract LlamaCloud KB references from agent for template metadata"""
+        try:
+            client = await self._db.client
+            kb_references = []
+            
+            # Get KBs from the new unified system (agent_llamacloud_kb_assignments)
+            assignments_result = await client.from_('agent_llamacloud_kb_assignments').select('''
+                kb_id,
+                enabled,
+                llamacloud_knowledge_bases (
+                    name,
+                    index_name,
+                    description
+                )
+            ''').eq('agent_id', agent_id).eq('enabled', True).execute()
+            
+            if assignments_result.data:
+                for assignment in assignments_result.data:
+                    kb_data = assignment.get('llamacloud_knowledge_bases')
+                    if kb_data:
+                        kb_references.append({
+                            'name': kb_data['name'],
+                            'index_name': kb_data['index_name'],
+                            'description': kb_data.get('description', '')
+                        })
+                        logger.debug(f"Found KB assignment: {kb_data['name']} (index: {kb_data['index_name']})")
+            
+            # Also check legacy system for backward compatibility
+            legacy_result = await client.from_('agent_llamacloud_knowledge_bases').select(
+                'name, index_name, description'
+            ).eq('agent_id', agent_id).eq('is_active', True).execute()
+            
+            if legacy_result.data:
+                # Add legacy KBs if not already present (avoid duplicates)
+                existing_indices = {kb['index_name'] for kb in kb_references}
+                for kb_data in legacy_result.data:
+                    if kb_data['index_name'] not in existing_indices:
+                        kb_references.append({
+                            'name': kb_data['name'],
+                            'index_name': kb_data['index_name'],
+                            'description': kb_data.get('description', '')
+                        })
+                        logger.debug(f"Found legacy KB: {kb_data['name']} (index: {kb_data['index_name']})")
+            
+            logger.info(f"Extracted {len(kb_references)} total LlamaCloud KB references for agent {agent_id}")
+            return kb_references
+            
+        except Exception as e:
+            logger.error(f"Failed to extract LlamaCloud KB references for agent {agent_id}: {e}")
+            return []
     
     def _fallback_sanitize_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         agentpress_tools = config.get('tools', {}).get('agentpress', {})
