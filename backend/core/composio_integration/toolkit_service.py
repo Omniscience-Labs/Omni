@@ -138,9 +138,6 @@ class ToolkitService:
                 
                 auth_schemes = toolkit_data.get("auth_schemes", [])
                 composio_managed_auth_schemes = toolkit_data.get("composio_managed_auth_schemes", [])
-
-                if "OAUTH2" not in auth_schemes or "OAUTH2" not in composio_managed_auth_schemes:
-                    continue
                 
                 logo_url = None
                 meta = toolkit_data.get("meta", {})
@@ -196,7 +193,7 @@ class ToolkitService:
                 "next_cursor": response_data.get("next_cursor")
             }
             
-            logger.debug(f"Successfully fetched {len(toolkits)} toolkits with OAUTH2 in both auth schemes" + (f" for category {category}" if category else ""))
+            logger.debug(f"Successfully fetched {len(toolkits)} toolkits" + (f" for category {category}" if category else ""))
             return result
             
         except Exception as e:
@@ -238,7 +235,7 @@ class ToolkitService:
                 "next_cursor": None
             }
             
-            logger.debug(f"Found {len(filtered_toolkits)} toolkits with OAUTH2 in both auth schemes matching query: {query}" + (f" in category {category}" if category else ""))
+            logger.debug(f"Found {len(filtered_toolkits)} toolkits matching query: {query}" + (f" in category {category}" if category else ""))
             return result
             
         except Exception as e:
