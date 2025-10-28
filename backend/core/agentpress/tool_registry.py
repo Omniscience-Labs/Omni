@@ -103,6 +103,7 @@ class ToolRegistry:
         # logger.debug(f"Retrieved {len(schemas)} OpenAPI schemas")
         return schemas
 
+<<<<<<< HEAD
     def get_usage_examples(self) -> Dict[str, str]:
         """Get usage examples for tools.
         
@@ -127,3 +128,5 @@ class ToolRegistry:
         # logger.debug(f"Retrieved {len(examples)} usage examples")
         return examples
 
+=======
+>>>>>>> upstream/PRODUCTION

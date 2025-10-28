@@ -3,8 +3,12 @@ import os
 import uuid
 from typing import Union, Dict, Any, Optional
 
+<<<<<<< HEAD
 from core.agentpress.tool import Tool, ToolResult, openapi_schema, usage_example
 from core.agentpress.thread_manager import ThreadManager
+=======
+from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata
+>>>>>>> upstream/PRODUCTION
 from core.tools.data_providers.LinkedinProvider import LinkedinProvider
 from core.tools.data_providers.YahooFinanceProvider import YahooFinanceProvider
 from core.tools.data_providers.AmazonProvider import AmazonProvider
@@ -15,6 +19,14 @@ from core.tools.data_providers.ActiveJobsProvider import ActiveJobsProvider
 from core.utils.logger import logger
 
 
+@tool_metadata(
+    display_name="Data Providers",
+    description="Access data from LinkedIn, Yahoo Finance, Amazon, Zillow, and Twitter",
+    icon="Database",
+    color="bg-lime-100 dark:bg-lime-800/50",
+    weight=140,
+    visible=True
+)
 class DataProvidersTool(Tool):
     """Tool for making requests to various data providers."""
 
@@ -53,19 +65,6 @@ class DataProvidersTool(Tool):
             }
         }
     })
-    @usage_example('''
-<!-- 
-The get-data-provider-endpoints tool returns available endpoints for a specific data provider.
-Use this tool when you need to discover what endpoints are available.
--->
-
-<!-- Example to get LinkedIn API endpoints -->
-<function_calls>
-<invoke name="get_data_provider_endpoints">
-<parameter name="service_name">linkedin</parameter>
-</invoke>
-</function_calls>
-        ''')
     async def get_data_provider_endpoints(
         self,
         service_name: str
@@ -118,22 +117,6 @@ Use this tool when you need to discover what endpoints are available.
             }
         }
     })
-    @usage_example('''
-        <!-- 
-        The execute-data-provider-call tool makes a request to a specific data provider endpoint.
-        Use this tool when you need to call an data provider endpoint with specific parameters.
-        The route must be a valid endpoint key obtained from get-data-provider-endpoints tool!!
-        -->
-        
-        <!-- Example to call linkedIn service with the specific route person -->
-        <function_calls>
-        <invoke name="execute_data_provider_call">
-        <parameter name="service_name">linkedin</parameter>
-        <parameter name="route">person</parameter>
-        <parameter name="payload">{"link": "https://www.linkedin.com/in/johndoe/"}</parameter>
-        </invoke>
-        </function_calls>
-        ''')
     async def execute_data_provider_call(
         self,
         service_name: str,

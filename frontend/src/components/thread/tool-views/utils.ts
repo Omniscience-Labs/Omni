@@ -61,7 +61,6 @@ export function getToolTitle(toolName: string): string {
     'configure-profile-for-agent': 'Configure Profile For Agent',
     'get-credential-profiles': 'Get Credential Profiles',
     'get-current-agent-config': 'Get Current Agent Config',
-    'deploy': 'Deploy',
     'create-presentation': 'Create Presentation',
     'export-presentation': 'Export Presentation',
     'create-presentation-outline': 'Create Presentation Outline',
@@ -78,20 +77,29 @@ export function getToolTitle(toolName: string): string {
     
     // Agent Creation Tools
     'create-new-agent': 'Create New Agent',
+    'update-agent': 'Update Agent',
     'search-mcp-servers-for-agent': 'Search MCP Servers for Agent',
     'get-mcp-server-details': 'Get MCP Server Details',
     'create-credential-profile-for-agent': 'Create Credential Profile for Agent',
     'discover-mcp-tools-for-agent': 'Discover MCP Tools for Agent',
+    'discover-user-mcp-servers': 'Discovering tools',
     'configure-agent-integration': 'Configure Agent Integration',
     'list-available-integrations': 'List Available Integrations',
-    'create-agent-workflow': 'Create Agent Workflow',
-    'list-agent-workflows': 'List Agent Workflows',
-    'activate-agent-workflow': 'Activate Agent Workflow',
+    'list-app-event-triggers': 'List Event Triggers',
+    'create-event-trigger': 'Create Event Trigger',
     'create-agent-scheduled-trigger': 'Create Scheduled Trigger',
     'list-agent-scheduled-triggers': 'List Scheduled Triggers',
-    'delete-agent-workflow': 'Delete Agent Workflow',
     'delete-agent-scheduled-trigger': 'Delete Scheduled Trigger',
     'toggle-agent-scheduled-trigger': 'Toggle Scheduled Trigger',
+
+    'make-call': 'Make Call',
+    'make_call': 'Make Call',
+    'end-call': 'End Call',
+    'end_call': 'End Call',
+    'get-call-details': 'Call Details',
+    'get_call_details': 'Call Details',
+    'list-calls': 'Call History',
+    'list_calls': 'Call History',
 
     'generic-tool': 'Tool',
     'default': 'Tool',
@@ -561,7 +569,7 @@ function processFileContent(content: string | object): string {
     return JSON.stringify(content, null, 2);
   }
 
-  const trimmedContent = content.trim();
+  const trimmedContent = typeof content === 'string' ? content.trim() : '';
   const isLikelyJson = (trimmedContent.startsWith('{') && trimmedContent.endsWith('}')) ||
                        (trimmedContent.startsWith('[') && trimmedContent.endsWith(']'));
   
@@ -1317,10 +1325,15 @@ export function getToolComponent(toolName: string): string {
       return 'GetCredentialProfilesToolView';
     case 'get-current-agent-config':
       return 'GetCurrentAgentConfigToolView';
+    case 'update-agent':
+      return 'UpdateAgentToolView';
+    case 'discover-user-mcp-servers':
+      return 'DiscoverUserMcpServersToolView';
+    case 'list-app-event-triggers':
+      return 'ListAppEventTriggersToolView';
+    case 'create-event-trigger':
+      return 'CreateEventTriggerToolView';
 
-    //Deploy
-    case 'deploy':
-      return 'DeployToolView';
 
     // Upload operations
     case 'upload-file':

@@ -6,8 +6,13 @@ from .agent_crud import router as agent_crud_router
 from .agent_tools import router as agent_tools_router
 from .agent_json import router as agent_json_router
 from .threads import router as threads_router
+<<<<<<< HEAD
 from .agent_default_files import router as agent_default_files_router
 from .utils.omni_default_agent_service import OmniDefaultAgentService
+=======
+from .tools_api import router as tools_api_router
+from .vapi_api import router as vapi_router
+>>>>>>> upstream/PRODUCTION
 
 router = APIRouter()
 
@@ -18,7 +23,12 @@ router.include_router(agent_crud_router)
 router.include_router(agent_tools_router)
 router.include_router(agent_json_router)
 router.include_router(threads_router)
+<<<<<<< HEAD
 router.include_router(agent_default_files_router)
+=======
+router.include_router(tools_api_router)
+router.include_router(vapi_router)
+>>>>>>> upstream/PRODUCTION
 
 # Re-export the initialize and cleanup functions
 __all__ = ['router', 'initialize', 'cleanup']

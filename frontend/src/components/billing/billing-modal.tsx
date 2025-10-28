@@ -162,6 +162,8 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
 
             if (response.success) {
                 toast.success(response.message);
+                // Invalidate cancellation status query to update UI
+                queryClient.invalidateQueries({ queryKey: ['subscription', 'cancellation-status'] });
             } else {
                 setSubscriptionData(originalState);
                 toast.error(response.message);
@@ -199,6 +201,8 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
 
             if (response.success) {
                 toast.success(response.message);
+                // Invalidate cancellation status query to update UI
+                queryClient.invalidateQueries({ queryKey: ['subscription', 'cancellation-status'] });
             } else {
                 setSubscriptionData(originalState);
                 toast.error(response.message);
@@ -459,17 +463,23 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
                             </div>
                         </div>
                     )}
+                    <PricingSection 
+                        returnUrl={returnUrl} 
+                        showTitleAndTabs={false}
+                        onSubscriptionUpdate={() => {
+                            setTimeout(() => {
+                                fetchSubscriptionData();
+                            }, 500);
+                        }}
+                    />
                 </>
             </DialogContent>
-            
-            {/* Credit Purchase Modal */}
             <CreditPurchaseModal
                 open={showCreditPurchaseModal}
                 onOpenChange={setShowCreditPurchaseModal}
                 currentBalance={subscriptionData?.credit_balance || 0}
                 canPurchase={subscriptionData?.can_purchase_credits || false}
                 onPurchaseComplete={() => {
-                    // Refresh subscription data
                     getSubscription().then(setSubscriptionData);
                     setShowCreditPurchaseModal(false);
                 }}

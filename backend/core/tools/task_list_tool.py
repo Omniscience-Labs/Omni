@@ -1,4 +1,4 @@
-from core.agentpress.tool import ToolResult, openapi_schema, usage_example
+from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
 from core.sandbox.tool_base import SandboxToolsBase
 from core.utils.logger import logger
 from typing import List, Dict, Any, Optional
@@ -22,13 +22,21 @@ class Task(BaseModel):
     status: TaskStatus = TaskStatus.PENDING
     section_id: str  # Reference to section ID instead of section name
 
+@tool_metadata(
+    display_name="Task Management",
+    description="Create and track your action plan with organized to-do lists",
+    icon="CheckSquare",
+    color="bg-amber-100 dark:bg-amber-800/50",
+    is_core=True,
+    weight=5,
+    visible=True
+)
 class TaskListTool(SandboxToolsBase):
     """Task management system for organizing and tracking tasks. It contains the action plan for the agent to follow.
     
     Features:
     - Create, update, and delete tasks organized by sections
     - Support for batch operations across multiple sections
-    - Organize tasks into logical sections and workflows
     - Track completion status and progress
     """
     
@@ -158,14 +166,6 @@ class TaskListTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example(
-        '''
-        <function_calls>
-        <invoke name="view_tasks">
-        </invoke>
-        </function_calls>
-        '''
-    )
     async def view_tasks(self) -> ToolResult:
         """View all tasks and sections"""
         try:
@@ -224,37 +224,6 @@ class TaskListTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example(
-        '''
-        # Batch creation across multiple sections:
-        <function_calls>
-        <invoke name="create_tasks">
-        <parameter name="sections">[
-            {
-                "title": "Setup & Planning", 
-                "tasks": ["Research requirements", "Create project plan"]
-            },
-            {
-                "title": "Development", 
-                "tasks": ["Setup environment", "Write code", "Add tests"]
-            },
-            {
-                "title": "Deployment", 
-                "tasks": ["Deploy to staging", "Run tests", "Deploy to production"]
-            }
-        ]</parameter>
-        </invoke>
-        </function_calls>
-        
-        # Simple single section creation:
-        <function_calls>
-        <invoke name="create_tasks">
-        <parameter name="section_title">Bug Fixes</parameter>
-        <parameter name="task_contents">["Fix login issue", "Update error handling"]</parameter>
-        </invoke>
-        </function_calls>
-        '''
-    )
     async def create_tasks(self, sections: Optional[List[Dict[str, Any]]] = None,
                           section_title: Optional[str] = None, section_id: Optional[str] = None,
                           task_contents: Optional[List[str]] = None) -> ToolResult:
@@ -362,6 +331,7 @@ class TaskListTool(SandboxToolsBase):
             }
         }
     })
+<<<<<<< HEAD
     @usage_example(
         '''
         # Update single task (when only one task is completed):
@@ -382,6 +352,9 @@ class TaskListTool(SandboxToolsBase):
         '''
     )
     async def update_tasks(self, task_ids: List[str], content: Optional[str] = None,
+=======
+    async def update_tasks(self, task_ids, content: Optional[str] = None,
+>>>>>>> upstream/PRODUCTION
                           status: Optional[str] = None, section_id: Optional[str] = None) -> ToolResult:
         """Update one or more tasks"""
         try:
@@ -451,6 +424,7 @@ class TaskListTool(SandboxToolsBase):
             }
         }
     })
+<<<<<<< HEAD
     @usage_example(
         '''
         # Delete single task:
@@ -494,6 +468,9 @@ class TaskListTool(SandboxToolsBase):
         '''
     )
     async def delete_tasks(self, task_ids: Optional[List[str]] = None, section_ids: Optional[List[str]] = None, confirm: bool = False) -> ToolResult:
+=======
+    async def delete_tasks(self, task_ids=None, section_ids=None, confirm: bool = False) -> ToolResult:
+>>>>>>> upstream/PRODUCTION
         """Delete one or more tasks and/or sections"""
         try:
             # Validate that at least one of task_ids or section_ids is provided
@@ -566,15 +543,6 @@ class TaskListTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example(
-        '''
-        <function_calls>
-        <invoke name="clear_all">
-        <parameter name="confirm">true</parameter>
-        </invoke>
-        </function_calls>
-        '''
-    )
     async def clear_all(self, confirm: bool) -> ToolResult:
         """Clear everything and start fresh"""
         try:

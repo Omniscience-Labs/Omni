@@ -41,6 +41,7 @@ function LoginContent() {
   const { user, isLoading } = useAuth();
   const mode = searchParams.get('mode');
   const returnUrl = searchParams.get('returnUrl') || searchParams.get('redirect');
+  const returnUrl = searchParams.get('returnUrl') || searchParams.get('redirect');
   const message = searchParams.get('message');
 
   const isSignUp = mode === 'signup';

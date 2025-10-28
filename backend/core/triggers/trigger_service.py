@@ -28,10 +28,7 @@ class TriggerEvent:
 class TriggerResult:
     success: bool
     should_execute_agent: bool = False
-    should_execute_workflow: bool = False
     agent_prompt: Optional[str] = None
-    workflow_id: Optional[str] = None
-    workflow_input: Optional[Dict[str, Any]] = None
     execution_variables: Dict[str, Any] = field(default_factory=dict)
     error_message: Optional[str] = None
 
@@ -338,6 +335,7 @@ class TriggerService:
         logger.debug(f"Trigger event: {event.trigger_id}, success: {result.success}, should_execute: {result.should_execute_agent}")
         return
         
+<<<<<<< HEAD
         # client = await self._db.client
         # 
         # 
@@ -370,6 +368,35 @@ class TriggerService:
         #     'event_timestamp': event.timestamp.isoformat(),
         #     'logged_at': datetime.now(timezone.utc).isoformat()
         # }).execute()
+=======
+        
+        # Ensure raw_data is JSON serializable
+        try:
+            if isinstance(event.raw_data, bytes):
+                event_data = event.raw_data.decode('utf-8', errors='replace')
+            elif isinstance(event.raw_data, str):
+                event_data = event.raw_data
+            else:
+                event_data = str(event.raw_data)
+        except Exception as e:
+            logger.warning(f"Failed to serialize raw_data: {e}")
+            event_data = str(event.raw_data) if event.raw_data else "{}"
+        
+        await client.table('trigger_event_logs').insert({
+            'log_id': str(uuid.uuid4()),
+            'trigger_id': event.trigger_id,
+            'agent_id': event.agent_id,
+            'trigger_type': event.trigger_type.value,
+            'event_data': event_data,
+            'success': result.success,
+            'should_execute_agent': result.should_execute_agent,
+            'agent_prompt': result.agent_prompt,
+            'execution_variables': result.execution_variables,
+            'error_message': result.error_message,
+            'event_timestamp': event.timestamp.isoformat(),
+            'logged_at': datetime.now(timezone.utc).isoformat()
+        }).execute()
+>>>>>>> upstream/PRODUCTION
 
 
 def get_trigger_service(db_connection: DBConnection) -> TriggerService:

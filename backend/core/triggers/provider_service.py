@@ -46,22 +46,14 @@ class TriggerProvider(ABC):
 class ScheduleProvider(TriggerProvider):
     def __init__(self):
         super().__init__("schedule", TriggerType.SCHEDULE)
-        # This should point to your backend base URL since Supabase Cron will POST to backend
-        self._webhook_base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
         self._db = DBConnection()
     
     async def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         if 'cron_expression' not in config:
             raise ValueError("cron_expression is required for scheduled triggers")
         
-        execution_type = config.get('execution_type', 'agent')
-        if execution_type not in ['agent', 'workflow']:
-            raise ValueError("execution_type must be either 'agent' or 'workflow'")
-        
-        if execution_type == 'agent' and 'agent_prompt' not in config:
+        if 'agent_prompt' not in config:
             raise ValueError("agent_prompt is required for agent execution")
-        elif execution_type == 'workflow' and 'workflow_id' not in config:
-            raise ValueError("workflow_id is required for workflow execution")
         
         user_timezone = config.get('timezone', 'UTC')
         if user_timezone != 'UTC':
@@ -79,9 +71,9 @@ class ScheduleProvider(TriggerProvider):
     
     async def setup_trigger(self, trigger: Trigger) -> bool:
         try:
-            webhook_url = f"{self._webhook_base_url}/api/triggers/{trigger.trigger_id}/webhook"
+            # Note: webhook_url removed - scheduled triggers may need alternative configuration
+            webhook_url = f"http://localhost:8000/api/triggers/{trigger.trigger_id}/webhook"
             cron_expression = trigger.config['cron_expression']
-            execution_type = trigger.config.get('execution_type', 'agent')
             user_timezone = trigger.config.get('timezone', 'UTC')
 
             if user_timezone != 'UTC':
@@ -90,10 +82,7 @@ class ScheduleProvider(TriggerProvider):
             payload = {
                 "trigger_id": trigger.trigger_id,
                 "agent_id": trigger.agent_id,
-                "execution_type": execution_type,
                 "agent_prompt": trigger.config.get('agent_prompt'),
-                "workflow_id": trigger.config.get('workflow_id'),
-                "workflow_input": trigger.config.get('workflow_input', {}),
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
             
@@ -167,7 +156,6 @@ class ScheduleProvider(TriggerProvider):
     async def process_event(self, trigger: Trigger, event: TriggerEvent) -> TriggerResult:
         try:
             raw_data = event.raw_data
-            execution_type = raw_data.get('execution_type', 'agent')
             
             execution_variables = {
                 'scheduled_time': raw_data.get('timestamp'),
@@ -175,32 +163,17 @@ class ScheduleProvider(TriggerProvider):
                 'agent_id': event.agent_id
             }
             
-            if execution_type == 'workflow':
-                workflow_id = raw_data.get('workflow_id')
-                workflow_input = raw_data.get('workflow_input', {})
-                
-                if not workflow_id:
-                    raise ValueError("workflow_id is required for workflow execution")
-                
-                return TriggerResult(
-                    success=True,
-                    should_execute_workflow=True,
-                    workflow_id=workflow_id,
-                    workflow_input=workflow_input,
-                    execution_variables=execution_variables
-                )
-            else:
-                agent_prompt = raw_data.get('agent_prompt')
-                
-                if not agent_prompt:
-                    raise ValueError("agent_prompt is required for agent execution")
-                
-                return TriggerResult(
-                    success=True,
-                    should_execute_agent=True,
-                    agent_prompt=agent_prompt,
-                    execution_variables=execution_variables
-                )
+            agent_prompt = raw_data.get('agent_prompt')
+            
+            if not agent_prompt:
+                raise ValueError("agent_prompt is required for agent execution")
+            
+            return TriggerResult(
+                success=True,
+                should_execute_agent=True,
+                agent_prompt=agent_prompt,
+                execution_variables=execution_variables
+            )
                 
         except Exception as e:
             return TriggerResult(
@@ -318,30 +291,16 @@ class ProviderService:
                         "type": "string",
                         "description": "Cron expression for scheduling"
                     },
-                    "execution_type": {
-                        "type": "string",
-                        "enum": ["agent", "workflow"],
-                        "description": "Type of execution"
-                    },
                     "agent_prompt": {
                         "type": "string",
                         "description": "Prompt for agent execution"
-                    },
-                    "workflow_id": {
-                        "type": "string",
-                        "description": "ID of workflow to execute"
-                    },
-                    "workflow_input": {
-                        "type": "object",
-                        "description": "JSON input variables for the selected workflow/playbook",
-                        "additionalProperties": True
                     },
                     "timezone": {
                         "type": "string",
                         "description": "Timezone for cron expression"
                     }
                 },
-                "required": ["cron_expression", "execution_type"]
+                "required": ["cron_expression", "agent_prompt"]
             }
         elif provider_id == "webhook":
             return {
@@ -366,26 +325,12 @@ class ProviderService:
                         "type": "string",
                         "description": "Composio trigger slug (e.g., GITHUB_COMMIT_EVENT)"
                     },
-                    "execution_type": {
-                        "type": "string",
-                        "enum": ["agent", "workflow"],
-                        "description": "How to route the event"
-                    },
                     "agent_prompt": {
                         "type": "string",
                         "description": "Prompt template for agent execution"
-                    },
-                    "workflow_id": {
-                        "type": "string",
-                        "description": "Workflow ID to execute for workflow routing"
-                    },
-                    "workflow_input": {
-                        "type": "object",
-                        "description": "Optional static input object for workflow execution",
-                        "additionalProperties": True
                     }
                 },
-                "required": ["composio_trigger_id", "execution_type"]
+                "required": ["composio_trigger_id", "agent_prompt"]
             }
         
         return {"type": "object", "properties": {}, "required": []}
@@ -513,12 +458,6 @@ class ComposioEventProvider(TriggerProvider):
         if not composio_trigger_id or not isinstance(composio_trigger_id, str):
             raise ValueError("composio_trigger_id is required and must be a string")
 
-        execution_type = config.get("execution_type", "agent")
-        if execution_type not in ["agent", "workflow"]:
-            raise ValueError("execution_type must be either 'agent' or 'workflow'")
-
-        if execution_type == "workflow" and not config.get("workflow_id"):
-            raise ValueError("workflow_id is required for workflow execution")
 
         return config
 
@@ -648,30 +587,18 @@ class ComposioEventProvider(TriggerProvider):
                 "received_at": datetime.now(timezone.utc).isoformat(),
             }
 
-            route = trigger.config.get("execution_type", "agent")
-            if route == "workflow":
-                workflow_id = trigger.config.get("workflow_id")
-                workflow_input = trigger.config.get("workflow_input", {})
-                return TriggerResult(
-                    success=True,
-                    should_execute_workflow=True,
-                    workflow_id=workflow_id,
-                    workflow_input=workflow_input,
-                    execution_variables=execution_variables,
-                )
-            else:
-                # Agent routing
-                agent_prompt = trigger.config.get("agent_prompt")
-                if not agent_prompt:
-                    # Minimal default prompt
-                    agent_prompt = f"Process Composio event {trigger_slug or ''}: {json.dumps(raw.get('payload', raw))[:800]}"
+            # Agent routing
+            agent_prompt = trigger.config.get("agent_prompt")
+            if not agent_prompt:
+                # Minimal default prompt
+                agent_prompt = f"Process Composio event {trigger_slug or ''}: {json.dumps(raw.get('payload', raw))[:800]}"
 
-                return TriggerResult(
-                    success=True,
-                    should_execute_agent=True,
-                    agent_prompt=agent_prompt,
-                    execution_variables=execution_variables,
-                )
+            return TriggerResult(
+                success=True,
+                should_execute_agent=True,
+                agent_prompt=agent_prompt,
+                execution_variables=execution_variables,
+            )
 
         except Exception as e:
             return TriggerResult(success=False, error_message=f"Error processing Composio event: {str(e)}")

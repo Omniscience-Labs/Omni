@@ -25,22 +25,11 @@ from core.utils.retry import retry
 import sentry_sdk
 from typing import Dict, Any
 
-# Get Redis configuration - prioritize REDIS_URL if available
-redis_url = os.getenv("REDIS_URL")
-if redis_url:
-    # Parse REDIS_URL for Dramatiq broker
-    import urllib.parse
-    parsed = urllib.parse.urlparse(redis_url)
-    redis_host = parsed.hostname or "redis"
-    redis_port = parsed.port or 6379
-    redis_password = parsed.password or ""
-    print(f"Background worker using REDIS_URL configuration: {redis_host}:{redis_port}")
-else:
-    # Fall back to individual environment variables
-    redis_host = os.getenv('REDIS_HOST', 'redis')
-    redis_port = int(os.getenv('REDIS_PORT', 6379))
-    redis_password = ""
-    print(f"Background worker using individual Redis environment variables: {redis_host}:{redis_port}")
+redis_host = os.getenv('REDIS_HOST', 'redis')
+redis_port = int(os.getenv('REDIS_PORT', 6379))
+
+logger.info(f"🔧 Configuring Dramatiq broker with Redis at {redis_host}:{redis_port}")
+redis_broker = RedisBroker(host=redis_host, port=redis_port, middleware=[dramatiq.middleware.AsyncIO()])
 
 # Configure Redis broker for Dramatiq with password if available
 broker_config = {
@@ -67,22 +56,26 @@ except Exception as e:
     dramatiq.set_broker(stub_broker)
     print("⚠️ Using StubBroker as fallback - background tasks will not be processed")
 
-
 _initialized = False
 db = DBConnection()
-instance_id = "single"
+instance_id = ""
 
 async def initialize():
     """Initialize the agent API with resources from the main API."""
     global db, instance_id, _initialized
 
+    if _initialized:
+        return  # Already initialized
+    
     if not instance_id:
         instance_id = str(uuid.uuid4())[:8]
+    
+    logger.info(f"Initializing worker with Redis at {redis_host}:{redis_port}")
     await retry(lambda: redis.initialize_async())
     await db.initialize()
 
     _initialized = True
-    logger.debug(f"Initialized agent API with instance ID: {instance_id}")
+    logger.info(f"✅ Worker initialized successfully with instance ID: {instance_id}")
 
 @dramatiq.actor
 async def check_health(key: str):
@@ -243,7 +236,7 @@ async def run_agent_background(
 
         # Initialize agent generator
         agent_gen = run_agent(
-            thread_id=thread_id, project_id=project_id, stream=stream,
+            thread_id=thread_id, project_id=project_id,
             model_name=effective_model,
             enable_thinking=enable_thinking, reasoning_effort=reasoning_effort,
             enable_context_manager=enable_context_manager,
@@ -487,8 +480,6 @@ async def update_agent_run_status(
 
         if error:
             update_data["error"] = error
-
-
 
         # Retry up to 3 times
         for retry in range(3):

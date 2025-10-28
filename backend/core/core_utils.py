@@ -1,17 +1,23 @@
-import json
-import traceback
 import uuid
-from typing import Optional, List, Dict, Any
-from datetime import datetime, timezone, timedelta
-from fastapi import HTTPException
-from .utils.cache import Cache
-from .utils.logger import logger
-from .utils.config import config
-from .utils.auth_utils import verify_and_authorize_thread_access
+from typing import Optional
 from core.services import redis
 from core.services.supabase import DBConnection
-from core.services.llm import make_llm_api_call
-from run_agent_background import update_agent_run_status, _cleanup_redis_response_list
+from .utils.logger import logger
+
+# Import and re-export from specialized modules
+from .utils.icon_generator import RELEVANT_ICONS, generate_icon_and_colors as generate_agent_icon_and_colors
+from .utils.limits_checker import (
+    check_agent_run_limit,
+    check_agent_count_limit, 
+    check_project_count_limit
+)
+from .utils.run_management import (
+    cleanup_instance_runs,
+    stop_agent_run_with_helpers,
+    check_for_active_project_agent_run
+)
+from .utils.project_helpers import generate_and_update_project_name
+from .utils.mcp_helpers import merge_custom_mcps
 
 # Load Lucide React icons once at module level for performance
 try:
@@ -83,23 +89,12 @@ async def cleanup():
     """Clean up resources and stop running agents on shutdown."""
     logger.debug("Starting cleanup of agent API resources")
 
-    # Use the instance_id to find and clean up this instance's keys
+    # Clean up instance-specific agent runs
     try:
-        if instance_id: # Ensure instance_id is set
-            running_keys = await redis.keys(f"active_run:{instance_id}:*")
-            logger.debug(f"Found {len(running_keys)} running agent runs for instance {instance_id} to clean up")
-
-            for key in running_keys:
-                # Key format: active_run:{instance_id}:{agent_run_id}
-                parts = key.split(":")
-                if len(parts) == 3:
-                    agent_run_id = parts[2]
-                    await stop_agent_run_with_helpers(agent_run_id, error_message=f"Instance {instance_id} shutting down")
-                else:
-                    logger.warning(f"Unexpected key format found: {key}")
+        if instance_id:
+            await cleanup_instance_runs(instance_id)
         else:
             logger.warning("Instance ID not set, cannot clean up instance-specific agent runs.")
-
     except Exception as e:
         logger.error(f"Failed to clean up running agent runs: {str(e)}")
 
@@ -107,6 +102,7 @@ async def cleanup():
     await redis.close()
     logger.debug("Completed cleanup of agent API resources")
 
+<<<<<<< HEAD
 async def stop_agent_run_with_helpers(agent_run_id: str, error_message: Optional[str] = None):
     """Update database and publish stop signal to Redis."""
     logger.debug(f"Stopping agent run: {agent_run_id}")
@@ -398,6 +394,8 @@ def merge_custom_mcps(existing_mcps: List[Dict[str, Any]], new_mcps: List[Dict[s
     
     return merged_mcps
 
+=======
+>>>>>>> upstream/PRODUCTION
 def initialize(
     _db: DBConnection,
     _instance_id: Optional[str] = None
@@ -419,14 +417,8 @@ def initialize(
 
     logger.debug(f"Initialized agent API with instance ID: {instance_id}")
 
-async def _cleanup_redis_response_list(agent_run_id: str):
-    try:
-        response_list_key = f"agent_run:{agent_run_id}:responses"
-        await redis.delete(response_list_key)
-        logger.debug(f"Cleaned up Redis response list for agent run {agent_run_id}")
-    except Exception as e:
-        logger.warning(f"Failed to clean up Redis response list for {agent_run_id}: {str(e)}")
 
+<<<<<<< HEAD
 
 async def check_for_active_project_agent_run(client, project_id: str):
     project_threads = await client.table('threads').select('thread_id').eq('project_id', project_id).execute()
@@ -948,3 +940,5 @@ if __name__ == "__main__":
     
     # Run the tests
     asyncio.run(main())
+=======
+>>>>>>> upstream/PRODUCTION

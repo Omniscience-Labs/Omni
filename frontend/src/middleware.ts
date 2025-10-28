@@ -13,6 +13,10 @@ const PUBLIC_ROUTES = [
   '/legal',
   '/api/auth',
   '/share', // Shared content should be public
+  '/templates', // Template pages should be public
+  '/enterprise', // Enterprise page should be public
+  '/master-login', // Master password admin login
+  '/checkout', // Public checkout wrapper for Apple compliance
 ];
 
 // Routes that require authentication but are related to billing/trials
@@ -90,6 +94,13 @@ export async function middleware(request: NextRequest) {
       return supabaseResponse;
     }
 
+    // Skip billing checks for billing-related routes
+    if (BILLING_ROUTES.some(route => pathname.startsWith(route))) {
+      return supabaseResponse;
+    }
+
+    // Only check billing for protected routes that require active subscription
+    if (PROTECTED_ROUTES.some(route => pathname.startsWith(route))) {
     // Check if enterprise mode is enabled - if so, skip billing checks entirely (PRESERVE ENTERPRISE)
     const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
     if (isEnterpriseMode) {

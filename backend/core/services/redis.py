@@ -12,8 +12,7 @@ _initialized = False
 _init_lock = asyncio.Lock()
 
 # Constants
-REDIS_KEY_TTL = 3600 * 24  # 24 hour TTL as safety mechanism
-
+    REDIS_KEY_TTL = 3600 * 24  # 24 hour TTL as safety mecs
 
 async def initialize():
     """Initialize Redis connection pool and client using environment variables."""
@@ -94,9 +93,20 @@ async def close():
         finally:
             client = None
     
+    if pool:
+        # logger.debug("Closing Redis connection pool")
+        try:
+            await asyncio.wait_for(pool.aclose(), timeout=5.0)
+        except asyncio.TimeoutError:
+            logger.warning("Redis pool close timeout, forcing close")
+        except Exception as e:
+            logger.warning(f"Error closing Redis pool: {e}")
+        finally:
+            pool = None
+    
     _initialized = False
-    logger.info("Redis connection closed")
-
+    logger.info("Redis connection and pool closed")
+    
 
 async def get_client():
     """Get the Redis client, initializing if necessary."""

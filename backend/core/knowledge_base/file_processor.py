@@ -16,9 +16,13 @@ from core.services.llm import make_llm_api_call
 
 class FileProcessor:
     SUPPORTED_EXTENSIONS = {'.txt', '.pdf', '.docx'}
+<<<<<<< HEAD
     MAX_FILE_SIZE = 500 * 1024 * 1024
     MAX_ZIP_ENTRIES = 1000
     MAX_CONTENT_LENGTH = 100000
+=======
+    MAX_FILE_SIZE = 50 * 1024 * 1024
+>>>>>>> upstream/PRODUCTION
     
     def __init__(self):
         self.db = DBConnection()

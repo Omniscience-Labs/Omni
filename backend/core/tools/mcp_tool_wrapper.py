@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Optional
-from core.agentpress.tool import Tool, ToolResult, ToolSchema, SchemaType
+from core.agentpress.tool import Tool, ToolResult, ToolSchema, SchemaType, tool_metadata
 from core.mcp_module import mcp_service
 from core.utils.logger import logger
 import inspect
@@ -108,6 +108,14 @@ class MCPSchemaRedisCache:
 
 _redis_cache = MCPSchemaRedisCache(ttl_seconds=3600)
 
+@tool_metadata(
+    display_name="MCP Tool Wrapper",
+    description="Internal wrapper for MCP external tool integration",
+    icon="Package",
+    color="bg-gray-100 dark:bg-gray-800/50",
+    weight=1000,
+    visible=False
+)
 class MCPToolWrapper(Tool):
     def __init__(self, mcp_configs: Optional[List[Dict[str, Any]]] = None, use_cache: bool = True):
         self.mcp_manager = mcp_service
@@ -241,8 +249,8 @@ class MCPToolWrapper(Tool):
             available_tools = self.mcp_manager.get_all_tools_openapi()
             custom_tools = self.custom_handler.get_custom_tools()
             
-            logger.debug(f"MCPManager returned {len(available_tools)} tools")
-            logger.debug(f"Custom handler returned {len(custom_tools)} custom tools")
+            # logger.debug(f"MCPManager returned {len(available_tools)} tools")
+            # logger.debug(f"Custom handler returned {len(custom_tools)} custom tools")
             
             self._custom_tools = custom_tools
             
@@ -261,10 +269,10 @@ class MCPToolWrapper(Tool):
             
             self._schemas.update(self.tool_builder.get_schemas())
             
-            logger.debug(f"Created {len(self._dynamic_tools)} dynamic MCP tool methods")
+            # logger.debug(f"Created {len(self._dynamic_tools)} dynamic MCP tool methods")
             
             self._register_schemas()
-            logger.debug(f"Re-registered schemas after creating dynamic tools - total: {len(self._schemas)}")
+            # logger.debug(f"Re-registered schemas after creating dynamic tools - total: {len(self._schemas)}")
             
         except Exception as e:
             logger.error(f"Error creating dynamic MCP tools: {e}")
@@ -275,7 +283,7 @@ class MCPToolWrapper(Tool):
         for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
             if hasattr(method, 'tool_schemas'):
                 self._schemas[name] = method.tool_schemas
-                logger.debug(f"Registered schemas for method '{name}' in {self.__class__.__name__}")
+                # logger.debug(f"Registered schemas for method '{name}' in {self.__class__.__name__}")
         
         if hasattr(self, '_dynamic_tools') and self._dynamic_tools:
             for tool_name, tool_data in self._dynamic_tools.items():
@@ -286,14 +294,14 @@ class MCPToolWrapper(Tool):
                 method = tool_data.get('method')
                 if method and hasattr(method, 'tool_schemas'):
                     self._schemas[method_name] = method.tool_schemas
-                    logger.debug(f"Registered dynamic method schemas for '{method_name}'")
+                    # logger.debug(f"Registered dynamic method schemas for '{method_name}'")
         
         logger.debug(f"Registration complete for MCPToolWrapper - total schemas: {len(self._schemas)}")
     
     def get_schemas(self) -> Dict[str, List[ToolSchema]]:
-        logger.debug(f"get_schemas called - returning {len(self._schemas)} schemas")
-        for method_name in self._schemas:
-            logger.debug(f"  - Schema available for: {method_name}")
+        # logger.debug(f"get_schemas called - returning {len(self._schemas)} schemas")
+        # for method_name in self._schemas:
+        #     # logger.debug(f"  - Schema available for: {method_name}")
         return self._schemas
     
     def __getattr__(self, name: str):

@@ -1,7 +1,7 @@
 from tavily import AsyncTavilyClient
 import httpx
 from dotenv import load_dotenv
-from core.agentpress.tool import Tool, ToolResult, openapi_schema, usage_example
+from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata
 from core.utils.config import config
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
@@ -12,6 +12,14 @@ import logging
 
 # TODO: add subpages, etc... in filters as sometimes its necessary 
 
+@tool_metadata(
+    display_name="Web Search",
+    description="Search the internet for information, news, and research",
+    icon="Search",
+    color="bg-green-100 dark:bg-green-800/50",
+    weight=30,
+    visible=True
+)
 class SandboxWebSearchTool(SandboxToolsBase):
     """Tool for performing web searches using Tavily API and web scraping using Firecrawl."""
 
@@ -25,9 +33,9 @@ class SandboxWebSearchTool(SandboxToolsBase):
         self.firecrawl_url = config.FIRECRAWL_URL
         
         if not self.tavily_api_key:
-            raise ValueError("TAVILY_API_KEY not found in configuration")
+            logger.warning("TAVILY_API_KEY not configured - Web Search Tool will not be available")
         if not self.firecrawl_api_key:
-            raise ValueError("FIRECRAWL_API_KEY not found in configuration")
+            logger.warning("FIRECRAWL_API_KEY not configured - Web Scraping Tool will not be available")
 
         # Tavily asynchronous search client
         self.tavily_client = AsyncTavilyClient(api_key=self.tavily_api_key)
@@ -54,22 +62,6 @@ class SandboxWebSearchTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="web_search">
-        <parameter name="query">what is Kortix AI and what are they building?</parameter>
-        <parameter name="num_results">20</parameter>
-        </invoke>
-        </function_calls>
-        
-        <!-- Another search example -->
-        <function_calls>
-        <invoke name="web_search">
-        <parameter name="query">latest AI research on transformer models</parameter>
-        <parameter name="num_results">20</parameter>
-        </invoke>
-        </function_calls>
-        ''')
     async def web_search(
         self, 
         query: str,
@@ -79,6 +71,10 @@ class SandboxWebSearchTool(SandboxToolsBase):
         Search the web using the Tavily API to find relevant and up-to-date information.
         """
         try:
+            # Check if Tavily API key is configured
+            if not self.tavily_api_key:
+                return self.fail_response("Web Search is not available. TAVILY_API_KEY is not configured.")
+            
             # Ensure we have a valid query
             if not query or not isinstance(query, str):
                 return self.fail_response("A valid search query is required.")
@@ -158,21 +154,6 @@ class SandboxWebSearchTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="scrape_webpage">
-        <parameter name="urls">https://www.kortix.ai/,https://github.com/kortix-ai/suna</parameter>
-        </invoke>
-        </function_calls>
-        
-        <!-- Example with HTML content included -->
-        <function_calls>
-        <invoke name="scrape_webpage">
-        <parameter name="urls">https://example.com/complex-page</parameter>
-        <parameter name="include_html">true</parameter>
-        </invoke>
-        </function_calls>
-        ''')
     async def scrape_webpage(
         self,
         urls: str,
@@ -189,6 +170,10 @@ class SandboxWebSearchTool(SandboxToolsBase):
         - include_html: Whether to include full HTML content alongside markdown (default: False)
         """
         try:
+            # Check if Firecrawl API key is configured
+            if not self.firecrawl_api_key:
+                return self.fail_response("Web Scraping is not available. FIRECRAWL_API_KEY is not configured.")
+            
             logging.info(f"Starting to scrape webpages: {urls}")
             
             # Ensure sandbox is initialized

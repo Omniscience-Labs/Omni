@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
@@ -26,8 +27,6 @@ class MCPRequirementValue:
     trigger_index: Optional[int] = None
     
     def is_custom(self) -> bool:
-        if self.qualified_name.startswith('pipedream:'):
-            return False
         if self.custom_type == 'composio' or self.qualified_name.startswith('composio.'):
             return False
         return self.custom_type is not None and self.qualified_name.startswith('custom_')
@@ -38,22 +37,29 @@ class AgentTemplate:
     creator_id: str
     name: str
     config: ConfigType
-    description: Optional[str] = None
     tags: List[str] = field(default_factory=list)
+    categories: List[str] = field(default_factory=list)
     is_public: bool = False
     is_kortix_team: bool = False
     marketplace_published_at: Optional[datetime] = None
     download_count: int = 0
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+<<<<<<< HEAD
     profile_image_url: Optional[str] = None
+=======
+>>>>>>> upstream/PRODUCTION
     icon_name: Optional[str] = None
     icon_color: Optional[str] = None
     icon_background: Optional[str] = None
     metadata: ConfigType = field(default_factory=dict)
     creator_name: Optional[str] = None
+<<<<<<< HEAD
     sharing_preferences: Optional[Dict[str, bool]] = None
     
+=======
+    usage_examples: List[Dict[str, Any]] = field(default_factory=list)
+>>>>>>> upstream/PRODUCTION
     
     def with_public_status(self, is_public: bool, published_at: Optional[datetime] = None) -> 'AgentTemplate':
         return AgentTemplate(
@@ -70,9 +76,6 @@ class AgentTemplate:
     def agentpress_tools(self) -> Dict[str, Any]:
         return self.config.get('tools', {}).get('agentpress', {})
     
-    @property
-    def workflows(self) -> List[Dict[str, Any]]:
-        return self.config.get('workflows', [])
     
     @property
     def mcp_requirements(self) -> List[MCPRequirementValue]:
@@ -99,19 +102,14 @@ class AgentTemplate:
                 
                 qualified_name = mcp.get('mcp_qualified_name') or mcp.get('qualifiedName')
                 if not qualified_name:
-                    if mcp_type == 'pipedream':
-                        app_slug = mcp.get('app_slug') or mcp.get('config', {}).get('headers', {}).get('x-pd-app-slug')
-                        if not app_slug:
-                            app_slug = mcp_name.lower().replace(' ', '').replace('(', '').replace(')', '')
-                        qualified_name = f"pipedream:{app_slug}"
-                    elif mcp_type == 'composio':
+                    if mcp_type == 'composio':
                         toolkit_slug = mcp.get('toolkit_slug') or mcp_name.lower().replace(' ', '_')
                         qualified_name = f"composio.{toolkit_slug}"
                     else:
                         safe_name = mcp_name.replace(' ', '_').lower()
                         qualified_name = f"custom_{mcp_type}_{safe_name}"
                 
-                if mcp_type in ['pipedream', 'composio']:
+                if mcp_type == 'composio':
                     required_config = []
                 elif mcp_type in ['http', 'sse', 'json']:
                     required_config = ['url']
@@ -125,7 +123,7 @@ class AgentTemplate:
                     required_config=required_config,
                     custom_type=mcp_type,
                     toolkit_slug=mcp.get('toolkit_slug') if mcp_type == 'composio' else None,
-                    app_slug=mcp.get('app_slug') if mcp_type == 'pipedream' else None,
+                    app_slug=None,
                     source='tool'
                 ))
         
@@ -195,8 +193,12 @@ class TemplateService:
         creator_id: str,
         make_public: bool = False,
         tags: Optional[List[str]] = None,
+<<<<<<< HEAD
         sharing_preferences: Optional[Dict[str, bool]] = None,
         
+=======
+        usage_examples: Optional[List[Dict[str, Any]]] = None
+>>>>>>> upstream/PRODUCTION
     ) -> str:
         logger.debug(f"Creating template from agent {agent_id} for user {creator_id}")
         
@@ -240,11 +242,12 @@ class TemplateService:
             template_id=str(uuid4()),
             creator_id=creator_id,
             name=agent['name'],
-            description=agent.get('description'),
             config=sanitized_config,
             tags=tags or [],
+            categories=[],
             is_public=make_public,
             marketplace_published_at=datetime.now(timezone.utc) if make_public else None,
+<<<<<<< HEAD
             profile_image_url=agent.get('profile_image_url'),
             icon_name=agent.get('icon_name'),
             icon_color=agent.get('icon_color'),
@@ -256,6 +259,13 @@ class TemplateService:
             },
             sharing_preferences=sharing_preferences
 
+=======
+            icon_name=agent.get('icon_name'),
+            icon_color=agent.get('icon_color'),
+            icon_background=agent.get('icon_background'),
+            metadata=agent.get('metadata', {}),
+            usage_examples=usage_examples or []
+>>>>>>> upstream/PRODUCTION
         )
         
         await self._save_template(template)
@@ -299,7 +309,11 @@ class TemplateService:
             return self._map_to_template(result.data)
             
         except Exception as e:
-            logger.error(f"Error in get_template for {template_id}: {e}", exc_info=True)
+            try:
+                error_str = str(e)
+            except Exception:
+                error_str = f"Error of type {type(e).__name__}"
+            logger.error(f"Error in get_template for {template_id}: {error_str}")
             raise
     
     async def get_user_templates(self, creator_id: str) -> List[AgentTemplate]:
@@ -342,7 +356,7 @@ class TemplateService:
             query = query.eq('is_kortix_team', is_kortix_team)
         
         if search:
-            query = query.or_(f"name.ilike.%{search}%,description.ilike.%{search}%")
+            query = query.ilike("name", f"%{search}%")
         
         if tags:
             for tag in tags:
@@ -390,6 +404,7 @@ class TemplateService:
         self, 
         template_id: str, 
         creator_id: str,
+<<<<<<< HEAD
         sharing_preferences: Optional[Dict[str, bool]] = None,
         
     ) -> bool:
@@ -407,14 +422,30 @@ class TemplateService:
                 "include_triggers": True,
                 "default_files": True
             }
+=======
+        usage_examples: Optional[List[Dict[str, Any]]] = None
+    ) -> bool:
+        logger.debug(f"Publishing template {template_id}")
+>>>>>>> upstream/PRODUCTION
         
         client = await self._db.client
-        result = await client.table('agent_templates').update({
+        update_data = {
             'is_public': True,
             'marketplace_published_at': datetime.now(timezone.utc).isoformat(),
+<<<<<<< HEAD
             'updated_at': datetime.now(timezone.utc).isoformat(),
             'sharing_preferences': sharing_preferences
         }).eq('template_id', template_id)\
+=======
+            'updated_at': datetime.now(timezone.utc).isoformat()
+        }
+        
+        if usage_examples is not None:
+            update_data['usage_examples'] = usage_examples
+        
+        result = await client.table('agent_templates').update(update_data)\
+          .eq('template_id', template_id)\
+>>>>>>> upstream/PRODUCTION
           .eq('creator_id', creator_id)\
           .execute()
         
@@ -634,20 +665,6 @@ class TemplateService:
             else:
                 sanitized_agentpress[tool_name] = False
         
-        workflows = config.get('workflows', [])
-        sanitized_workflows = []
-        for workflow in workflows:
-            if isinstance(workflow, dict):
-                sanitized_workflow = {
-                    'name': workflow.get('name'),
-                    'description': workflow.get('description'),
-                    'status': workflow.get('status', 'draft'),
-                    'trigger_phrase': workflow.get('trigger_phrase'),
-                    'is_default': workflow.get('is_default', False),
-                    'steps': workflow.get('steps', [])
-                }
-                sanitized_workflows.append(sanitized_workflow)
-        
         triggers = config.get('triggers', [])
         sanitized_triggers = []
         for trigger in triggers:
@@ -655,25 +672,24 @@ class TemplateService:
                 trigger_config = trigger.get('config', {})
                 provider_id = trigger_config.get('provider_id', '')
                 
+                agent_prompt = trigger_config.get('agent_prompt', '')
+                
                 sanitized_config = {
                     'provider_id': provider_id,
-                    'agent_prompt': trigger_config.get('agent_prompt', ''),
-                    'execution_type': trigger_config.get('execution_type', 'agent')
+                    'agent_prompt': agent_prompt,
                 }
                 
-                if sanitized_config['execution_type'] == 'workflow':
-                    workflow_id = trigger_config.get('workflow_id')
-                    if workflow_id:
-                        workflow_name = None
-                        for workflow in workflows:
-                            if workflow.get('id') == workflow_id:
-                                workflow_name = workflow.get('name')
-                                break
-                        if workflow_name:
-                            sanitized_config['workflow_name'] = workflow_name
-                    
-                    if 'workflow_input' in trigger_config:
-                        sanitized_config['workflow_input'] = trigger_config['workflow_input']
+                # Extract trigger variables if they exist in the prompt
+                trigger_variables = trigger_config.get('trigger_variables', [])
+                if not trigger_variables and agent_prompt:
+                    # Extract variables from the prompt using regex
+                    pattern = r'\{\{(\w+)\}\}'
+                    matches = re.findall(pattern, agent_prompt)
+                    if matches:
+                        trigger_variables = list(set(matches))
+                
+                if trigger_variables:
+                    sanitized_config['trigger_variables'] = trigger_variables
                 
                 if provider_id == 'schedule':
                     sanitized_config['cron_expression'] = trigger_config.get('cron_expression', '')
@@ -682,6 +698,28 @@ class TemplateService:
                     sanitized_config['trigger_slug'] = trigger_config.get('trigger_slug', '')
                     if 'qualified_name' in trigger_config:
                         sanitized_config['qualified_name'] = trigger_config['qualified_name']
+                    
+                    excluded_fields = {
+                        'profile_id', 'composio_trigger_id', 'provider_id', 
+                        'agent_prompt', 'trigger_slug', 'qualified_name', 'trigger_variables'
+                    }
+                    
+                    trigger_fields = {}
+                    for key, value in trigger_config.items():
+                        if key not in excluded_fields:
+                            if isinstance(value, bool):
+                                trigger_fields[key] = {'type': 'boolean', 'required': True}
+                            elif isinstance(value, (int, float)):
+                                trigger_fields[key] = {'type': 'number', 'required': True}
+                            elif isinstance(value, list):
+                                trigger_fields[key] = {'type': 'array', 'required': True}
+                            elif isinstance(value, dict):
+                                trigger_fields[key] = {'type': 'object', 'required': True}
+                            else:
+                                trigger_fields[key] = {'type': 'string', 'required': True}
+                    
+                    if trigger_fields:
+                        sanitized_config['trigger_fields'] = trigger_fields
 
                 sanitized_trigger = {
                     'name': trigger.get('name'),
@@ -700,7 +738,6 @@ class TemplateService:
                 'mcp': config.get('tools', {}).get('mcp', []),
                 'custom_mcp': []
             },
-            'workflows': sanitized_workflows,
             'triggers': sanitized_triggers,
             'metadata': {}
         }
@@ -718,33 +755,7 @@ class TemplateService:
                     'enabledTools': mcp.get('enabledTools', [])
                 }
                 
-                if mcp_type == 'pipedream':
-                    original_config = mcp.get('config', {})
-                    app_slug = (
-                        mcp.get('app_slug') or
-                        original_config.get('headers', {}).get('x-pd-app-slug')
-                    )
-                    qualified_name = mcp.get('qualifiedName')
-                    
-                    if not app_slug:
-                        if qualified_name and qualified_name.startswith('pipedream:'):
-                            app_slug = qualified_name[10:]
-                        else:
-                            app_slug = mcp_name.lower().replace(' ', '').replace('(', '').replace(')', '')
-                    
-                    if not qualified_name:
-                        qualified_name = f"pipedream:{app_slug}"
-                    
-                    sanitized_mcp['qualifiedName'] = qualified_name
-                    sanitized_mcp['app_slug'] = app_slug
-                    
-                    sanitized_mcp['config'] = {
-                        'url': original_config.get('url'),
-                        'headers': {k: v for k, v in original_config.get('headers', {}).items() 
-                                  if k not in ['profile_id', 'x-pd-app-slug']}
-                    }
-                    
-                elif mcp_type == 'composio':
+                if mcp_type == 'composio':
                     original_config = mcp.get('config', {})
                     qualified_name = (
                         mcp.get('mcp_qualified_name') or 
@@ -796,21 +807,28 @@ class TemplateService:
             'template_id': template.template_id,
             'creator_id': template.creator_id,
             'name': template.name,
-            'description': template.description,
             'config': template.config,
             'tags': template.tags,
+            'categories': template.categories,
             'is_public': template.is_public,
             'marketplace_published_at': template.marketplace_published_at.isoformat() if template.marketplace_published_at else None,
             'download_count': template.download_count,
             'created_at': template.created_at.isoformat(),
             'updated_at': template.updated_at.isoformat(),
+<<<<<<< HEAD
             'profile_image_url': template.profile_image_url,
+=======
+>>>>>>> upstream/PRODUCTION
             'icon_name': template.icon_name,
             'icon_color': template.icon_color,
             'icon_background': template.icon_background,
             'metadata': template.metadata,
+<<<<<<< HEAD
             'sharing_preferences': template.sharing_preferences
 
+=======
+            'usage_examples': template.usage_examples
+>>>>>>> upstream/PRODUCTION
         }
         
         await client.table('agent_templates').insert(template_data).execute()
@@ -818,26 +836,37 @@ class TemplateService:
     def _map_to_template(self, data: Dict[str, Any]) -> AgentTemplate:
         creator_name = data.get('creator_name')
         
+        usage_examples = data.get('usage_examples', [])
+        logger.debug(f"Mapping template {data.get('template_id')}: usage_examples from DB = {usage_examples}")
+        logger.debug(f"Raw data keys: {list(data.keys())}")
+        
         return AgentTemplate(
             template_id=data['template_id'],
             creator_id=data['creator_id'],
             name=data['name'],
-            description=data.get('description'),
             config=data.get('config', {}),
             tags=data.get('tags', []),
+            categories=data.get('categories', []),
             is_public=data.get('is_public', False),
             is_kortix_team=data.get('is_kortix_team', False),
             marketplace_published_at=datetime.fromisoformat(data['marketplace_published_at'].replace('Z', '+00:00')) if data.get('marketplace_published_at') else None,
             download_count=data.get('download_count', 0),
             created_at=datetime.fromisoformat(data['created_at'].replace('Z', '+00:00')),
             updated_at=datetime.fromisoformat(data['updated_at'].replace('Z', '+00:00')),
+<<<<<<< HEAD
             profile_image_url=data.get('profile_image_url'),
+=======
+>>>>>>> upstream/PRODUCTION
             icon_name=data.get('icon_name'),
             icon_color=data.get('icon_color'),
             icon_background=data.get('icon_background'),
             metadata=data.get('metadata', {}),
             creator_name=creator_name,
+<<<<<<< HEAD
             sharing_preferences=data.get('sharing_preferences')
+=======
+            usage_examples=usage_examples
+>>>>>>> upstream/PRODUCTION
         )
     
     # Share link functionality removed - now using direct template ID URLs for simplicity

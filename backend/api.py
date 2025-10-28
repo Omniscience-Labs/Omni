@@ -23,10 +23,9 @@ from core import api as core_api
 
 from core.sandbox import api as sandbox_api
 from core.billing.api import router as billing_router
-from core.billing.admin import router as billing_admin_router
-from core.services import enterprise_billing_api
-
-from core.admin import users_admin
+from core.admin.admin_api import router as admin_router
+from core.admin.billing_admin_api import router as billing_admin_router
+from core.admin.master_password_api import router as master_password_router
 from core.services import transcription as transcription_api
 import sys
 from core.services import email_api
@@ -78,7 +77,6 @@ async def lifespan(app: FastAPI):
         # asyncio.create_task(core_api.restore_running_agent_runs())
         
         triggers_api.initialize(db)
-        pipedream_api.initialize(db)
         credentials_api.initialize(db)
         template_api.initialize(db)
         composio_api.initialize(db)
@@ -133,7 +131,11 @@ async def log_requests_middleware(request: Request, call_next):
         return response
     except Exception as e:
         process_time = time.time() - start_time
-        logger.error(f"Request failed: {method} {path} | Error: {str(e)} | Time: {process_time:.2f}s")
+        try:
+            error_str = str(e)
+        except Exception:
+            error_str = f"Error of type {type(e).__name__}"
+        logger.error(f"Request failed: {method} {path} | Error: {error_str} | Time: {process_time:.2f}s")
         raise
 
 # Define allowed origins based on environment
@@ -143,13 +145,20 @@ allow_origin_regex = None
 # Add staging-specific origins
 if config.ENV_MODE == EnvMode.LOCAL:
     allowed_origins.append("http://localhost:3000")
+    allowed_origins.append("http://127.0.0.1:3000")
 
 # Add staging-specific origins
 if config.ENV_MODE == EnvMode.STAGING:
     allowed_origins.append("https://staging.suna.so")
     allowed_origins.append("https://huston.staging.becomeomni.net")
     allowed_origins.append("https://huston.staging.becomeomni.net/auth")
-    allow_origin_regex = r"https://suna-.*-prjcts\.vercel\.app"
+    # Allow Vercel preview deployments for both legacy and new project names
+    allow_origin_regex = r"https://(suna|kortixcom)-.*-prjcts\.vercel\.app"
+
+# Add localhost for production mode local testing (for master password login)
+if config.ENV_MODE == EnvMode.PRODUCTION:
+    allowed_origins.append("http://localhost:3000")
+    allowed_origins.append("http://127.0.0.1:3000")
 
 app.add_middleware(
     CORSMiddleware,
@@ -177,7 +186,8 @@ else:
     
 api_router.include_router(api_keys_api.router)
 api_router.include_router(billing_admin_router)
-api_router.include_router(users_admin.router)
+api_router.include_router(admin_router)
+api_router.include_router(master_password_router)
 
 from core.mcp_module import api as mcp_api
 
@@ -310,7 +320,10 @@ Status: {phone_numbers[0].get('status', 'N/A') if phone_numbers else 'N/A'}
             content={"success": False, "error": "Internal server error"}
         )
 
-@api_router.get("/health")
+from core.google.google_docs_api import router as google_docs_router
+api_router.include_router(google_docs_router)
+
+@api_router.get("/health", summary="Health Check", operation_id="health_check", tags=["system"])
 async def health_check():
     logger.debug("Health check endpoint called")
     return {
@@ -319,31 +332,8 @@ async def health_check():
         "instance_id": instance_id
     }
 
-@api_router.get("/debug/routes")
-async def debug_routes():
-    """Debug endpoint to show all registered routes and configuration."""
-    routes_info = []
-    for route in app.routes:
-        if hasattr(route, 'path') and hasattr(route, 'methods'):
-            routes_info.append({
-                "path": route.path,
-                "methods": list(route.methods) if route.methods else [],
-                "name": route.name if hasattr(route, 'name') else None
-            })
-    
-    return {
-        "status": "ok",
-        "enterprise_mode": config.ENTERPRISE_MODE,
-        "env_mode": config.ENV_MODE.value,
-        "total_routes": len(routes_info),
-        "billing_routes": [r for r in routes_info if '/billing' in r['path']],
-        "admin_routes": [r for r in routes_info if '/admin' in r['path']],
-        "enterprise_routes": [r for r in routes_info if '/enterprise' in r['path']],
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    }
-
-@api_router.get("/health-docker")
-async def health_check():
+@api_router.get("/health-docker", summary="Docker Health Check", operation_id="health_check_docker", tags=["system"])
+async def health_check_docker():
     logger.debug("Health docker check endpoint called")
     try:
         client = await redis.get_client()
@@ -382,9 +372,12 @@ if __name__ == "__main__":
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     
-    workers = 4
+    # Enable reload mode for local and staging environments
+    is_dev_env = config.ENV_MODE in [EnvMode.LOCAL, EnvMode.STAGING]
+    workers = 1 if is_dev_env else 4
+    reload = is_dev_env
     
-    logger.debug(f"Starting server on 0.0.0.0:8000 with {workers} workers")
+    logger.debug(f"Starting server on 0.0.0.0:8000 with {workers} workers (reload={reload})")
     uvicorn.run(
         "api:app", 
         host="0.0.0.0", 

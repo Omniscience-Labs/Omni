@@ -51,7 +51,7 @@ function extractUploadData(assistantContent: any, toolContent: any): {
   uploadResult: UploadResult | null;
   rawContent: string | null;
 } {
-  let uploadData: UploadData = {
+  const uploadData: UploadData = {
     file_path: null,
     bucket_name: null,
     custom_filename: null,
@@ -323,7 +323,7 @@ export function UploadFileToolView({
                           size="sm"
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
-                          Open Secure File
+                          Open File
                         </Button>
                       </div>
                     </div>
