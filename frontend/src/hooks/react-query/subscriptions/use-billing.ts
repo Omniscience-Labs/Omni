@@ -6,7 +6,6 @@ import {
   checkBillingStatus,
   CreateCheckoutSessionRequest
 } from '@/lib/api';
-import { backendApi } from '@/lib/api-client';
 
 // useAvailableModels has been moved to use-model-selection.ts for better consolidation
 

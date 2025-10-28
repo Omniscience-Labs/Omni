@@ -15,10 +15,15 @@ LOGGING_LEVEL = logging.getLevelNamesMapping().get(
 )
 
 renderer = [structlog.processors.JSONRenderer()]
+<<<<<<< HEAD
 exc_processor = structlog.processors.dict_tracebacks
 if ENV_MODE.lower() == "local".lower() or ENV_MODE.lower() == "staging".lower():
     renderer = [structlog.dev.ConsoleRenderer(colors=True)]
     exc_processor = structlog.processors.format_exc_info
+=======
+if ENV_MODE.lower() == "local".lower() or ENV_MODE.lower() == "staging".lower():
+    renderer = [structlog.dev.ConsoleRenderer(colors=True)]
+>>>>>>> upstream/PRODUCTION
 
 structlog.configure(
     processors=[

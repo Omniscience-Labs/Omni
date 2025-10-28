@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 
+<<<<<<< HEAD
 class AgentStartRequest(BaseModel):
     """Request model for starting an agent."""
     model_name: Optional[str] = None  # Will be set to default model in the endpoint
@@ -17,8 +18,13 @@ class AgentStartRequest(BaseModel):
 
 class InitiateAgentResponse(BaseModel):
     """Response model for agent initiation."""
+=======
+class UnifiedAgentStartResponse(BaseModel):
+    """Unified response model for agent start (both new and existing threads)."""
+>>>>>>> upstream/PRODUCTION
     thread_id: str
-    agent_run_id: Optional[str] = None
+    agent_run_id: str
+    status: str = "running"
 
 
 class CreateThreadResponse(BaseModel):

@@ -1,4 +1,4 @@
-from core.agentpress.tool import ToolResult, openapi_schema, usage_example
+from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
 from core.agentpress.thread_manager import ThreadManager
 from core.sandbox.tool_base import SandboxToolsBase
 from core.utils.logger import logger
@@ -11,6 +11,14 @@ import traceback
 from PIL import Image
 from core.utils.config import config
 
+@tool_metadata(
+    display_name="Web Browser",
+    description="Browse websites, click buttons, fill forms, and extract information from web pages",
+    icon="Globe",
+    color="bg-cyan-100 dark:bg-cyan-800/50",
+    weight=60,
+    visible=True
+)
 class BrowserTool(SandboxToolsBase):
     """
     Browser Tool for browser automation using local Stagehand API.
@@ -135,7 +143,12 @@ class BrowserTool(SandboxToolsBase):
         try:
             await self._ensure_sandbox()
             
+            # Retry logic: The browser API server takes a few seconds to start
+            # after the sandbox initializes. We'll retry with exponential backoff.
+            max_retries = 5
+            retry_delays = [1, 2, 3, 5, 5]  # seconds between retries
             
+<<<<<<< HEAD
             # Simple health check curl command
             curl_cmd = "curl -s -X GET 'http://localhost:8004/api' -H 'Content-Type: application/json'"
             
@@ -160,16 +173,62 @@ class BrowserTool(SandboxToolsBase):
                         )
                         if response.exit_code == 0:
                             logger.info("Stagehand API server restarted successfully")
+=======
+            for attempt in range(max_retries):
+                # Simple health check curl command
+                curl_cmd = "curl -s -X GET 'http://localhost:8004/api' -H 'Content-Type: application/json'"
+                
+                if attempt > 0:
+                    logger.info(f"Retrying Stagehand API health check (attempt {attempt + 1}/{max_retries})...")
+                
+                response = await self.sandbox.process.exec(curl_cmd, timeout=10)
+                
+                if response.exit_code == 0:
+                    try:
+                        result = json.loads(response.result)
+                        if result.get("status") == "healthy":
+                            logger.info("✅ Stagehand API server is running and healthy")
+>>>>>>> upstream/PRODUCTION
                             return True
                         else:
-                            logger.warning(f"Stagehand API server restart failed: {response.result}")
-                            return False
-                except json.JSONDecodeError:
-                    logger.warning(f"Stagehand API server responded but with invalid JSON: {response.result}")
-                    return False
-            else:
-                logger.warning(f"Stagehand API server health check failed with exit code {response.exit_code}")
-                return False
+                            # If the browser api is not healthy, we need to initialize it
+                            logger.info("Stagehand API server responded but browser not initialized. Initializing...")
+                            # Pass API key securely as environment variable instead of command line argument
+                            env_vars = {"GEMINI_API_KEY": config.GEMINI_API_KEY}
+
+                            response = await self.sandbox.process.exec(
+                                'curl -s -X POST "http://localhost:8004/api/init" -H "Content-Type: application/json" -d "{\\"api_key\\": \\"$GEMINI_API_KEY\\"}"',
+                                timeout=90,
+                                env=env_vars
+                            )
+                            if response.exit_code == 0:
+                                try:
+                                    init_result = json.loads(response.result)
+                                    if init_result.get("status") == "healthy":
+                                        logger.info("✅ Stagehand API server initialized successfully")
+                                        return True
+                                    else:
+                                        logger.warning(f"Stagehand API initialization failed: {init_result}")
+                                        # Don't return False yet, might succeed on retry
+                                except json.JSONDecodeError:
+                                    logger.warning(f"Init endpoint returned invalid JSON: {response.result}")
+                            else:
+                                logger.warning(f"Stagehand API initialization request failed: {response.result}")
+                    except json.JSONDecodeError:
+                        logger.warning(f"Stagehand API server responded but with invalid JSON: {response.result}")
+                elif response.exit_code == 7:
+                    # Connection refused - server not ready yet
+                    logger.debug(f"Browser API server not ready yet (connection refused)")
+                else:
+                    logger.debug(f"Health check failed with exit code {response.exit_code}")
+                
+                # Wait before retrying (except on last attempt)
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delays[attempt])
+            
+            # All retries exhausted
+            logger.error(f"Stagehand API server failed to start after {max_retries} attempts")
+            return False
                 
         except Exception as e:
             logger.error(f"Error checking Stagehand API health: {e}")
@@ -178,6 +237,10 @@ class BrowserTool(SandboxToolsBase):
     async def _execute_stagehand_api(self, endpoint: str, params: dict = None, method: str = "POST") -> ToolResult:
         """Execute a Stagehand action through the sandbox API"""
         try:
+            # Check if Gemini API key is configured
+            if not config.GEMINI_API_KEY:
+                return self.fail_response("Browser tool is not available. GEMINI_API_KEY is not configured.")
+            
             # Ensure sandbox is initialized
             await self._ensure_sandbox()
             
@@ -316,13 +379,6 @@ class BrowserTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="browser_navigate_to">
-        <parameter name="url">https://example.com</parameter>
-        </invoke>
-        </function_calls>
-        ''')
     async def browser_navigate_to(self, url: str) -> ToolResult:
         """Navigate to a URL using Stagehand."""
         logger.debug(f"Browser navigating to: {url}")
@@ -360,22 +416,6 @@ class BrowserTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="browser_act">
-        <parameter name="action">fill in the login form with %username% and %password%</parameter>
-        <parameter name="variables">{"username": "john.doe", "password": "secret123"}</parameter>
-        <parameter name="iframes">true</parameter>
-        </invoke>
-        </function_calls>
-        
-        <function_calls>
-        <invoke name="browser_act">
-        <parameter name="action">click on upload resume button</parameter>
-        <parameter name="filePath">/workspace/downloads/document.pdf</parameter>
-        </invoke>
-        </function_calls>
-        ''')
     async def browser_act(self, action: str, variables: dict = None, iframes: bool = False, filePath: dict = None) -> ToolResult:
         """Perform any browser action using Stagehand."""
         logger.debug(f"Browser acting: {action} (variables={'***' if variables else None}, iframes={iframes}), filePath={filePath}")
@@ -406,14 +446,6 @@ class BrowserTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="browser_extract_content">
-        <parameter name="instruction">extract all product names and prices from the main product list</parameter>
-        <parameter name="iframes">true</parameter>
-        </invoke>
-        </function_calls>
-        ''')
     async def browser_extract_content(self, instruction: str, iframes: bool = False) -> ToolResult:
         """Extract structured content from the current page using Stagehand."""
         logger.debug(f"Browser extracting: {instruction} (iframes={iframes})")
@@ -437,13 +469,6 @@ class BrowserTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="browser_screenshot">
-        <parameter name="name">page_screenshot</parameter>
-        </invoke>
-        </function_calls>
-        ''')
     async def browser_screenshot(self, name: str = "screenshot") -> ToolResult:
         """Take a screenshot using Stagehand."""
         logger.debug(f"Browser taking screenshot: {name}")

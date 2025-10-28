@@ -118,7 +118,7 @@ export function SidebarLeft({
             data.user.email?.split('@')[0] ||
             'User',
           email: data.user.email || '',
-          avatar: data.user.user_metadata?.avatar_url || '',
+          avatar: data.user.user_metadata?.avatar_url || '', // User avatar (different from agent avatar)
           isAdmin: isAdmin,
         });
       }
@@ -127,7 +127,24 @@ export function SidebarLeft({
     fetchUserData();
   }, []);
 
-  // Keyboard shortcut is handled in the main sidebar component
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isDocumentModalOpen) return;
+
+      if ((event.metaKey || event.ctrlKey) && event.key === 'b') {
+        event.preventDefault();
+        setOpen(!state.startsWith('expanded'));
+        window.dispatchEvent(
+          new CustomEvent('sidebar-left-toggled', {
+            detail: { expanded: !state.startsWith('expanded') },
+          }),
+        );
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state, setOpen, isDocumentModalOpen]);
 
 
 
@@ -241,7 +258,7 @@ export function SidebarLeft({
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      <SidebarMenuSubItem>
+                      {/* <SidebarMenuSubItem>
                         <SidebarMenuSubButton className={cn('pl-3 touch-manipulation', {
                           'bg-accent text-accent-foreground font-medium': pathname === '/agents' && searchParams.get('tab') === 'marketplace',
                         })} asChild>
@@ -249,8 +266,8 @@ export function SidebarLeft({
                             <span>Explore</span>
                           </Link>
                         </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem data-tour="my-agents">
+                      </SidebarMenuSubItem> */}
+                      <SidebarMenuSubItem>
                         <SidebarMenuSubButton className={cn('pl-3 touch-manipulation', {
                           'bg-accent text-accent-foreground font-medium': pathname === '/agents' && (searchParams.get('tab') === 'my-agents' || searchParams.get('tab') === null),
                         })} asChild>
@@ -259,7 +276,7 @@ export function SidebarLeft({
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
-                      <SidebarMenuSubItem data-tour="new-agent">
+                      <SidebarMenuSubItem>
                         <SidebarMenuSubButton
                           onClick={() => {
                             setShowNewAgentDialog(true);

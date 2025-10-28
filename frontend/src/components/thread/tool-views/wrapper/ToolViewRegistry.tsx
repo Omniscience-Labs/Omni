@@ -11,6 +11,16 @@ import { StrReplaceToolView } from '../str-replace/StrReplaceToolView';
 import { WebCrawlToolView } from '../WebCrawlToolView';
 import { WebScrapeToolView } from '../web-scrape-tool/WebScrapeToolView';
 import { WebSearchToolView } from '../web-search-tool/WebSearchToolView';
+import { PeopleSearchToolView } from '../people-search-tool/PeopleSearchToolView';
+import { CompanySearchToolView } from '../company-search-tool/CompanySearchToolView';
+import { PaperSearchToolView } from '../paper-search-tool/PaperSearchToolView';
+import { PaperDetailsToolView } from '../paper-details-tool/PaperDetailsToolView';
+import { AuthorSearchToolView } from '../author-search-tool/AuthorSearchToolView';
+import { AuthorDetailsToolView } from '../author-details-tool/AuthorDetailsToolView';
+import { AuthorPapersToolView } from '../author-papers-tool/AuthorPapersToolView';
+import { PaperCitationsToolView } from '../paper-citations-tool/PaperCitationsToolView';
+import { PaperReferencesToolView } from '../paper-references-tool/PaperReferencesToolView';
+import { DocumentParserToolView } from '../document-parser-tool/DocumentParserToolView';
 import { SeeImageToolView } from '../see-image-tool/SeeImageToolView';
 import { TerminateCommandToolView } from '../command-tool/TerminateCommandToolView';
 import { AskToolView } from '../ask-tool/AskToolView';
@@ -19,7 +29,6 @@ import { WaitToolView } from '../wait-tool/WaitToolView';
 import { ExecuteDataProviderCallToolView } from '../data-provider-tool/ExecuteDataProviderCallToolView';
 import { DataProviderEndpointsToolView } from '../data-provider-tool/DataProviderEndpointsToolView';
 import { ApolloLeadToolView } from '../data-provider-tool/ApolloLeadToolView';
-import { DeployToolView } from '../DeployToolView';
 import { SearchMcpServersToolView } from '../search-mcp-servers/search-mcp-servers';
 import { GetAppDetailsToolView } from '../get-app-details/get-app-details';
 import { CreateCredentialProfileToolView } from '../create-credential-profile/create-credential-profile';
@@ -35,7 +44,7 @@ import { PresentationViewer } from '../presentation-tools/PresentationViewer';
 import { ListPresentationsToolView } from '../presentation-tools/ListPresentationsToolView';
 import { DeleteSlideToolView } from '../presentation-tools/DeleteSlideToolView';
 import { DeletePresentationToolView } from '../presentation-tools/DeletePresentationToolView';
-import { PresentationStylesToolView } from '../presentation-tools/PresentationStylesToolView';
+// import { PresentationStylesToolView } from '../presentation-tools/PresentationStylesToolView';
 import { PresentPresentationToolView } from '../presentation-tools/PresentPresentationToolView';
 import { SheetsToolView } from '../sheets-tools/sheets-tool-view';
 import { GetProjectStructureView } from '../web-dev/GetProjectStructureView';
@@ -45,18 +54,26 @@ import { UploadFileToolView } from '../UploadFileToolView';
 import { PodcastToolView } from '../podcast-tool/PodcastToolView';
 import { DocsToolView, ListDocumentsToolView, DeleteDocumentToolView } from '../docs-tool';
 import { CreateNewAgentToolView } from '../create-new-agent/create-new-agent';
+import { UpdateAgentToolView } from '../update-agent/update-agent';
 import { SearchMcpServersForAgentToolView } from '../search-mcp-servers-for-agent/search-mcp-servers-for-agent';
 import { CreateCredentialProfileForAgentToolView } from '../create-credential-profile-for-agent/create-credential-profile-for-agent';
 import { DiscoverMcpToolsForAgentToolView } from '../discover-mcp-tools-for-agent/discover-mcp-tools-for-agent';
+import { DiscoverUserMcpServersToolView } from '../discover-user-mcp-servers/discover-user-mcp-servers';
+import { ListAppEventTriggersToolView } from '../list-app-event-triggers/list-app-event-triggers';
+import { CreateEventTriggerToolView } from '../create-event-trigger/create-event-trigger';
 import { ConfigureAgentIntegrationToolView } from '../configure-agent-integration/configure-agent-integration';
-import CreateAgentWorkflowToolView from '../create-agent-workflow/create-agent-workflow';
-import ActivateAgentWorkflowToolView from '../activate-agent-workflow/activate-agent-workflow';
 import CreateAgentScheduledTriggerToolView from '../create-agent-scheduled-trigger/create-agent-scheduled-trigger';
-import ListAgentWorkflowsToolView from '../list-agent-workflows/list-agent-workflows';
 import { VideoAvatarToolView } from '../video-avatar-tool/VideoAvatarToolView';
+import { MakeCallToolView } from '../vapi-call/MakeCallToolView';
+import { CallStatusToolView } from '../vapi-call/CallStatusToolView';
+import { EndCallToolView } from '../vapi-call/EndCallToolView';
+import { ListCallsToolView } from '../vapi-call/ListCallsToolView';
+import { MonitorCallToolView } from '../vapi-call/MonitorCallToolView';
+import { WaitForCallCompletionToolView } from '../vapi-call/WaitForCallCompletionToolView';
 import { createPresentationViewerToolContent, parsePresentationSlidePath } from '../utils/presentation-utils';
 import { extractToolData } from '../utils';
 import { KbToolView } from '../KbToolView';
+import { ExpandMessageToolView } from '../expand-message-tool/ExpandMessageToolView';
 
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
@@ -80,9 +97,20 @@ const defaultRegistry: ToolViewRegistryType = {
   'read-file': FileOperationToolView,
   'edit-file': FileEditToolView,
 
+  'parse-document': DocumentParserToolView,
+
   'str-replace': StrReplaceToolView,
 
   'web-search': WebSearchToolView,
+  'people-search': PeopleSearchToolView,
+  'company-search': CompanySearchToolView,
+  'paper-search': PaperSearchToolView,
+  'get-paper-details': PaperDetailsToolView,
+  'search-authors': AuthorSearchToolView,
+  'get-author-details': AuthorDetailsToolView,
+  'get-author-papers': AuthorPapersToolView,
+  'get-paper-citations': PaperCitationsToolView,
+  'get-paper-references': PaperReferencesToolView,
   'crawl-webpage': WebCrawlToolView,
   'scrape-webpage': WebScrapeToolView,
   'image-search': WebSearchToolView,
@@ -120,8 +148,9 @@ const defaultRegistry: ToolViewRegistryType = {
   'ask': AskToolView,
   'complete': CompleteToolView,
   'wait': WaitToolView,
+  'expand_message': ExpandMessageToolView,
+  'expand-message': ExpandMessageToolView,
 
-  'deploy': DeployToolView,
 
   'create-presentation-outline': PresentationOutlineToolView,
   'list-presentation-templates': ListPresentationTemplatesToolView,
@@ -132,7 +161,8 @@ const defaultRegistry: ToolViewRegistryType = {
   'list-presentations': ListPresentationsToolView,
   'delete-slide': DeleteSlideToolView,
   'delete-presentation': DeletePresentationToolView,
-  'presentation-styles': PresentationStylesToolView,
+  'validate-slide': PresentationViewer,
+  // 'presentation-styles': PresentationStylesToolView,
   'present-presentation': PresentPresentationToolView,
 
   'create-sheet': SheetsToolView,
@@ -149,6 +179,28 @@ const defaultRegistry: ToolViewRegistryType = {
   
   // Podcast tool
   'generate-podcast': PodcastToolView,
+
+  // Knowledge Base tools
+  'init_kb': KbToolView,
+  'init-kb': KbToolView,
+  'search_files': KbToolView,
+  'search-files': KbToolView,
+  'ls_kb': KbToolView,
+  'ls-kb': KbToolView,
+  'cleanup_kb': KbToolView,
+  'cleanup-kb': KbToolView,
+  'global_kb_sync': KbToolView,
+  'global-kb-sync': KbToolView,
+  'global_kb_create_folder': KbToolView,
+  'global-kb-create-folder': KbToolView,
+  'global_kb_upload_file': KbToolView,
+  'global-kb-upload-file': KbToolView,
+  'global_kb_list_contents': KbToolView,
+  'global-kb-list-contents': KbToolView,
+  'global_kb_delete_item': KbToolView,
+  'global-kb-delete-item': KbToolView,
+  'global_kb_enable_item': KbToolView,
+  'global-kb-enable-item': KbToolView,
 
   // Knowledge Base tools
   'init_kb': KbToolView,
@@ -190,30 +242,38 @@ const defaultRegistry: ToolViewRegistryType = {
   'default': GenericToolView,
 
   'create-new-agent': CreateNewAgentToolView,
+  'update-agent': UpdateAgentToolView,
   'search-mcp-servers-for-agent': SearchMcpServersForAgentToolView,
   'create-credential-profile-for-agent': CreateCredentialProfileForAgentToolView,
   'discover-mcp-tools-for-agent': DiscoverMcpToolsForAgentToolView,
+  'discover-user-mcp-servers': DiscoverUserMcpServersToolView,
+  'list-app-event-triggers': ListAppEventTriggersToolView,
+  'create-event-trigger': CreateEventTriggerToolView,
   'configure-agent-integration': ConfigureAgentIntegrationToolView,
-  'create-agent-workflow': CreateAgentWorkflowToolView,
-  'activate-agent-workflow': ActivateAgentWorkflowToolView,
   'create-agent-scheduled-trigger': CreateAgentScheduledTriggerToolView,
-  'list-agent-workflows': ListAgentWorkflowsToolView,
-
-  // Video Avatar tools
   'generate-avatar-video': VideoAvatarToolView,
   'create-avatar-session': VideoAvatarToolView,
   'make-avatar-speak': VideoAvatarToolView,
   'check-video-status': VideoAvatarToolView,
   'list-avatar-options': VideoAvatarToolView,
   'close-avatar-session': VideoAvatarToolView,
-};
+  'make_phone_call': MakeCallToolView,
+  'make-phone-call': MakeCallToolView,
+  'end_call': EndCallToolView,
+  'end-call': EndCallToolView,
+  'get_call_details': CallStatusToolView,
+  'get-call-details': CallStatusToolView,
+  'list_calls': ListCallsToolView,
+  'list-calls': ListCallsToolView,
+  'monitor_call': MonitorCallToolView,
+  'monitor-call': MonitorCallToolView,
+  'wait_for_call_completion': WaitForCallCompletionToolView,
+  'wait-for-call-completion': WaitForCallCompletionToolView,
 
 class ToolViewRegistry {
   private registry: ToolViewRegistryType;
-
   constructor(initialRegistry: Partial<ToolViewRegistryType> = {}) {
     this.registry = { ...defaultRegistry };
-
     Object.entries(initialRegistry).forEach(([key, value]) => {
       if (value !== undefined) {
         this.registry[key] = value;
@@ -271,7 +331,8 @@ export function ToolView({ name = 'default', assistantContent, toolContent, ...p
     'list-slides',
     'delete-slide',
     'delete-presentation',
-    'presentation-styles',
+    'validate-slide',
+    // 'presentation-styles',
     'present-presentation',
   ]
 

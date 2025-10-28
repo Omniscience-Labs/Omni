@@ -13,7 +13,7 @@ export interface UnifiedMessage {
   sequence?: number;
   message_id: string | null; // Can be null for transient stream events (chunks, unsaved statuses)
   thread_id: string;
-  type: 'user' | 'assistant' | 'tool' | 'system' | 'status' | 'browser_state'; // Add 'system' if used
+  type: 'user' | 'assistant' | 'tool' | 'system' | 'status' | 'browser_state' | 'image_context' | 'llm_response_end'; // image_context for images loaded into LLM context
   is_llm_message: boolean;
   content: string; // ALWAYS a JSON string from the backend
   metadata: string; // ALWAYS a JSON string from the backend
@@ -22,7 +22,6 @@ export interface UnifiedMessage {
   agent_id?: string; // ID of the agent associated with this message
   agents?: {
     name: string;
-    profile_image_url?: string;
   }; // Agent information from join
 }
 
@@ -34,6 +33,13 @@ export interface ParsedContent {
   tool_call_id?: string; // For tool results
   name?: string; // For tool results
   status_type?: string; // For status messages
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+    cache_read_tokens?: number;
+    cache_creation_tokens?: number;
+  }; // For llm_response_end messages
   [key: string]: any; // Allow other properties
 }
 

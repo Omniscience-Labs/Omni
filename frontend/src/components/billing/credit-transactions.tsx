@@ -224,6 +224,7 @@ export default function CreditTransactions({ accountId }: Props) {
 
       {/* Non-Enterprise Balance Summary Card */}
       {!isEnterpriseMode && currentBalance && (
+      {currentBalance && (
         <Card>
           <CardHeader>
             <CardTitle>Current Balance</CardTitle>

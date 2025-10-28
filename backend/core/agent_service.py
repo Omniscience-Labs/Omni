@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Optional
 from core.utils.pagination import PaginationService, PaginationParams, PaginatedResponse
 from core.utils.logger import logger
-from .config_helper import extract_agent_config
+from .agent_loader import AgentLoader
 from core.utils.query_utils import batch_query_in
 
 
@@ -30,6 +30,7 @@ class AgentFilters:
 class AgentService:
     def __init__(self, db_client):
         self.db = db_client
+        self.loader = AgentLoader(db_client)
 
     async def get_agents_paginated(
         self,
@@ -171,10 +172,11 @@ class AgentService:
             count_query=count_query
         )
         
-        agent_responses = []
-        for agent_data in paginated_result.data:
-            agent_response = await self._transform_agent_data(agent_data)
-            agent_responses.append(agent_response)
+        # Transform without loading full configs (list operation)
+        agent_responses = [
+            await self._transform_agent_data(row, load_config=False)
+            for row in paginated_result.data
+        ]
         
         return PaginatedResponse(
             data=agent_responses,
@@ -216,11 +218,8 @@ class AgentService:
         elif filters.sort_order == "desc":
             filtered_agents.reverse()
         
-        # Transform to proper response format
-        agent_responses = []
-        for agent_data in filtered_agents:
-            agent_response = await self._transform_agent_data(agent_data, version_map.get(agent_data['agent_id']))
-            agent_responses.append(agent_response)
+        # Transform with configs loaded
+        agent_responses = await self._load_agents_with_configs(filtered_agents, version_map)
         
         # Enrich with template publication status
         result = await PaginationService.paginate_filtered_dataset(
@@ -236,50 +235,53 @@ class AgentService:
         
         if version_ids:
             try:
-                versions_data = await batch_query_in(
-                    client=self.db,
-                    table_name='agent_versions',
-                    select_fields='version_id, agent_id, version_number, version_name, is_active, created_at, updated_at, created_by, config',
-                    in_field='version_id',
-                    in_values=version_ids
-                )
+                # Use versioning service instead of direct config access
+                from core.versioning.version_service import get_version_service
+                version_service = await get_version_service()
                 
-                for row in versions_data:
-                    config = row.get('config') or {}
-                    tools = config.get('tools') or {}
-                    version_dict = {
-                        'version_id': row['version_id'],
-                        'agent_id': row['agent_id'],
-                        'version_number': row['version_number'],
-                        'version_name': row['version_name'],
-                        'system_prompt': config.get('system_prompt', ''),
-                        'model': config.get('model'),
-                        'configured_mcps': tools.get('mcp', []),
-                        'custom_mcps': tools.get('custom_mcp', []),
-                        'agentpress_tools': tools.get('agentpress', {}),
-                        'is_active': row.get('is_active', False),
-                        'created_at': row.get('created_at'),
-                        'updated_at': row.get('updated_at') or row.get('created_at'),
-                        'created_by': row.get('created_by'),
-                        'config': config  # Include the full config for compatibility
-                    }
-                    version_map[row['agent_id']] = version_dict
+                version_map = {}
+                for agent in agents:
+                    version_id = agent.get('current_version_id')
+                    if version_id:
+                        try:
+                            # Get version data using versioning service
+                            version = await version_service.get_version(
+                                agent_id=agent['agent_id'],
+                                version_id=version_id,
+                                user_id=agent['account_id']  # Use account_id as user_id
+                            )
+                            if version:
+                                version_dict = version.to_dict()
+                                version_map[agent['agent_id']] = version_dict
+                        except Exception as e:
+                            logger.warning(f"Failed to load version {version_id} for agent {agent['agent_id']}: {e}")
+                            continue
+                        
             except Exception as e:
                 logger.warning(f"Failed to batch load agent versions: {e}")
-        
-        return version_map
+                version_map = {}
 
     async def _passes_complex_filters(
         self, 
-        agent_data: Dict[str, Any], 
+        agent_row: Dict[str, Any], 
         version_map: Dict[str, Dict[str, Any]], 
         filters: AgentFilters
     ) -> bool:
-        version_data = version_map.get(agent_data['agent_id'])
-        agent_config = extract_agent_config(agent_data, version_data)
+        # Load agent with config
+        agent = self.loader._row_to_agent_data(agent_row)
+        version_data = version_map.get(agent.agent_id)
         
-        configured_mcps = agent_config['configured_mcps']
-        agentpress_tools = agent_config['agentpress_tools']
+        if version_data:
+            self.loader._apply_version_config(agent, version_data)
+        elif agent.is_suna_default:
+            self.loader._load_suna_config(agent)
+        else:
+            # No config available, use empty defaults for filtering
+            agent.configured_mcps = []
+            agent.agentpress_tools = {}
+        
+        configured_mcps = agent.configured_mcps or []
+        agentpress_tools = agent.agentpress_tools or {}
         
         if filters.has_mcp_tools is not None:
             has_mcp = bool(configured_mcps and len(configured_mcps) > 0)
@@ -315,12 +317,17 @@ class AgentService:
         agents: List[Dict[str, Any]], 
         version_map: Dict[str, Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
-        def get_tools_count(agent_data):
-            version_data = version_map.get(agent_data['agent_id'])
-            agent_config = extract_agent_config(agent_data, version_data)
+        def get_tools_count(agent_row):
+            agent = self.loader._row_to_agent_data(agent_row)
+            version_data = version_map.get(agent.agent_id)
             
-            configured_mcps = agent_config['configured_mcps']
-            agentpress_tools = agent_config['agentpress_tools']
+            if version_data:
+                self.loader._apply_version_config(agent, version_data)
+            elif agent.is_suna_default:
+                self.loader._load_suna_config(agent)
+            
+            configured_mcps = agent.configured_mcps or []
+            agentpress_tools = agent.agentpress_tools or {}
             
             mcp_count = len(configured_mcps) if configured_mcps else 0
             agentpress_count = sum(
@@ -331,20 +338,58 @@ class AgentService:
             return mcp_count + agentpress_count
         
         return sorted(agents, key=get_tools_count, reverse=True)
+    
+    async def _load_agents_with_configs(
+        self,
+        agent_rows: List[Dict[str, Any]],
+        version_map: Dict[str, Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Load agents and apply their configurations from version_map.
+        
+        Args:
+            agent_rows: List of agent database rows
+            version_map: Pre-fetched version data by agent_id
+            
+        Returns:
+            List of API response dictionaries
+        """
+        agent_datas = []
+        for row in agent_rows:
+            agent = self.loader._row_to_agent_data(row)
+            
+            # Apply config if available
+            version_data = version_map.get(agent.agent_id)
+            if version_data:
+                self.loader._apply_version_config(agent, version_data)
+                agent.config_loaded = True
+            elif agent.is_suna_default:
+                self.loader._load_suna_config(agent)
+                agent.config_loaded = True
+            
+            agent_datas.append(agent.to_dict())
+        
+        return agent_datas
 
     async def _transform_agent_data(
         self, 
-        agent_data: Dict[str, Any], 
-        version_data: Optional[Dict[str, Any]] = None
+        agent_row: Dict[str, Any], 
+        load_config: bool = False
     ) -> Dict[str, Any]:
-        agent_config = extract_agent_config(agent_data, version_data)
+        """
+        Transform agent database row to API response.
         
-        system_prompt = agent_config['system_prompt']
-        configured_mcps = agent_config['configured_mcps']
-        custom_mcps = agent_config['custom_mcps']
-        agentpress_tools = agent_config['agentpress_tools']
-        current_version = agent_config.get('current_version')
+        Args:
+            agent_row: Raw agent database row
+            load_config: Whether to include full configuration
+            
+        Returns:
+            API response dictionary
+        """
+        # Use unified loader for consistent transformation
+        agent_data = self.loader._row_to_agent_data(agent_row)
         
+<<<<<<< HEAD
         return {
             "agent_id": agent_data['agent_id'],
             "name": agent_data['name'],
@@ -368,6 +413,15 @@ class AgentService:
             "marketplace_published_at": agent_data.get('marketplace_published_at'),
             "download_count": agent_data.get('download_count', 0)
         }
+=======
+        # Load config if needed and version exists
+        if load_config and agent_data.current_version_id:
+            # Note: For list operations, we typically don't load individual configs
+            # Instead, use batch loading via _load_agents_with_configs
+            pass
+        
+        return agent_data.to_dict()
+>>>>>>> upstream/PRODUCTION
 
     async def _enrich_agents_with_template_status(self, agent_responses: List[Dict[str, Any]], user_id: str) -> None:
         """Enrich agents with their template publication status"""
@@ -418,6 +472,7 @@ class AgentService:
             logger.warning(f"Failed to enrich agents with template status: {e}")
 
     async def _transform_template_to_agent_format(self, template_data: Dict[str, Any]) -> Dict[str, Any]:
+<<<<<<< HEAD
         try:
             creator_name = None
             if template_data.get('creator_id'):
@@ -494,3 +549,21 @@ class AgentService:
                 "creator_id": template_data.get('creator_id'),
                 "is_kortix_team": False
             } 
+=======
+        """Transform template to agent format using unified loader."""
+        agent_data = await self.loader.load_template(template_data, fetch_creator_name=True)
+        result = agent_data.to_dict()
+        
+        # Add template-specific fields
+        result.update({
+            "template_id": template_data.get('template_id'),
+            "mcp_requirements": template_data.get('mcp_requirements', []),
+            "marketplace_published_at": template_data.get('marketplace_published_at'),
+            "download_count": template_data.get('download_count', 0),
+            "creator_name": agent_data.metadata.get('creator_name'),
+            "creator_id": template_data.get('creator_id'),
+            "is_kortix_team": template_data.get('is_kortix_team', False)
+        })
+        
+        return result 
+>>>>>>> upstream/PRODUCTION

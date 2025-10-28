@@ -1,11 +1,29 @@
 import asyncio
 from typing import Optional, List
+<<<<<<< HEAD
 from core.agentpress.tool import ToolResult, openapi_schema, usage_example
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
 from core.utils.config import config
 from knowledge_base.validation import FileNameValidator, ValidationError
 
+=======
+from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
+from core.sandbox.tool_base import SandboxToolsBase
+from core.agentpress.thread_manager import ThreadManager
+from core.utils.config import config
+from core.knowledge_base.validation import FileNameValidator, ValidationError
+from core.utils.logger import logger
+
+@tool_metadata(
+    display_name="Knowledge Base",
+    description="Store and retrieve information from your personal knowledge library",
+    icon="Brain",
+    color="bg-yellow-100 dark:bg-yellow-800/50",
+    weight=200,
+    visible=True
+)
+>>>>>>> upstream/PRODUCTION
 class SandboxKbTool(SandboxToolsBase):
     """Tool for knowledge base operations using kb-fusion binary in a Daytona sandbox.
     Provides search capabilities and maintenance operations for knowledge bases."""
@@ -16,11 +34,17 @@ class SandboxKbTool(SandboxToolsBase):
         self.kb_download_url = f"https://github.com/kortix-ai/kb-fusion/releases/download/v{self.kb_version}/kb"
 
     async def _execute_kb_command(self, command: str) -> dict:
+<<<<<<< HEAD
         """Execute a kb command with OPENAI_API_KEY environment variable set."""
         await self._ensure_sandbox()
         
         env = {"OPENAI_API_KEY": config.OPENAI_API_KEY} if config.OPENAI_API_KEY else {}
         
+=======
+        await self._ensure_sandbox()
+
+        env = {"OPENAI_API_KEY": config.OPENAI_API_KEY} if config.OPENAI_API_KEY else {}
+>>>>>>> upstream/PRODUCTION
         response = await self.sandbox.process.exec(command, env=env)
         
         return {
@@ -46,6 +70,7 @@ class SandboxKbTool(SandboxToolsBase):
             }
         }
     })
+<<<<<<< HEAD
     @usage_example('''
         <function_calls>
         <invoke name="init_kb">
@@ -53,6 +78,8 @@ class SandboxKbTool(SandboxToolsBase):
         </invoke>
         </function_calls>
         ''')
+=======
+>>>>>>> upstream/PRODUCTION
     async def init_kb(self, sync_global_knowledge_base: bool = False) -> ToolResult:
         try:
             await self._ensure_sandbox()
@@ -147,6 +174,7 @@ class SandboxKbTool(SandboxToolsBase):
             }
         }
     })
+<<<<<<< HEAD
     @usage_example('''
         <function_calls>
         <invoke name="search_files">
@@ -155,6 +183,8 @@ class SandboxKbTool(SandboxToolsBase):
         </invoke>
         </function_calls>
         ''')
+=======
+>>>>>>> upstream/PRODUCTION
     async def search_files(self, path: str, queries: List[str]) -> ToolResult:
         try:
             if not queries:
@@ -211,6 +241,7 @@ class SandboxKbTool(SandboxToolsBase):
             }
         }
     })
+<<<<<<< HEAD
     @usage_example('''
         <function_calls>
         <invoke name="cleanup_kb">
@@ -232,6 +263,8 @@ class SandboxKbTool(SandboxToolsBase):
         </invoke>
         </function_calls>
         ''')
+=======
+>>>>>>> upstream/PRODUCTION
     async def cleanup_kb(self, operation: str, file_paths: Optional[List[str]] = None, days: Optional[int] = None, retention_days: int = 30) -> ToolResult:
         try:
             if operation == "default":
@@ -277,6 +310,7 @@ class SandboxKbTool(SandboxToolsBase):
             }
         }
     })
+<<<<<<< HEAD
     @usage_example('''
         <function_calls>
         <invoke name="ls_kb">
@@ -287,6 +321,11 @@ class SandboxKbTool(SandboxToolsBase):
         try:
             result = await self._execute_kb_command("kb ls")
             
+=======
+    async def ls_kb(self) -> ToolResult:
+        try:
+            result = await self._execute_kb_command("kb ls")
+>>>>>>> upstream/PRODUCTION
             if result["exit_code"] != 0:
                 return self.fail_response(f"List operation failed: {result['output']}")
             
@@ -311,12 +350,15 @@ class SandboxKbTool(SandboxToolsBase):
             }
         }
     })
+<<<<<<< HEAD
     @usage_example('''
         <function_calls>
         <invoke name="global_kb_sync">
         </invoke>
         </function_calls>
         ''')
+=======
+>>>>>>> upstream/PRODUCTION
     async def global_kb_sync(self) -> ToolResult:
         """Sync all agent's knowledge base files to sandbox ~/knowledge-base-global directory."""
         try:
@@ -451,6 +493,7 @@ Agent ID: {agent_id}
             }
         }
     })
+<<<<<<< HEAD
     @usage_example('''
         <function_calls>
         <invoke name="global_kb_create_folder">
@@ -459,6 +502,8 @@ Agent ID: {agent_id}
         </invoke>
         </function_calls>
         ''')
+=======
+>>>>>>> upstream/PRODUCTION
     async def global_kb_create_folder(self, name: str, description: str = None) -> ToolResult:
         """Create a new folder in the global knowledge base."""
         try:
@@ -476,7 +521,11 @@ Agent ID: {agent_id}
                 return self.fail_response("No agent ID found for knowledge base operations")
             
             from core.services.supabase import DBConnection
+<<<<<<< HEAD
             from knowledge_base.validation import validate_folder_name_unique
+=======
+            from core.knowledge_base.validation import validate_folder_name_unique
+>>>>>>> upstream/PRODUCTION
             db = DBConnection()
             client = await db.client
             
@@ -552,6 +601,7 @@ Agent ID: {agent_id}
             }
         }
     })
+<<<<<<< HEAD
     @usage_example('''
         <function_calls>
         <invoke name="global_kb_upload_file">
@@ -561,6 +611,8 @@ Agent ID: {agent_id}
         </invoke>
         </function_calls>
         ''')
+=======
+>>>>>>> upstream/PRODUCTION
     async def global_kb_upload_file(self, sandbox_file_path: str, folder_name: str, description: str = None) -> ToolResult:
         """Upload a file from sandbox to the global knowledge base."""
         try:
@@ -627,7 +679,11 @@ Agent ID: {agent_id}
                 return self.fail_response(f"File size limit exceeded. Current: {current_mb:.1f}MB, New: {new_mb:.1f}MB, Limit: 50MB")
             
             # Generate unique filename if there's a conflict
+<<<<<<< HEAD
             from knowledge_base.validation import validate_file_name_unique_in_folder
+=======
+            from core.knowledge_base.validation import validate_file_name_unique_in_folder
+>>>>>>> upstream/PRODUCTION
             final_filename = await validate_file_name_unique_in_folder(filename, folder_id)
             
             # Process file using existing processor
@@ -688,6 +744,7 @@ Agent ID: {agent_id}
             }
         }
     })
+<<<<<<< HEAD
     @usage_example('''
         <function_calls>
         <invoke name="global_kb_delete_item">
@@ -696,6 +753,8 @@ Agent ID: {agent_id}
         </invoke>
         </function_calls>
         ''')
+=======
+>>>>>>> upstream/PRODUCTION
     async def global_kb_delete_item(self, item_type: str, item_id: str) -> ToolResult:
         """Delete a file or folder from the global knowledge base using its ID."""
         try:
@@ -781,6 +840,7 @@ Agent ID: {agent_id}
             }
         }
     })
+<<<<<<< HEAD
     @usage_example('''
         <function_calls>
         <invoke name="global_kb_enable_item">
@@ -790,6 +850,8 @@ Agent ID: {agent_id}
         </invoke>
         </function_calls>
         ''')
+=======
+>>>>>>> upstream/PRODUCTION
     async def global_kb_enable_item(self, item_type: str, item_id: str, enabled: bool) -> ToolResult:
         """Enable or disable a knowledge base file for this agent."""
         try:
@@ -865,12 +927,15 @@ Agent ID: {agent_id}
             }
         }
     })
+<<<<<<< HEAD
     @usage_example('''
         <function_calls>
         <invoke name="global_kb_list_contents">
         </invoke>
         </function_calls>
         ''')
+=======
+>>>>>>> upstream/PRODUCTION
     async def global_kb_list_contents(self) -> ToolResult:
         """List all folders and files in the global knowledge base."""
         try:

@@ -14,8 +14,32 @@ import { isMermaidCode } from '@/lib/mermaid-utils';
 import type { FileRendererProject } from './index';
 
 // Process Unicode escape sequences in content
-export const processUnicodeContent = (content: string): string => {
-  if (!content) return '';
+export const processUnicodeContent = (content: any, forCodeBlock: boolean = false): string => {
+  // Handle different content types
+  if (!content) {
+    return '';
+  }
+  
+  // If it's an object (like JSON), stringify it
+  if (typeof content === 'object') {
+    try {
+      const jsonString = JSON.stringify(content, null, 2);
+      // Only wrap in markdown if not for code block (to avoid double-wrapping)
+      if (forCodeBlock) {
+        return jsonString;
+      } else {
+        return '```json\n' + jsonString + '\n```';
+      }
+    } catch (error) {
+      console.warn('Failed to stringify object:', error);
+      return String(content);
+    }
+  }
+  
+  // If it's not a string, convert to string
+  if (typeof content !== 'string') {
+    return String(content);
+  }
 
   // Process \uXXXX Unicode escape sequences (BMP characters)
   const bmpProcessed = content.replace(

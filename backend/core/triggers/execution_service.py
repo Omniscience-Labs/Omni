@@ -10,7 +10,8 @@ from core.utils.config import config, EnvMode
 from run_agent_background import run_agent_background
 from core.billing.billing_integration import billing_integration
 from .trigger_service import TriggerEvent, TriggerResult
-from .utils import format_workflow_for_llm
+
+
 
 
 
@@ -21,7 +22,6 @@ class ExecutionService:
         self._db = db_connection
         self._session_manager = SessionManager(db_connection)
         self._agent_executor = AgentExecutor(db_connection, self._session_manager)
-        self._workflow_executor = WorkflowExecutor(db_connection, self._session_manager)
     
     async def execute_trigger_result(
         self,
@@ -30,22 +30,13 @@ class ExecutionService:
         trigger_event: TriggerEvent
     ) -> Dict[str, Any]:
         try:
-            logger.debug(f"Executing trigger for agent {agent_id}: workflow={trigger_result.should_execute_workflow}, agent={trigger_result.should_execute_agent}")
+            logger.debug(f"Executing trigger for agent {agent_id}")
             
-            if trigger_result.should_execute_workflow:
-                return await self._workflow_executor.execute_workflow(
-                    agent_id=agent_id,
-                    workflow_id=trigger_result.workflow_id,
-                    workflow_input=trigger_result.workflow_input or {},
-                    trigger_result=trigger_result,
-                    trigger_event=trigger_event
-                )
-            else:
-                return await self._agent_executor.execute_agent(
-                    agent_id=agent_id,
-                    trigger_result=trigger_result,
-                    trigger_event=trigger_event
-                )
+            return await self._agent_executor.execute_agent(
+                agent_id=agent_id,
+                trigger_result=trigger_result,
+                trigger_event=trigger_event
+            )
                 
         except Exception as e:
             logger.error(f"Failed to execute trigger result: {e}")
@@ -91,41 +82,6 @@ class SessionManager:
         }).execute()
         
         logger.debug(f"Created agent session: project={project_id}, thread={thread_id}")
-        return thread_id, project_id
-    
-    async def create_workflow_session(
-        self,
-        account_id: str,
-        workflow_id: str,
-        workflow_name: str
-    ) -> Tuple[str, str]:
-        client = await self._db.client
-        
-        project_id = str(uuid.uuid4())
-        thread_id = str(uuid.uuid4())
-        
-        await client.table('projects').insert({
-            "project_id": project_id,
-            "account_id": account_id,
-            "name": f"Workflow: {workflow_name}",
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }).execute()
-        
-        await self._create_sandbox_for_project(project_id)
-        
-        await client.table('threads').insert({
-            "thread_id": thread_id,
-            "project_id": project_id,
-            "account_id": account_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "metadata": {
-                "workflow_execution": True,
-                "workflow_id": workflow_id,
-                "workflow_name": workflow_name
-            }
-        }).execute()
-        
-        logger.debug(f"Created workflow session: project={project_id}, thread={thread_id}")
         return thread_id, project_id
     
     async def _create_sandbox_for_project(self, project_id: str) -> None:
@@ -351,7 +307,7 @@ class AgentExecutor:
             "thread_id": thread_id,
             "type": "user",
             "is_llm_message": True,
-            "content": json.dumps(message_payload),
+            "content": message_payload,  # Store as JSONB object, not JSON string
             "created_at": datetime.now(timezone.utc).isoformat()
         }).execute()
     
@@ -380,10 +336,13 @@ class AgentExecutor:
         if not account_id:
             raise ValueError("Account ID not found in agent configuration")
         
+<<<<<<< HEAD
         from core.services.billing_wrapper import can_use_model_unified
         from core.billing.billing_integration import billing_integration
         from core.services.billing_wrapper import can_use_model_unified, check_billing_status_unified
 
+=======
+>>>>>>> upstream/PRODUCTION
         # Unified billing and model access check
         can_proceed, error_message, context = await billing_integration.check_model_and_billing_access(
             account_id, model_name
@@ -400,9 +359,6 @@ class AgentExecutor:
             "agent_version_id": agent_config.get('current_version_id'),
             "metadata": {
                 "model_name": model_name,
-                "enable_thinking": False,
-                "reasoning_effort": "low",
-                "enable_context_manager": True,
                 "trigger_execution": True,
                 "trigger_variables": trigger_variables
             }
@@ -418,11 +374,14 @@ class AgentExecutor:
             instance_id="trigger_executor",
             project_id=project_id,
             model_name=model_name,
+<<<<<<< HEAD
             enable_thinking=False,
             reasoning_effort="low",
             stream=False,
             enable_context_manager=True,
             enable_prompt_caching=True,
+=======
+>>>>>>> upstream/PRODUCTION
             agent_config=agent_config,
             request_id=structlog.contextvars.get_contextvars().get('request_id'),
         )
@@ -438,6 +397,7 @@ class AgentExecutor:
             logger.warning(f"Failed to register agent run in Redis: {e}")
 
 
+<<<<<<< HEAD
 class WorkflowExecutor:
     def __init__(self, db_connection: DBConnection, session_manager: SessionManager):
         self._db = db_connection
@@ -750,5 +710,7 @@ class WorkflowExecutor:
             logger.warning(f"Failed to register workflow run in Redis: {e}")
 
 
+=======
+>>>>>>> upstream/PRODUCTION
 def get_execution_service(db_connection: DBConnection) -> ExecutionService:
     return ExecutionService(db_connection) 

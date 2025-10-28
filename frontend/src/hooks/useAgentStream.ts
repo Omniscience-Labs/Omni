@@ -16,9 +16,9 @@ import {
 import { safeJsonParse } from '@/components/thread/utils';
 import { agentKeys } from '@/hooks/react-query/agents/keys';
 import { composioKeys } from '@/hooks/react-query/composio/keys';
-import { workflowKeys } from '@/hooks/react-query/agents/workflow-keys';
 import { knowledgeBaseKeys } from '@/hooks/react-query/knowledge-base/keys';
 import { fileQueryKeys } from '@/hooks/react-query/files/use-file-queries';
+import { useContextUsageStore } from '@/lib/stores/context-usage-store';
 
 interface ApiMessageType {
   message_id?: string;
@@ -84,6 +84,7 @@ export function useAgentStream(
   agentId?: string, // Optional agent ID for invalidation
 ): UseAgentStreamResult {
   const queryClient = useQueryClient();
+  const setContextUsage = useContextUsageStore((state) => state.setUsage);
 
   const [status, setStatus] = useState<string>('idle');
   const [textContent, setTextContent] = useState<
@@ -263,36 +264,41 @@ export function useAgentStream(
         queryKey: fileQueryKeys.all,
       });
 
+      // Invalidate active agent runs to update sidebar status indicators
+      queryClient.invalidateQueries({ 
+        queryKey: ['active-agent-runs'],
+      });
+
       if (agentId) {
+        // Core agent data
+        queryClient.invalidateQueries({ queryKey: agentKeys.all });
         queryClient.invalidateQueries({ queryKey: agentKeys.detail(agentId) });
         queryClient.invalidateQueries({ queryKey: agentKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: agentKeys.details() });
+        
+        // Agent tools and integrations
         queryClient.invalidateQueries({ queryKey: ['agent-tools', agentId] });
-
-        queryClient.invalidateQueries({
-          queryKey: ['custom-mcp-tools', agentId],
-        });
+        queryClient.invalidateQueries({ queryKey: ['agent-tools'] });
+        
+        // MCP configurations
+        queryClient.invalidateQueries({ queryKey: ['custom-mcp-tools', agentId] });
+        queryClient.invalidateQueries({ queryKey: ['custom-mcp-tools'] });
         queryClient.invalidateQueries({ queryKey: composioKeys.mcpServers() });
-
-        queryClient.invalidateQueries({
-          queryKey: composioKeys.profiles.all(),
-        });
-        queryClient.invalidateQueries({
-          queryKey: composioKeys.profiles.credentials(),
-        });
-
+        queryClient.invalidateQueries({ queryKey: composioKeys.profiles.all() });
+        queryClient.invalidateQueries({ queryKey: composioKeys.profiles.credentials() });
+        
+        // Triggers
         queryClient.invalidateQueries({ queryKey: ['triggers', agentId] });
-
-        queryClient.invalidateQueries({
-          queryKey: workflowKeys.agent(agentId),
-        });
-
-        queryClient.invalidateQueries({
-          queryKey: knowledgeBaseKeys.agent(agentId),
-        });
-
-        // Invalidate versioning queries for agent config page
+        queryClient.invalidateQueries({ queryKey: ['triggers'] });
+        
+        // Knowledge base
+        queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.agent(agentId) });
+        queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.all });
+        
+        queryClient.invalidateQueries({ queryKey: ['versions'] });
+        queryClient.invalidateQueries({ queryKey: ['versions', 'list'] });
         queryClient.invalidateQueries({ queryKey: ['versions', 'list', agentId] });
-        // Invalidate current version details if available
+        queryClient.invalidateQueries({ queryKey: ['versions', 'detail'] });
         queryClient.invalidateQueries({ 
           queryKey: ['versions', 'detail'], 
           predicate: (query) => {
@@ -300,7 +306,14 @@ export function useAgentStream(
           }
         });
         
-        console.log(`[useAgentStream] Invalidated agent queries for refetch instead of page reload - Agent ID: ${agentId}`);
+        // Invalidate any version store cache
+        queryClient.invalidateQueries({ queryKey: ['version-store'] });
+        
+        // Force refetch of agent configuration data
+        queryClient.refetchQueries({ queryKey: agentKeys.detail(agentId) });
+        queryClient.refetchQueries({ queryKey: ['versions', 'list', agentId] });
+        
+        console.log(`[useAgentStream] Comprehensively invalidated and refetched all agent queries for Agent ID: ${agentId}`);
       }
 
       if (
@@ -432,8 +445,6 @@ export function useAgentStream(
                 setToolCall(null);
               }
               break;
-            case 'thread_run_end':
-              break;
             case 'finish':
               // Optional: Handle finish reasons like 'xml_tool_limit_reached'
               // Don't finalize here, wait for thread_run_end or completion message
@@ -442,10 +453,18 @@ export function useAgentStream(
               setError(parsedContent.message || 'Agent run failed');
               finalizeStream('error', currentRunIdRef.current);
               break;
-            // Ignore thread_run_start, assistant_response_start etc. for now
+            // Ignore thread_run_start, thread_run_end, assistant_response_start etc. for now
             default:
               // console.debug('[useAgentStream] Received unhandled status type:', parsedContent.status_type);
               break;
+          }
+          break;
+        case 'llm_response_end':
+          // Extract context usage from llm_response_end
+          if (parsedContent.usage?.total_tokens && threadIdRef.current) {
+            setContextUsage(threadIdRef.current, {
+              current_tokens: parsedContent.usage.total_tokens
+            });
           }
           break;
         case 'user':
@@ -462,13 +481,14 @@ export function useAgentStream(
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
-      threadId,
-      setMessages,
       status,
       toolCall,
       callbacks,
       finalizeStream,
       updateStatus,
+      addContentThrottled,
+      flushPendingContent,
+      setContextUsage,
     ],
   );
 
@@ -619,8 +639,7 @@ export function useAgentStream(
       // Only set mounted flag to false to prevent new operations
       // Streams will be cleaned up when they naturally complete or on explicit stop
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array for mount/unmount effect
+  }, [flushPendingContent]); // Include flushPendingContent for cleanup
 
   // --- Public Functions ---
 

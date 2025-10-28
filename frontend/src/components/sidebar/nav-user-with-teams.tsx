@@ -330,6 +330,10 @@ export function NavUserWithTeams({
                     </Link>
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem onClick={() => setShowBillingModal(true)}>
+                  <Zap className="h-4 w-4" />
+                  Upgrade
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/settings/customer-requests">
                     <MessageSquarePlus className="h-4 w-4" />

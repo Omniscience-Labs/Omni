@@ -15,7 +15,7 @@ import { SimplifiedScheduleConfig } from '@/components/agents/triggers/providers
 import { ScheduleTriggerConfig } from '@/components/agents/triggers/types';
 import { useCreateTrigger, useUpdateTrigger } from '@/hooks/react-query/triggers';
 import { toast } from 'sonner';
-import { AgentSelectionDropdown } from '@/components/agents/agent-selection-dropdown';
+import { AgentSelector } from '@/components/agents/agent-selector';
 
 interface TriggerCreationDialogProps {
   open: boolean;
@@ -41,8 +41,7 @@ export function TriggerCreationDialog({
   const [name, setName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [config, setConfig] = useState<ScheduleTriggerConfig>({
-    cron_expression: '',
-    execution_type: 'agent'
+    cron_expression: ''
   });
   const createTriggerMutation = useCreateTrigger();
   const updateTriggerMutation = useUpdateTrigger();
@@ -53,7 +52,7 @@ export function TriggerCreationDialog({
       setSelectedAgent(existingTrigger.agent_id || '');
       setName(existingTrigger.name || '');
       setDescription(existingTrigger.description || '');
-      setConfig(existingTrigger.config || { cron_expression: '', execution_type: 'agent' });
+      setConfig(existingTrigger.config || { cron_expression: '' });
       // Skip agent selection step in edit mode
       setStep('config');
     }
@@ -148,7 +147,7 @@ export function TriggerCreationDialog({
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <AgentSelectionDropdown
+            <AgentSelector
               selectedAgentId={selectedAgent}
               onAgentSelect={setSelectedAgent}
               placeholder="Choose an agent"

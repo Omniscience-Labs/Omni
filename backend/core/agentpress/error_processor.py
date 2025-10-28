@@ -8,6 +8,10 @@ throughout the agent execution pipeline using LiteLLM's standardized exceptions.
 from typing import Dict, Any, Optional, Union
 from dataclasses import dataclass
 from core.utils.logger import logger
+<<<<<<< HEAD
+=======
+import re
+>>>>>>> upstream/PRODUCTION
 
 # Import LiteLLM exceptions as documented at https://docs.litellm.ai/docs/exception_mapping
 try:
@@ -175,9 +179,21 @@ class ErrorProcessor:
     
     @staticmethod
     def safe_error_to_string(error: Exception) -> str:
+<<<<<<< HEAD
         """Safely convert an exception to a string with fallbacks."""
         try:
             return str(error)
+=======
+        """Safely convert an exception to a string, cleaning up verbose LiteLLM error messages."""
+        try:
+            error_str = str(error)
+            # remove fallback information
+            if "Fallbacks=[" in error_str:
+                error_str = re.sub(r'Fallbacks=\[(?:[^\[\]]+|\[(?:[^\[\]]+|\[[^\[\]]*\])*\])*\]', '', error_str)
+            
+            return error_str
+            
+>>>>>>> upstream/PRODUCTION
         except Exception:
             try:
                 # Handle case where error.args[0] might be a list or other non-string type
