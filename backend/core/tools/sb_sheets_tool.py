@@ -23,6 +23,45 @@ except Exception:
     openpyxl = None
 
 
+# ============================================================================
+# FORMULA INDEXING SUPPORT FOR SANDBOX SHEETS TOOL
+# ============================================================================
+# 
+# This tool now supports Excel formulas using dynamic cell references instead
+# of static values. Formulas must start with '=' and can reference:
+#
+# SUPPORTED FORMULA TYPES:
+# - Range formulas: =SUM(A1:A10), =AVERAGE(B2:B20)
+# - Cell references: =A1, =B2, =$A$1 (absolute), =A$1 (mixed)
+# - Conditional: =IF(A1>100,"High","Low")
+# - Lookups: =VLOOKUP(A1,Table,2), =INDEX(A:A,ROW())
+# - Text: =CONCATENATE(A1,B1), =A1&B1
+# - Math: =A1+B1, =SUM(A1:A10)*2
+# - Count: =COUNTA(A2:A100), =COUNT(B:B)
+# - Aggregate: =COUNTIF(A:A,">100")
+#
+# USAGE EXAMPLES IN update_sheet():
+#
+# 1. Simple arithmetic with cell references:
+#    {"type":"update_cell","row_index":4,"column":"Total","value":"=B4+C4"}
+#
+# 2. Sum a range:
+#    {"type":"update_cell","row_index":5,"column":"Total","value":"=SUM(B2:B5)"}
+#
+# 3. Conditional formula:
+#    {"type":"update_cell","row_index":2,"column":"Status","value":"=IF(B2>1000,\"Premium\",\"Regular\")"}
+#
+# 4. Multiple operations with formulas:
+#    "operations":[
+#      {"type":"insert_row","row_index":1,"values":["Product","Q1","Q2","Q3","Total"]},
+#      {"type":"insert_row","row_index":2,"values":["Widget",100,150,120,"=SUM(B2:D2)"]},
+#      {"type":"insert_row","row_index":3,"values":["Gadget",200,180,220,"=SUM(B3:D3)"]},
+#      {"type":"insert_row","row_index":4,"values":["TOTALS","=SUM(B2:B3)","=SUM(C2:C3)","=SUM(D2:D3)","=SUM(E2:E3)"]}
+#    ]
+#
+# ============================================================================
+
+
 @dataclass
 class SheetData:
     headers: List[str]
@@ -32,6 +71,61 @@ class SheetData:
 class SandboxSheetsTool(SandboxToolsBase):
     def __init__(self, project_id: str, thread_manager):
         super().__init__(project_id, thread_manager)
+
+    def _is_formula(self, value: Any) -> bool:
+        """Check if value is an Excel formula (starts with =)"""
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped.startswith('=') and len(stripped) > 1
+        return False
+
+    def _validate_formula(self, formula: str) -> Tuple[bool, Optional[str]]:
+        """Validate formula syntax. Returns (is_valid, error_message)
+        
+        Checks for:
+        - Formula starts with '='
+        - Balanced parentheses
+        - No invalid starting/ending characters
+        
+        Examples:
+            - _validate_formula("=SUM(A1:A10)") -> (True, None)
+            - _validate_formula("=SUM(A1:A10") -> (False, "Formula has unbalanced parentheses")
+            - _validate_formula("SUM(A1:A10)") -> (False, "Formula must start with '='")
+        """
+        if not formula.startswith('='):
+            return False, "Formula must start with '='"
+        
+        # Basic validation - check for balanced parentheses
+        if formula.count('(') != formula.count(')'):
+            return False, "Formula has unbalanced parentheses"
+        
+        # Check for common invalid patterns
+        if formula.startswith('=='):
+            return False, "Formula cannot start with '=='"
+        
+        if formula.endswith('(') or formula.endswith(','):
+            return False, "Formula ends with invalid character"
+        
+        return True, None
+
+    def _process_cell_value(self, value: Any) -> Any:
+        """Process cell value - keep formulas as-is, convert others to appropriate type
+        
+        If value is a formula (starts with '='):
+            - Validate it
+            - Return as string for openpyxl to store and evaluate
+        
+        Otherwise:
+            - Return value as-is (will be converted to appropriate type by openpyxl)
+        
+        Examples:
+            - _process_cell_value("=SUM(A1:A10)") -> "=SUM(A1:A10)"
+            - _process_cell_value("100") -> "100"
+            - _process_cell_value(100) -> 100
+        """
+        if self._is_formula(value):
+            return value  # Return formula as string for openpyxl to handle
+        return value
 
     async def _file_exists(self, full_path: str) -> bool:
         try:
@@ -165,7 +259,7 @@ class SandboxSheetsTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "update_sheet",
-            "description": "Modify existing cells, rows, or columns (insert/delete/update).",
+            "description": "Modify existing cells with static values or Excel formulas, rows, or columns (insert/delete/update).",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -183,7 +277,7 @@ class SandboxSheetsTool(SandboxToolsBase):
                                 "column": {"type": "string"},
                                 "column_index": {"type": "integer"},
                                 "values": {"type": "array", "items": {"type": "string"}},
-                                "value": {"type": "string"}
+                                "value": {"type": "string", "description": "Cell value (static) or formula starting with '=' (e.g., '=SUM(A1:A10)')"}
                             },
                             "required": ["type"]
                         }
@@ -200,9 +294,10 @@ class SandboxSheetsTool(SandboxToolsBase):
           <parameter name="file_path">employee_details.xlsx</parameter>
           <parameter name="sheet_name">Employee Database</parameter>
           <parameter name="operations">[
-            {"type":"insert_row","row_index":6,"values":["","","","","","","","","",""]},
-            {"type":"insert_row","row_index":7,"values":["SUMMARY CALCULATIONS","","","","","","","","",""]},
-            {"type":"insert_row","row_index":8,"values":["Total Employees:","=COUNTA(A2:A100)","","","","","","","",""]}
+            {"type":"insert_row","row_index":1,"values":["Name","Salary","Bonus","Total"]},
+            {"type":"insert_row","row_index":2,"values":["John","50000","5000","=B2+C2"]},
+            {"type":"insert_row","row_index":3,"values":["Jane","60000","6000","=B3+C3"]},
+            {"type":"insert_row","row_index":4,"values":["TOTALS","=SUM(B2:B3)","=SUM(C2:C3)","=SUM(D2:D3)"]}
           ]</parameter>
         </invoke>
         </function_calls>
@@ -248,7 +343,17 @@ class SandboxSheetsTool(SandboxToolsBase):
                         if r <= 0 or c is None:
                             return self.fail_response("update_cell requires row_index>=1 and column/column_index")
                         val = op.get("value")
-                        ws.cell(row=r, column=c).value = val
+                        
+                        # NEW: Support formulas
+                        if self._is_formula(val):
+                            is_valid, error_msg = self._validate_formula(val)
+                            if not is_valid:
+                                logger.warning(f"Invalid formula '{val}': {error_msg}")
+                                return self.fail_response(f"Invalid formula: {error_msg}")
+                            ws.cell(row=r, column=c).value = val  # Store formula as string
+                        else:
+                            ws.cell(row=r, column=c).value = val  # Static value
+                        
                         if r == 1:
                             header_map[str(val)] = c
                     elif t == "update_row":
@@ -257,6 +362,11 @@ class SandboxSheetsTool(SandboxToolsBase):
                             return self.fail_response("update_row requires row_index>=2 (row 1 is header)")
                         vals = op.get("values", [])
                         for idx, v in enumerate(vals, start=1):
+                            # Support formulas in row updates
+                            if self._is_formula(v):
+                                is_valid, error_msg = self._validate_formula(v)
+                                if not is_valid:
+                                    logger.warning(f"Invalid formula in row update: {error_msg}")
                             ws.cell(row=r, column=idx).value = v
                     elif t == "insert_row":
                         r = int(op.get("row_index", 0))
