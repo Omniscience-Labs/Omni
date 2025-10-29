@@ -42,7 +42,7 @@ import {
 import type { UserSummary } from '@/hooks/react-query/admin/use-admin-users';
 import { useAdminCheck } from '@/hooks/use-admin-check';
 import { useQueryClient } from '@tanstack/react-query';
-import UsageLogs from '@/components/billing/usage-logs';
+// import UsageLogs from '@/components/billing/usage-logs'; // TODO: Create this component
 
 interface AdminUserDetailsDialogProps {
   user: UserSummary | null;
@@ -136,9 +136,7 @@ export function AdminUserDetailsDialog({
             </div>
           ) : (
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-5 sticky top-0 z-10">
-            <Tabs defaultValue="usage" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 sticky top-0 z-10">
+              <TabsList className="grid w-full grid-cols-4 sticky top-0 z-10">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="threads">Threads</TabsTrigger>
                 <TabsTrigger value="usage">Usage Logs</TabsTrigger>
@@ -395,7 +393,10 @@ export function AdminUserDetailsDialog({
                   {/* Usage Logs Component */}
                   <Card>
                     <CardContent className="p-6">
-                      <UsageLogs accountId={user.id} isAdminView={true} />
+                      <p className="text-sm text-muted-foreground">
+                        Usage logs feature is under development.
+                      </p>
+                      {/* <UsageLogs accountId={user.id} isAdminView={true} /> */}
                     </CardContent>
                   </Card>
                 </>
