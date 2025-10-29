@@ -12,7 +12,7 @@ _initialized = False
 _init_lock = asyncio.Lock()
 
 # Constants
-    REDIS_KEY_TTL = 3600 * 24  # 24 hour TTL as safety mecs
+REDIS_KEY_TTL = 3600 * 24  # 24 hour TTL as safety mecs
 
 async def initialize():
     """Initialize Redis connection pool and client using environment variables."""
