@@ -105,32 +105,6 @@ export function AgentIconEditorDialog({
     );
   }, [agentName, agentDescription, generateIconMutation]);
 
-  const handleAutoGenerate = useCallback(() => {
-    if (!agentName) {
-      toast.error('Agent name is required for auto-generation');
-      return;
-    }
-
-    generateIconMutation.mutate(
-      {
-        name: agentName,
-        description: agentDescription,
-      },
-      {
-        onSuccess: (result) => {
-          setSelectedIcon(result.icon_name);
-          setIconColor(result.icon_color);
-          setBackgroundColor(result.icon_background);
-          toast.success('Agent icon auto-generated!');
-        },
-        onError: (error) => {
-          console.error('Auto-generation failed:', error);
-          toast.error('Failed to auto-generate icon. Please try again.');
-        },
-      }
-    );
-  }, [agentName, agentDescription, generateIconMutation]);
-
   const presetColors = [
     '#000000', '#FFFFFF', '#6366F1', '#10B981', '#F59E0B', 
     '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316',

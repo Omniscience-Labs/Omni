@@ -7,7 +7,7 @@ import { FlickeringGrid } from '@/components/home/ui/flickering-grid';
 import { LampContainer } from '@/components/ui/lamp';
 import { FlipWords } from '@/components/ui/flip-words';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { useState, useEffect, useRef, FormEvent } from 'react';
+import { useState, useEffect, useRef, FormEvent, Ref } from 'react';
 import { useScroll, motion } from 'motion/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -51,7 +51,6 @@ import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 import { createQueryHook } from '@/hooks/use-query';
 import { agentKeys } from '@/hooks/react-query/agents/keys';
 import { getAgents } from '@/hooks/react-query/agents/utils';
-import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog';
 import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 
 // Custom dialog overlay with blur effect
@@ -126,20 +125,7 @@ export function HeroSection() {
   const initiateAgentMutation = useInitiateAgentMutation();
   const [initiatedThreadId, setInitiatedThreadId] = useState<string | null>(null);
   const threadQuery = useThreadQuery(initiatedThreadId || '');
-
-  // Initialize agent selection from localStorage when agents are loaded
-  useEffect(() => {
-    if (agents.length > 0) {
-      initializeFromAgents(agents);
-    }
-  }, [agents, initializeFromAgents]);
-
-  // Initialize agent selection from localStorage when agents are loaded
-  useEffect(() => {
-    if (agents.length > 0) {
-      initializeFromAgents(agents);
-    }
-  }, [agents, initializeFromAgents]);
+  const chatInputRef = useRef<ChatInputHandles>(null);
 
   // Auth dialog state
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
@@ -393,7 +379,7 @@ export function HeroSection() {
     message: string,
     options?: { model_name?: string }
   ) => {
-    if ((!message.trim() && !chatInputRef.current?.getPendingFiles().length) || isSubmitting) return;
+    if (!message.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
     setAuthError(null);
@@ -401,16 +387,25 @@ export function HeroSection() {
     try {
       // If not authenticated, show auth dialog
       if (!user) {
-        localStorage.setItem(PENDING_PROMPT_KEY, inputValue.trim());
+        localStorage.setItem(PENDING_PROMPT_KEY, message.trim());
         setAuthDialogOpen(true);
+        setIsSubmitting(false);
         return;
       }
 
-      // Add files if any
+      const formData = new FormData();
+      formData.append('prompt', message);
+
+      // Get files from ChatInput if available
+      const files = chatInputRef.current?.getPendingFiles() || [];
       files.forEach((file) => {
         const normalizedName = normalizeFilenameToNFC(file.name);
         formData.append('files', file, normalizedName);
       });
+
+      if (selectedAgentId) {
+        formData.append('agent_id', selectedAgentId);
+      }
 
       if (options?.model_name) formData.append('model_name', options.model_name);
       formData.append('stream', 'true'); // Always stream for better UX
@@ -421,7 +416,6 @@ export function HeroSection() {
       if (result.thread_id) {
         setInitiatedThreadId(result.thread_id);
         setInputValue('');
-        router.push(`/agents/${result.thread_id}`);
       } else {
         throw new Error('Failed to create agent');
       }
@@ -456,13 +450,6 @@ export function HeroSection() {
       }
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSubmit(e as any);
     }
   };
 
@@ -1064,15 +1051,16 @@ export function HeroSection() {
           </div>
 
 
-        {/* Video section positioned below the main content with better mobile spacing */}
-        <motion.div 
-          className="w-full max-w-6xl mx-auto mt-8 md:mt-12 lg:mt-16 mb-8 md:mb-16 relative z-30"
-          style={{ display: 'none' }} // Temporarily hide the video section
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1, duration: 1 }}
-        >
-          <HeroVideoSection />
+          {/* Video section positioned below the main content with better mobile spacing */}
+          <motion.div 
+            className="w-full max-w-6xl mx-auto mt-8 md:mt-12 lg:mt-16 mb-8 md:mb-16 relative z-30"
+            style={{ display: 'none' }} // Temporarily hide the video section
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1, duration: 1 }}
+          >
+            <HeroVideoSection />
+          </motion.div>
         </motion.div>
       </div>
 

@@ -43,7 +43,7 @@ import {
 } from 'lucide-react';
 import { useTransactions, useTransactionsSummary, useUsageLogs, useBillingStatus, useSubscriptionInfo } from '@/hooks/react-query/billing/use-transactions';
 import { cn } from '@/lib/utils';
-import UsageLogs from '@/components/billing/usage-logs';
+// import UsageLogs from '@/components/billing/usage-logs'; // TODO: Create this component
 
 interface Props {
   accountId?: string;
@@ -224,7 +224,6 @@ export default function CreditTransactions({ accountId }: Props) {
 
       {/* Non-Enterprise Balance Summary Card */}
       {!isEnterpriseMode && currentBalance && (
-      {currentBalance && (
         <Card>
           <CardHeader>
             <CardTitle>Current Balance</CardTitle>
@@ -261,8 +260,18 @@ export default function CreditTransactions({ accountId }: Props) {
         </Card>
       )}
       {isEnterpriseMode ? (
-        // Enterprise mode: Use the existing UsageLogs component
-        currentUserId && <UsageLogs accountId={currentUserId} />
+        // Enterprise mode: TODO - UsageLogs component needs to be created
+        <Card>
+          <CardHeader>
+            <CardTitle>Enterprise Usage Logs</CardTitle>
+            <CardDescription>Detailed usage logs coming soon</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              This feature is under development. Usage logs will be available here soon.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
         // Non-enterprise mode: Show traditional transaction table
         <Card className='p-0 px-0 bg-transparent shadow-none border-none'>
