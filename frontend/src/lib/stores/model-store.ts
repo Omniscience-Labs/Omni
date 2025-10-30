@@ -7,13 +7,13 @@ interface ModelStore {
 }
 
 // Default models matching PRODUCTION branch
-const DEFAULT_FREE_MODEL_ID = 'claude-sonnet-4';
-const DEFAULT_PREMIUM_MODEL_ID = 'claude-sonnet-4';
+const DEFAULT_FREE_MODEL_ID = 'claude-haiku-4.5';
+const DEFAULT_PREMIUM_MODEL_ID = 'claude-haiku-4.5';
 
 export const useModelStore = create<ModelStore>()(
   persist(
     (set) => ({
-      selectedModel: DEFAULT_FREE_MODEL_ID, // Default to Claude Sonnet 4
+      selectedModel: DEFAULT_FREE_MODEL_ID, // Default to Haiku 4.5
       setSelectedModel: (model: string) => {
         console.log('🔧 ModelStore: Setting selected model to:', model);
         set({ selectedModel: model });
@@ -30,9 +30,9 @@ export const useModelStore = create<ModelStore>()(
 
 // Utility functions for compatibility
 export const formatModelName = (name: string): string => {
-  // Special case for Claude Sonnet 4 to display as "Omni 4"
-  if (name === 'Claude Sonnet 4' || name === 'claude-sonnet-4' || name === 'anthropic/claude-sonnet-4-20250514') {
-    return 'Omni 4';
+  // Special case for Haiku 4.5 to display as "Omni 4.5"
+  if (name === 'Haiku 4.5' || name === 'Claude Haiku 4.5' || name === 'claude-haiku-4.5' || name === 'anthropic/claude-haiku-4-5') {
+    return 'Omni 4.5';
   }
   
   return name
