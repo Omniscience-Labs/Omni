@@ -144,7 +144,7 @@ export default function PricingPage() {
   } = useModelSelection();
 
   const [selectedModelId, setSelectedModelId] = useState<string>(
-    'anthropic/claude-sonnet-4-20250514',
+    'anthropic/claude-haiku-4-5',
   );
   const [showAllTasks, setShowAllTasks] = useState<boolean>(false);
 
