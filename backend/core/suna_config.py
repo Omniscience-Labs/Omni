@@ -4,11 +4,7 @@ from core.prompts.prompt import SYSTEM_PROMPT
 SUNA_CONFIG = {
     "name": "Suna",
     "description": "Suna is your AI assistant with access to various tools and integrations to help you with tasks across domains.",
-<<<<<<< HEAD
     "model": "Qwen3 VL 235B Thinking",
-=======
-    "model": "claude-haiku-4.5",
->>>>>>> upstream/PRODUCTION
     "system_prompt": SYSTEM_PROMPT,
     "configured_mcps": [],
     "custom_mcps": [],
@@ -22,20 +18,6 @@ SUNA_CONFIG = {
         # Search and research tools
         "web_search_tool": True,
         "image_search_tool": True,
-<<<<<<< HEAD
-        "sb_vision_tool": True,
-        "sb_docs_tool": True,
-        "sb_image_edit_tool": True,
-        "sb_presentation_outline_tool": False,
-        "sb_presentation_tool": False,
-        "sb_video_avatar_tool": False,
-        "sb_sheets_tool": True,
-        "podcast_tool": True,
-        "browser_tool": True,
-        "data_providers_tool": True,
-        "sb_design_tool": True,
-        # "sb_web_dev_tool": True,
-=======
         "data_providers_tool": True,
         
         # AI vision and image tools
@@ -55,7 +37,6 @@ SUNA_CONFIG = {
         "browser_tool": True,
         
         # Agent builder tools
->>>>>>> upstream/PRODUCTION
         "agent_config_tool": True,
         "agent_creation_tool": True,
         "mcp_search_tool": True,

@@ -11,21 +11,15 @@ from core.auth import require_admin
 from core.services.supabase import DBConnection
 from core.utils.logger import logger
 from core.utils.pagination import PaginationService, PaginationParams, PaginatedResponse
-<<<<<<<< HEAD:backend/core/admin/users_admin.py
 from collections import defaultdict
-from core.utils.config import config
-from core.utils.auth_utils import verify_and_get_user_id_from_jwt
-========
-from core.utils.auth_utils import verify_admin_api_key
-from core.utils.suna_default_agent_service import SunaDefaultAgentService
 from core.utils.config import config, EnvMode
+from core.utils.auth_utils import verify_and_get_user_id_from_jwt, verify_admin_api_key
+from core.utils.suna_default_agent_service import SunaDefaultAgentService
 from dotenv import load_dotenv, set_key, find_dotenv, dotenv_values
 import os
->>>>>>>> upstream/PRODUCTION:backend/core/admin/admin_api.py
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-<<<<<<<< HEAD:backend/core/admin/users_admin.py
 # Unified admin check that works with both standard and enterprise admin systems
 async def require_any_admin(user_id: str = Depends(verify_and_get_user_id_from_jwt)):
     """
@@ -90,11 +84,10 @@ class UserListRequest(BaseModel):
     tier_filter: Optional[str] = None
     sort_by: str = "created_at"
     sort_order: str = "desc"
-========
+
 # ============================================================================
 # MODELS
 # ============================================================================
->>>>>>>> upstream/PRODUCTION:backend/core/admin/admin_api.py
 
 class UserSummary(BaseModel):
     id: str
@@ -116,7 +109,6 @@ class UserThreadSummary(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-<<<<<<<< HEAD:backend/core/admin/users_admin.py
 @router.post("/search/advanced")
 async def advanced_user_search(
     request: AdvancedSearchRequest,
@@ -245,11 +237,47 @@ async def advanced_user_search(
                 subscription_status = item['billing_subscriptions'][0].get('status')
             
             credit_account = credit_accounts.get(item['id'], {})
-========
+            
+            subscription_status = None
+            if item.get('billing_subscriptions'):
+                subscription_status = item['billing_subscriptions'][0].get('status')
+            
+            email = 'N/A'
+            if item.get('billing_customers') and item['billing_customers'][0].get('email'):
+                email = item['billing_customers'][0]['email']
+            elif item.get('primary_owner_user_id'):
+                try:
+                    user_email_result = await client.rpc('get_user_email', {'user_id': item['primary_owner_user_id']}).execute()
+                    if user_email_result.data:
+                        email = user_email_result.data
+                except Exception as e:
+                    logger.warning(f"Failed to get email for account {item['id']}: {e}")
+            
+            users.append(UserSummary(
+                id=item['id'],
+                email=email,
+                created_at=datetime.fromisoformat(item['created_at'].replace('Z', '+00:00')),
+                tier=credit_account.get('tier', 'free'),
+                credit_balance=float(credit_account.get('balance', 0)),
+                total_purchased=float(credit_account.get('lifetime_purchased', 0)),
+                total_used=float(credit_account.get('lifetime_used', 0)),
+                subscription_status=subscription_status,
+                trial_status=credit_account.get('trial_status')
+            ))
+        
+        return await PaginationService.paginate_with_total_count(
+            items=users,
+            total_count=total_count,
+            params=pagination_params
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to perform advanced search: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to perform advanced search")
+
 # ============================================================================
 # USER MANAGEMENT ENDPOINTS
 # ============================================================================
->>>>>>>> upstream/PRODUCTION:backend/core/admin/admin_api.py
 
 @router.get("/users/list")
 async def list_users(
@@ -467,7 +495,6 @@ async def get_user_details(
         logger.error(f"Failed to get user details: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve user details")
 
-<<<<<<<< HEAD:backend/core/admin/users_admin.py
 @router.get("/search/email")
 async def search_users_by_email(
     email: str = Query(..., description="Email to search for"),
@@ -540,9 +567,7 @@ async def search_users_by_email(
         raise HTTPException(status_code=500, detail="Failed to search users")
 
 @router.get("/stats/overview")
-========
 @router.get("/users/stats/overview")
->>>>>>>> upstream/PRODUCTION:backend/core/admin/admin_api.py
 async def get_user_stats_overview(
     admin: dict = Depends(require_any_admin)
 ):
@@ -593,7 +618,6 @@ async def get_user_stats_overview(
         logger.error(f"Failed to get user stats: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve user statistics")
 
-<<<<<<<< HEAD:backend/core/admin/users_admin.py
 class UserActivityRequest(BaseModel):
     days: int = 30
     
@@ -601,7 +625,12 @@ class UserActivityRequest(BaseModel):
 async def get_user_activity_summary(
     request: UserActivityRequest,
     admin: dict = Depends(require_any_admin)
-========
+):
+    """Get aggregate activity summary across users."""
+    # TODO: Implement aggregate activity summary
+    # This endpoint would provide system-wide activity stats over the specified days
+    raise HTTPException(status_code=501, detail="Not implemented yet")
+
 @router.get("/users/{user_id}/activity")
 async def get_user_activity(
     user_id: str,
@@ -609,7 +638,6 @@ async def get_user_activity(
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     status_filter: Optional[str] = Query(None, description="Filter by status"),
     admin: dict = Depends(require_admin)
->>>>>>>> upstream/PRODUCTION:backend/core/admin/admin_api.py
 ):
     """Get paginated activity (agent runs) for a specific user."""
     try:
@@ -772,9 +800,8 @@ async def get_user_threads_by_email(
     except HTTPException:
         raise
     except Exception as e:
-<<<<<<<< HEAD:backend/core/admin/users_admin.py
-        logger.error(f"Failed to adjust credits: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to adjust user credits")
+        logger.error(f"Failed to get user threads by email: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve user threads")
 
 @router.get("/{user_id}/usage-logs")
 async def get_user_usage_logs(
@@ -834,9 +861,10 @@ async def get_user_usage_logs(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to get usage logs: {str(e)}")
-========
-        logger.error(f"Failed to get user threads by email: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to retrieve user threads")
+
+# ============================================================================
+# AGENT & SYSTEM MANAGEMENT
+# ============================================================================
 
 # ============================================================================
 # AGENT & SYSTEM MANAGEMENT
@@ -903,5 +931,3 @@ def save_env_vars(request: Dict[str, str]) -> Dict[str, str]:
     except Exception as e:
         logger.error(f"Failed to save env variables: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to save env variables: {e}")
-
->>>>>>>> upstream/PRODUCTION:backend/core/admin/admin_api.py

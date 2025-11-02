@@ -74,12 +74,9 @@ class Model:
     priority: int = 0
     recommended: bool = False
     
-<<<<<<< HEAD
-=======
     # NEW: Centralized model configuration
     config: Optional[ModelConfig] = None
     
->>>>>>> upstream/PRODUCTION
     def __post_init__(self):        
         if ModelCapability.CHAT not in self.capabilities:
             self.capabilities.insert(0, ModelCapability.CHAT)

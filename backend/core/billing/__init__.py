@@ -18,12 +18,8 @@ from .billing_integration import billing_integration
 from .subscription_service import subscription_service
 from .trial_service import trial_service
 from .payment_service import payment_service
-<<<<<<< HEAD
-# Import service instances for direct usage
-=======
 from .reconciliation_service import reconciliation_service
 from .stripe_circuit_breaker import stripe_circuit_breaker, StripeAPIWrapper
->>>>>>> upstream/PRODUCTION
 
 __all__ = [
     'TOKEN_PRICE_MULTIPLIER',

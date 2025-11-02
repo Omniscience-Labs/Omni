@@ -21,11 +21,8 @@ from .webhook_service import webhook_service
 from .subscription_service import subscription_service
 from .trial_service import trial_service
 from .payment_service import payment_service
-<<<<<<< HEAD
-=======
 from .reconciliation_service import reconciliation_service
 from .stripe_circuit_breaker import StripeAPIWrapper, stripe_circuit_breaker
->>>>>>> upstream/PRODUCTION
  
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -84,11 +81,6 @@ def calculate_token_cost(prompt_tokens: int, completion_tokens: int, model: str)
         logger.error(f"[COST_CALC] Error calculating token cost for model '{model}': {e}")
         return Decimal('0.01')
 
-<<<<<<< HEAD
-
-
-=======
->>>>>>> upstream/PRODUCTION
 async def calculate_credit_breakdown(account_id: str, client) -> Dict:
     current_balance = await credit_service.get_balance(account_id)
     current_balance = float(current_balance)
@@ -347,11 +339,7 @@ async def purchase_credits_checkout(
         amount=request.amount,
         success_url=request.success_url,
         cancel_url=request.cancel_url,
-<<<<<<< HEAD
-        get_user_subscription_tier_func=None  # Will be imported in payment service
-=======
         get_user_subscription_tier_func=subscription_service.get_user_subscription_tier
->>>>>>> upstream/PRODUCTION
     )
     return result
 
@@ -418,11 +406,7 @@ async def get_subscription(
         }
         
     except Exception as e:
-<<<<<<< HEAD
-        logger.error("Error getting subscription", error=str(e))
-=======
         logger.error(f"Error getting subscription: {str(e)}")
->>>>>>> upstream/PRODUCTION
         no_tier = TIERS['none']
         tier_info = {
             'name': no_tier.name,
@@ -927,11 +911,7 @@ async def get_available_models(
         }
         
     except Exception as e:
-<<<<<<< HEAD
-        logger.error("Error getting available models", error=str(e))
-=======
         logger.error(f"Error getting available models: {str(e)}")
->>>>>>> upstream/PRODUCTION
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/subscription-commitment/{subscription_id}")

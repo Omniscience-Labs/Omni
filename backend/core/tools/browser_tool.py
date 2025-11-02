@@ -148,32 +148,6 @@ class BrowserTool(SandboxToolsBase):
             max_retries = 5
             retry_delays = [1, 2, 3, 5, 5]  # seconds between retries
             
-<<<<<<< HEAD
-            # Simple health check curl command
-            curl_cmd = "curl -s -X GET 'http://localhost:8004/api' -H 'Content-Type: application/json'"
-            
-            # logger.debug(f"Checking Stagehand API health with: {curl_cmd}")
-            
-            response = await self.sandbox.process.exec(curl_cmd, timeout=10)
-            if response.exit_code == 0:
-                try:
-                    result = json.loads(response.result)
-                    if result.get("status") == "healthy":
-                        logger.info("✅ Stagehand API server is running and healthy")
-                        return True
-                    else:
-                        # If the browser api is not healthy, we need to restart the browser api
-                        # Pass API key securely as environment variable instead of command line argument
-                        env_vars = {"GEMINI_API_KEY": config.GEMINI_API_KEY}
-
-                        response = await self.sandbox.process.exec(
-                            "curl -X POST 'http://localhost:8004/api/init' -H 'Content-Type: application/json' -d '{\"api_key\": \"'$GEMINI_API_KEY'\"}'",
-                            timeout=90,
-                            env=env_vars
-                        )
-                        if response.exit_code == 0:
-                            logger.info("Stagehand API server restarted successfully")
-=======
             for attempt in range(max_retries):
                 # Simple health check curl command
                 curl_cmd = "curl -s -X GET 'http://localhost:8004/api' -H 'Content-Type: application/json'"
@@ -188,7 +162,6 @@ class BrowserTool(SandboxToolsBase):
                         result = json.loads(response.result)
                         if result.get("status") == "healthy":
                             logger.info("✅ Stagehand API server is running and healthy")
->>>>>>> upstream/PRODUCTION
                             return True
                         else:
                             # If the browser api is not healthy, we need to initialize it

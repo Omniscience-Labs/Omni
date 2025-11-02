@@ -108,16 +108,6 @@ if enabled:
                 def auth_check(self): return False
             
             class MockTrace:
-<<<<<<< HEAD
-                def __init__(self): self.id = "mock-trace-id"
-            class MockGeneration:
-                def __init__(self): self.id = "mock-generation-id"
-                def update(self, **kwargs): pass
-                def end(self, **kwargs): pass
-            class MockSpan:
-                def __init__(self): self.id = "mock-span-id"
-                def end(self, **kwargs): pass
-=======
                 def __init__(self): 
                     self.id = "mock-trace-id"
                 
@@ -144,7 +134,6 @@ if enabled:
                     def no_op(*args, **kwargs):
                         pass
                     return no_op
->>>>>>> upstream/PRODUCTION
             
             langfuse = MockLangfuse()
         enabled = False
@@ -163,16 +152,6 @@ else:
         def auth_check(self): return False
     
     class MockTrace:
-<<<<<<< HEAD
-        def __init__(self): self.id = "mock-trace-id"
-    class MockGeneration:
-        def __init__(self): self.id = "mock-generation-id"
-        def update(self, **kwargs): pass
-        def end(self, **kwargs): pass
-    class MockSpan:
-        def __init__(self): self.id = "mock-span-id"
-        def end(self, **kwargs): pass
-=======
         def __init__(self): 
             self.id = "mock-trace-id"
         
@@ -199,7 +178,6 @@ else:
             def no_op(*args, **kwargs):
                 pass
             return no_op
->>>>>>> upstream/PRODUCTION
     
     langfuse = MockLangfuse()
 

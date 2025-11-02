@@ -130,15 +130,13 @@ def format_template_for_response(template: AgentTemplate) -> Dict[str, Any]:
         'download_count': template.download_count,
         'created_at': template.created_at.isoformat(),
         'updated_at': template.updated_at.isoformat(),
-<<<<<<< HEAD
         'profile_image_url': template.profile_image_url,
-=======
->>>>>>> upstream/PRODUCTION
         'icon_name': template.icon_name,
         'icon_color': template.icon_color,
         'icon_background': template.icon_background,
         'metadata': template.metadata,
         'creator_name': template.creator_name,
+        'sharing_preferences': template.sharing_preferences,
         'usage_examples': template.usage_examples,
         'config': template.config,
     }

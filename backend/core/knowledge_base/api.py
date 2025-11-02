@@ -1,15 +1,9 @@
 from typing import List, Optional
-<<<<<<< HEAD
 from datetime import datetime
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt, verify_and_get_agent_authorization, require_agent_access, AuthorizedAgentAccess
-=======
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
-from pydantic import BaseModel, Field, validator
-from core.utils.auth_utils import verify_and_get_user_id_from_jwt, require_agent_access, AuthorizedAgentAccess
->>>>>>> upstream/PRODUCTION
 from core.services.supabase import DBConnection
 from .file_processor import FileProcessor
 from core.utils.logger import logger
@@ -27,7 +21,6 @@ db = DBConnection()
 
 router = APIRouter(prefix="/knowledge-base", tags=["knowledge-base"])
 
-<<<<<<< HEAD
 # Helper function to validate UUID
 def validate_uuid(uuid_string: str, field_name: str = "ID") -> str:
     """Validate that a string is a valid UUID format."""
@@ -120,24 +113,14 @@ def format_knowledge_base_name(name: str) -> str:
             .replace('_', '-')
             .strip('-')
             .replace('--', '-'))
-=======
-
->>>>>>> upstream/PRODUCTION
 # Helper function to check total file size limit
 async def check_total_file_size_limit(account_id: str, new_file_size: int):
     """Check if adding a new file would exceed the total file size limit."""
     try:
-<<<<<<< HEAD
-        client = await db.client
-        
-        # Get total size of all current entries for this account
-        result = await client.from_('knowledge_base_entries').select(
-=======
         client = await DBConnection().client
         
         # Get total size of all current entries for this account
         result = await client.table('knowledge_base_entries').select(
->>>>>>> upstream/PRODUCTION
             'file_size'
         ).eq('account_id', account_id).eq('is_active', True).execute()
         
@@ -162,7 +145,6 @@ async def check_total_file_size_limit(account_id: str, new_file_size: int):
         logger.error(f"Error checking file size limit: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to check file size limit")
 
-<<<<<<< HEAD
 # Folder management
 class CreateFolderRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
@@ -653,10 +635,10 @@ async def get_root_cloud_knowledge_bases(
 
 class KnowledgeBaseEntry(BaseModel):
     entry_id: Optional[str] = None
-=======
+    entry_type: Optional[str] = None
+
 # Models
 class FolderRequest(BaseModel):
->>>>>>> upstream/PRODUCTION
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     
@@ -667,7 +649,6 @@ class FolderRequest(BaseModel):
             raise ValueError(error_message)
         return FileNameValidator.sanitize_name(v)
 
-<<<<<<< HEAD
 class KnowledgeBaseEntryResponse(BaseModel):
     entry_id: str
     name: str
@@ -702,9 +683,12 @@ class CreateKnowledgeBaseEntryRequest(BaseModel):
     usage_context: str = Field(default="always", pattern="^(always|on_request|contextual)$")
 
 class UpdateKnowledgeBaseEntryRequest(BaseModel):
-=======
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    usage_context: Optional[str] = None
+    is_active: Optional[bool] = None
+
 class UpdateFolderRequest(BaseModel):
->>>>>>> upstream/PRODUCTION
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
     
@@ -740,7 +724,6 @@ class AgentAssignmentRequest(BaseModel):
 db = DBConnection()
 file_processor = FileProcessor()
 
-<<<<<<< HEAD
 @router.get("/agents/{agent_id}/unified", response_model=UnifiedKnowledgeBaseListResponse)
 async def get_agent_unified_knowledge_base(
     agent_id: str,
@@ -848,21 +831,10 @@ async def get_agent_knowledge_base(
 
         # Get assigned entries for this agent from the new schema
         assignment_result = await client.from_('agent_knowledge_entry_assignments').select('entry_id').eq('agent_id', agent_id).eq('enabled', True).execute()
-=======
-# Folder management
-@router.get("/folders", response_model=List[FolderResponse])
-async def get_folders(user_id: str = Depends(verify_and_get_user_id_from_jwt)):
-    """Get all knowledge base folders for user."""
-    try:
-        client = await db.client
-        account_id = user_id
->>>>>>> upstream/PRODUCTION
         
-        result = await client.table('knowledge_base_folders').select(
-            'folder_id, name, description, created_at'
-        ).eq('account_id', account_id).order('created_at', desc=True).execute()
+        entries = []
+        total_tokens = 0
         
-<<<<<<< HEAD
         # Get entry details for each assigned entry
         for assignment in assignment_result.data or []:
             entry_result = await client.from_('knowledge_base_entries').select('''
@@ -899,28 +871,18 @@ async def get_folders(user_id: str = Depends(verify_and_get_user_id_from_jwt)):
                 )
                 entries.append(entry)
                 total_tokens += estimated_tokens
-=======
-        folders = []
-        for folder_data in result.data:
-            # Count entries in folder
-            count_result = await client.table('knowledge_base_entries').select(
-                'entry_id', count='exact'
-            ).eq('folder_id', folder_data['folder_id']).execute()
-            
-            folders.append(FolderResponse(
-                folder_id=folder_data['folder_id'],
-                name=folder_data['name'],
-                description=folder_data['description'],
-                entry_count=count_result.count or 0,
-                created_at=folder_data['created_at']
-            ))
->>>>>>> upstream/PRODUCTION
         
-        return folders
+        return KnowledgeBaseListResponse(
+            entries=entries,
+            total_count=len(entries),
+            total_tokens=total_tokens
+        )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting folders: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve folders")
+        logger.error(f"Error getting agent knowledge base for {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve agent knowledge base")
 
 @router.post("/folders", response_model=FolderResponse)
 async def create_folder(
@@ -945,10 +907,6 @@ async def create_folder(
             'description': folder_data.description
         }
         
-<<<<<<< HEAD
-        # For now, return an error since direct agent knowledge base creation was moved to the folder-based system
-        raise HTTPException(status_code=400, detail="Agent knowledge base entries are now managed through the global folder system. Please use the knowledge base page to upload files and assign them to agents.")
-=======
         result = await client.table('knowledge_base_folders').insert(insert_data).execute()
         
         if not result.data:
@@ -963,7 +921,6 @@ async def create_folder(
             entry_count=0,
             created_at=created_folder['created_at']
         )
->>>>>>> upstream/PRODUCTION
         
     except ValidationError:
         raise
@@ -1122,7 +1079,6 @@ async def upload_file(
         
         # Read file content
         file_content = await file.read()
-<<<<<<< HEAD
         
         # Check total file size limit before processing
         await check_total_file_size_limit(account_id, len(file_content))
@@ -1137,11 +1093,6 @@ async def upload_file(
                 'file_size': len(file_content)
             }
         }).execute()
-=======
->>>>>>> upstream/PRODUCTION
-        
-        # Check total file size limit before processing
-        await check_total_file_size_limit(account_id, len(file_content))
         
         # Generate unique filename if there's a conflict
         final_filename = await validate_file_name_unique_in_folder(file.filename, folder_id)
@@ -1185,64 +1136,34 @@ async def get_folder_entries(
         client = await db.client
         account_id = user_id
         
-<<<<<<< HEAD
-        # Get the entry from the new schema
-        entry_result = await client.from_('knowledge_base_entries').select('*').eq('entry_id', entry_id).execute()
-            
-        if not entry_result.data:
-            raise HTTPException(status_code=404, detail="Knowledge base entry not found")
+        # Verify folder ownership
+        folder_result = await client.table('knowledge_base_folders').select(
+            'folder_id'
+        ).eq('folder_id', folder_id).eq('account_id', account_id).execute()
         
-        entry = entry_result.data[0]
+        if not folder_result.data:
+            raise HTTPException(status_code=404, detail="Folder not found")
         
-        # Check if user has access to this entry through their account
-        account_id = await get_user_account_id(client, user_id)
-        if entry['account_id'] != account_id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        result = await client.table('knowledge_base_entries').select(
+            'entry_id, filename, summary, file_size, created_at'
+        ).eq('folder_id', folder_id).eq('is_active', True).order('created_at', desc=True).execute()
         
-        # Update logic for the entry (only filename and summary can be updated)
-        update_data = {}
-        if entry_data.name is not None:
-            update_data['filename'] = entry_data.name
-        if entry_data.description is not None:
-            update_data['summary'] = entry_data.description
-        if entry_data.usage_context is not None:
-            update_data['usage_context'] = entry_data.usage_context
-        if entry_data.is_active is not None:
-            update_data['is_active'] = entry_data.is_active
-        
-        if not update_data:
-            raise HTTPException(status_code=400, detail="No fields to update")
-        
-        result = await client.from_('knowledge_base_entries').update(update_data).eq('entry_id', entry_id).execute()
-        
-        if not result.data:
-            raise HTTPException(status_code=500, detail="Failed to update knowledge base entry")
-        
-        updated_entry = result.data[0]
-        
-        logger.debug(f"Updated knowledge base entry {entry_id}")
-        
-        return KnowledgeBaseEntryResponse(
-            entry_id=updated_entry['entry_id'],
-            name=updated_entry['filename'],
-            description=updated_entry['summary'],
-            content=updated_entry['summary'],
-            usage_context=updated_entry['usage_context'],
-            is_active=updated_entry['is_active'],
-            content_tokens=len(updated_entry.get('summary', '')) // 4,
-            created_at=updated_entry['created_at'],
-            updated_at=updated_entry['updated_at'],
-            source_type=updated_entry.get('source_type'),
-            source_metadata=updated_entry.get('source_metadata'),
-            file_size=updated_entry.get('file_size'),
-            file_mime_type=updated_entry.get('file_mime_type')
-        )
+        return [
+            EntryResponse(
+                entry_id=entry['entry_id'],
+                filename=entry['filename'],
+                summary=entry['summary'],
+                file_size=entry['file_size'],
+                created_at=entry['created_at']
+            )
+            for entry in result.data
+        ]
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating knowledge base entry {entry_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to update knowledge base entry")
+        logger.error(f"Error getting folder entries: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve entries")
 
 @router.delete("/{entry_id}")
 async def delete_knowledge_base_entry(
@@ -1367,8 +1288,6 @@ async def get_agent_processing_jobs(
             )
             for entry in result.data
         ]
->>>>>>> upstream/PRODUCTION
-        
     except HTTPException:
         raise
     except Exception as e:
@@ -1412,21 +1331,10 @@ async def delete_entry(
         logger.error(f"Error deleting entry: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to delete entry")
 
-<<<<<<< HEAD
-
 # =============================================================================
 # SUNA'S NEW KNOWLEDGE BASE SYSTEM - Agent Assignment Management  
 # =============================================================================
 
-class AgentAssignmentRequest(BaseModel):
-    assignments: dict = Field(..., description="Dictionary of folder assignments")
-
-class AgentAssignmentResponse(BaseModel):
-    folder_id: str
-    enabled: bool
-    file_assignments: dict
-
-# Unified Assignment Models
 class UnifiedAssignmentRequest(BaseModel):
     regular_entry_ids: list[str] = Field(default=[], description="List of regular knowledge base entry IDs")
     llamacloud_kb_ids: list[str] = Field(default=[], description="List of LlamaCloud knowledge base IDs")
@@ -1436,29 +1344,6 @@ class UnifiedAssignmentResponse(BaseModel):
     llamacloud_assignments: dict[str, bool] = Field(default={}, description="LlamaCloud KB ID to enabled status mapping")
     total_regular_count: int
     total_llamacloud_count: int
-
-@router.get("/agents/{agent_id}/assignments")
-async def get_agent_assignments(
-    agent_id: str,
-    user_id: str = Depends(verify_and_get_user_id_from_jwt)
-):
-    """Get current knowledge base assignments for an agent"""
-    try:
-        client = await db.client
-        
-        # Verify agent access
-        await verify_and_get_agent_authorization(client, agent_id, user_id)
-        
-        # Get specific file assignments only
-        file_result = await client.from_("agent_knowledge_entry_assignments").select("entry_id, enabled").eq("agent_id", agent_id).execute()
-        
-        return {row['entry_id']: row['enabled'] for row in file_result.data}
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting agent assignments for {agent_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve agent assignments")
 
 @router.get("/agents/{agent_id}/assignments/unified", response_model=UnifiedAssignmentResponse)
 async def get_agent_unified_assignments(
@@ -1488,49 +1373,11 @@ async def get_agent_unified_assignments(
             llamacloud_assignments=llamacloud_assignments,
             total_regular_count=len(regular_assignments),
             total_llamacloud_count=len(llamacloud_assignments)
-=======
-@router.patch("/entries/{entry_id}", response_model=EntryResponse)
-async def update_entry(
-    entry_id: str,
-    request: UpdateEntryRequest,
-    user_id: str = Depends(verify_and_get_user_id_from_jwt)
-):
-    """Update a knowledge base entry summary."""
-    try:
-        client = await db.client
-        account_id = user_id
-        
-        # Verify ownership and get current entry
-        entry_result = await client.table('knowledge_base_entries').select(
-            'entry_id, filename, summary, file_size, created_at, account_id'
-        ).eq('entry_id', entry_id).eq('account_id', account_id).execute()
-        
-        if not entry_result.data:
-            raise HTTPException(status_code=404, detail="Entry not found")
-        
-        # Update the summary
-        update_result = await client.table('knowledge_base_entries').update({
-            'summary': request.summary
-        }).eq('entry_id', entry_id).execute()
-        
-        if not update_result.data:
-            raise HTTPException(status_code=500, detail="Failed to update entry")
-        
-        # Return the updated entry
-        updated_entry = update_result.data[0]
-        return EntryResponse(
-            entry_id=updated_entry['entry_id'],
-            filename=updated_entry['filename'],
-            summary=updated_entry['summary'],
-            file_size=updated_entry['file_size'],
-            created_at=updated_entry['created_at']
->>>>>>> upstream/PRODUCTION
         )
         
     except HTTPException:
         raise
     except Exception as e:
-<<<<<<< HEAD
         logger.error(f"Error getting unified assignments for agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve unified agent assignments")
 
@@ -1587,7 +1434,45 @@ async def update_agent_unified_assignments(
     except Exception as e:
         logger.error(f"Error updating unified assignments for agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to update unified agent assignments")
-=======
+
+@router.patch("/entries/{entry_id}", response_model=EntryResponse)
+async def update_entry(
+    entry_id: str,
+    request: UpdateEntryRequest,
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
+):
+    """Update a knowledge base entry summary."""
+    try:
+        client = await db.client
+        account_id = user_id
+        
+        # Verify ownership and get current entry
+        entry_result = await client.table('knowledge_base_entries').select(
+            'entry_id, filename, summary, file_size, created_at, account_id'
+        ).eq('entry_id', entry_id).eq('account_id', account_id).execute()
+        
+        if not entry_result.data:
+            raise HTTPException(status_code=404, detail="Entry not found")
+        
+        # Update the summary
+        update_result = await client.table('knowledge_base_entries').update({
+            'summary': request.summary
+        }).eq('entry_id', entry_id).execute()
+        
+        if not update_result.data:
+            raise HTTPException(status_code=500, detail="Failed to update entry")
+        
+        # Return the updated entry
+        updated_entry = update_result.data[0]
+        return EntryResponse(
+            entry_id=updated_entry['entry_id'],
+            filename=updated_entry['filename'],
+            summary=updated_entry['summary'],
+            file_size=updated_entry['file_size'],
+            created_at=updated_entry['created_at']
+        )
+        
+    except HTTPException:
         logger.error(f"Error updating entry: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to update entry")
 
@@ -1611,12 +1496,120 @@ async def get_agent_assignments(
     except Exception as e:
         logger.error(f"Error getting agent assignments: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve agent assignments")
->>>>>>> upstream/PRODUCTION
+
+# =============================================================================
+# SUNA'S NEW KNOWLEDGE BASE SYSTEM - Agent Assignment Management  
+# =============================================================================
+
+class AgentAssignmentRequest(BaseModel):
+    assignments: dict = Field(..., description="Dictionary of folder assignments")
+
+class AgentAssignmentResponse(BaseModel):
+    folder_id: str
+    enabled: bool
+    file_assignments: dict
+
+# Unified Assignment Models
+class UnifiedAssignmentRequest(BaseModel):
+    regular_entry_ids: list[str] = Field(default=[], description="List of regular knowledge base entry IDs")
+    llamacloud_kb_ids: list[str] = Field(default=[], description="List of LlamaCloud knowledge base IDs")
+
+class UnifiedAssignmentResponse(BaseModel):
+    regular_assignments: dict[str, bool] = Field(default={}, description="Entry ID to enabled status mapping")
+    llamacloud_assignments: dict[str, bool] = Field(default={}, description="LlamaCloud KB ID to enabled status mapping")
+    total_regular_count: int
+    total_llamacloud_count: int
+
+@router.get("/agents/{agent_id}/assignments/unified")
+async def get_agent_unified_assignments(
+    agent_id: str,
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
+):
+    """Get unified knowledge base assignments for an agent (both regular and LlamaCloud)"""
+    try:
+        client = await db.client
+        
+        # Verify agent access
+        await verify_and_get_agent_authorization(client, agent_id, user_id)
+        
+        # Get regular KB assignments
+        regular_result = await client.from_("agent_knowledge_entry_assignments").select("entry_id, enabled").eq("agent_id", agent_id).execute()
+        regular_assignments = {row['entry_id']: row['enabled'] for row in regular_result.data}
+        
+        # Get LlamaCloud KB assignments
+        llamacloud_result = await client.from_("agent_llamacloud_kb_assignments").select("kb_id, enabled").eq("agent_id", agent_id).execute()
+        llamacloud_assignments = {row['kb_id']: row['enabled'] for row in llamacloud_result.data}
+        
+        return UnifiedAssignmentResponse(
+            regular_assignments=regular_assignments,
+            llamacloud_assignments=llamacloud_assignments,
+            total_regular_count=len(regular_assignments),
+            total_llamacloud_count=len(llamacloud_assignments)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting unified assignments for agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve unified agent assignments")
+
+@router.post("/agents/{agent_id}/assignments/unified")
+async def update_agent_unified_assignments(
+    agent_id: str,
+    request: UnifiedAssignmentRequest,
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
+):
+    """Update unified knowledge base assignments for an agent (both regular and LlamaCloud)"""
+    try:
+        client = await db.client
+        
+        # Verify agent access
+        agent_auth = await verify_and_get_agent_authorization(client, agent_id, user_id)
+        account_id = agent_auth['account_id']
+        
+        # Update regular KB assignments
+        # Delete existing regular assignments for this agent
+        await client.from_("agent_knowledge_entry_assignments").delete().eq("agent_id", agent_id).execute()
+        
+        # Insert new regular entry assignments
+        for entry_id in request.regular_entry_ids:
+            await client.from_("agent_knowledge_entry_assignments").insert({
+                "agent_id": agent_id,
+                "entry_id": entry_id,
+                "account_id": account_id,
+                "enabled": True
+            }).execute()
+        
+        # Update LlamaCloud KB assignments
+        # Delete existing LlamaCloud KB assignments for this agent
+        await client.from_("agent_llamacloud_kb_assignments").delete().eq("agent_id", agent_id).execute()
+        
+        # Insert new LlamaCloud KB assignments
+        for kb_id in request.llamacloud_kb_ids:
+            # Verify the KB exists and belongs to the account
+            kb_check = await client.from_('llamacloud_knowledge_bases').select('kb_id').eq(
+                'kb_id', kb_id
+            ).eq('account_id', account_id).execute()
+            
+            if kb_check.data:
+                await client.from_("agent_llamacloud_kb_assignments").insert({
+                    "agent_id": agent_id,
+                    "kb_id": kb_id,
+                    "account_id": account_id,
+                    "enabled": True
+                }).execute()
+        
+        return {"message": "Unified agent assignments updated successfully", "regular_count": len(request.regular_entry_ids), "llamacloud_count": len(request.llamacloud_kb_ids)}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating unified assignments for agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update unified agent assignments")
 
 @router.post("/agents/{agent_id}/assignments")
 async def update_agent_assignments(
     agent_id: str,
-<<<<<<< HEAD
     request: AgentAssignmentRequest,
     user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
@@ -2065,16 +2058,9 @@ async def move_file(
         }).eq('entry_id', entry_id).execute()
         
         return {"success": True, "message": "File moved successfully"}
->>>>>>> upstream/PRODUCTION
         
     except HTTPException:
         raise
     except Exception as e:
-<<<<<<< HEAD
-        logger.error(f"Error testing LlamaCloud search: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to test search: {str(e)}")
-
-=======
         logger.error(f"Error moving file: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to move file")
->>>>>>> upstream/PRODUCTION

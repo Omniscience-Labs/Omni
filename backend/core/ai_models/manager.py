@@ -227,17 +227,10 @@ class ModelManager:
             
             if is_paid_tier:
                 # logger.debug(f"Setting Default Premium Model for paid user {user_id}")
-<<<<<<< HEAD
-                return DEFAULT_PREMIUM_MODEL
-            else:
-                # logger.debug(f"Setting Default Free Model for free user {user_id}")
-                return DEFAULT_FREE_MODEL
-=======
                 return PREMIUM_MODEL_ID
             else:
                 # logger.debug(f"Setting Default Free Model for free user {user_id}")
                 return FREE_MODEL_ID
->>>>>>> upstream/PRODUCTION
                 
         except Exception as e:
             logger.warning(f"Failed to determine user tier for {user_id}: {e}")

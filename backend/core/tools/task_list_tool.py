@@ -331,30 +331,7 @@ class TaskListTool(SandboxToolsBase):
             }
         }
     })
-<<<<<<< HEAD
-    @usage_example(
-        '''
-        # Update single task (when only one task is completed):
-        <function_calls>
-        <invoke name="update_tasks">
-        <parameter name="task_ids">["task-uuid-here"]</parameter>
-        <parameter name="status">completed</parameter>
-        </invoke>
-        </function_calls>
-        
-        # Update multiple tasks (EFFICIENT: batch multiple completed tasks):
-        <function_calls>
-        <invoke name="update_tasks">
-        <parameter name="task_ids">["task-id-1", "task-id-2", "task-id-3"]</parameter>
-        <parameter name="status">completed</parameter>
-        </invoke>
-        </function_calls>
-        '''
-    )
     async def update_tasks(self, task_ids: List[str], content: Optional[str] = None,
-=======
-    async def update_tasks(self, task_ids, content: Optional[str] = None,
->>>>>>> upstream/PRODUCTION
                           status: Optional[str] = None, section_id: Optional[str] = None) -> ToolResult:
         """Update one or more tasks"""
         try:
@@ -424,53 +401,7 @@ class TaskListTool(SandboxToolsBase):
             }
         }
     })
-<<<<<<< HEAD
-    @usage_example(
-        '''
-        # Delete single task:
-        <function_calls>
-        <invoke name="delete_tasks">
-        <parameter name="task_ids">["task-uuid-here"]</parameter>
-        </invoke>
-        </function_calls>
-        
-        # Delete multiple tasks:
-        <function_calls>
-        <invoke name="delete_tasks">
-        <parameter name="task_ids">["task-id-1", "task-id-2"]</parameter>
-        </invoke>
-        </function_calls>
-        
-        # Delete single section (and all its tasks):
-        <function_calls>
-        <invoke name="delete_tasks">
-        <parameter name="section_ids">["section-uuid-here"]</parameter>
-        <parameter name="confirm">true</parameter>
-        </invoke>
-        </function_calls>
-        
-        # Delete multiple sections (and all their tasks):
-        <function_calls>
-        <invoke name="delete_tasks">
-        <parameter name="section_ids">["section-id-1", "section-id-2"]</parameter>
-        <parameter name="confirm">true</parameter>
-        </invoke>
-        </function_calls>
-        
-        # Delete both tasks and sections:
-        <function_calls>
-        <invoke name="delete_tasks">
-        <parameter name="task_ids">["task-id-1", "task-id-2"]</parameter>
-        <parameter name="section_ids">["section-id-1"]</parameter>
-        <parameter name="confirm">true</parameter>
-        </invoke>
-        </function_calls>
-        '''
-    )
     async def delete_tasks(self, task_ids: Optional[List[str]] = None, section_ids: Optional[List[str]] = None, confirm: bool = False) -> ToolResult:
-=======
-    async def delete_tasks(self, task_ids=None, section_ids=None, confirm: bool = False) -> ToolResult:
->>>>>>> upstream/PRODUCTION
         """Delete one or more tasks and/or sections"""
         try:
             # Validate that at least one of task_ids or section_ids is provided
