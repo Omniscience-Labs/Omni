@@ -11,6 +11,12 @@ if config.ENV_MODE == EnvMode.LOCAL:
 else:  # STAGING or PRODUCTION
     PREMIUM_MODEL_ID = "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/cyuh6gekrmmh"
 
+# Set free model ID based on environment - using Claude Sonnet 4
+if config.ENV_MODE == EnvMode.LOCAL:
+    FREE_MODEL_ID = "anthropic/claude-sonnet-4-20250514"
+else:  # STAGING or PRODUCTION
+    FREE_MODEL_ID = "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/4vac4byw7fqr"
+
 is_local = config.ENV_MODE == EnvMode.LOCAL
 
 class ModelRegistry:
