@@ -10,11 +10,7 @@ from urllib.parse import urlparse
 from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
-<<<<<<< HEAD
-from core.tools.image_context_manager import ImageContextManager
-=======
 from core.services.supabase import DBConnection
->>>>>>> upstream/PRODUCTION
 import json
 from svglib.svglib import svg2rlg
 from reportlab.graphics import renderPM
@@ -55,11 +51,7 @@ class SandboxVisionTool(SandboxToolsBase):
         self.thread_id = thread_id
         # Make thread_manager accessible within the tool instance
         self.thread_manager = thread_manager
-<<<<<<< HEAD
-        self.image_context_manager = ImageContextManager(thread_manager)
-=======
         self.db = DBConnection()
->>>>>>> upstream/PRODUCTION
 
     async def convert_svg_with_sandbox_browser(self, svg_full_path: str) -> Tuple[bytes, str]:
         """Convert SVG to PNG using sandbox browser API for better rendering support.
@@ -378,23 +370,6 @@ Images remain in the sandbox and can be loaded again anytime. SVG files are auto
                     print(f"[SeeImage] Warning: Could not save converted PNG to sandbox: {e}")
                     # Continue with original path if save fails
 
-<<<<<<< HEAD
-            # Add the image to context using the dedicated manager
-            result = await self.image_context_manager.add_image_to_context(
-                thread_id=self.thread_id,
-                base64_data=base64_image,
-                mime_type=compressed_mime_type,
-                file_path=cleaned_path,
-                original_size=original_size,
-                compressed_size=len(compressed_bytes)
-            )
-            
-            if not result:
-                return self.fail_response(f"Failed to add image '{cleaned_path}' to conversation context.")
-
-            # Inform the agent the image will be available next turn
-            return self.success_response(f"Successfully loaded and compressed the image '{cleaned_path}' (reduced from {original_size / 1024:.1f}KB to {len(compressed_bytes) / 1024:.1f}KB).")
-=======
             # CRITICAL: Validate MIME type before upload - Anthropic only accepts 4 formats
             SUPPORTED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
             if compressed_mime_type not in SUPPORTED_MIME_TYPES:
@@ -481,7 +456,6 @@ Images remain in the sandbox and can be loaded again anytime. SVG files are auto
             }
             
             return self.success_response(result_data)
->>>>>>> upstream/PRODUCTION
 
         except Exception as e:
             return self.fail_response(f"An unexpected error occurred while trying to see the image: {str(e)}")
@@ -540,12 +514,7 @@ Call this when you need to load new images but have reached the limit.""",
         try:
             await self._ensure_sandbox()
             
-<<<<<<< HEAD
-            # Use the dedicated image context manager
-            deleted_count = await self.image_context_manager.clear_images_from_context(self.thread_id)
-=======
             deleted_count = await self._clear_images_from_context()
->>>>>>> upstream/PRODUCTION
             
             if deleted_count > 0:
                 return self.success_response(
@@ -557,11 +526,7 @@ Call this when you need to load new images but have reached the limit.""",
                 
         except Exception as e:
             return self.fail_response(f"Failed to clear images from context: {str(e)}")
-<<<<<<< HEAD
-
-=======
  
->>>>>>> upstream/PRODUCTION
     # @openapi_schema({
     #     "type": "function",
     #     "function": {
@@ -574,16 +539,6 @@ Call this when you need to load new images but have reached the limit.""",
     #         }
     #     }
     # })
-<<<<<<< HEAD
-    # @usage_example('''
-    #     <!-- Example: List all images currently in conversation context -->
-    #     <function_calls>
-    #     <invoke name="list_images_in_context">
-    #     </invoke>
-    #     </function_calls>
-    #     ''')
-=======
->>>>>>> upstream/PRODUCTION
     # async def list_images_in_context(self) -> ToolResult:
     #     """Lists all images currently in the conversation context."""
     #     try:

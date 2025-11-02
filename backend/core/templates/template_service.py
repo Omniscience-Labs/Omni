@@ -45,21 +45,14 @@ class AgentTemplate:
     download_count: int = 0
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-<<<<<<< HEAD
     profile_image_url: Optional[str] = None
-=======
->>>>>>> upstream/PRODUCTION
     icon_name: Optional[str] = None
     icon_color: Optional[str] = None
     icon_background: Optional[str] = None
     metadata: ConfigType = field(default_factory=dict)
     creator_name: Optional[str] = None
-<<<<<<< HEAD
     sharing_preferences: Optional[Dict[str, bool]] = None
-    
-=======
     usage_examples: List[Dict[str, Any]] = field(default_factory=list)
->>>>>>> upstream/PRODUCTION
     
     def with_public_status(self, is_public: bool, published_at: Optional[datetime] = None) -> 'AgentTemplate':
         return AgentTemplate(
@@ -193,12 +186,8 @@ class TemplateService:
         creator_id: str,
         make_public: bool = False,
         tags: Optional[List[str]] = None,
-<<<<<<< HEAD
         sharing_preferences: Optional[Dict[str, bool]] = None,
-        
-=======
         usage_examples: Optional[List[Dict[str, Any]]] = None
->>>>>>> upstream/PRODUCTION
     ) -> str:
         logger.debug(f"Creating template from agent {agent_id} for user {creator_id}")
         
@@ -247,7 +236,6 @@ class TemplateService:
             categories=[],
             is_public=make_public,
             marketplace_published_at=datetime.now(timezone.utc) if make_public else None,
-<<<<<<< HEAD
             profile_image_url=agent.get('profile_image_url'),
             icon_name=agent.get('icon_name'),
             icon_color=agent.get('icon_color'),
@@ -257,15 +245,8 @@ class TemplateService:
                 'source_agent_id': agent_id,
                 'llamacloud_knowledge_bases': kb_references  # ✅ Store KB references!
             },
-            sharing_preferences=sharing_preferences
-
-=======
-            icon_name=agent.get('icon_name'),
-            icon_color=agent.get('icon_color'),
-            icon_background=agent.get('icon_background'),
-            metadata=agent.get('metadata', {}),
+            sharing_preferences=sharing_preferences,
             usage_examples=usage_examples or []
->>>>>>> upstream/PRODUCTION
         )
         
         await self._save_template(template)
@@ -404,9 +385,8 @@ class TemplateService:
         self, 
         template_id: str, 
         creator_id: str,
-<<<<<<< HEAD
         sharing_preferences: Optional[Dict[str, bool]] = None,
-        
+        usage_examples: Optional[List[Dict[str, Any]]] = None
     ) -> bool:
         logger.info(f"Publishing template {template_id}")
         
@@ -422,30 +402,22 @@ class TemplateService:
                 "include_triggers": True,
                 "default_files": True
             }
-=======
-        usage_examples: Optional[List[Dict[str, Any]]] = None
-    ) -> bool:
-        logger.debug(f"Publishing template {template_id}")
->>>>>>> upstream/PRODUCTION
         
         client = await self._db.client
         update_data = {
             'is_public': True,
             'marketplace_published_at': datetime.now(timezone.utc).isoformat(),
-<<<<<<< HEAD
-            'updated_at': datetime.now(timezone.utc).isoformat(),
-            'sharing_preferences': sharing_preferences
-        }).eq('template_id', template_id)\
-=======
             'updated_at': datetime.now(timezone.utc).isoformat()
         }
+        
+        if sharing_preferences is not None:
+            update_data['sharing_preferences'] = sharing_preferences
         
         if usage_examples is not None:
             update_data['usage_examples'] = usage_examples
         
         result = await client.table('agent_templates').update(update_data)\
           .eq('template_id', template_id)\
->>>>>>> upstream/PRODUCTION
           .eq('creator_id', creator_id)\
           .execute()
         
@@ -815,20 +787,13 @@ class TemplateService:
             'download_count': template.download_count,
             'created_at': template.created_at.isoformat(),
             'updated_at': template.updated_at.isoformat(),
-<<<<<<< HEAD
             'profile_image_url': template.profile_image_url,
-=======
->>>>>>> upstream/PRODUCTION
             'icon_name': template.icon_name,
             'icon_color': template.icon_color,
             'icon_background': template.icon_background,
             'metadata': template.metadata,
-<<<<<<< HEAD
-            'sharing_preferences': template.sharing_preferences
-
-=======
+            'sharing_preferences': template.sharing_preferences,
             'usage_examples': template.usage_examples
->>>>>>> upstream/PRODUCTION
         }
         
         await client.table('agent_templates').insert(template_data).execute()
@@ -853,20 +818,14 @@ class TemplateService:
             download_count=data.get('download_count', 0),
             created_at=datetime.fromisoformat(data['created_at'].replace('Z', '+00:00')),
             updated_at=datetime.fromisoformat(data['updated_at'].replace('Z', '+00:00')),
-<<<<<<< HEAD
             profile_image_url=data.get('profile_image_url'),
-=======
->>>>>>> upstream/PRODUCTION
             icon_name=data.get('icon_name'),
             icon_color=data.get('icon_color'),
             icon_background=data.get('icon_background'),
             metadata=data.get('metadata', {}),
             creator_name=creator_name,
-<<<<<<< HEAD
-            sharing_preferences=data.get('sharing_preferences')
-=======
+            sharing_preferences=data.get('sharing_preferences'),
             usage_examples=usage_examples
->>>>>>> upstream/PRODUCTION
         )
     
     # Share link functionality removed - now using direct template ID URLs for simplicity

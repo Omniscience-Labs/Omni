@@ -265,10 +265,7 @@ def _extract_custom_agent_config(agent_data: Dict[str, Any], version_data: Optio
             'configured_mcps': configured_mcps,
             'custom_mcps': custom_mcps,
             'triggers': triggers,
-<<<<<<< HEAD
             'profile_image_url': agent_data.get('profile_image_url'),
-=======
->>>>>>> upstream/PRODUCTION
             'icon_name': agent_data.get('icon_name'),
             'icon_color': agent_data.get('icon_color'),
             'icon_background': agent_data.get('icon_background'),
@@ -300,10 +297,7 @@ def _extract_custom_agent_config(agent_data: Dict[str, Any], version_data: Optio
         'configured_mcps': [],
         'custom_mcps': [],
         'triggers': [],
-<<<<<<< HEAD
         'profile_image_url': agent_data.get('profile_image_url'),
-=======
->>>>>>> upstream/PRODUCTION
         'icon_name': agent_data.get('icon_name'),
         'icon_color': agent_data.get('icon_color'),
         'icon_background': agent_data.get('icon_background'),

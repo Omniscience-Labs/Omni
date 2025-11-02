@@ -68,38 +68,10 @@ class SunaDefaultAgentService:
 
     # New methods from PRODUCTION that need Omni implementation
     async def _create_suna_agent_for_user(self, account_id: str) -> str:
-<<<<<<< HEAD
         """Create a Suna agent for a user (now creates Omni agent)."""
         logger.info(f"🔄 Creating agent for user {account_id} (Suna→Omni compatibility layer)")
         result = await self._omni_service.install_omni_agent_for_user(account_id, replace_existing=False)
         if result is None:
-=======
-        """Create a Suna agent for a user."""
-        from core.suna_config import SUNA_CONFIG
-        
-        client = await self._db.client
-        
-        # Create agent record
-        agent_data = {
-            "account_id": account_id,
-            "name": SUNA_CONFIG["name"],
-            "description": SUNA_CONFIG["description"],
-            "is_default": True,
-            "icon_name": "sun",
-            "icon_color": "#FFFFFF",
-            "icon_background": "#000000",
-            "metadata": {
-                "is_suna_default": True,
-                "centrally_managed": True,
-                "installation_date": datetime.now(timezone.utc).isoformat()
-            },
-            "version_count": 1
-        }
-        
-        result = await client.table('agents').insert(agent_data).execute()
-        
-        if not result.data:
->>>>>>> upstream/PRODUCTION
             raise Exception("Failed to create agent record")
         return result
     

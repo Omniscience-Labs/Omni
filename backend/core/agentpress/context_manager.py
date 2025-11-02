@@ -840,9 +840,6 @@ class ContextManager:
             result = await self.compress_user_messages(result, llm_model, max_tokens, token_threshold, uncompressed_total_token_count)
             result = await self.compress_assistant_messages(result, llm_model, max_tokens, token_threshold, uncompressed_total_token_count)
 
-<<<<<<< HEAD
-        logger.info(f"Context compression: {uncompressed_total_token_count} -> {compressed_token_count} tokens")
-=======
         # Recalculate WITH caching (to match API reality)
         compressed_total = await self.count_tokens(llm_model, result, system_prompt, apply_caching=True)
         
@@ -850,7 +847,6 @@ class ContextManager:
             logger.info(f"Context compression: {uncompressed_total_token_count} -> {compressed_total} tokens (saved {uncompressed_total_token_count - compressed_total})")
         else:
             logger.info(f"Context compression: {compressed_total} tokens (no compression needed, under threshold)")
->>>>>>> upstream/PRODUCTION
 
         # Recurse if still too large
         if max_iterations <= 0:
@@ -943,12 +939,9 @@ class ContextManager:
         # Prepare final result - return only conversation messages (matches compress_messages pattern)
         final_messages = conversation_messages
         
-<<<<<<< HEAD
-=======
         # Log with system prompt included for accurate token reporting WITH caching
         final_token_count = await self.count_tokens(llm_model, final_messages, system_message, apply_caching=True)
         
->>>>>>> upstream/PRODUCTION
         logger.info(f"Context compression (omit): {initial_token_count} -> {final_token_count} tokens ({len(messages)} -> {len(final_messages)} messages)")
             
         return final_messages

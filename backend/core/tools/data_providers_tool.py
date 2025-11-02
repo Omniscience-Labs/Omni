@@ -3,12 +3,7 @@ import os
 import uuid
 from typing import Union, Dict, Any, Optional
 
-<<<<<<< HEAD
-from core.agentpress.tool import Tool, ToolResult, openapi_schema, usage_example
-from core.agentpress.thread_manager import ThreadManager
-=======
 from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata
->>>>>>> upstream/PRODUCTION
 from core.tools.data_providers.LinkedinProvider import LinkedinProvider
 from core.tools.data_providers.YahooFinanceProvider import YahooFinanceProvider
 from core.tools.data_providers.AmazonProvider import AmazonProvider

@@ -100,14 +100,10 @@ class Tool(ABC):
     def __init__(self):
         """Initialize tool with empty schema registry."""
         self._schemas: Dict[str, List[ToolSchema]] = {}
-<<<<<<< HEAD
-        # logger.debug(f"Initializing tool class: {self.__class__.__name__}")
-=======
         self._metadata: Optional[ToolMetadata] = None
         self._method_metadata: Dict[str, MethodMetadata] = {}
         # logger.debug(f"Initializing tool class: {self.__class__.__name__}")
         self._register_metadata()
->>>>>>> upstream/PRODUCTION
         self._register_schemas()
 
     def _register_metadata(self):
@@ -198,16 +194,6 @@ def openapi_schema(schema: Dict[str, Any]):
         ))
     return decorator
 
-<<<<<<< HEAD
-def usage_example(example: str):
-    """Decorator for providing usage examples for tools in prompts."""
-    def decorator(func):
-        # logger.debug(f"Adding usage example to function {func.__name__}")
-        return _add_schema(func, ToolSchema(
-            schema_type=SchemaType.USAGE_EXAMPLE,
-            schema={"example": example}
-        ))
-=======
 def tool_metadata(
     display_name: str,
     description: str,
@@ -307,6 +293,5 @@ def method_metadata(
             visible=visible
         )
         return func
->>>>>>> upstream/PRODUCTION
     return decorator
 

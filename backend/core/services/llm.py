@@ -16,12 +16,7 @@ from core.utils.config import config
 from core.agentpress.error_processor import ErrorProcessor
 
 # Configure LiteLLM
-<<<<<<< HEAD
 os.environ['LITELLM_LOG'] = 'INFO'  # Reduced verbosity
-=======
-# os.environ['LITELLM_LOG'] = 'DEBUG'
-# litellm.set_verbose = True  # Enable verbose logging
->>>>>>> upstream/PRODUCTION
 litellm.modify_params = True
 litellm.drop_params = True
 
@@ -57,35 +52,6 @@ def setup_api_keys() -> None:
     ]
     
     for provider in providers:
-<<<<<<< HEAD
-        key = getattr(config, f"{provider}_API_KEY")
-        if key:
-            # logger.debug(f"API key set for provider: {provider}")
-            pass
-        else:
-            logger.warning(f"No API key found for provider: {provider}")
-
-    # Set up OpenRouter API base if not already set
-    if config.OPENROUTER_API_KEY and config.OPENROUTER_API_BASE:
-        os.environ["OPENROUTER_API_BASE"] = config.OPENROUTER_API_BASE
-        # logger.debug(f"Set OPENROUTER_API_BASE to {config.OPENROUTER_API_BASE}")
-
-
-    # Set up AWS Bedrock credentials
-    aws_access_key = config.AWS_ACCESS_KEY_ID
-    aws_secret_key = config.AWS_SECRET_ACCESS_KEY
-    aws_region = config.AWS_REGION_NAME
-
-    if aws_access_key and aws_secret_key and aws_region:
-        logger.debug(f"AWS Bedrock configured for region: {aws_region}")
-        # Configure LiteLLM to use AWS credentials
-        os.environ["AWS_ACCESS_KEY_ID"] = aws_access_key
-        os.environ["AWS_SECRET_ACCESS_KEY"] = aws_secret_key
-        os.environ["AWS_REGION_NAME"] = aws_region
-    else:
-        logger.warning(f"Missing AWS credentials for Bedrock integration - access_key: {bool(aws_access_key)}, secret_key: {bool(aws_secret_key)}, region: {aws_region}")
-
-=======
         try:
             key = getattr(config, f"{provider}_API_KEY", None)
             if key:
@@ -110,8 +76,18 @@ def setup_api_keys() -> None:
             logger.debug("AWS Bedrock bearer token configured")
         else:
             logger.debug("AWS_BEARER_TOKEN_BEDROCK not configured - Bedrock models will not be available")
+    
+    # Set up AWS Bedrock credentials (legacy support)
+    aws_access_key = getattr(config, 'AWS_ACCESS_KEY_ID', None)
+    aws_secret_key = getattr(config, 'AWS_SECRET_ACCESS_KEY', None)
+    aws_region = getattr(config, 'AWS_REGION_NAME', None)
 
->>>>>>> upstream/PRODUCTION
+    if aws_access_key and aws_secret_key and aws_region:
+        logger.debug(f"AWS Bedrock configured for region: {aws_region}")
+        # Configure LiteLLM to use AWS credentials
+        os.environ["AWS_ACCESS_KEY_ID"] = aws_access_key
+        os.environ["AWS_SECRET_ACCESS_KEY"] = aws_secret_key
+        os.environ["AWS_REGION_NAME"] = aws_region
 def setup_provider_router(openai_compatible_api_key: str = None, openai_compatible_api_base: str = None):
     global provider_router
     
@@ -183,7 +159,6 @@ def setup_provider_router(openai_compatible_api_key: str = None, openai_compatib
     
     logger.info(f"Configured LiteLLM Router with {len(fallbacks)} fallback rules")
 
-<<<<<<< HEAD
 def _configure_token_limits(params: Dict[str, Any], model_name: str, max_tokens: Optional[int]) -> None:
     """Configure token limits based on model type."""
     # Only set max_tokens if explicitly provided - let providers use their defaults otherwise
@@ -301,7 +276,6 @@ def _configure_thinking(params: Dict[str, Any], model_name: str, enable_thinking
         params["reasoning_effort"] = effort_level
         logger.info(f"Qwen thinking enabled with reasoning_effort='{effort_level}'")
 
-=======
 def _configure_openai_compatible(params: Dict[str, Any], model_name: str, api_key: Optional[str], api_base: Optional[str]) -> None:
     """Configure OpenAI-compatible provider setup."""
     if not model_name.startswith("openai-compatible/"):
@@ -321,7 +295,6 @@ def _configure_openai_compatible(params: Dict[str, Any], model_name: str, api_ke
     
     setup_provider_router(api_key, api_base)
     logger.debug(f"Configured OpenAI-compatible provider with custom API base")
->>>>>>> upstream/PRODUCTION
 
 def _add_tools_config(params: Dict[str, Any], tools: Optional[List[Dict[str, Any]]], tool_choice: str) -> None:
     """Add tools configuration to parameters."""
@@ -332,7 +305,6 @@ def _add_tools_config(params: Dict[str, Any], tools: Optional[List[Dict[str, Any
         "tools": tools,
         "tool_choice": tool_choice
     })
-<<<<<<< HEAD
     logger.debug(f"🔧 [TOOLS_CONFIG] Added {len(tools)} tools to API parameters with tool_choice={tool_choice}")
 
 def prepare_params(
@@ -406,10 +378,6 @@ def prepare_params(
     _configure_thinking(params, resolved_model_name, enable_thinking, reasoning_effort)
 
     return params
-=======
-    # logger.debug(f"Added {len(tools)} tools to API parameters")
-
->>>>>>> upstream/PRODUCTION
 
 async def make_llm_api_call(
     messages: List[Dict[str, Any]],
@@ -426,11 +394,12 @@ async def make_llm_api_call(
     model_id: Optional[str] = None,
     headers: Optional[Dict[str, str]] = None,
     extra_headers: Optional[Dict[str, str]] = None,
+    enable_thinking: Optional[bool] = False,
+    reasoning_effort: Optional[str] = "low",
 ) -> Union[Dict[str, Any], AsyncGenerator, ModelResponse]:
     """Make an API call to a language model using LiteLLM."""
     logger.info(f"Making LLM API call to model: {model_name} with {len(messages)} messages")
     
-<<<<<<< HEAD
     # DEBUG: Log if any messages have cache_control
     cache_messages = [i for i, msg in enumerate(messages) if 
                      isinstance(msg.get('content'), list) and 
@@ -442,18 +411,7 @@ async def make_llm_api_call(
     else:
         logger.info(f"❌ NO CACHE CONTROL: No cache_control found in any messages")
     
-    # Check token count for context window issues
-    # try:
-    #     from litellm import token_counter
-    #     total_tokens = token_counter(model=model_name, messages=messages)
-    #     logger.debug(f"Estimated input tokens: {total_tokens}")
-        
-    #     if total_tokens > 200000:
-    #         logger.warning(f"High token count detected: {total_tokens}")
-    # except Exception:
-    #     pass  # Token counting is optional
-    
-    # Prepare parameters
+    # Prepare parameters using prepare_params (HEAD approach)
     params = prepare_params(
         messages=messages,
         model_name=model_name,
@@ -471,70 +429,17 @@ async def make_llm_api_call(
         reasoning_effort=reasoning_effort,
     )
     
+    # Merge headers/extra_headers from upstream if provided
+    if headers is not None:
+        params["headers"] = headers
+    if extra_headers is not None:
+        # Merge with existing extra_headers if any
+        existing_extra_headers = params.get("extra_headers", {})
+        existing_extra_headers.update(extra_headers)
+        params["extra_headers"] = existing_extra_headers
+    
     try:
         # logger.debug(f"Calling LiteLLM acompletion for {model_name}")
-=======
-    # Prepare parameters using centralized model configuration
-    from core.ai_models import model_manager
-    resolved_model_name = model_manager.resolve_model_id(model_name)
-    # logger.debug(f"Model resolution: '{model_name}' -> '{resolved_model_name}'")
-    
-    # Only pass headers/extra_headers if they are not None to avoid overriding model config
-    override_params = {
-        "messages": messages,
-        "temperature": temperature,
-        "response_format": response_format,
-        "top_p": top_p,
-        "stream": stream,
-        "api_key": api_key,
-        "api_base": api_base
-    }
-    
-    # Only add headers if they are provided (not None)
-    if headers is not None:
-        override_params["headers"] = headers
-    if extra_headers is not None:
-        override_params["extra_headers"] = extra_headers
-    
-    params = model_manager.get_litellm_params(resolved_model_name, **override_params)
-    
-    # logger.debug(f"Parameters from model_manager.get_litellm_params: {params}")
-    
-    if model_id:
-        params["model_id"] = model_id
-    
-    if stream:
-        params["stream_options"] = {"include_usage": True}
-    
-    # Apply additional configurations that aren't in the model config yet
-    _configure_openai_compatible(params, model_name, api_key, api_base)
-    _add_tools_config(params, tools, tool_choice)
-    
-    try:
-        # Log the complete parameters being sent to LiteLLM
-        # logger.debug(f"Calling LiteLLM acompletion for {resolved_model_name}")
-        # logger.debug(f"Complete LiteLLM parameters: {params}")
-        
-        # # Save parameters to txt file for debugging
-        # import json
-        # import os
-        # from datetime import datetime
-        
-        # debug_dir = "debug_logs"
-        # os.makedirs(debug_dir, exist_ok=True)
-        
-        # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        # filename = f"{debug_dir}/llm_params_{timestamp}.txt"
-        
-        # with open(filename, 'w') as f:
-        #     f.write(f"Timestamp: {datetime.now().isoformat()}\n")
-        #     f.write(f"Model Name: {model_name}\n")
-        #     f.write(f"Resolved Model Name: {resolved_model_name}\n")
-        #     f.write(f"Parameters:\n{json.dumps(params, indent=2, default=str)}\n")
-        
-        # logger.debug(f"LiteLLM parameters saved to: {filename}")
-        
->>>>>>> upstream/PRODUCTION
         response = await provider_router.acompletion(**params)
         
         # For streaming responses, we need to handle errors that occur during iteration
@@ -549,10 +454,6 @@ async def make_llm_api_call(
         ErrorProcessor.log_error(processed_error)
         raise LLMError(processed_error.message)
 
-<<<<<<< HEAD
-
-=======
->>>>>>> upstream/PRODUCTION
 async def _wrap_streaming_response(response) -> AsyncGenerator:
     """Wrap streaming response to handle errors during iteration."""
     try:

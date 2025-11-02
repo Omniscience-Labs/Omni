@@ -29,10 +29,7 @@ async def update_agent(
     # Debug logging for icon fields
     if config.ENV_MODE == EnvMode.STAGING:
         print(f"[DEBUG] update_agent: Received icon fields - icon_name={agent_data.icon_name}, icon_color={agent_data.icon_color}, icon_background={agent_data.icon_background}")
-<<<<<<< HEAD
-        print(f"[DEBUG] update_agent: Also received - profile_image_url={agent_data.profile_image_url}")
-=======
->>>>>>> upstream/PRODUCTION
+    
     
     client = await utils.db.client
     
@@ -137,10 +134,7 @@ async def update_agent(
                     agentpress_tools=initial_version_data["agentpress_tools"],
                     configured_mcps=initial_version_data["configured_mcps"],
                     custom_mcps=initial_version_data["custom_mcps"],
-<<<<<<< HEAD
                     workflows=workflows,
-=======
->>>>>>> upstream/PRODUCTION
                     triggers=triggers
                 )
                 initial_version_data["config"] = initial_config
@@ -263,10 +257,7 @@ async def update_agent(
             current_custom_mcps = current_version_data.get('custom_mcps', [])
 
         current_agentpress_tools = agent_data.agentpress_tools if agent_data.agentpress_tools is not None else current_version_data.get('agentpress_tools', {})
-<<<<<<< HEAD
-=======
         current_agentpress_tools = ensure_core_tools_enabled(current_agentpress_tools)
->>>>>>> upstream/PRODUCTION
         new_version_id = None
         if needs_new_version:
             try:
@@ -326,10 +317,6 @@ async def update_agent(
         
         print(f"[DEBUG] update_agent AFTER UPDATE FETCH: agent_id={agent.get('agent_id')}")
         print(f"[DEBUG] update_agent AFTER UPDATE FETCH: icon_name={agent.get('icon_name')}, icon_color={agent.get('icon_color')}, icon_background={agent.get('icon_background')}")
-<<<<<<< HEAD
-        print(f"[DEBUG] update_agent AFTER UPDATE FETCH: profile_image_url={agent.get('profile_image_url')}")
-=======
->>>>>>> upstream/PRODUCTION
         print(f"[DEBUG] update_agent AFTER UPDATE FETCH: All keys in agent: {agent.keys()}")
         
         current_version = None
@@ -384,55 +371,7 @@ async def update_agent(
         loader = await get_agent_loader()
         agent_data_obj = await loader.load_agent(agent_id, user_id, load_config=True)
         
-<<<<<<< HEAD
-        # Debug logging before extract_agent_config
-        if config.ENV_MODE == EnvMode.STAGING:
-            print(f"[DEBUG] update_agent: Before extract_agent_config - agent has icon_name={agent.get('icon_name')}, icon_color={agent.get('icon_color')}, icon_background={agent.get('icon_background')}")
-        
-        agent_config = extract_agent_config(agent, version_data)
-        
-        # Debug logging after extract_agent_config
-        if config.ENV_MODE == EnvMode.STAGING:
-            print(f"[DEBUG] update_agent: After extract_agent_config - agent_config has icon_name={agent_config.get('icon_name')}, icon_color={agent_config.get('icon_color')}, icon_background={agent_config.get('icon_background')}")
-        
-        system_prompt = agent_config['system_prompt']
-        configured_mcps = agent_config['configured_mcps']
-        custom_mcps = agent_config['custom_mcps']
-        agentpress_tools = agent_config['agentpress_tools']
-        
-        response = AgentResponse(
-            agent_id=agent['agent_id'],
-            name=agent['name'],
-            description=agent.get('description'),
-            system_prompt=system_prompt,
-            configured_mcps=configured_mcps,
-            custom_mcps=custom_mcps,
-            agentpress_tools=agentpress_tools,
-            is_default=agent.get('is_default', False),
-            is_public=agent.get('is_public', False),
-            tags=agent.get('tags', []),
-            profile_image_url=agent_config.get('profile_image_url'),
-            icon_name=agent_config.get('icon_name'),
-            icon_color=agent_config.get('icon_color'),
-            icon_background=agent_config.get('icon_background'),
-            created_at=agent['created_at'],
-            updated_at=agent.get('updated_at', agent['created_at']),
-            current_version_id=agent.get('current_version_id'),
-            version_count=agent.get('version_count', 1),
-            current_version=current_version,
-            metadata=agent.get('metadata')
-        )
-        
-
-        print(f"[DEBUG] update_agent FINAL RESPONSE: agent_id={response.agent_id}")
-        print(f"[DEBUG] update_agent FINAL RESPONSE: icon_name={response.icon_name}, icon_color={response.icon_color}, icon_background={response.icon_background}")
-        print(f"[DEBUG] update_agent FINAL RESPONSE: profile_image_url={response.profile_image_url}")
-        print(f"[DEBUG] update_agent FINAL RESPONSE: Full response dict keys: {response.dict().keys()}")
-        
-        return response
-=======
         return agent_data_obj.to_pydantic_model()
->>>>>>> upstream/PRODUCTION
         
     except HTTPException:
         raise
@@ -586,114 +525,8 @@ async def get_agent(agent_id: str, user_id: str = Depends(verify_and_get_user_id
         # Load agent with full configuration
         agent_data = await loader.load_agent(agent_id, user_id, load_config=True)
         
-<<<<<<< HEAD
-        agent_data = agent.data[0]
-        
-        if config.ENV_MODE == EnvMode.STAGING:
-            print(f"[DEBUG] get_agent: Fetched agent from DB - icon_name={agent_data.get('icon_name')}, icon_color={agent_data.get('icon_color')}, icon_background={agent_data.get('icon_background')}")
-            print(f"[DEBUG] get_agent: Also has - profile_image_url={agent_data.get('profile_image_url')}")
-        
-        if agent_data['account_id'] != user_id and not agent_data.get('is_public', False):
-            raise HTTPException(status_code=403, detail="Access denied")
-        
-        current_version = None
-        if agent_data.get('current_version_id'):
-            try:
-                version_service = await _get_version_service()
-                current_version_obj = await version_service.get_version(
-                    agent_id=agent_id,
-                    version_id=agent_data['current_version_id'],
-                    user_id=user_id
-                )
-                current_version_data = current_version_obj.to_dict()
-                version_data = current_version_data
-                
-                # Create AgentVersionResponse from version data
-                current_version = AgentVersionResponse(
-                    version_id=current_version_data['version_id'],
-                    agent_id=current_version_data['agent_id'],
-                    version_number=current_version_data['version_number'],
-                    version_name=current_version_data['version_name'],
-                    system_prompt=current_version_data['system_prompt'],
-                    model=current_version_data.get('model'),
-                    configured_mcps=current_version_data.get('configured_mcps', []),
-                    custom_mcps=current_version_data.get('custom_mcps', []),
-                    agentpress_tools=current_version_data.get('agentpress_tools', {}),
-                    is_active=current_version_data.get('is_active', True),
-                    created_at=current_version_data['created_at'],
-                    updated_at=current_version_data.get('updated_at', current_version_data['created_at']),
-                    created_by=current_version_data.get('created_by')
-                )
-                
-                logger.debug(f"Using agent {agent_data['name']} version {current_version_data.get('version_name', 'v1')}")
-            except Exception as e:
-                logger.warning(f"Failed to get version data for agent {agent_id}: {e}")
-        
-        # Extract configuration using the unified config approach
-        version_data = None
-        if current_version:
-            version_data = {
-                'version_id': current_version.version_id,
-                'agent_id': current_version.agent_id,
-                'version_number': current_version.version_number,
-                'version_name': current_version.version_name,
-                'system_prompt': current_version.system_prompt,
-                'model': current_version.model,
-                'configured_mcps': current_version.configured_mcps,
-                'custom_mcps': current_version.custom_mcps,
-                'agentpress_tools': current_version.agentpress_tools,
-                'is_active': current_version.is_active,
-                'created_at': current_version.created_at,
-                'updated_at': current_version.updated_at,
-                'created_by': current_version.created_by
-            }
-        
-        from .config_helper import extract_agent_config
-        
-        # Debug logging before extract_agent_config
-        if config.ENV_MODE == EnvMode.STAGING:
-            print(f"[DEBUG] get_agent: Before extract_agent_config - agent_data has icon_name={agent_data.get('icon_name')}, icon_color={agent_data.get('icon_color')}, icon_background={agent_data.get('icon_background')}")
-        
-        agent_config = extract_agent_config(agent_data, version_data)
-        
-        # Debug logging after extract_agent_config
-        if config.ENV_MODE == EnvMode.STAGING:
-            print(f"[DEBUG] get_agent: After extract_agent_config - agent_config has icon_name={agent_config.get('icon_name')}, icon_color={agent_config.get('icon_color')}, icon_background={agent_config.get('icon_background')}")
-            print(f"[DEBUG] get_agent: Final response will use icon fields from agent_config")
-        
-        system_prompt = agent_config['system_prompt']
-        configured_mcps = agent_config['configured_mcps']
-        custom_mcps = agent_config['custom_mcps']
-        agentpress_tools = agent_config['agentpress_tools']
-        
-        response = AgentResponse(
-            agent_id=agent_data['agent_id'],
-            name=agent_data['name'],
-            description=agent_data.get('description'),
-            system_prompt=system_prompt,
-            configured_mcps=configured_mcps,
-            custom_mcps=custom_mcps,
-            agentpress_tools=agentpress_tools,
-            is_default=agent_data.get('is_default', False),
-            is_public=agent_data.get('is_public', False),
-            tags=agent_data.get('tags', []),
-            profile_image_url=agent_config.get('profile_image_url'),
-            icon_name=agent_config.get('icon_name'),
-            icon_color=agent_config.get('icon_color'),
-            icon_background=agent_config.get('icon_background'),
-            created_at=agent_data['created_at'],
-            updated_at=agent_data.get('updated_at', agent_data['created_at']),
-            current_version_id=agent_data.get('current_version_id'),
-            version_count=agent_data.get('version_count', 1),
-            current_version=current_version,
-            metadata=agent_data.get('metadata')
-        )
-        
-        return response
-=======
         # Convert to Pydantic model
         return agent_data.to_pydantic_model()
->>>>>>> upstream/PRODUCTION
         
     except HTTPException:
         raise
@@ -800,44 +633,12 @@ async def create_agent(
         
         logger.debug(f"Created agent {agent['agent_id']} with v1 for user: {user_id}")
         
-<<<<<<< HEAD
-        response = AgentResponse(
-            agent_id=agent['agent_id'],
-            name=agent['name'],
-            description=agent.get('description'),
-            system_prompt=version.system_prompt,
-            model=version.model,
-            configured_mcps=version.configured_mcps,
-            custom_mcps=version.custom_mcps,
-            agentpress_tools=version.agentpress_tools,
-            is_default=agent.get('is_default', False),
-            is_public=agent.get('is_public', False),
-            tags=agent.get('tags', []),
-            profile_image_url=agent.get('profile_image_url'),
-            icon_name=agent.get('icon_name'),
-            icon_color=agent.get('icon_color'),
-            icon_background=agent.get('icon_background'),
-            created_at=agent['created_at'],
-            updated_at=agent.get('updated_at', agent['created_at']),
-            current_version_id=agent.get('current_version_id'),
-            version_count=agent.get('version_count', 1),
-            current_version=current_version,
-            metadata=agent.get('metadata')
-        )
-        
-        if config.ENV_MODE == EnvMode.STAGING:
-            print(f"[DEBUG] create_agent RESPONSE: Returning icon_name={response.icon_name}, icon_color={response.icon_color}, icon_background={response.icon_background}")
-            print(f"[DEBUG] create_agent RESPONSE: Also returning profile_image_url={response.profile_image_url}")
-        
-        return response
-=======
         # Load the created agent with full config
         from .agent_loader import get_agent_loader
         loader = await get_agent_loader()
         agent_data = await loader.load_agent(agent['agent_id'], user_id, load_config=True)
         
         return agent_data.to_pydantic_model()
->>>>>>> upstream/PRODUCTION
         
     except HTTPException:
         raise
@@ -845,33 +646,20 @@ async def create_agent(
         logger.error(f"Error creating agent for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to create agent: {str(e)}")
 
-<<<<<<< HEAD
-
-@router.post("/agents/generate-icon", response_model=AgentIconGenerationResponse)
-=======
 @router.post("/agents/generate-icon", response_model=AgentIconGenerationResponse, summary="Generate Agent Icon", operation_id="generate_agent_icon")
->>>>>>> upstream/PRODUCTION
 async def generate_agent_icon(
     request: AgentIconGenerationRequest,
     user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
-<<<<<<< HEAD
     """Generate an appropriate icon and colors for an agent based on its name and description."""
-=======
-    """Generate an appropriate icon and colors for an agent based on its name."""
->>>>>>> upstream/PRODUCTION
     logger.debug(f"Generating icon and colors for agent: {request.name}")
     
     try:
         from .core_utils import generate_agent_icon_and_colors
         
         result = await generate_agent_icon_and_colors(
-<<<<<<< HEAD
             name=request.name,
             description=request.description
-=======
-            name=request.name
->>>>>>> upstream/PRODUCTION
         )
         
         response = AgentIconGenerationResponse(

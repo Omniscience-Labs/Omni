@@ -389,31 +389,6 @@ class AgentService:
         # Use unified loader for consistent transformation
         agent_data = self.loader._row_to_agent_data(agent_row)
         
-<<<<<<< HEAD
-        return {
-            "agent_id": agent_data['agent_id'],
-            "name": agent_data['name'],
-            "description": agent_data.get('description'),
-            "system_prompt": system_prompt,
-            "configured_mcps": configured_mcps,
-            "custom_mcps": custom_mcps,
-            "agentpress_tools": agentpress_tools,
-            "is_default": agent_data.get('is_default', False),
-            "is_public": agent_data.get('is_public', False),
-            "tags": agent_data.get('tags', []),
-            "icon_name": agent_config.get('icon_name'),
-            "icon_color": agent_config.get('icon_color'),
-            "icon_background": agent_config.get('icon_background'),
-            "created_at": agent_data['created_at'],
-            "updated_at": agent_data['updated_at'],
-            "current_version_id": agent_data.get('current_version_id'),
-            "version_count": agent_data.get('version_count', 1),
-            "current_version": current_version,
-            "metadata": agent_data.get('metadata'),
-            "marketplace_published_at": agent_data.get('marketplace_published_at'),
-            "download_count": agent_data.get('download_count', 0)
-        }
-=======
         # Load config if needed and version exists
         if load_config and agent_data.current_version_id:
             # Note: For list operations, we typically don't load individual configs
@@ -421,7 +396,6 @@ class AgentService:
             pass
         
         return agent_data.to_dict()
->>>>>>> upstream/PRODUCTION
 
     async def _enrich_agents_with_template_status(self, agent_responses: List[Dict[str, Any]], user_id: str) -> None:
         """Enrich agents with their template publication status"""
@@ -472,84 +446,6 @@ class AgentService:
             logger.warning(f"Failed to enrich agents with template status: {e}")
 
     async def _transform_template_to_agent_format(self, template_data: Dict[str, Any]) -> Dict[str, Any]:
-<<<<<<< HEAD
-        try:
-            creator_name = None
-            if template_data.get('creator_id'):
-                try:
-                    creator_result = await self.db.schema('basejump').from_('accounts').select('name, slug').eq('id', template_data['creator_id']).single().execute()
-                    if creator_result.data:
-                        creator_name = creator_result.data.get('name') or creator_result.data.get('slug')
-                except Exception as e:
-                    logger.warning(f"Failed to fetch creator name for template {template_data.get('template_id')}: {e}")
-
-            return {
-                "agent_id": template_data.get('template_id', ''),
-                "name": template_data.get('name', ''),
-                "description": template_data.get('description', ''),
-                "system_prompt": template_data.get('system_prompt', ''),
-                "configured_mcps": template_data.get('mcp_requirements', []),
-                "custom_mcps": [],
-                "agentpress_tools": template_data.get('agentpress_tools', {}),
-                "is_default": False,
-                "icon_name": template_data.get('icon_name'),
-                "icon_color": template_data.get('icon_color'),
-                "icon_background": template_data.get('icon_background'),
-                "created_at": template_data.get('created_at', ''),
-                "updated_at": template_data.get('updated_at'),
-                "is_public": template_data.get('is_public', False),
-                "tags": template_data.get('tags', []),
-                "current_version_id": None,
-                "version_count": 0,
-                "current_version": None,
-                "metadata": {
-                    **(template_data.get('metadata', {})),
-                    "is_template": True,
-                    "creator_name": creator_name
-                },
-                
-                "template_id": template_data.get('template_id'),
-                "mcp_requirements": template_data.get('mcp_requirements', []),
-                "model": template_data.get('metadata', {}).get('model'),
-                "marketplace_published_at": template_data.get('marketplace_published_at'),
-                "download_count": template_data.get('download_count', 0),
-                "creator_name": creator_name,
-                "creator_id": template_data.get('creator_id'),
-                "is_kortix_team": template_data.get('is_kortix_team', False)
-            }
-        except Exception as e:
-            logger.error(f"Error transforming template data: {e}", exc_info=True)
-            return {
-                "agent_id": template_data.get('template_id', 'unknown'),
-                "name": template_data.get('name', 'Unknown Template'),
-                "description": template_data.get('description', ''),
-                "system_prompt": template_data.get('system_prompt', ''),
-                "configured_mcps": [],
-                "custom_mcps": [],
-                "agentpress_tools": {},
-                "is_default": False,
-                "icon_name": None,
-                "icon_color": None,
-                "icon_background": None,
-                "created_at": template_data.get('created_at', ''),
-                "updated_at": template_data.get('updated_at'),
-                "is_public": template_data.get('is_public', False),
-                "tags": [],
-                "current_version_id": None,
-                "version_count": 0,
-                "current_version": None,
-                "metadata": {"is_template": True, "transform_error": True},
-                
-                "template_id": template_data.get('template_id', 'unknown'),
-                "mcp_requirements": [],
-                "model": None,
-                "marketplace_published_at": template_data.get('marketplace_published_at'),
-                "download_count": 0,
-                "creator_name": None,
-                "creator_id": template_data.get('creator_id'),
-                "is_kortix_team": False
-            } 
-=======
         """Transform template to agent format using unified loader."""
         agent_data = await self.loader.load_template(template_data, fetch_creator_name=True)
         result = agent_data.to_dict()
@@ -565,5 +461,4 @@ class AgentService:
             "is_kortix_team": template_data.get('is_kortix_team', False)
         })
         
-        return result 
->>>>>>> upstream/PRODUCTION
+        return result

@@ -1,10 +1,6 @@
 import httpx
 from dotenv import load_dotenv
-<<<<<<< HEAD
-from core.agentpress.tool import ToolResult, openapi_schema, usage_example
-=======
 from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
->>>>>>> upstream/PRODUCTION
 from core.utils.config import config
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
@@ -12,10 +8,6 @@ import json
 import logging
 from typing import Union, List
 
-<<<<<<< HEAD
-logger = logging.getLogger(__name__)
-
-=======
 @tool_metadata(
     display_name="Image Search",
     description="Find images on the internet for any topic or subject",
@@ -24,7 +16,6 @@ logger = logging.getLogger(__name__)
     weight=130,
     visible=True
 )
->>>>>>> upstream/PRODUCTION
 class SandboxImageSearchTool(SandboxToolsBase):
     """Tool for performing image searches using SERPER API."""
 
@@ -35,14 +26,8 @@ class SandboxImageSearchTool(SandboxToolsBase):
         # Use API keys from config
         self.serper_api_key = config.SERPER_API_KEY
         
-<<<<<<< HEAD
-        # Allow initialization without API key, but tool will fail gracefully when used
         if not self.serper_api_key:
-            logger.warning("SERPER_API_KEY not configured - image search tool will be available but non-functional")
-=======
-        if not self.serper_api_key:
-            logger.warning("SERPER_API_KEY not configured - Image Search Tool will not be available")
->>>>>>> upstream/PRODUCTION
+            logging.warning("SERPER_API_KEY not configured - Image Search Tool will not be available")
 
     @openapi_schema({
         "type": "function",
@@ -53,10 +38,6 @@ class SandboxImageSearchTool(SandboxToolsBase):
                 "type": "object",
                 "properties": {
                     "query": {
-<<<<<<< HEAD
-                        "type": "string",
-                        "description": "Search query for images. Be specific about what kind of images you're looking for (e.g., 'cats playing', 'mountain landscape', 'modern architecture'). For multiple searches, use comma-separated values or call the function multiple times."
-=======
                         "oneOf": [
                             {
                                 "type": "string",
@@ -69,7 +50,6 @@ class SandboxImageSearchTool(SandboxToolsBase):
                             }
                         ],
                         "description": "Search query or queries. Single string for one search, array of strings for batch search."
->>>>>>> upstream/PRODUCTION
                     },
                     "num_results": {
                         "type": "integer",
@@ -83,26 +63,6 @@ class SandboxImageSearchTool(SandboxToolsBase):
             }
         }
     })
-<<<<<<< HEAD
-    @usage_example('''
-        <!-- Single search -->
-        <function_calls>
-        <invoke name="image_search">
-        <parameter name="query">cute cats playing</parameter>
-        <parameter name="num_results">20</parameter>
-        </invoke>
-        </function_calls>
-        
-        <!-- Batch search (more efficient for multiple queries) -->
-        <function_calls>
-        <invoke name="image_search">
-        <parameter name="query">["cats", "dogs", "birds"]</parameter>
-        <parameter name="num_results">15</parameter>
-        </invoke>
-        </function_calls>
-        ''')
-=======
->>>>>>> upstream/PRODUCTION
     async def image_search(
         self, 
         query: Union[str, List[str]],
@@ -120,13 +80,10 @@ class SandboxImageSearchTool(SandboxToolsBase):
         queries = []
         
         try:
-<<<<<<< HEAD
-=======
             # Check if Serper API key is configured
             if not self.serper_api_key:
                 return self.fail_response("Image Search is not available. SERPER_API_KEY is not configured.")
             
->>>>>>> upstream/PRODUCTION
             # Validate inputs
             if isinstance(query, str):
                 if not query or not query.strip():
@@ -140,10 +97,6 @@ class SandboxImageSearchTool(SandboxToolsBase):
                 queries = query
             else:
                 return self.fail_response("Query must be either a string or list of strings.")
-            
-            # Check if SERPER API key is available
-            if not self.serper_api_key:
-                return self.fail_response("SERPER_API_KEY not configured. Image search is not available.")
             
             # Normalize num_results
             if num_results is None:

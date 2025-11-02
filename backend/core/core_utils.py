@@ -102,7 +102,6 @@ async def cleanup():
     await redis.close()
     logger.debug("Completed cleanup of agent API resources")
 
-<<<<<<< HEAD
 async def stop_agent_run_with_helpers(agent_run_id: str, error_message: Optional[str] = None):
     """Update database and publish stop signal to Redis."""
     logger.debug(f"Stopping agent run: {agent_run_id}")
@@ -394,8 +393,6 @@ def merge_custom_mcps(existing_mcps: List[Dict[str, Any]], new_mcps: List[Dict[s
     
     return merged_mcps
 
-=======
->>>>>>> upstream/PRODUCTION
 def initialize(
     _db: DBConnection,
     _instance_id: Optional[str] = None
@@ -417,8 +414,6 @@ def initialize(
 
     logger.debug(f"Initialized agent API with instance ID: {instance_id}")
 
-
-<<<<<<< HEAD
 
 async def check_for_active_project_agent_run(client, project_id: str):
     project_threads = await client.table('threads').select('thread_id').eq('project_id', project_id).execute()
@@ -940,5 +935,3 @@ if __name__ == "__main__":
     
     # Run the tests
     asyncio.run(main())
-=======
->>>>>>> upstream/PRODUCTION

@@ -28,7 +28,6 @@ router = APIRouter(tags=["templates"])
 db: Optional[DBConnection] = None
 
 
-<<<<<<< HEAD
 class SharingPreferences(BaseModel):
     include_system_prompt: bool = True
     include_model_settings: bool = True
@@ -37,24 +36,20 @@ class SharingPreferences(BaseModel):
     include_knowledge_bases: bool = True
     include_playbooks: bool = True
     include_triggers: bool = True
-=======
+
+
 class UsageExampleMessage(BaseModel):
     role: str
     content: str
     tool_calls: Optional[List[Dict[str, Any]]] = None
->>>>>>> upstream/PRODUCTION
 
 
 class CreateTemplateRequest(BaseModel):
     agent_id: str
     make_public: bool = False
     tags: Optional[List[str]] = None
-<<<<<<< HEAD
     sharing_preferences: Optional[SharingPreferences] = Field(default_factory=SharingPreferences)
-    
-=======
     usage_examples: Optional[List[UsageExampleMessage]] = None
->>>>>>> upstream/PRODUCTION
 
 
 class InstallTemplateRequest(BaseModel):
@@ -69,12 +64,8 @@ class InstallTemplateRequest(BaseModel):
 
 class PublishTemplateRequest(BaseModel):
     tags: Optional[List[str]] = None
-<<<<<<< HEAD
     sharing_preferences: Optional[SharingPreferences] = Field(default_factory=SharingPreferences)
-    
-=======
     usage_examples: Optional[List[UsageExampleMessage]] = None
->>>>>>> upstream/PRODUCTION
 
 
 class TemplateResponse(BaseModel):
@@ -92,22 +83,15 @@ class TemplateResponse(BaseModel):
     download_count: int
     created_at: str
     updated_at: str
-<<<<<<< HEAD
     profile_image_url: Optional[str] = None
-=======
->>>>>>> upstream/PRODUCTION
     icon_name: Optional[str] = None
     icon_color: Optional[str] = None
     icon_background: Optional[str] = None
     metadata: Dict[str, Any]
     creator_name: Optional[str] = None
-<<<<<<< HEAD
     sharing_preferences: Optional[Dict[str, bool]] = None
-
-=======
     usage_examples: Optional[List[UsageExampleMessage]] = None
     config: Optional[Dict[str, Any]] = None
->>>>>>> upstream/PRODUCTION
 
 class InstallationResponse(BaseModel):
     status: str
@@ -190,11 +174,8 @@ async def create_template_from_agent(
             creator_id=user_id,
             make_public=request.make_public,
             tags=request.tags,
-<<<<<<< HEAD
-            sharing_preferences=request.sharing_preferences.dict() if request.sharing_preferences else None
-=======
+            sharing_preferences=request.sharing_preferences.dict() if request.sharing_preferences else None,
             usage_examples=usage_examples
->>>>>>> upstream/PRODUCTION
         )
         
         logger.debug(f"Successfully created template {template_id} from agent {request.agent_id}")
@@ -233,12 +214,6 @@ async def publish_template(
         
         template_service = get_template_service(db)
         
-<<<<<<< HEAD
-        success = await template_service.publish_template(
-            template_id, 
-            user_id,
-            sharing_preferences=request.sharing_preferences.dict() if request.sharing_preferences else None
-=======
         usage_examples = None
         if request.usage_examples:
             usage_examples = [msg.dict() for msg in request.usage_examples]
@@ -246,8 +221,8 @@ async def publish_template(
         success = await template_service.publish_template(
             template_id, 
             user_id,
+            sharing_preferences=request.sharing_preferences.dict() if request.sharing_preferences else None,
             usage_examples=usage_examples
->>>>>>> upstream/PRODUCTION
         )
         
         if not success:

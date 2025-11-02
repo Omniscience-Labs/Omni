@@ -1,18 +1,12 @@
 from fastapi import HTTPException
 from typing import Dict
 from decimal import Decimal
-<<<<<<< HEAD
-import stripe
-from core.services.supabase import DBConnection
-from core.utils.logger import logger
-=======
 from datetime import datetime, timezone
 import stripe
 from core.services.supabase import DBConnection
 from core.utils.logger import logger
 from .idempotency import generate_credit_purchase_idempotency_key
 from .stripe_circuit_breaker import StripeAPIWrapper
->>>>>>> upstream/PRODUCTION
 
 
 class PaymentService:
@@ -39,38 +33,6 @@ class PaymentService:
         if not customer_result.data or len(customer_result.data) == 0:
             raise HTTPException(status_code=400, detail="No billing customer found")
         
-<<<<<<< HEAD
-        session = await stripe.checkout.Session.create_async(
-            customer=customer_result.data[0]['id'],
-            payment_method_types=['card'],
-            line_items=[{
-                'price_data': {
-                    'currency': 'usd',
-                    'product_data': {'name': f'${amount} Credits'},
-                    'unit_amount': int(amount * 100)
-                },
-                'quantity': 1
-            }],
-            mode='payment',
-            success_url=success_url,
-            cancel_url=cancel_url,
-            metadata={
-                'type': 'credit_purchase',
-                'account_id': account_id,
-                'credit_amount': str(amount)
-            }
-        )
-        
-        await client.table('credit_purchases').insert({
-            'account_id': account_id,
-            'amount_dollars': float(amount),
-            'stripe_payment_intent_id': session.payment_intent,
-            'status': 'pending',
-            'metadata': {'session_id': session.id}
-        }).execute()
-        
-        return {'checkout_url': session.url}
-=======
         purchase_id = None
         try:
             purchase_record = await client.table('credit_purchases').insert({
@@ -145,7 +107,6 @@ class PaymentService:
                 logger.error(f"[PAYMENT FAILURE] Failed to update purchase record: {log_error}")
             
             raise HTTPException(status_code=500, detail="Failed to create payment session")
->>>>>>> upstream/PRODUCTION
 
 
 payment_service = PaymentService() 

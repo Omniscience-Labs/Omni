@@ -29,20 +29,11 @@ from core.utils.logger import logger
 from core.billing.billing_integration import billing_integration
 from core.tools.sb_vision_tool import SandboxVisionTool
 from core.tools.sb_image_edit_tool import SandboxImageEditTool
-<<<<<<< HEAD
 from core.tools.sb_video_avatar_tool import SandboxVideoAvatarTool
 from core.tools.sb_presentation_outline_tool import SandboxPresentationOutlineTool
 from core.tools.sb_presentation_tool import SandboxPresentationTool
 from core.services.billing_wrapper import check_billing_status_unified
-from core.tools.sb_vision_tool import SandboxVisionTool
-from core.tools.sb_image_edit_tool import SandboxImageEditTool
-from core.tools.sb_video_avatar_tool import SandboxVideoAvatarTool
 from core.tools.sb_designer_tool import SandboxDesignerTool
-from core.tools.sb_presentation_outline_tool import SandboxPresentationOutlineTool
-=======
-from core.tools.sb_designer_tool import SandboxDesignerTool
->>>>>>> upstream/PRODUCTION
-from core.tools.sb_presentation_tool import SandboxPresentationTool
 from core.tools.sb_document_parser import SandboxDocumentParserTool
 
 from core.services.langfuse import langfuse
@@ -55,15 +46,11 @@ from core.tools.sb_upload_file_tool import SandboxUploadFileTool
 from core.tools.sb_custom_automation_tool import SandboxCustomAutomationTool
 from core.tools.podcast_tool import SandboxPodcastTool
 from core.tools.sb_docs_tool import SandboxDocsTool
-<<<<<<< HEAD
-from core.ai_models.manager import model_manager
-=======
 from core.tools.people_search_tool import PeopleSearchTool
 from core.tools.company_search_tool import CompanySearchTool
 from core.tools.paper_search_tool import PaperSearchTool
 from core.ai_models.manager import model_manager
 from core.tools.vapi_voice_tool import VapiVoiceTool
->>>>>>> upstream/PRODUCTION
 
 load_dotenv()
 
@@ -73,14 +60,10 @@ class AgentConfig:
     project_id: str
     native_max_auto_continues: int = 25
     max_iterations: int = 100
-<<<<<<< HEAD
     model_name: str = "Qwen3 VL 235B Thinking"
     enable_thinking: Optional[bool] = False
     reasoning_effort: Optional[str] = 'low'
     enable_context_manager: bool = True
-=======
-    model_name: str = "openai/gpt-5-mini"
->>>>>>> upstream/PRODUCTION
     agent_config: Optional[dict] = None
     trace: Optional[StatefulTraceClient] = None
     enable_prompt_caching: bool = True
@@ -104,11 +87,6 @@ class ToolManager:
         """
         disabled_tools = disabled_tools or []
         
-<<<<<<< HEAD
-        # logger.debug(f"Registering tools with disabled list: {disabled_tools}")
-        
-=======
->>>>>>> upstream/PRODUCTION
         # Core tools - always enabled
         self._register_core_tools()
         
@@ -125,15 +103,11 @@ class ToolManager:
         # Browser tool
         self._register_browser_tool(disabled_tools)
         
-<<<<<<< HEAD
-        # logger.debug(f"Tool registration complete. Registered {len(self.thread_manager.tool_registry.tools)} tools")
-=======
         # Suna-specific tools (agent creation)
         if self.account_id:
             self._register_suna_specific_tools(disabled_tools)
         
         logger.info(f"Tool registration complete. Registered {len(self.thread_manager.tool_registry.tools)} functions")
->>>>>>> upstream/PRODUCTION
     
     def _register_core_tools(self):
         """Register core tools that are always available."""
@@ -163,24 +137,17 @@ class ToolManager:
             ('sb_shell_tool', SandboxShellTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_files_tool', SandboxFilesTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_expose_tool', SandboxExposeTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-<<<<<<< HEAD
             ('web_search_tool', SandboxWebSearchTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('image_search_tool', SandboxImageSearchTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-=======
->>>>>>> upstream/PRODUCTION
             ('sb_vision_tool', SandboxVisionTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
             ('sb_image_edit_tool', SandboxImageEditTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
             ('sb_kb_tool', SandboxKbTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_design_tool', SandboxDesignerTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
-<<<<<<< HEAD
             ('sb_presentation_outline_tool', SandboxPresentationOutlineTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_presentation_tool', SandboxPresentationTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_video_avatar_tool', SandboxVideoAvatarTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('sb_sheets_tool', SandboxSheetsTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
+            # ('sb_sheets_tool', SandboxSheetsTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),  # NOTE: SandboxSheetsTool import not found - file may need to be created
             # ('sb_web_dev_tool', SandboxWebDevTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),  # DEACTIVATED
-=======
-            ('sb_presentation_tool', SandboxPresentationTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
->>>>>>> upstream/PRODUCTION
             ('sb_upload_file_tool', SandboxUploadFileTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_custom_automation_tool', SandboxCustomAutomationTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('podcast_tool', SandboxPodcastTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
@@ -190,24 +157,14 @@ class ToolManager:
         
         for tool_name, tool_class, kwargs in sandbox_tools:
             if tool_name not in disabled_tools:
-<<<<<<< HEAD
-                self.thread_manager.add_tool(tool_class, **kwargs)
-                # logger.debug(f"Registered {tool_name}")
-=======
                 enabled_methods = self._get_enabled_methods_for_tool(tool_name)
                 self.thread_manager.add_tool(tool_class, function_names=enabled_methods, **kwargs)
                 if enabled_methods:
                     logger.debug(f"✅ Registered {tool_name} with methods: {enabled_methods}")
->>>>>>> upstream/PRODUCTION
     
     def _register_utility_tools(self, disabled_tools: List[str]):
         """Register utility tools with API key checks."""
         if config.RAPID_API_KEY and 'data_providers_tool' not in disabled_tools:
-<<<<<<< HEAD
-            self.thread_manager.add_tool(DataProvidersTool, thread_manager=self.thread_manager, thread_id=self.thread_id)
-            # logger.debug("Registered data_providers_tool")
-    
-=======
             enabled_methods = self._get_enabled_methods_for_tool('data_providers_tool')
             self.thread_manager.add_tool(DataProvidersTool, function_names=enabled_methods)
             if enabled_methods:
@@ -240,7 +197,6 @@ class ToolManager:
             if enabled_methods:
                 logger.debug(f"✅ Registered vapi_voice_tool with methods: {enabled_methods}")
             
->>>>>>> upstream/PRODUCTION
     def _register_agent_builder_tools(self, agent_id: str, disabled_tools: List[str]):
         """Register agent builder tools with proper initialization."""
         from core.tools.agent_builder_tools.agent_config_tool import AgentConfigTool
@@ -257,24 +213,6 @@ class ToolManager:
             ('credential_profile_tool', CredentialProfileTool),
             ('trigger_tool', TriggerTool),
         ]
-<<<<<<< HEAD
-        
-        # logger.debug(f"Registering agent builder tools for agent_id: {agent_id}")
-        # logger.debug(f"Disabled tools list: {disabled_tools}")
-        
-        for tool_name, tool_class in agent_builder_tools:
-            if tool_name not in disabled_tools:
-                try:
-                    self.thread_manager.add_tool(tool_class, thread_manager=self.thread_manager, db_connection=db, agent_id=agent_id)
-                    # logger.debug(f"✅ Registered {tool_name}")
-                    pass
-                except Exception as e:
-                    logger.warning(f"❌ Failed to register {tool_name}: {e}")
-            else:
-                # logger.debug(f"⏭️ Skipping {tool_name} - disabled")
-                pass
-=======
-
         for tool_name, tool_class in agent_builder_tools:
             if tool_name not in disabled_tools:
                 try:
@@ -290,7 +228,6 @@ class ToolManager:
                         logger.debug(f"✅ Registered {tool_name} with methods: {enabled_methods}")
                 except Exception as e:
                     logger.warning(f"❌ Failed to register {tool_name}: {e}")
->>>>>>> upstream/PRODUCTION
     
     def _register_suna_specific_tools(self, disabled_tools: List[str]):
         """Register Suna-specific tools like agent creation."""
@@ -314,11 +251,6 @@ class ToolManager:
         """Register browser tool with sandbox access."""
         if 'browser_tool' not in disabled_tools:
             from core.tools.browser_tool import BrowserTool
-<<<<<<< HEAD
-            self.thread_manager.add_tool(BrowserTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
-            # logger.debug("Registered browser_tool")
-=======
-            
             enabled_methods = self._get_enabled_methods_for_tool('browser_tool')
             self.thread_manager.add_tool(
                 BrowserTool, 
@@ -329,7 +261,6 @@ class ToolManager:
             )
             if enabled_methods:
                 logger.debug(f"✅ Registered browser_tool with methods: {enabled_methods}")
->>>>>>> upstream/PRODUCTION
     
     def _get_enabled_methods_for_tool(self, tool_name: str) -> Optional[List[str]]:
         if not self.agent_config or 'agentpress_tools' not in self.agent_config:
@@ -419,10 +350,7 @@ class PromptManager:
                                   mcp_wrapper_instance: Optional[MCPToolWrapper],
                                   client=None,
                                   tool_registry=None,
-<<<<<<< HEAD
                                   include_xml_examples: bool = False,
-=======
->>>>>>> upstream/PRODUCTION
                                   xml_tool_calling: bool = True) -> dict:
         
         default_system_content = get_system_prompt()
@@ -560,20 +488,14 @@ Best Practices:
             system_content += mcp_info
         
         # Add XML tool calling instructions to system prompt if requested
-<<<<<<< HEAD
         if include_xml_examples and xml_tool_calling and tool_registry:
             openapi_schemas = tool_registry.get_openapi_schemas()
             usage_examples = tool_registry.get_usage_examples()
-=======
-        if xml_tool_calling and tool_registry:
-            openapi_schemas = tool_registry.get_openapi_schemas()
->>>>>>> upstream/PRODUCTION
             
             if openapi_schemas:
                 # Convert schemas to JSON string
                 schemas_json = json.dumps(openapi_schemas, indent=2)
                 
-<<<<<<< HEAD
                 # Build usage examples section if any exist
                 usage_examples_section = ""
                 if usage_examples:
@@ -581,8 +503,6 @@ Best Practices:
                     for func_name, example in usage_examples.items():
                         usage_examples_section += f"\n{func_name}:\n{example}\n"
                 
-=======
->>>>>>> upstream/PRODUCTION
                 examples_content = f"""
 
 In this environment you have access to a set of tools you can use to answer the user's question.
@@ -609,10 +529,7 @@ When using the tools:
 - Include all required parameters as specified in the schema
 - Format complex data (objects, arrays) as JSON strings within the parameter tags
 - Boolean values should be "true" or "false" (lowercase)
-<<<<<<< HEAD
 {usage_examples_section}
-=======
->>>>>>> upstream/PRODUCTION
 """
                 
                 system_content += examples_content
@@ -668,7 +585,6 @@ class AgentRunner:
             logger.debug(f"No sandbox found for project {self.config.project_id}; will create lazily when needed")
     
     async def setup_tools(self):
-<<<<<<< HEAD
         # Enrich agent config with LlamaCloud knowledge bases if agent exists
         if self.config.agent_config and self.config.agent_config.get('agent_id'):
             try:
@@ -677,10 +593,7 @@ class AgentRunner:
             except Exception as e:
                 logger.error(f"Failed to enrich agent config with LlamaCloud knowledge bases: {e}")
         
-        tool_manager = ToolManager(self.thread_manager, self.config.project_id, self.config.thread_id)
-=======
         tool_manager = ToolManager(self.thread_manager, self.config.project_id, self.config.thread_id, self.config.agent_config)
->>>>>>> upstream/PRODUCTION
         
         agent_id = None
         if self.config.agent_config and (self.config.agent_config.get('is_suna_default', False) or self.config.agent_config.get('is_omni_default', False)):
@@ -770,21 +683,13 @@ class AgentRunner:
                 return True
         
         all_tools = [
-<<<<<<< HEAD
             'sb_shell_tool', 'sb_files_tool', 'sb_deploy_tool', 'sb_expose_tool',
             'web_search_tool', 'image_search_tool', 'sb_vision_tool', 'sb_presentation_tool', 'sb_image_edit_tool',
-            'sb_sheets_tool', 'sb_web_dev_tool', 'data_providers_tool', 'browser_tool',
-            'agent_config_tool', 'mcp_search_tool', 'credential_profile_tool', 
-            'workflow_tool', 'trigger_tool'
-=======
-            'sb_shell_tool', 'sb_files_tool', 'sb_expose_tool',
-            'web_search_tool', 'image_search_tool', 'sb_vision_tool', 'sb_presentation_tool', 'sb_image_edit_tool',
-            'sb_kb_tool', 'sb_design_tool', 'sb_upload_file_tool',
+            'sb_sheets_tool', 'sb_web_dev_tool', 'sb_kb_tool', 'sb_design_tool', 'sb_upload_file_tool',
             'sb_docs_tool',
             'data_providers_tool', 'browser_tool', 'people_search_tool', 'company_search_tool', 
-            'agent_config_tool', 'mcp_search_tool', 'credential_profile_tool', 'trigger_tool',
-            'agent_creation_tool'
->>>>>>> upstream/PRODUCTION
+            'agent_config_tool', 'mcp_search_tool', 'credential_profile_tool', 
+            'workflow_tool', 'trigger_tool', 'agent_creation_tool'
         ]
         
         for tool_name in all_tools:
@@ -827,10 +732,7 @@ class AgentRunner:
             self.config.thread_id, 
             mcp_wrapper_instance, self.client,
             tool_registry=self.thread_manager.tool_registry,
-<<<<<<< HEAD
             include_xml_examples=True,
-=======
->>>>>>> upstream/PRODUCTION
             xml_tool_calling=True
         )
         logger.info(f"📝 System message built once: {len(str(system_message.get('content', '')))} chars")
@@ -846,11 +748,8 @@ class AgentRunner:
                 data = json.loads(data)
             if self.config.trace:
                 self.config.trace.update(input=data['content'])
-<<<<<<< HEAD
-=======
             # Extract content for fast path optimization
             latest_user_message_content = data.get('content') if isinstance(data, dict) else str(data)
->>>>>>> upstream/PRODUCTION
 
         while continue_execution and iteration_count < self.config.max_iterations:
             iteration_count += 1
@@ -899,15 +798,11 @@ class AgentRunner:
                         xml_adding_strategy="user_message"
                     ),
                     native_max_auto_continues=self.config.native_max_auto_continues,
-<<<<<<< HEAD
                     enable_thinking=self.config.enable_thinking,
                     reasoning_effort=self.config.reasoning_effort,
                     generation=generation,
                     enable_prompt_caching=self.config.enable_prompt_caching,
                     enable_context_manager=self.config.enable_context_manager
-=======
-                    generation=generation
->>>>>>> upstream/PRODUCTION
                 )
 
                 last_tool_call = None
@@ -968,11 +863,8 @@ class AgentRunner:
                                             last_tool_call = 'ask'
                                         elif '</complete>' in assistant_text:
                                             last_tool_call = 'complete'
-<<<<<<< HEAD
                                         elif '</web-browser-takeover>' in assistant_text:
                                             last_tool_call = 'web-browser-takeover'
-=======
->>>>>>> upstream/PRODUCTION
                                 
                                 except (json.JSONDecodeError, Exception):
                                     pass
@@ -1032,15 +924,11 @@ async def run_agent(
     thread_manager: Optional[ThreadManager] = None,
     native_max_auto_continues: int = 25,
     max_iterations: int = 100,
-<<<<<<< HEAD
     model_name: str = "Qwen3 VL 235B Thinking",
     enable_thinking: Optional[bool] = False,
     reasoning_effort: Optional[str] = 'low',
     enable_context_manager: bool = False,
     enable_prompt_caching: bool = False,
-=======
-    model_name: str = "openai/gpt-5-mini",
->>>>>>> upstream/PRODUCTION
     agent_config: Optional[dict] = None,    
     trace: Optional[StatefulTraceClient] = None,
     is_agent_builder: Optional[bool] = False,
@@ -1049,10 +937,7 @@ async def run_agent(
     effective_model = model_name
 
     # is_tier_default = model_name in ["Kimi K2", "Claude Sonnet 4", "openai/gpt-5-mini"]
-<<<<<<< HEAD
     
-=======
->>>>>>> upstream/PRODUCTION
     # if is_tier_default and agent_config and agent_config.get('model'):
     #     effective_model = agent_config['model']
     #     logger.debug(f"Using model from agent config: {effective_model} (tier default was {model_name})")
@@ -1067,13 +952,10 @@ async def run_agent(
         native_max_auto_continues=native_max_auto_continues,
         max_iterations=max_iterations,
         model_name=effective_model,
-<<<<<<< HEAD
         enable_thinking=enable_thinking,
         reasoning_effort=reasoning_effort,
         enable_context_manager=enable_context_manager,
         enable_prompt_caching=enable_prompt_caching,
-=======
->>>>>>> upstream/PRODUCTION
         agent_config=agent_config,
         trace=trace,
         is_agent_builder=is_agent_builder,

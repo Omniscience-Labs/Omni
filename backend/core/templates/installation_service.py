@@ -425,7 +425,6 @@ class InstallationService:
             'icon_name': template.icon_name or 'brain',
             'icon_color': template.icon_color or '#000000',
             'icon_background': template.icon_background or '#F3F4F6',
-<<<<<<< HEAD
             'metadata': {
                 **metadata,  # Use Suna's improved metadata (includes kortix_team, etc.)
                 'marketplace_install': {  # Add your marketplace install tracking
@@ -434,9 +433,6 @@ class InstallationService:
                     'installed_at': datetime.now(timezone.utc).isoformat()
                 }
             },
-=======
-            'metadata': metadata,
->>>>>>> upstream/PRODUCTION
             'created_at': datetime.now(timezone.utc).isoformat(),
             'updated_at': datetime.now(timezone.utc).isoformat()
         }
