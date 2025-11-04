@@ -4,7 +4,7 @@ import asyncio
 import os
 from typing import Optional, Dict, Any, List
 from datetime import datetime
-from core.agentpress.tool import Tool, ToolResult, openapi_schema, usage_example
+from core.agentpress.tool import Tool, ToolResult, openapi_schema
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
 from core.utils.logger import logger
@@ -154,19 +154,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="generate_avatar_video">
-        <parameter name="text">Hello! Welcome to our new AI-powered customer service. How can I help you today?</parameter>
-        <parameter name="avatar_id">Kristin_public_3_20240108</parameter>
-        <parameter name="voice_id">professional_female_1</parameter>
-        <parameter name="video_title">Customer Service Introduction</parameter>
-        <parameter name="background_color">#f0f8ff</parameter>
-        <parameter name="async_polling">true</parameter>
-        </invoke>
-        </function_calls>
-    ''')
-    async def generate_avatar_video(
+        async def generate_avatar_video(
         self,
         text: str,
         preserve_exact_text: bool = False,
@@ -369,20 +357,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="create_avatar_session">
-        <parameter name="session_name">sales_demo_avatar</parameter>
-        <parameter name="selected_avatar">kristin_professional</parameter>
-        <parameter name="selected_voice">professional_male_1</parameter>
-        <parameter name="voice_emotion">FRIENDLY</parameter>
-        <parameter name="quality">high</parameter>
-        <parameter name="enable_voice_chat">true</parameter>
-        <parameter name="knowledge_base">You are a sales representative for our SaaS product. Be enthusiastic, knowledgeable, and focus on the customer's needs.</parameter>
-        </invoke>
-        </function_calls>
-    ''')
-    async def create_avatar_session(
+        async def create_avatar_session(
         self,
         session_name: str,
         selected_avatar: str,
@@ -516,16 +491,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="make_avatar_speak">
-        <parameter name="session_name">sales_demo_avatar</parameter>
-        <parameter name="text">Hello! I'm excited to tell you about our amazing new features.</parameter>
-        <parameter name="task_type">repeat</parameter>
-        </invoke>
-        </function_calls>
-    ''')
-    async def make_avatar_speak(
+        async def make_avatar_speak(
         self,
         session_name: str,
         text: str,

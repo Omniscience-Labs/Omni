@@ -5,7 +5,7 @@ import zipfile
 import tempfile
 from typing import Optional, Dict, Any, List
 from uuid import uuid4
-from core.agentpress.tool import ToolResult, openapi_schema, usage_example
+from core.agentpress.tool import ToolResult, openapi_schema
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
 from core.services.supabase import DBConnection
@@ -75,48 +75,7 @@ class SandboxCustomAutomationTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="configure_custom_automation">
-        <parameter name="config_name">arcadia_automation</parameter>
-        <parameter name="chrome_profile_base64">[base64 encoded Chrome profile zip]</parameter>
-        <parameter name="automation_script">// VNC-Compatible Automation Script
-// This script will be visible in the Browser tab of the side panel
-
-const { chromium } = require('playwright');
-
-async function runAutomation() {
-  console.log('🚀 Starting automation - visible in VNC display');
-  
-  // Don't launch browser here - the wrapper handles this
-  // Your automation logic will run in the context provided
-  
-  console.log('🌐 Navigating to target website');
-  await page.goto('https://example.com/login');
-  
-  // Wait for page load and take screenshot
-  await page.waitForLoadState('networkidle');
-  console.log('📸 Taking screenshot');
-  
-  // Your automation steps
-  await page.fill('#username', 'your_username');
-  await page.fill('#password', 'your_password');
-  await page.click('#login-button');
-  
-  // Wait and verify
-  await page.waitForTimeout(3000);
-  console.log('✅ Login completed');
-  
-  // More automation logic here...
-}
-
-// Note: Don't call runAutomation() - the wrapper will execute this code
-// in the proper context with VNC display</parameter>
-        <parameter name="description">Example automation with VNC display integration</parameter>
-        </invoke>
-        </function_calls>
-        ''')
-    async def configure_custom_automation(
+        async def configure_custom_automation(
         self,
         config_name: str,
         chrome_profile_base64: str,
@@ -239,16 +198,7 @@ async function runAutomation() {
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="run_custom_automation">
-        <parameter name="config_name">arcadia_inventory</parameter>
-        <parameter name="headless">false</parameter>
-        <parameter name="timeout_seconds">600</parameter>
-        </invoke>
-        </function_calls>
-        ''')
-    async def run_custom_automation(
+        async def run_custom_automation(
         self,
         config_name: str,
         headless: bool = False,
