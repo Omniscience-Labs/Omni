@@ -461,7 +461,7 @@ async def stop_agent_run(db, agent_run_id: str, error_message: Optional[str] = N
         logger.error(f"Failed to fetch responses from Redis for {agent_run_id} during stop/fail: {e}")
 
     update_success = await update_agent_run_status(
-        client, agent_run_id, final_status, error=error_message, responses=all_responses
+        client, agent_run_id, final_status, error=error_message
     )
 
     if not update_success:
