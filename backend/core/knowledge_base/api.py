@@ -715,6 +715,12 @@ class EntryResponse(BaseModel):
     file_size: int
     created_at: str
 
+class ProcessingJobResponse(BaseModel):
+    """Response model for processing jobs (placeholder for future implementation)."""
+    job_id: str
+    status: str
+    created_at: str
+
 class UpdateEntryRequest(BaseModel):
     summary: str = Field(..., min_length=1, max_length=1000)
 
