@@ -4,6 +4,7 @@ import uuid
 from typing import Union, Dict, Any, Optional
 
 from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata
+from core.agentpress.thread_manager import ThreadManager
 from core.tools.data_providers.LinkedinProvider import LinkedinProvider
 from core.tools.data_providers.YahooFinanceProvider import YahooFinanceProvider
 from core.tools.data_providers.AmazonProvider import AmazonProvider
