@@ -210,8 +210,9 @@ api_router.include_router(triggers_api.router)
 
 api_router.include_router(pipedream_api.router)
 
-from core.admin import api as admin_api
-api_router.include_router(admin_api.router)
+# Note: admin_api.router is already included above as admin_router
+# The core.admin.api module contains additional endpoints that are already covered in admin_api.py
+# Removing duplicate to avoid route conflicts
 
 # Enterprise admin API - always load but endpoints check ENTERPRISE_MODE internally
 from core.services import enterprise_admin_api
