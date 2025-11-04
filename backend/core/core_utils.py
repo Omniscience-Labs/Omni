@@ -1,5 +1,7 @@
 import uuid
-from typing import Optional
+import json
+from typing import Optional, Dict, List, Any
+from datetime import datetime, timezone, timedelta
 from core.services import redis
 from core.services.supabase import DBConnection
 from .utils.logger import logger
@@ -18,6 +20,7 @@ from .utils.run_management import (
 )
 from .utils.project_helpers import generate_and_update_project_name
 from .utils.mcp_helpers import merge_custom_mcps
+from .utils.cache import Cache
 
 # Load Lucide React icons once at module level for performance
 try:
