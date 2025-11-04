@@ -93,19 +93,8 @@ async def close():
         finally:
             client = None
     
-    if pool:
-        # logger.debug("Closing Redis connection pool")
-        try:
-            await asyncio.wait_for(pool.aclose(), timeout=5.0)
-        except asyncio.TimeoutError:
-            logger.warning("Redis pool close timeout, forcing close")
-        except Exception as e:
-            logger.warning(f"Error closing Redis pool: {e}")
-        finally:
-            pool = None
-    
     _initialized = False
-    logger.info("Redis connection and pool closed")
+    logger.info("Redis connection closed")
     
 
 async def get_client():
