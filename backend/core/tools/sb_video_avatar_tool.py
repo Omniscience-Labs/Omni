@@ -154,7 +154,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
             }
         }
     })
-        async def generate_avatar_video(
+    async def generate_avatar_video(
         self,
         text: str,
         preserve_exact_text: bool = False,
@@ -357,7 +357,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
             }
         }
     })
-        async def create_avatar_session(
+    async def create_avatar_session(
         self,
         session_name: str,
         selected_avatar: str,
@@ -491,7 +491,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
             }
         }
     })
-        async def make_avatar_speak(
+    async def make_avatar_speak(
         self,
         session_name: str,
         text: str,

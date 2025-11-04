@@ -207,7 +207,7 @@ class DataProvidersTool(Tool):
             }
         }
     })
-        async def apollo_match_lead(
+    async def apollo_match_lead(
         self,
         first_name: str,
         last_name: str,

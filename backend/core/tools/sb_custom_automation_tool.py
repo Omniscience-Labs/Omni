@@ -75,7 +75,7 @@ class SandboxCustomAutomationTool(SandboxToolsBase):
             }
         }
     })
-        async def configure_custom_automation(
+    async def configure_custom_automation(
         self,
         config_name: str,
         chrome_profile_base64: str,
@@ -198,7 +198,7 @@ class SandboxCustomAutomationTool(SandboxToolsBase):
             }
         }
     })
-        async def run_custom_automation(
+    async def run_custom_automation(
         self,
         config_name: str,
         headless: bool = False,
