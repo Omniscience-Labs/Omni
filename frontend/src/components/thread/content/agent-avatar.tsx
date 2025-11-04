@@ -31,7 +31,7 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({
   // Agent data props
   agent: propAgent,
   agentId, 
-  fallbackName = "Suna",
+  fallbackName = "Omni",
   
   // Direct props
   iconName: propIconName,
@@ -42,8 +42,7 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({
   
   // Common props
   size = 16, 
-  className = "", 
-  fallbackName = "Omni" 
+  className = ""
 }) => {
   // Try to get agent from cache if agentId is provided and agent prop is not
   const cachedAgent = useAgentFromCache(!propAgent && agentId ? agentId : undefined);
