@@ -293,6 +293,10 @@ class ThreadManager:
         max_xml_tool_calls: int = 0,
         generation: Optional[StatefulGenerationClient] = None,
         latest_user_message_content: Optional[str] = None,
+        enable_thinking: Optional[bool] = False,
+        reasoning_effort: Optional[str] = "low",
+        enable_prompt_caching: bool = True,
+        enable_context_manager: bool = True,
     ) -> Union[Dict[str, Any], AsyncGenerator]:
         """Run a conversation thread with LLM integration and tool execution."""
         logger.debug(f"🚀 Starting thread execution for {thread_id} with model {llm_model}")
@@ -320,7 +324,11 @@ class ThreadManager:
             result = await self._execute_run(
                 thread_id, system_prompt, llm_model, llm_temperature, llm_max_tokens,
                 tool_choice, config, stream,
-                generation, auto_continue_state, temporary_message, latest_user_message_content
+                generation, auto_continue_state, temporary_message, latest_user_message_content,
+                enable_thinking=enable_thinking,
+                reasoning_effort=reasoning_effort,
+                enable_prompt_caching=enable_prompt_caching,
+                enable_context_manager=enable_context_manager
             )
             
             # If result is an error dict, convert it to a generator that yields the error
@@ -334,7 +342,11 @@ class ThreadManager:
             thread_id, system_prompt, llm_model, llm_temperature, llm_max_tokens,
             tool_choice, config, stream,
             generation, auto_continue_state, temporary_message,
-            native_max_auto_continues, latest_user_message_content
+            native_max_auto_continues, latest_user_message_content,
+            enable_thinking=enable_thinking,
+            reasoning_effort=reasoning_effort,
+            enable_prompt_caching=enable_prompt_caching,
+            enable_context_manager=enable_context_manager
         )
 
     async def _execute_run(
@@ -342,7 +354,11 @@ class ThreadManager:
         llm_temperature: float, llm_max_tokens: Optional[int], tool_choice: ToolChoice,
         config: ProcessorConfig, stream: bool, generation: Optional[StatefulGenerationClient],
         auto_continue_state: Dict[str, Any], temporary_message: Optional[Dict[str, Any]] = None,
-        latest_user_message_content: Optional[str] = None
+        latest_user_message_content: Optional[str] = None,
+        enable_thinking: Optional[bool] = False,
+        reasoning_effort: Optional[str] = "low",
+        enable_prompt_caching: bool = True,
+        enable_context_manager: bool = True,
     ) -> Union[Dict[str, Any], AsyncGenerator]:
         """Execute a single LLM run."""
         
@@ -352,10 +368,9 @@ class ThreadManager:
             config = ProcessorConfig()  # Create new instance as fallback
             
         try:
-            # ===== CENTRAL CONFIGURATION =====
-            ENABLE_CONTEXT_MANAGER = True   # Set to False to disable context compression
-            ENABLE_PROMPT_CACHING = True    # Set to False to disable prompt caching
-            # ==================================
+            # Use passed parameters instead of hardcoded values
+            ENABLE_CONTEXT_MANAGER = enable_context_manager
+            ENABLE_PROMPT_CACHING = enable_prompt_caching
             
             # Fast path: Check stored token count + new message tokens
             skip_fetch = False
@@ -572,7 +587,9 @@ class ThreadManager:
                     max_tokens=llm_max_tokens,
                     tools=openapi_tool_schemas,
                     tool_choice=tool_choice if config.native_tool_calling else "none",
-                    stream=stream
+                    stream=stream,
+                    enable_thinking=enable_thinking,
+                    reasoning_effort=reasoning_effort
                 )
             except LLMError as e:
                 return {"type": "status", "status": "error", "message": str(e)}
@@ -609,7 +626,11 @@ class ThreadManager:
         llm_temperature: float, llm_max_tokens: Optional[int], tool_choice: ToolChoice,
         config: ProcessorConfig, stream: bool, generation: Optional[StatefulGenerationClient],
         auto_continue_state: Dict[str, Any], temporary_message: Optional[Dict[str, Any]],
-        native_max_auto_continues: int, latest_user_message_content: Optional[str] = None
+        native_max_auto_continues: int, latest_user_message_content: Optional[str] = None,
+        enable_thinking: Optional[bool] = False,
+        reasoning_effort: Optional[str] = "low",
+        enable_prompt_caching: bool = True,
+        enable_context_manager: bool = True,
     ) -> AsyncGenerator:
         """Generator that handles auto-continue logic."""
         logger.debug(f"Starting auto-continue generator, max: {native_max_auto_continues}")
@@ -629,7 +650,11 @@ class ThreadManager:
                     tool_choice, config, stream,
                     generation, auto_continue_state,
                     temporary_message if auto_continue_state['count'] == 0 else None,
-                    latest_user_message_content if auto_continue_state['count'] == 0 else None
+                    latest_user_message_content if auto_continue_state['count'] == 0 else None,
+                    enable_thinking=enable_thinking,
+                    reasoning_effort=reasoning_effort,
+                    enable_prompt_caching=enable_prompt_caching,
+                    enable_context_manager=enable_context_manager
                 )
 
                 # Handle error responses
