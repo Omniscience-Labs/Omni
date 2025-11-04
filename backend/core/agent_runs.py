@@ -211,19 +211,30 @@ async def start_agent(
         logger.warning(f"Agent run limit exceeded for account {account_id}: {limit_check['running_count']} running agents")
         raise HTTPException(status_code=429, detail=error_detail)
 
-        # Check project limit if creating new thread
-        if check_project_limit:
-            project_limit_check = await check_project_count_limit(client, account_id)
-            if not project_limit_check['can_create']:
-                error_detail = {
-                    "message": f"Maximum of {project_limit_check['limit']} projects allowed for your current plan. You have {project_limit_check['current_count']} projects.",
-                    "current_count": project_limit_check['current_count'],
-                    "limit": project_limit_check['limit'],
-                    "tier_name": project_limit_check['tier_name'],
-                    "error_code": "PROJECT_LIMIT_EXCEEDED"
-                }
-                logger.warning(f"Project limit exceeded for account {account_id}: {project_limit_check['current_count']}/{project_limit_check['limit']} projects")
-                raise HTTPException(status_code=402, detail=error_detail)
+    # Get effective model
+    effective_model = await _get_effective_model(model_name, agent_config, client, account_id)
+    
+    # Create agent run record
+    agent_run_id = await _create_agent_run_record(client, thread_id, agent_config, effective_model)
+    
+    # Trigger background execution
+    await _trigger_agent_background(
+        agent_run_id=agent_run_id,
+        thread_id=thread_id,
+        project_id=project_id,
+        effective_model=effective_model,
+        agent_config=agent_config,
+        enable_thinking=body.enable_thinking,
+        reasoning_effort=body.reasoning_effort,
+        stream=body.stream,
+        enable_context_manager=body.enable_context_manager
+    )
+    
+    return {
+        "thread_id": thread_id,
+        "agent_run_id": agent_run_id,
+        "status": "running"
+    }
 
 
 async def _get_effective_model(model_name: Optional[str], agent_config: Optional[dict], client, account_id: str) -> str:
