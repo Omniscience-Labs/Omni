@@ -882,6 +882,31 @@ async def get_user_usage_logs(
 # AGENT & SYSTEM MANAGEMENT
 # ============================================================================
 
+@router.post("/omni-agents/install-user/{account_id}")
+async def admin_install_omni_for_user(
+    account_id: str,
+    replace_existing: bool = False,
+    _: bool = Depends(verify_admin_api_key)
+):
+    """Install Omni agent for a specific user."""
+    logger.info(f"Admin installing Omni agent for user: {account_id}")
+    
+    from core.utils.omni_default_agent_service import OmniDefaultAgentService
+    service = OmniDefaultAgentService()
+    agent_id = await service.install_omni_agent_for_user(account_id, replace_existing)
+    
+    if agent_id:
+        return {
+            "success": True,
+            "message": f"Successfully installed Omni agent for user {account_id}",
+            "agent_id": agent_id
+        }
+    else:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to install Omni agent for user {account_id}"
+        )
+
 @router.post("/suna-agents/install-user/{account_id}")
 async def admin_install_suna_for_user(
     account_id: str,
