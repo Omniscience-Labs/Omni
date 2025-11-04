@@ -571,24 +571,28 @@ class AgentRunner:
         
         self.client = await self.thread_manager.db.client
         
-        response = await self.client.table('threads').select('account_id').eq('thread_id', self.config.thread_id).execute()
-        
-        if not response.data or len(response.data) == 0:
-            raise ValueError(f"Thread {self.config.thread_id} not found")
-        
-        self.account_id = response.data[0].get('account_id')
-        
-        if not self.account_id:
-            raise ValueError(f"Thread {self.config.thread_id} has no associated account")
+        try:
+            response = await self.client.table('threads').select('account_id').eq('thread_id', self.config.thread_id).execute()
+            
+            if not response.data or len(response.data) == 0:
+                raise ValueError(f"Thread {self.config.thread_id} not found")
+            
+            self.account_id = response.data[0].get('account_id')
+            
+            if not self.account_id:
+                raise ValueError(f"Thread {self.config.thread_id} has no associated account")
 
-        project = await self.client.table('projects').select('*').eq('project_id', self.config.project_id).execute()
-        if not project.data or len(project.data) == 0:
-            raise ValueError(f"Project {self.config.project_id} not found")
+            project = await self.client.table('projects').select('*').eq('project_id', self.config.project_id).execute()
+            if not project.data or len(project.data) == 0:
+                raise ValueError(f"Project {self.config.project_id} not found")
 
-        project_data = project.data[0]
-        sandbox_info = project_data.get('sandbox', {})
-        if not sandbox_info.get('id'):
-            logger.debug(f"No sandbox found for project {self.config.project_id}; will create lazily when needed")
+            project_data = project.data[0]
+            sandbox_info = project_data.get('sandbox', {})
+            if not sandbox_info.get('id'):
+                logger.debug(f"No sandbox found for project {self.config.project_id}; will create lazily when needed")
+        except Exception as e:
+            logger.error(f"Failed to setup AgentRunner: {e}", exc_info=True)
+            raise
     
     async def setup_tools(self):
         # Enrich agent config with LlamaCloud knowledge bases if agent exists
