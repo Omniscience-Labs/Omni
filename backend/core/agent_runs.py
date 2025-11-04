@@ -34,20 +34,9 @@ from .services.billing_wrapper import can_use_model_unified as can_use_model, ch
 router = APIRouter(tags=["agent-runs"])
 
 async def _get_agent_run_with_access_check(client, agent_run_id: str, user_id: str):
-    """
-    Compatibility wrapper for the new credit-based billing system.
-    Converts new credit system response to match old billing status format.
-    """
-    can_run, message, reservation_id = await billing_integration.check_and_reserve_credits(user_id)
-    
-    # Create a subscription-like object for backward compatibility
-    subscription_info = {
-        "price_id": "credit_based",
-        "plan_name": "Credit System",
-        "minutes_limit": "credit based"
-    }
-    
-    return can_run, message, subscription_info
+    """Get agent run with access check."""
+    from .core_utils import get_agent_run_with_access_check
+    return await get_agent_run_with_access_check(client, agent_run_id, user_id)
 
 @router.post("/thread/{thread_id}/agent/start")
 async def start_agent(
