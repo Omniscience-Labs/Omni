@@ -69,60 +69,58 @@ class SandboxDesignerTool(SandboxToolsBase):
         except:
             pass
 
-    @openapi_schema(
-        {
-            "type": "function",
-            "function": {
-                "name": "designer_create_or_edit",
-                "description": "Professional design tool for creating or editing high-quality graphics optimized for social media, advertising, and professional use. Automatically applies professional design principles for text placement, visual hierarchy, and composition.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "mode": {
-                            "type": "string",
-                            "enum": ["create", "edit"],
-                            "description": "'create' for new designs from scratch, 'edit' to modify existing designs.",
-                        },
-                        "prompt": {
-                            "type": "string",
-                            "description": "Professional design prompt. The AI will automatically apply design principles like: rule of thirds, golden ratio, proper text hierarchy, contrast ratios, safe zones for text, and professional typography. Be specific about content and brand style.",
-                        },
-                        "platform_preset": {
-                            "type": "string",
-                            "enum": ["instagram_square", "instagram_portrait", "instagram_story", "instagram_landscape", "facebook_post", "facebook_cover", "facebook_story", "twitter_post", "twitter_header", "linkedin_post", "linkedin_banner", "linkedin_article", "youtube_thumbnail", "youtube_banner", "pinterest_pin", "pinterest_square", "tiktok_video", "whatsapp_status", "google_ads_square", "google_ads_medium", "google_ads_large", "google_ads_banner", "google_ads_leaderboard", "google_ads_skyscraper", "facebook_ads_feed", "facebook_ads_story", "display_ad_billboard", "display_ad_square", "display_ad_vertical", "email_header", "blog_header", "presentation_16_9", "presentation_4_3", "business_card", "flyer_a4", "poster_a3", "custom"],
-                            "description": "Platform-specific size preset for optimal dimensions. Choose 'custom' to specify width/height manually. Each preset is optimized for its platform's requirements.",
-                        },
-                        "width": {
-                            "type": "integer",
-                            "description": "Custom width in pixels (only used if platform_preset is 'custom'). Range: 256-4096px",
-                            "minimum": 256,
-                            "maximum": 4096,
-                        },
-                        "height": {
-                            "type": "integer",
-                            "description": "Custom height in pixels (only used if platform_preset is 'custom'). Range: 256-4096px",
-                            "minimum": 256,
-                            "maximum": 4096,
-                        },
-                        "design_style": {
-                            "type": "string",
-                            "enum": ["modern", "minimalist", "material", "glassmorphism", "neomorphism", "flat", "skeuomorphic", "organic", "geometric", "abstract", "professional", "playful", "luxury", "tech", "vintage", "bold"],
-                            "description": "Visual style preset that enhances the design with specific aesthetic principles.",
-                        },
-                        "image_path": {
-                            "type": "string",
-                            "description": "(edit mode only) Path to the design file to edit. Supports workspace files or URLs.",
-                        },
-                        "quality": {
-                            "type": "string",
-                            "enum": ["low", "medium", "high", "auto"],
-                            "description": "Output quality. 'high' for best quality, 'auto' to let model decide. Default: 'auto'",
-                        },
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "designer_create_or_edit",
+            "description": "Professional design tool for creating or editing high-quality graphics optimized for social media, advertising, and professional use. Automatically applies professional design principles for text placement, visual hierarchy, and composition.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mode": {
+                        "type": "string",
+                        "enum": ["create", "edit"],
+                        "description": "'create' for new designs from scratch, 'edit' to modify existing designs.",
                     },
-                    "required": ["mode", "prompt", "platform_preset"],
+                    "prompt": {
+                        "type": "string",
+                        "description": "Professional design prompt. The AI will automatically apply design principles like: rule of thirds, golden ratio, proper text hierarchy, contrast ratios, safe zones for text, and professional typography. Be specific about content and brand style.",
+                    },
+                    "platform_preset": {
+                        "type": "string",
+                        "enum": ["instagram_square", "instagram_portrait", "instagram_story", "instagram_landscape", "facebook_post", "facebook_cover", "facebook_story", "twitter_post", "twitter_header", "linkedin_post", "linkedin_banner", "linkedin_article", "youtube_thumbnail", "youtube_banner", "pinterest_pin", "pinterest_square", "tiktok_video", "whatsapp_status", "google_ads_square", "google_ads_medium", "google_ads_large", "google_ads_banner", "google_ads_leaderboard", "google_ads_skyscraper", "facebook_ads_feed", "facebook_ads_story", "display_ad_billboard", "display_ad_square", "display_ad_vertical", "email_header", "blog_header", "presentation_16_9", "presentation_4_3", "business_card", "flyer_a4", "poster_a3", "custom"],
+                        "description": "Platform-specific size preset for optimal dimensions. Choose 'custom' to specify width/height manually. Each preset is optimized for its platform's requirements.",
+                    },
+                    "width": {
+                        "type": "integer",
+                        "description": "Custom width in pixels (only used if platform_preset is 'custom'). Range: 256-4096px",
+                        "minimum": 256,
+                        "maximum": 4096,
+                    },
+                    "height": {
+                        "type": "integer",
+                        "description": "Custom height in pixels (only used if platform_preset is 'custom'). Range: 256-4096px",
+                        "minimum": 256,
+                        "maximum": 4096,
+                    },
+                    "design_style": {
+                        "type": "string",
+                        "enum": ["modern", "minimalist", "material", "glassmorphism", "neomorphism", "flat", "skeuomorphic", "organic", "geometric", "abstract", "professional", "playful", "luxury", "tech", "vintage", "bold"],
+                        "description": "Visual style preset that enhances the design with specific aesthetic principles.",
+                    },
+                    "image_path": {
+                        "type": "string",
+                        "description": "(edit mode only) Path to the design file to edit. Supports workspace files or URLs.",
+                    },
+                    "quality": {
+                        "type": "string",
+                        "enum": ["low", "medium", "high", "auto"],
+                        "description": "Output quality. 'high' for best quality, 'auto' to let model decide. Default: 'auto'",
+                    },
                 },
+                "required": ["mode", "prompt", "platform_preset"],
             },
-        }
+        },
     })
     async def designer_create_or_edit(
         self,
