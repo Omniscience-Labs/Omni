@@ -3,7 +3,7 @@ import json
 import asyncio
 from typing import Optional, Dict, Any, List
 from datetime import datetime
-from core.agentpress.tool import Tool, ToolResult, openapi_schema, usage_example
+from core.agentpress.tool import Tool, ToolResult, openapi_schema
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
 from core.services.supabase import DBConnection
@@ -56,16 +56,7 @@ class SandboxPodcastTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="generate_podcast">
-        <parameter name="agent_run_id">5d8a2b42-d550-4da7-a9bc-cc86e063ded0</parameter>
-        <parameter name="podcast_title">AI Agent Conversation About Project Planning</parameter>
-        <parameter name="include_thinking">false</parameter>
-        </invoke>
-        </function_calls>
-    ''')
-    async def generate_podcast(
+        async def generate_podcast(
         self, 
         agent_run_id: str,
         podcast_title: str = "",
@@ -596,13 +587,7 @@ class SandboxPodcastTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="check_podcast_status">
-        </invoke>
-        </function_calls>
-    ''')
-    async def check_podcast_status(self) -> ToolResult:
+        async def check_podcast_status(self) -> ToolResult:
         """Check if the Podcastfy service is available and ready."""
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -652,16 +637,7 @@ class SandboxPodcastTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="generate_podcast_from_url">
-        <parameter name="url">https://www.example.com/article</parameter>
-        <parameter name="podcast_title">Breaking News Analysis</parameter>
-        <parameter name="tts_model">openai</parameter>
-        </invoke>
-        </function_calls>
-    ''')
-    async def generate_podcast_from_url(
+        async def generate_podcast_from_url(
         self,
         url: str,
         podcast_title: str = "",
@@ -757,16 +733,7 @@ class SandboxPodcastTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="generate_bite_sized_podcast">
-        <parameter name="agent_run_id">5d8a2b42-d550-4da7-a9bc-cc86e063ded0</parameter>
-        <parameter name="podcast_title">Quick AI Chat Summary</parameter>
-        <parameter name="tts_model">openai</parameter>
-        </invoke>
-        </function_calls>
-    ''')
-    async def generate_bite_sized_podcast(
+        async def generate_bite_sized_podcast(
         self,
         agent_run_id: str,
         podcast_title: str = "",
@@ -1018,17 +985,7 @@ class SandboxPodcastTool(SandboxToolsBase):
             }
         }
     })
-    @usage_example('''
-        <function_calls>
-        <invoke name="generate_podcast_from_text">
-        <parameter name="text">Rate limits are essential for API management. They prevent abuse and ensure fair usage across all users. Common rate limit types include per-second, per-minute, and per-hour limits.</parameter>
-        <parameter name="podcast_title">Understanding API Rate Limits</parameter>
-        <parameter name="tts_model">openai</parameter>
-        <parameter name="conversation_style">educational</parameter>
-        </invoke>
-        </function_calls>
-    ''')
-    async def generate_podcast_from_text(
+        async def generate_podcast_from_text(
         self,
         text: str,
         podcast_title: str = "Custom Text Podcast",
