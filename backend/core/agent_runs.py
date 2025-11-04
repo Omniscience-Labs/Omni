@@ -18,7 +18,7 @@ from run_agent_background import run_agent_background
 
 from core.ai_models import model_manager
 
-from .api_models import AgentVersionResponse, AgentResponse, ThreadAgentResponse, UnifiedAgentStartResponse, AgentStartRequest
+from .api_models import AgentVersionResponse, AgentResponse, ThreadAgentResponse, UnifiedAgentStartResponse, AgentStartRequest, InitiateAgentResponse
 from . import core_utils as utils
 
 from .core_utils import (
