@@ -167,11 +167,22 @@ async def start_agent(
                 logger.debug(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) - no version data")
         else:
             logger.warning(f"[AGENT LOAD] No default agent found for account {account_id}")
+            # Create a minimal default agent config if none found
+            if not agent_config and is_new_thread:
+                logger.info(f"[AGENT LOAD] Creating minimal default agent config for account {account_id}")
+                agent_config = {
+                    'agent_id': None,
+                    'name': 'Default Agent',
+                    'model': None,  # Will use tier-based default
+                    'account_id': account_id
+                }
 
     logger.debug(f"[AGENT LOAD] Final agent_config: {agent_config is not None}")
     if agent_config:
         logger.debug(f"[AGENT LOAD] Agent config keys: {list(agent_config.keys())}")
-        logger.debug(f"Using agent {agent_config['agent_id']} for this agent run (thread remains agent-agnostic)")
+        logger.debug(f"Using agent {agent_config.get('agent_id', 'None')} for this agent run (thread remains agent-agnostic)")
+    else:
+        logger.warning(f"[AGENT LOAD] No agent config available - agent run may fail")
 
     # Run all checks concurrently
     model_check_task = asyncio.create_task(can_use_model(client, account_id, model_name))

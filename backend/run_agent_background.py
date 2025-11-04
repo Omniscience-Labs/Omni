@@ -170,7 +170,13 @@ async def run_agent_background(
     try:
         await initialize()
     except Exception as e:
-        logger.critical(f"Failed to initialize Redis connection: {e}")
+        logger.critical(f"Failed to initialize Redis connection: {e}", exc_info=True)
+        # Update agent run status to failed
+        try:
+            client = await db.client
+            await update_agent_run_status(client, agent_run_id, "failed", error=f"Failed to initialize Redis: {str(e)}")
+        except Exception as db_err:
+            logger.error(f"Failed to update agent run status after Redis init failure: {db_err}")
         raise e
 
     # Idempotency check: prevent duplicate runs
@@ -198,16 +204,64 @@ async def run_agent_background(
     
     from core.ai_models import model_manager
 
-    effective_model = model_manager.resolve_model_id(model_name)
+    # Resolve model with fallback
+    client = await db.client
+    try:
+        if model_name:
+            effective_model = model_manager.resolve_model_id(model_name)
+        else:
+            logger.warning(f"No model_name provided, using default")
+            # Get account_id from thread
+            thread_result = await client.table('threads').select('account_id').eq('thread_id', thread_id).execute()
+            if thread_result.data:
+                account_id = thread_result.data[0].get('account_id')
+                effective_model = await model_manager.get_default_model_for_user(client, account_id)
+            else:
+                effective_model = "Claude Sonnet 4"  # Ultimate fallback
+                logger.warning(f"Thread {thread_id} not found, using hardcoded fallback model")
+    except Exception as model_err:
+        logger.error(f"Failed to resolve model: {model_err}", exc_info=True)
+        # Update agent run status to failed
+        try:
+            await update_agent_run_status(client, agent_run_id, "failed", error=f"Failed to resolve model: {str(model_err)}")
+        except Exception as db_err:
+            logger.error(f"Failed to update agent run status after model resolution failure: {db_err}")
+        raise
     
     logger.info(f"🚀 Using model: {effective_model} (thinking: {enable_thinking}, reasoning_effort: {reasoning_effort})")
     
-    client = await db.client
     start_time = datetime.now(timezone.utc)
     total_responses = 0
     pubsub = None
     stop_checker = None
     stop_signal_received = False
+
+    # Verify thread and project exist before proceeding
+    try:
+        thread_result = await client.table('threads').select('account_id, project_id').eq('thread_id', thread_id).execute()
+        if not thread_result.data:
+            error_msg = f"Thread {thread_id} not found"
+            logger.error(error_msg)
+            await update_agent_run_status(client, agent_run_id, "failed", error=error_msg)
+            return
+        
+        project_id_from_thread = thread_result.data[0].get('project_id')
+        if project_id_from_thread != project_id:
+            logger.warning(f"Project ID mismatch: thread has {project_id_from_thread}, provided {project_id}")
+        
+        project_result = await client.table('projects').select('project_id').eq('project_id', project_id).execute()
+        if not project_result.data:
+            error_msg = f"Project {project_id} not found"
+            logger.error(error_msg)
+            await update_agent_run_status(client, agent_run_id, "failed", error=error_msg)
+            return
+    except Exception as db_check_err:
+        logger.error(f"Failed to verify thread/project existence: {db_check_err}", exc_info=True)
+        try:
+            await update_agent_run_status(client, agent_run_id, "failed", error=f"Database check failed: {str(db_check_err)}")
+        except Exception:
+            pass
+        raise
 
     # Define Redis keys and channels
     response_list_key = f"agent_run:{agent_run_id}:responses"
