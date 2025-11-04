@@ -1265,34 +1265,11 @@ async def get_agent_processing_jobs(
         # Since the old processing jobs table was dropped, return empty for now
         # TODO: Implement new processing jobs system if needed
         return []
-=======
-        # Verify folder ownership
-        folder_result = await client.table('knowledge_base_folders').select(
-            'folder_id'
-        ).eq('folder_id', folder_id).eq('account_id', account_id).execute()
-        
-        if not folder_result.data:
-            raise HTTPException(status_code=404, detail="Folder not found")
-        
-        result = await client.table('knowledge_base_entries').select(
-            'entry_id, filename, summary, file_size, created_at'
-        ).eq('folder_id', folder_id).eq('is_active', True).order('created_at', desc=True).execute()
-        
-        return [
-            EntryResponse(
-                entry_id=entry['entry_id'],
-                filename=entry['filename'],
-                summary=entry['summary'],
-                file_size=entry['file_size'],
-                created_at=entry['created_at']
-            )
-            for entry in result.data
-        ]
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting folder entries: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve entries")
+        logger.error(f"Error getting processing jobs: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve processing jobs")
 
 @router.delete("/entries/{entry_id}")
 async def delete_entry(
@@ -1963,33 +1940,11 @@ async def test_llamacloud_search(
             "index_name": index_name,
             "query": query
         }
-=======
-    assignment_data: dict,
-    auth: AuthorizedAgentAccess = Depends(require_agent_access)
-):
-    """Update agent entry assignments."""
-    try:
-        client = await db.client
-        account_id = auth.user_id
-        entry_ids = assignment_data.get('entry_ids', [])
-        
-        # Clear existing assignments
-        await client.table('agent_knowledge_entry_assignments').delete().eq('agent_id', agent_id).execute()
-        
-        # Insert new entry assignments
-        for entry_id in entry_ids:
-            await client.table('agent_knowledge_entry_assignments').insert({
-                'agent_id': agent_id,
-                'entry_id': entry_id,
-                'account_id': account_id,
-                'enabled': True
-            }).execute()
-        
-        return {"success": True, "message": "Assignments updated successfully"}
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error updating agent assignments: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to update assignments")
+        logger.error(f"Error testing LlamaCloud search: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to test search")
 
 class FolderMoveRequest(BaseModel):
     folder_id: str

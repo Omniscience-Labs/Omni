@@ -397,15 +397,12 @@ export function usePublishTemplate() {
     mutationFn: async ({ 
       template_id, 
       tags,
-      sharing_preferences
+      sharing_preferences,
+      usage_examples
     }: { 
       template_id: string; 
       tags?: string[];
       sharing_preferences?: SharingPreferences;
-      usage_examples 
-    }: { 
-      template_id: string; 
-      tags?: string[];
       usage_examples?: UsageExampleMessage[];
     }): Promise<{ message: string }> => {
       const supabase = createClient();

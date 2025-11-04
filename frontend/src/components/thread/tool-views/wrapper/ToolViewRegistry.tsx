@@ -269,6 +269,7 @@ const defaultRegistry: ToolViewRegistryType = {
   'monitor-call': MonitorCallToolView,
   'wait_for_call_completion': WaitForCallCompletionToolView,
   'wait-for-call-completion': WaitForCallCompletionToolView,
+};
 
 class ToolViewRegistry {
   private registry: ToolViewRegistryType;
