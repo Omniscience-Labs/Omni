@@ -207,38 +207,7 @@ class DataProvidersTool(Tool):
             }
         }
     })
-    @usage_example('''
-        <!-- Example 1: Basic lead matching without email reveal -->
-        <function_calls>
-        <invoke name="apollo_match_lead">
-        <parameter name="first_name">Tim</parameter>
-        <parameter name="last_name">Zheng</parameter>
-        <parameter name="organization_name">Apollo</parameter>
-        <parameter name="domain">apollo.io</parameter>
-        </invoke>
-        </function_calls>
-        
-        <!-- Example 2: With email reveal (after user confirmation) -->
-        <function_calls>
-        <invoke name="apollo_match_lead">
-        <parameter name="first_name">Tim</parameter>
-        <parameter name="last_name">Zheng</parameter>
-        <parameter name="organization_name">Apollo</parameter>
-        <parameter name="reveal_personal_emails">true</parameter>
-        </invoke>
-        </function_calls>
-        
-        <!-- Example 3: Using LinkedIn URL for more accurate matching -->
-        <function_calls>
-        <invoke name="apollo_match_lead">
-        <parameter name="first_name">Tim</parameter>
-        <parameter name="last_name">Zheng</parameter>
-        <parameter name="linkedin_url">http://www.linkedin.com/in/tim-zheng-677ba010</parameter>
-        <parameter name="reveal_personal_emails">true</parameter>
-        </invoke>
-        </function_calls>
-        ''')
-    async def apollo_match_lead(
+        async def apollo_match_lead(
         self,
         first_name: str,
         last_name: str,
@@ -328,18 +297,7 @@ class DataProvidersTool(Tool):
     #         }
     #     }
     # })
-    # @usage_example('''
-    #     <!-- Example: Request phone number reveal (after user confirmation) -->
-    #     <function_calls>
-    #     <invoke name="apollo_reveal_phone">
-    #     <parameter name="first_name">Tim</parameter>
-    #     <parameter name="last_name">Zheng</parameter>
-    #     <parameter name="organization_name">Apollo</parameter>
-    #     <parameter name="domain">apollo.io</parameter>
-    #     </invoke>
-    #     </function_calls>
-    #     ''')
-    # async def apollo_reveal_phone(
+    #     # async def apollo_reveal_phone(
     #     self,
     #     first_name: str,
     #     last_name: str,
