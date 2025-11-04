@@ -459,6 +459,8 @@ async def _trigger_agent_background(
     """
     request_id = structlog.contextvars.get_contextvars().get('request_id')
 
+    logger.info(f"Triggering background agent execution: agent_run_id={agent_run_id}, thread_id={thread_id}, project_id={project_id}, model={effective_model}")
+
     run_agent_background.send(
         agent_run_id=agent_run_id,
         thread_id=thread_id,
@@ -472,6 +474,8 @@ async def _trigger_agent_background(
         agent_config=agent_config,
         request_id=request_id,
     )
+    
+    logger.debug(f"Successfully sent agent run {agent_run_id} to background worker")
 
 
 async def _handle_file_uploads(files: List[UploadFile], sandbox, project_id: str, prompt: str = "") -> str:
