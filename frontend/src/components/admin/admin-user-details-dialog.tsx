@@ -31,6 +31,7 @@ import {
   Infinity,
   MessageSquare,
   ExternalLink,
+  DollarSign,
 } from 'lucide-react';
 import { useAdminUserDetails, useAdminUserThreads, useAdminUserActivity } from '@/hooks/react-query/admin/use-admin-users';
 import {
@@ -96,6 +97,19 @@ export function AdminUserDetailsDialog({
 
   const formatCurrency = (amount: number) => {
     return `$${amount.toFixed(2)}`;
+  };
+
+  const getTransactionColor = (type: string) => {
+    switch (type?.toLowerCase()) {
+      case 'credit':
+      case 'purchase':
+        return 'text-green-600';
+      case 'debit':
+      case 'usage':
+        return 'text-red-600';
+      default:
+        return 'text-muted-foreground';
+    }
   };
 
   const handleRefreshData = async () => {
@@ -354,6 +368,14 @@ export function AdminUserDetailsDialog({
                           </Button>
                         </div>
                       )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No transactions found</p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="usage" className="space-y-4">
               {/* Admin Access Control */}
               {!(adminCheck?.isAdmin || adminCheck?.isOmniAdmin) ? (

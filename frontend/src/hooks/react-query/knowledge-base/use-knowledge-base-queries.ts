@@ -2,23 +2,55 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { knowledgeBaseKeys } from './keys';
-import { 
-  CreateKnowledgeBaseEntryRequest, 
-  KnowledgeBaseEntry, 
-  KnowledgeBaseListResponse, 
-  UpdateKnowledgeBaseEntryRequest,
-  FileUploadRequest,
-  GitCloneRequest,
-  ProcessingJob,
-  ProcessingJobsResponse,
-  UploadResponse,
-  CloneResponse,
-  UnifiedKnowledgeBaseListResponse,
-  UnifiedAssignmentRequest,
-  UnifiedAssignmentResponse
-} from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+
+// Type definitions
+export interface FileUploadRequest {
+  agentId: string;
+  file: File;
+}
+
+export interface GitCloneRequest {
+  agentId: string;
+  git_url: string;
+  branch?: string;
+}
+
+export interface ProcessingJob {
+  job_id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  created_at: string;
+}
+
+export interface ProcessingJobsResponse {
+  jobs: ProcessingJob[];
+}
+
+export interface UploadResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface CloneResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface UnifiedKnowledgeBaseListResponse {
+  regular_entries: any[];
+  llamacloud_kbs: any[];
+}
+
+export interface UnifiedAssignmentRequest {
+  regular_entry_ids: string[];
+  llamacloud_kb_ids: string[];
+}
+
+export interface UnifiedAssignmentResponse {
+  regular_assignments: Record<string, boolean>;
+  llamacloud_assignments: Record<string, boolean>;
+}
 
 // Only keep the types that are actually used
 export interface KnowledgeBaseEntry {

@@ -843,13 +843,13 @@ export function PricingSection({
   }, [getDefaultBillingPeriod]);
 
   const handlePlanSelect = (planId: string) => {
-    setIsLoading((prev) => ({ ...prev, [planId]: true }));
+    setPlanLoadingStates((prev) => ({ ...prev, [planId]: true }));
   };
 
   const handleSubscriptionUpdate = () => {
     refetchSubscription();
     setTimeout(() => {
-      setIsLoading({});
+      setPlanLoadingStates({});
     }, 1000);
     // Call parent's update handler if provided
     if (onSubscriptionUpdate) {
@@ -871,9 +871,8 @@ export function PricingSection({
           behavior: 'smooth',
         });
       }
-    } else {
-      setDeploymentType(tab);
     }
+    // Note: deploymentType state removed - not used in this component
   };
 
   if (isLocalMode()) {
@@ -997,7 +996,7 @@ export function PricingSection({
                     <PricingTierButton
                       tier={tier}
                       currentSubscription={currentSubscription}
-                      isLoading={isLoading}
+                      isLoading={planLoadingStates}
                       isFetchingPlan={isFetchingPlan}
                       onPlanSelect={handlePlanSelect}
                       onSubscriptionUpdate={handleSubscriptionUpdate}

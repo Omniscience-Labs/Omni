@@ -202,28 +202,6 @@ const defaultRegistry: ToolViewRegistryType = {
   'global_kb_enable_item': KbToolView,
   'global-kb-enable-item': KbToolView,
 
-  // Knowledge Base tools
-  'init_kb': KbToolView,
-  'init-kb': KbToolView,
-  'search_files': KbToolView,
-  'search-files': KbToolView,
-  'ls_kb': KbToolView,
-  'ls-kb': KbToolView,
-  'cleanup_kb': KbToolView,
-  'cleanup-kb': KbToolView,
-  'global_kb_sync': KbToolView,
-  'global-kb-sync': KbToolView,
-  'global_kb_create_folder': KbToolView,
-  'global-kb-create-folder': KbToolView,
-  'global_kb_upload_file': KbToolView,
-  'global-kb-upload-file': KbToolView,
-  'global_kb_list_contents': KbToolView,
-  'global-kb-list-contents': KbToolView,
-  'global_kb_delete_item': KbToolView,
-  'global-kb-delete-item': KbToolView,
-  'global_kb_enable_item': KbToolView,
-  'global-kb-enable-item': KbToolView,
-
   // Document operations - using specific views for different operations
   'create-document': DocsToolView,
   'update-document': DocsToolView,

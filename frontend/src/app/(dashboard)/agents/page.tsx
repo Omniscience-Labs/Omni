@@ -18,7 +18,7 @@ import { TabsNavigation } from '@/components/agents/custom-agents-page/tabs-navi
 import { MyAgentsTab } from '@/components/agents/custom-agents-page/my-agents-tab';
 import { MarketplaceTab } from '@/components/agents/custom-agents-page/marketplace-tab';
 import { EnhancedPublishDialog } from '@/components/agents/custom-agents-page/enhanced-publish-dialog';
-import type { SharingPreferences } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
+import type { SharingPreferences, UsageExampleMessage } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { LoadingSkeleton } from '@/components/agents/custom-agents-page/loading-skeleton';
 import { NewAgentDialog } from '@/components/agents/new-agent-dialog';
 import { MarketplaceAgentPreviewDialog } from '@/components/agents/marketplace-agent-preview-dialog';
@@ -548,7 +548,7 @@ export default function AgentsPage() {
         const result = await createTemplateMutation.mutateAsync({
           agent_id: publishDialog.templateId,
           make_public: true,
-          usage_examples: usageExamples,
+          usage_examples: [], // EnhancedPublishDialog doesn't support usage examples yet
           sharing_preferences: {
             include_system_prompt: preferences.include_system_prompt,
             include_model_settings: preferences.include_model_settings,
@@ -566,7 +566,7 @@ export default function AgentsPage() {
         
         await publishMutation.mutateAsync({
           template_id: publishDialog.templateId,
-          usage_examples: usageExamples,
+          usage_examples: [], // EnhancedPublishDialog doesn't support usage examples yet
           sharing_preferences: {
             include_system_prompt: preferences.include_system_prompt,
             include_model_settings: preferences.include_model_settings,
