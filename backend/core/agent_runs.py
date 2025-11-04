@@ -1063,7 +1063,8 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(verify_and_get
             except Exception as e:
                 logger.warning(f"Failed to get version data for agent {effective_agent_id}: {e}")
         
-        version_data = None
+        # Rebuild version_data from current_version if current_version exists
+        # (version_data might have been set above, but we rebuild it from current_version for consistency)
         if current_version:
             version_data = {
                 'version_id': current_version.version_id,
@@ -1084,7 +1085,16 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(verify_and_get
         # Load agent using unified loader
         from .agent_loader import get_agent_loader
         loader = await get_agent_loader()
-        agent_obj = await loader.load_agent(agent_data['agent_id'], user_id, load_config=True)
+        try:
+            agent_obj = await loader.load_agent(agent_data['agent_id'], user_id, load_config=True)
+        except ValueError as e:
+            # Agent not found or access denied - return appropriate error
+            logger.warning(f"Failed to load agent {agent_data['agent_id']}: {e}")
+            return {
+                "agent": None,
+                "source": "missing",
+                "message": f"Agent {effective_agent_id} could not be loaded: {str(e)}"
+            }
         
         # Get system_prompt, configured_mcps, custom_mcps, agentpress_tools from agent_obj or version_data
         if version_data:
@@ -1092,7 +1102,7 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(verify_and_get
             configured_mcps = version_data.get('configured_mcps', [])
             custom_mcps = version_data.get('custom_mcps', [])
             agentpress_tools = version_data.get('agentpress_tools', {})
-        elif agent_obj.config_loaded:
+        elif hasattr(agent_obj, 'config_loaded') and agent_obj.config_loaded:
             system_prompt = agent_obj.system_prompt or ''
             configured_mcps = agent_obj.configured_mcps or []
             custom_mcps = agent_obj.custom_mcps or []
