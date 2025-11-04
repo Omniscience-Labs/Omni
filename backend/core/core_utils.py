@@ -1,9 +1,13 @@
 import uuid
 import json
+import traceback
 from typing import Optional, Dict, List, Any
 from datetime import datetime, timezone, timedelta
+from fastapi import HTTPException
 from core.services import redis
 from core.services.supabase import DBConnection
+from core.services.llm import make_llm_api_call
+from core.utils.auth_utils import verify_and_authorize_thread_access
 from .utils.logger import logger
 
 # Import and re-export from specialized modules
@@ -21,6 +25,9 @@ from .utils.run_management import (
 from .utils.project_helpers import generate_and_update_project_name
 from .utils.mcp_helpers import merge_custom_mcps
 from .utils.cache import Cache
+
+# Import functions from run_agent_background that are used in this module
+from run_agent_background import update_agent_run_status, _cleanup_redis_response_list
 
 # Load Lucide React icons once at module level for performance
 try:
