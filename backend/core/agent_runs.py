@@ -27,6 +27,10 @@ from .core_utils import (
     check_agent_run_limit, check_project_count_limit
 )
 
+# Import helper functions
+from .config_helper import extract_agent_config
+from .services.billing_wrapper import can_use_model_unified as can_use_model, check_billing_status_unified as check_billing_status
+
 router = APIRouter(tags=["agent-runs"])
 
 async def _get_agent_run_with_access_check(client, agent_run_id: str, user_id: str):
