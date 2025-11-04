@@ -37,7 +37,7 @@ from core.linear import api as linear_api
 # Conditionally import pipedream API if available
 try:
     from core.pipedream import api as pipedream_api
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     pipedream_api = None
 from core.credentials import api as credentials_api
 from core.templates import api as template_api
