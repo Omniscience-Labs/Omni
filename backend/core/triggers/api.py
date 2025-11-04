@@ -520,14 +520,28 @@ async def trigger_webhook(
         raw_data = {}
         try:
             raw_data = await request.json()
-        except:
-            pass
+            logger.debug(f"Received webhook payload for trigger {trigger_id}: {raw_data}")
+        except Exception as json_err:
+            # Log the error but continue - some webhooks might send non-JSON data
+            logger.warning(f"Failed to parse JSON payload for trigger {trigger_id}: {json_err}")
+            # Try to get raw body as fallback
+            try:
+                body = await request.body()
+                if body:
+                    logger.debug(f"Raw body content: {body.decode('utf-8', errors='replace')[:500]}")
+            except Exception:
+                pass
         
         # Process trigger event
         trigger_service = get_trigger_service(db)
         result = await trigger_service.process_trigger_event(trigger_id, raw_data)
         
         if not result.success:
+            logger.error(
+                f"Trigger processing failed for {trigger_id}: {result.error_message}. "
+                f"Payload keys: {list(raw_data.keys()) if isinstance(raw_data, dict) else 'not a dict'}, "
+                f"Payload preview: {json.dumps(raw_data)[:500] if isinstance(raw_data, dict) else str(raw_data)[:500]}"
+            )
             return JSONResponse(
                 status_code=400,
                 content={"success": False, "error": result.error_message}
