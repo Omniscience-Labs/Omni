@@ -647,6 +647,10 @@ async def unified_agent_start(
     prompt: Optional[str] = Form(None),
     model_name: Optional[str] = Form(None),
     agent_id: Optional[str] = Form(None),
+    enable_thinking: Optional[bool] = Form(False),
+    reasoning_effort: Optional[str] = Form("low"),
+    stream: Optional[bool] = Form(True),
+    enable_context_manager: Optional[bool] = Form(True),
     files: List[UploadFile] = File(default=[]),
     user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
@@ -755,7 +759,17 @@ async def unified_agent_start(
             agent_run_id = await _create_agent_run_record(client, thread_id, agent_config, effective_model)
             
             # Trigger background execution
-            await _trigger_agent_background(agent_run_id, thread_id, project_id, effective_model, agent_config)
+            await _trigger_agent_background(
+                agent_run_id=agent_run_id,
+                thread_id=thread_id,
+                project_id=project_id,
+                effective_model=effective_model,
+                agent_config=agent_config,
+                enable_thinking=enable_thinking,
+                reasoning_effort=reasoning_effort,
+                stream=stream,
+                enable_context_manager=enable_context_manager
+            )
             
             return {
                 "thread_id": thread_id,
@@ -854,7 +868,17 @@ async def unified_agent_start(
             agent_run_id = await _create_agent_run_record(client, thread_id, agent_config, effective_model)
             
             # Trigger background execution
-            await _trigger_agent_background(agent_run_id, thread_id, project_id, effective_model, agent_config)
+            await _trigger_agent_background(
+                agent_run_id=agent_run_id,
+                thread_id=thread_id,
+                project_id=project_id,
+                effective_model=effective_model,
+                agent_config=agent_config,
+                enable_thinking=enable_thinking,
+                reasoning_effort=reasoning_effort,
+                stream=stream,
+                enable_context_manager=enable_context_manager
+            )
             
             return {
                 "thread_id": thread_id,
