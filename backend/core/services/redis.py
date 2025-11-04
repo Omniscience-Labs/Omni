@@ -21,10 +21,20 @@ async def initialize():
     # Load environment variables if not already loaded
     load_dotenv()
 
-    # Get Redis configuration
-    redis_host = os.getenv("REDIS_HOST", "redis")
-    redis_port = int(os.getenv("REDIS_PORT", 6379))
-    redis_password = os.getenv("REDIS_PASSWORD", "")
+    # Get Redis configuration - prioritize REDIS_URL if available
+    redis_url = os.getenv("REDIS_URL")
+    if redis_url:
+        # Parse REDIS_URL
+        from urllib.parse import urlparse
+        parsed = urlparse(redis_url)
+        redis_host = parsed.hostname or "redis"
+        redis_port = parsed.port or 6379
+        redis_password = parsed.password or ""
+    else:
+        # Fall back to individual environment variables
+        redis_host = os.getenv("REDIS_HOST", "redis")
+        redis_port = int(os.getenv("REDIS_PORT", 6379))
+        redis_password = os.getenv("REDIS_PASSWORD", "")
 
     # Connection pool configuration - optimized for production
     max_connections = 128            # Reasonable limit for production

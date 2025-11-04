@@ -24,9 +24,22 @@ from core.utils.retry import retry
 import sentry_sdk
 from typing import Dict, Any
 
-redis_host = os.getenv('REDIS_HOST', 'redis')
-redis_port = int(os.getenv('REDIS_PORT', 6379))
-redis_password = os.getenv('REDIS_PASSWORD')
+# Get Redis configuration - prioritize REDIS_URL if available
+redis_url = os.getenv("REDIS_URL")
+if redis_url:
+    # Parse REDIS_URL for Dramatiq broker
+    import urllib.parse
+    parsed = urllib.parse.urlparse(redis_url)
+    redis_host = parsed.hostname or "redis"
+    redis_port = parsed.port or 6379
+    redis_password = parsed.password or ""
+    print(f"Background worker using REDIS_URL configuration: {redis_host}:{redis_port}")
+else:
+    # Fall back to individual environment variables
+    redis_host = os.getenv('REDIS_HOST', 'redis')
+    redis_port = int(os.getenv('REDIS_PORT', 6379))
+    redis_password = os.getenv('REDIS_PASSWORD') or ""
+    print(f"Background worker using individual Redis environment variables: {redis_host}:{redis_port}")
 
 logger.info(f"🔧 Configuring Dramatiq broker with Redis at {redis_host}:{redis_port}")
 
