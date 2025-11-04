@@ -287,7 +287,17 @@ async def _create_agent_run_record(client, thread_id: str, agent_config: Optiona
     return agent_run_id
 
 
-async def _trigger_agent_background(agent_run_id: str, thread_id: str, project_id: str, effective_model: str, agent_config: Optional[dict]):
+async def _trigger_agent_background(
+    agent_run_id: str,
+    thread_id: str,
+    project_id: str,
+    effective_model: str,
+    agent_config: Optional[dict],
+    enable_thinking: Optional[bool] = False,
+    reasoning_effort: Optional[str] = 'low',
+    stream: Optional[bool] = True,
+    enable_context_manager: Optional[bool] = True
+):
     """
     Trigger the background agent execution.
     
@@ -297,6 +307,10 @@ async def _trigger_agent_background(agent_run_id: str, thread_id: str, project_i
         project_id: Project ID
         effective_model: Model name to use
         agent_config: Agent configuration dict
+        enable_thinking: Enable thinking mode
+        reasoning_effort: Reasoning effort level
+        stream: Enable streaming
+        enable_context_manager: Enable context manager
     """
     request_id = structlog.contextvars.get_contextvars().get('request_id')
 
@@ -305,10 +319,12 @@ async def _trigger_agent_background(agent_run_id: str, thread_id: str, project_i
         thread_id=thread_id,
         instance_id=utils.instance_id,
         project_id=project_id,
-        model_name=model_name,  # Already resolved above
-        enable_thinking=body.enable_thinking, reasoning_effort=body.reasoning_effort,
-        stream=body.stream, enable_context_manager=body.enable_context_manager,
-        agent_config=agent_config,  # Pass agent configuration
+        model_name=effective_model,
+        enable_thinking=enable_thinking,
+        reasoning_effort=reasoning_effort,
+        stream=stream,
+        enable_context_manager=enable_context_manager,
+        agent_config=agent_config,
         request_id=request_id,
     )
 
