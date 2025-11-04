@@ -1,20 +1,52 @@
 from typing import Dict, List, Optional, Set
 from .ai_models import Model, ModelProvider, ModelCapability, ModelPricing, ModelConfig
 from core.utils.config import config, EnvMode
+from core.utils.logger import logger
 
 DEFAULT_FREE_MODEL = "Claude Sonnet 4"
 DEFAULT_PREMIUM_MODEL = "Claude Sonnet 4"
 
-# Set premium model ID based on environment - now using Haiku 4.5 as default
-if config.ENV_MODE == EnvMode.LOCAL:
-    PREMIUM_MODEL_ID = "anthropic/claude-haiku-4-5"
-else:  # STAGING or PRODUCTION
-    PREMIUM_MODEL_ID = "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/cyuh6gekrmmh"
+# Determine if we should use Bedrock or Anthropic API
+def should_use_bedrock() -> bool:
+    """Determine if Bedrock should be used based on environment and configuration."""
+    # Always use Anthropic API in local mode
+    if config.ENV_MODE == EnvMode.LOCAL:
+        return False
+    
+    # Check explicit USE_BEDROCK setting
+    use_bedrock_setting = getattr(config, 'USE_BEDROCK', None)
+    if use_bedrock_setting:
+        use_bedrock_setting = use_bedrock_setting.lower().strip()
+        if use_bedrock_setting == "false":
+            logger.info("USE_BEDROCK=false: Forcing Anthropic API even in production")
+            return False
+        elif use_bedrock_setting == "true":
+            logger.info("USE_BEDROCK=true: Forcing Bedrock in production")
+            return True
+        # "auto" falls through to auto-detection
+    
+    # Auto-detect: Check if Bedrock credentials are available
+    has_bedrock_token = bool(getattr(config, 'AWS_BEARER_TOKEN_BEDROCK', None))
+    has_bedrock_creds = bool(
+        getattr(config, 'AWS_ACCESS_KEY_ID', None) and 
+        getattr(config, 'AWS_SECRET_ACCESS_KEY', None) and 
+        getattr(config, 'AWS_REGION_NAME', None)
+    )
+    
+    if has_bedrock_token or has_bedrock_creds:
+        logger.info("Bedrock credentials detected: Using Bedrock in production")
+        return True
+    else:
+        logger.info("No Bedrock credentials found: Falling back to Anthropic API")
+        return False
 
-# Set free model ID based on environment - using Claude Sonnet 4
-if config.ENV_MODE == EnvMode.LOCAL:
+# Set premium model ID based on environment and provider preference
+_use_bedrock = should_use_bedrock()
+if config.ENV_MODE == EnvMode.LOCAL or not _use_bedrock:
+    PREMIUM_MODEL_ID = "anthropic/claude-haiku-4-5"
     FREE_MODEL_ID = "anthropic/claude-sonnet-4-20250514"
-else:  # STAGING or PRODUCTION
+else:  # STAGING or PRODUCTION with Bedrock enabled
+    PREMIUM_MODEL_ID = "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/cyuh6gekrmmh"
     FREE_MODEL_ID = "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/4vac4byw7fqr"
 
 is_local = config.ENV_MODE == EnvMode.LOCAL
