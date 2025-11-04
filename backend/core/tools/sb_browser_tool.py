@@ -236,7 +236,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-        async def browser_navigate_to(self, url: str) -> ToolResult:
+    async def browser_navigate_to(self, url: str) -> ToolResult:
         """Navigate to a specific url
         
         Args:
@@ -298,7 +298,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-        async def browser_go_back(self) -> ToolResult:
+    async def browser_go_back(self) -> ToolResult:
         """Navigate back in browser history
         
         Returns:
@@ -323,7 +323,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-        async def browser_wait(self, seconds: int = 3) -> ToolResult:
+    async def browser_wait(self, seconds: int = 3) -> ToolResult:
         """Wait for the specified number of seconds
         
         Args:
@@ -352,7 +352,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-        async def browser_click_element(self, index: int) -> ToolResult:
+    async def browser_click_element(self, index: int) -> ToolResult:
         """Click on an element by index
         
         Args:
@@ -385,7 +385,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-        async def browser_input_text(self, index: int, text: str) -> ToolResult:
+    async def browser_input_text(self, index: int, text: str) -> ToolResult:
         """Input text into an element
         
         Args:
@@ -415,7 +415,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-        async def browser_send_keys(self, keys: str) -> ToolResult:
+    async def browser_send_keys(self, keys: str) -> ToolResult:
         """Send keyboard keys
         
         Args:
@@ -444,7 +444,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-        async def browser_switch_tab(self, page_id: int) -> ToolResult:
+    async def browser_switch_tab(self, page_id: int) -> ToolResult:
         """Switch to a different browser tab
         
         Args:
@@ -513,7 +513,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-        async def browser_close_tab(self, page_id: int) -> ToolResult:
+    async def browser_close_tab(self, page_id: int) -> ToolResult:
         """Close a browser tab
         
         Args:
@@ -600,7 +600,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-        async def browser_scroll_down(self, amount: int = None) -> ToolResult:
+    async def browser_scroll_down(self, amount: int = None) -> ToolResult:
         """Scroll down the page
         
         Args:
@@ -634,7 +634,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-        async def browser_scroll_up(self, amount: int = None) -> ToolResult:
+    async def browser_scroll_up(self, amount: int = None) -> ToolResult:
         """Scroll up the page
         
         Args:
@@ -669,7 +669,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-        async def browser_scroll_to_text(self, text: str) -> ToolResult:
+    async def browser_scroll_to_text(self, text: str) -> ToolResult:
         """Scroll to specific text on the page
         
         Args:
@@ -698,7 +698,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-        async def browser_get_dropdown_options(self, index: int) -> ToolResult:
+    async def browser_get_dropdown_options(self, index: int) -> ToolResult:
         """Get all options from a dropdown element
         
         Args:
@@ -731,7 +731,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-        async def browser_select_dropdown_option(self, index: int, text: str) -> ToolResult:
+    async def browser_select_dropdown_option(self, index: int, text: str) -> ToolResult:
         """Select an option from a dropdown by text
         
         Args:
@@ -780,7 +780,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-        async def browser_drag_drop(self, element_source: str = None, element_target: str = None, 
+    async def browser_drag_drop(self, element_source: str = None, element_target: str = None, 
                                coord_source_x: int = None, coord_source_y: int = None,
                                coord_target_x: int = None, coord_target_y: int = None) -> ToolResult:
         """Perform drag and drop operation between elements or coordinates
@@ -834,7 +834,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-        async def browser_click_coordinates(self, x: int, y: int) -> ToolResult:
+    async def browser_click_coordinates(self, x: int, y: int) -> ToolResult:
         """Click at specific X,Y coordinates on the page
         
         Args:

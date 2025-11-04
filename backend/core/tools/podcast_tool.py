@@ -56,7 +56,7 @@ class SandboxPodcastTool(SandboxToolsBase):
             }
         }
     })
-        async def generate_podcast(
+    async def generate_podcast(
         self, 
         agent_run_id: str,
         podcast_title: str = "",
@@ -587,7 +587,7 @@ class SandboxPodcastTool(SandboxToolsBase):
             }
         }
     })
-        async def check_podcast_status(self) -> ToolResult:
+    async def check_podcast_status(self) -> ToolResult:
         """Check if the Podcastfy service is available and ready."""
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -637,7 +637,7 @@ class SandboxPodcastTool(SandboxToolsBase):
             }
         }
     })
-        async def generate_podcast_from_url(
+    async def generate_podcast_from_url(
         self,
         url: str,
         podcast_title: str = "",
@@ -733,7 +733,7 @@ class SandboxPodcastTool(SandboxToolsBase):
             }
         }
     })
-        async def generate_bite_sized_podcast(
+    async def generate_bite_sized_podcast(
         self,
         agent_run_id: str,
         podcast_title: str = "",
@@ -985,7 +985,7 @@ class SandboxPodcastTool(SandboxToolsBase):
             }
         }
     })
-        async def generate_podcast_from_text(
+    async def generate_podcast_from_text(
         self,
         text: str,
         podcast_title: str = "Custom Text Podcast",

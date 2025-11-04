@@ -193,7 +193,7 @@ class WorkflowTool(AgentBuilderBaseTool):
             }
         }
     })
-        async def create_workflow(
+    async def create_workflow(
         self,
         name: str,
         template: str,
@@ -287,7 +287,7 @@ class WorkflowTool(AgentBuilderBaseTool):
             }
         }
     })
-        async def get_workflows(self, include_steps: bool = True) -> ToolResult:
+    async def get_workflows(self, include_steps: bool = True) -> ToolResult:
         try:
             client = await self.db.client
             
@@ -387,7 +387,7 @@ class WorkflowTool(AgentBuilderBaseTool):
             }
         }
     })
-        async def update_workflow(
+    async def update_workflow(
         self,
         workflow_id: str,
         name: Optional[str] = None,
@@ -477,7 +477,7 @@ class WorkflowTool(AgentBuilderBaseTool):
             }
         }
     })
-        async def delete_workflow(self, workflow_id: str) -> ToolResult:
+    async def delete_workflow(self, workflow_id: str) -> ToolResult:
         try:
             client = await self.db.client
             
@@ -520,7 +520,7 @@ class WorkflowTool(AgentBuilderBaseTool):
             }
         }
     })
-        async def activate_workflow(self, workflow_id: str, active: bool = True) -> ToolResult:
+    async def activate_workflow(self, workflow_id: str, active: bool = True) -> ToolResult:
         try:
             client = await self.db.client
             workflow_result = await client.table('agent_workflows').select('*').eq('id', workflow_id).eq('agent_id', self.agent_id).execute()
