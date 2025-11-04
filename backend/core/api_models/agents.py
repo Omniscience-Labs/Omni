@@ -134,3 +134,13 @@ class AgentIconGenerationResponse(BaseModel):
     icon_background: str
 
 
+class AgentStartRequest(BaseModel):
+    """Request model for starting an agent run."""
+    model_name: Optional[str] = None
+    agent_id: Optional[str] = None
+    enable_thinking: Optional[bool] = False
+    reasoning_effort: Optional[str] = 'low'
+    stream: Optional[bool] = True
+    enable_context_manager: Optional[bool] = True
+
+
