@@ -30,7 +30,10 @@ from core.billing.billing_integration import billing_integration
 from core.tools.sb_vision_tool import SandboxVisionTool
 from core.tools.sb_image_edit_tool import SandboxImageEditTool
 from core.tools.sb_video_avatar_tool import SandboxVideoAvatarTool
-from core.tools.sb_presentation_outline_tool import SandboxPresentationOutlineTool
+try:
+    from core.tools.sb_presentation_outline_tool import SandboxPresentationOutlineTool
+except ImportError:
+    SandboxPresentationOutlineTool = None
 from core.tools.sb_presentation_tool import SandboxPresentationTool
 from core.services.billing_wrapper import check_billing_status_unified
 from core.tools.sb_designer_tool import SandboxDesignerTool
@@ -143,7 +146,6 @@ class ToolManager:
             ('sb_image_edit_tool', SandboxImageEditTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
             ('sb_kb_tool', SandboxKbTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_design_tool', SandboxDesignerTool, {'project_id': self.project_id, 'thread_id': self.thread_id, 'thread_manager': self.thread_manager}),
-            ('sb_presentation_outline_tool', SandboxPresentationOutlineTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_presentation_tool', SandboxPresentationTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_video_avatar_tool', SandboxVideoAvatarTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             # ('sb_sheets_tool', SandboxSheetsTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),  # NOTE: SandboxSheetsTool import not found - file may need to be created
@@ -154,6 +156,10 @@ class ToolManager:
             ('sb_docs_tool', SandboxDocsTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
 
         ]
+        
+        # Add optional presentation outline tool if available
+        if SandboxPresentationOutlineTool:
+            sandbox_tools.append(('sb_presentation_outline_tool', SandboxPresentationOutlineTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}))
         
         for tool_name, tool_class, kwargs in sandbox_tools:
             if tool_name not in disabled_tools:
