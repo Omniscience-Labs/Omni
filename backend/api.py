@@ -34,7 +34,11 @@ from core.triggers import api as triggers_api
 from core.services import api_keys_api
 from core.services import enterprise_billing_api
 from core.linear import api as linear_api
-from core.pipedream import api as pipedream_api
+# Conditionally import pipedream API if available
+try:
+    from core.pipedream import api as pipedream_api
+except ImportError:
+    pipedream_api = None
 from core.credentials import api as credentials_api
 from core.templates import api as template_api
 from core.composio_integration import api as composio_api
@@ -208,7 +212,8 @@ api_router.include_router(main_knowledge_base_api.router)
 
 api_router.include_router(triggers_api.router)
 
-api_router.include_router(pipedream_api.router)
+if pipedream_api:
+    api_router.include_router(pipedream_api.router)
 
 # Note: admin_api.router is already included above as admin_router
 # The core.admin.api module contains additional endpoints that are already covered in admin_api.py
