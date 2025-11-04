@@ -41,7 +41,7 @@ from core.utils.logger import logger
 class SunaUserInstaller:
     def __init__(self):
         self.db = DBConnection()
-        self.service = SunaDefaultAgentService(self.db)
+        self.service = SunaDefaultAgentService()
     
     async def initialize(self):
         await self.db.initialize()

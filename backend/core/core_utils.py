@@ -219,7 +219,8 @@ async def generate_and_update_project_name(project_id: str, prompt: str):
             model_name=model_name, 
             max_tokens=1000, 
             temperature=0.7,
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
+            stream=False  # Need non-streaming response for JSON parsing
         )
 
         generated_name = None

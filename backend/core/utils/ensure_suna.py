@@ -31,7 +31,7 @@ async def ensure_suna_installed(account_id: str) -> None:
             return
         
         logger.info(f"Installing Suna agent for account {account_id}")
-        service = SunaDefaultAgentService(db)
+        service = SunaDefaultAgentService()
         agent_id = await service.install_suna_agent_for_user(account_id, replace_existing=False)
         
         if agent_id:
