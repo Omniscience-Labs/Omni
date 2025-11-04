@@ -11,6 +11,14 @@ class UnifiedAgentStartResponse(BaseModel):
     status: str = "running"
 
 
+class InitiateAgentResponse(BaseModel):
+    """Response model for agent initiation with files."""
+    thread_id: str
+    agent_run_id: str
+
+
+
+
 class CreateThreadResponse(BaseModel):
     """Response model for thread creation."""
     thread_id: str
