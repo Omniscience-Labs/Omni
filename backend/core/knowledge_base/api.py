@@ -2,7 +2,7 @@ from typing import List, Optional
 from datetime import datetime
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator, validator
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt, verify_and_get_agent_authorization, require_agent_access, AuthorizedAgentAccess
 from core.services.supabase import DBConnection
 from .file_processor import FileProcessor
