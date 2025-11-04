@@ -325,6 +325,12 @@ class Configuration:
     # AWS Bedrock authentication
     AWS_BEARER_TOKEN_BEDROCK: Optional[str] = None
     
+    # Model provider preference
+    # Set to "false" to force Anthropic API even in production (useful if Bedrock not configured)
+    # Set to "true" to use Bedrock in production (default behavior)
+    # Set to "auto" to auto-detect based on Bedrock credentials availability
+    USE_BEDROCK: Optional[str] = None  # None = auto-detect, "true" = force Bedrock, "false" = force Anthropic
+    
     # Frontend URL configuration
     NEXT_PUBLIC_URL: Optional[str] = "http://localhost:3000"
     
