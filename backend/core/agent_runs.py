@@ -1086,9 +1086,6 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(verify_and_get
         loader = await get_agent_loader()
         agent_obj = await loader.load_agent(agent_data['agent_id'], user_id, load_config=True)
         
-        # Extract agent config from agent_obj
-        agent_config_dict = agent_obj.to_dict() if hasattr(agent_obj, 'to_dict') else {}
-        
         # Get system_prompt, configured_mcps, custom_mcps, agentpress_tools from agent_obj or version_data
         if version_data:
             system_prompt = version_data.get('system_prompt', '')
