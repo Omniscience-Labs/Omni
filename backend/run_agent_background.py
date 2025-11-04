@@ -32,14 +32,21 @@ if redis_url:
     parsed = urllib.parse.urlparse(redis_url)
     redis_host = parsed.hostname or "redis"
     redis_port = parsed.port or 6379
-    redis_password = parsed.password or ""
+    # URL decode password in case it has special characters
+    redis_password = urllib.parse.unquote(parsed.password) if parsed.password else ""
     print(f"Background worker using REDIS_URL configuration: {redis_host}:{redis_port}")
+    if redis_password:
+        print(f"Background worker extracted password from REDIS_URL (length: {len(redis_password)})")
+    else:
+        print("Background worker: No password found in REDIS_URL")
 else:
     # Fall back to individual environment variables
     redis_host = os.getenv('REDIS_HOST', 'redis')
     redis_port = int(os.getenv('REDIS_PORT', 6379))
     redis_password = os.getenv('REDIS_PASSWORD') or ""
     print(f"Background worker using individual Redis environment variables: {redis_host}:{redis_port}")
+    if redis_password:
+        print(f"Background worker using REDIS_PASSWORD (length: {len(redis_password)})")
 
 logger.info(f"🔧 Configuring Dramatiq broker with Redis at {redis_host}:{redis_port}")
 
@@ -60,13 +67,17 @@ try:
     redis_broker = RedisBroker(**broker_config)
     dramatiq.set_broker(redis_broker)
     print(f"✅ Dramatiq Redis broker configured successfully for {redis_host}:{redis_port}")
+    logger.info(f"✅ Dramatiq Redis broker configured successfully for {redis_host}:{redis_port}")
 except Exception as e:
     print(f"❌ Failed to configure Dramatiq Redis broker: {e}")
+    print(f"❌ Broker config: host={redis_host}, port={redis_port}, password={'***' if redis_password else 'None'}")
+    logger.error(f"Failed to configure Dramatiq Redis broker: {e}", exc_info=True)
     # Set a stub broker that will fail gracefully
     from dramatiq.brokers.stub import StubBroker
     stub_broker = StubBroker()
     dramatiq.set_broker(stub_broker)
     print("⚠️ Using StubBroker as fallback - background tasks will not be processed")
+    logger.warning("⚠️ Using StubBroker as fallback - background tasks will not be processed")
 
 _initialized = False
 db = DBConnection()

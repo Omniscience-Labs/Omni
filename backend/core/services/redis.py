@@ -25,11 +25,13 @@ async def initialize():
     redis_url = os.getenv("REDIS_URL")
     if redis_url:
         # Parse REDIS_URL
-        from urllib.parse import urlparse
+        from urllib.parse import urlparse, unquote
         parsed = urlparse(redis_url)
         redis_host = parsed.hostname or "redis"
         redis_port = parsed.port or 6379
-        redis_password = parsed.password or ""
+        # URL decode password in case it has special characters
+        redis_password = unquote(parsed.password) if parsed.password else ""
+        logger.info(f"Parsed REDIS_URL: host={redis_host}, port={redis_port}, password={'***' if redis_password else 'None'}")
     else:
         # Fall back to individual environment variables
         redis_host = os.getenv("REDIS_HOST", "redis")
