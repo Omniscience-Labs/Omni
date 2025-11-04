@@ -102,3 +102,13 @@ class ToolRegistry:
         ]
         # logger.debug(f"Retrieved {len(schemas)} OpenAPI schemas")
         return schemas
+
+    def get_usage_examples(self) -> Dict[str, str]:
+        """Get usage examples for registered tools.
+        
+        Returns:
+            Dict mapping function names to usage example strings
+        """
+        # Usage examples are typically stored in templates, not in the tool registry itself
+        # Return empty dict for now - can be extended later if needed
+        return {}
