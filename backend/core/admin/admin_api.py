@@ -100,6 +100,27 @@ class AdvancedSearchRequest(BaseModel):
     sort_by: str = "created_at"
     sort_order: str = "desc"
 
+class UserListRequest(BaseModel):
+    search_email: Optional[str] = None
+    search_name: Optional[str] = None
+    tier_filter: Optional[str] = None
+    sort_by: str = "created_at"
+    sort_order: str = "desc"
+
+class AdvancedSearchRequest(BaseModel):
+    """Request model for advanced user search with multiple filters."""
+    email_contains: Optional[str] = None
+    tier_in: Optional[List[str]] = None
+    subscription_status_in: Optional[List[str]] = None
+    trial_status_in: Optional[List[str]] = None
+    balance_min: Optional[float] = None
+    balance_max: Optional[float] = None
+    created_after: Optional[datetime] = None
+    created_before: Optional[datetime] = None
+    has_activity_since: Optional[datetime] = None
+    sort_by: str = "created_at"
+    sort_order: str = "desc"
+
 # ============================================================================
 # MODELS
 # ============================================================================
