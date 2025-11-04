@@ -11,8 +11,11 @@ class ModelManager:
     def get_model(self, model_id: str) -> Optional[Model]:
         return self.registry.get(model_id)
     
-    def resolve_model_id(self, model_id: str) -> str:
+    def resolve_model_id(self, model_id: Optional[str]) -> str:
         # logger.debug(f"resolve_model_id called with: '{model_id}' (type: {type(model_id)})")
+        
+        if not model_id:
+            return model_id or ""
         
         resolved = self.registry.resolve_model_id(model_id)
         if resolved:
