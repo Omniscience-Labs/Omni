@@ -64,14 +64,24 @@ async def stop_agent_run_with_helpers(agent_run_id: str, error_message: Optional
     except Exception as e:
         logger.error(f"Failed to fetch responses from Redis for {agent_run_id} during stop/fail: {e}")
 
-    # Update the agent run status in the database
-    update_success = await update_agent_run_status(
-        client, agent_run_id, final_status, error=error_message
-    )
+    # Check if agent run exists in database before updating
+    try:
+        check_result = await client.table('agent_runs').select('id').eq('id', agent_run_id).execute()
+        if not check_result.data:
+            logger.warning(f"Agent run {agent_run_id} not found in database, skipping status update (may already be cleaned up)")
+            # Continue with cleanup even if agent run doesn't exist in DB
+        else:
+            # Update the agent run status in the database
+            update_success = await update_agent_run_status(
+                client, agent_run_id, final_status, error=error_message
+            )
 
-    if not update_success:
-        logger.error(f"Failed to update database status for stopped/failed run {agent_run_id}")
-        raise HTTPException(status_code=500, detail="Failed to update agent run status in database")
+            if not update_success:
+                logger.warning(f"Failed to update database status for stopped/failed run {agent_run_id} (may already be cleaned up)")
+                # Don't raise exception during cleanup - continue with Redis cleanup
+    except Exception as db_check_error:
+        logger.warning(f"Error checking/updating agent run {agent_run_id} in database: {db_check_error}")
+        # Continue with cleanup even if database check fails
 
     # Send STOP signal to the global control channel
     global_control_channel = f"agent_run:{agent_run_id}:control"
