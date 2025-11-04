@@ -795,6 +795,10 @@ async def get_user_threads_by_email(
             items=threads,
             total_count=total_count,
             params=pagination_params
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to retrieve user threads: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve user threads")
 
 @router.get("/{user_id}/usage-logs")
