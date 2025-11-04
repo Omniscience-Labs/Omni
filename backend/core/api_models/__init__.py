@@ -20,6 +20,7 @@ from .agents import (
     AgentImportRequest,
     AgentIconGenerationRequest,
     AgentIconGenerationResponse,
+    AgentStartRequest,
 )
 
 from .threads import (
@@ -49,6 +50,7 @@ __all__ = [
     "AgentImportRequest",
     "AgentIconGenerationRequest",
     "AgentIconGenerationResponse",
+    "AgentStartRequest",
     
     # Thread models
     "UnifiedAgentStartResponse",
