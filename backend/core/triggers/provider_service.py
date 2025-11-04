@@ -9,8 +9,6 @@ import croniter
 import pytz
 import httpx
 from core.services.supabase import DBConnection
-
-from core.services.supabase import DBConnection
 from core.utils.logger import logger
 from core.utils.config import config, EnvMode
 from .trigger_service import Trigger, TriggerEvent, TriggerResult, TriggerType
@@ -71,8 +69,14 @@ class ScheduleProvider(TriggerProvider):
     
     async def setup_trigger(self, trigger: Trigger) -> bool:
         try:
-            # Note: webhook_url removed - scheduled triggers may need alternative configuration
-            webhook_url = f"http://localhost:8000/api/triggers/{trigger.trigger_id}/webhook"
+            # Construct webhook URL using WEBHOOK_BASE_URL or fallback to localhost for local dev
+            webhook_base_url = config.WEBHOOK_BASE_URL or os.getenv("WEBHOOK_BASE_URL")
+            if not webhook_base_url:
+                # Fallback: try to construct from BACKEND_URL if available
+                backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+                webhook_base_url = backend_url.rstrip("/")
+            
+            webhook_url = f"{webhook_base_url}/api/triggers/{trigger.trigger_id}/webhook"
             cron_expression = trigger.config['cron_expression']
             user_timezone = trigger.config.get('timezone', 'UTC')
 

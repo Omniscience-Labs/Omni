@@ -7,7 +7,6 @@ import json
 import traceback
 from datetime import datetime, timezone
 from typing import Optional
-from core.services import redis
 from core.run import run_agent
 from core.utils.logger import logger, structlog
 from core.services.memory_integration import store_conversation_memory
@@ -27,9 +26,9 @@ from typing import Dict, Any
 
 redis_host = os.getenv('REDIS_HOST', 'redis')
 redis_port = int(os.getenv('REDIS_PORT', 6379))
+redis_password = os.getenv('REDIS_PASSWORD')
 
 logger.info(f"🔧 Configuring Dramatiq broker with Redis at {redis_host}:{redis_port}")
-redis_broker = RedisBroker(host=redis_host, port=redis_port, middleware=[dramatiq.middleware.AsyncIO()])
 
 # Configure Redis broker for Dramatiq with password if available
 broker_config = {
