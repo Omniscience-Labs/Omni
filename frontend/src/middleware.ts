@@ -101,19 +101,18 @@ export async function middleware(request: NextRequest) {
 
     // Only check billing for protected routes that require active subscription
     if (PROTECTED_ROUTES.some(route => pathname.startsWith(route))) {
-    // Check if enterprise mode is enabled - if so, skip billing checks entirely (PRESERVE ENTERPRISE)
-    const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
-    if (isEnterpriseMode) {
-      return supabaseResponse;
-    }
+      // Check if enterprise mode is enabled - if so, skip billing checks entirely (PRESERVE ENTERPRISE)
+      const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+      if (isEnterpriseMode) {
+        return supabaseResponse;
+      }
 
-    // Skip billing checks for billing-related routes (ADOPT SUNA IMPROVEMENT)
-    if (BILLING_ROUTES.some(route => pathname.startsWith(route))) {
-      return supabaseResponse;
-    }
+      // Skip billing checks for billing-related routes (ADOPT SUNA IMPROVEMENT)
+      if (BILLING_ROUTES.some(route => pathname.startsWith(route))) {
+        return supabaseResponse;
+      }
 
-    // Only check billing for protected routes that require active subscription (ADOPT SUNA IMPROVEMENT)
-    if (PROTECTED_ROUTES.some(route => pathname.startsWith(route))) {
+      // Only check billing for protected routes that require active subscription (ADOPT SUNA IMPROVEMENT)
       const { data: accounts } = await supabase
         .schema('basejump')
         .from('accounts')

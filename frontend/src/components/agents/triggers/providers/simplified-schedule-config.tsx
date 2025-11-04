@@ -320,6 +320,7 @@ export const SimplifiedScheduleConfig: React.FC<SimplifiedScheduleConfigProps> =
 }) => {
   const [currentStep, setCurrentStep] = useState<'setup' | 'schedule' | 'execute'>('setup');
   const [selectedPreset, setSelectedPreset] = useState<string>('');
+  const [scheduleTabValue, setScheduleTabValue] = useState<'quick' | 'recurring' | 'one-time' | 'advanced'>('quick');
   const [timezone, setTimezone] = useState<string>(config.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
 
   // Recurring schedule state

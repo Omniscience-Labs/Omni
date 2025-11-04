@@ -1486,7 +1486,13 @@ export function KnowledgeBasePage() {
                     <KBFilePreviewModal
                         isOpen={filePreviewModal.isOpen}
                         onClose={() => setFilePreviewModal({ isOpen: false, file: null })}
-                        file={filePreviewModal.file as { entry_id: string; filename: string; summary?: string; file_size?: number; created_at: string }}
+                        file={{
+                            entry_id: filePreviewModal.file.entry_id,
+                            filename: filePreviewModal.file.filename,
+                            summary: filePreviewModal.file.summary || '',
+                            file_size: filePreviewModal.file.file_size || 0,
+                            created_at: filePreviewModal.file.created_at
+                        }}
                         onEditSummary={handleEditSummary}
                     />
                 )}

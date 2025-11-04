@@ -6,6 +6,9 @@ import {
   checkBillingStatus,
   CreateCheckoutSessionRequest
 } from '@/lib/api';
+import { createClient } from '@/lib/supabase/client';
+
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
 // useAvailableModels has been moved to use-model-selection.ts for better consolidation
 
@@ -40,13 +43,29 @@ export const useAdminUserUsageLogs = (accountId: string, page: number = 0, items
   createQueryHook(
     ['admin-user-usage', accountId, page, itemsPerPage, days],
     async () => {
-      const response = await backendApi.get(`/admin/users/${accountId}/usage-logs?page=${page}&items_per_page=${itemsPerPage}&days=${days}`);
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (response.error) {
-        throw new Error(response.error.message || 'Failed to fetch user usage logs');
+      if (!session?.access_token) {
+        throw new Error('No access token available');
+      }
+
+      const response = await fetch(
+        `${API_URL}/admin/users/${accountId}/usage-logs?page=${page}&items_per_page=${itemsPerPage}&days=${days}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Failed to fetch user usage logs');
       }
       
-      return response.data;
+      return await response.json();
     },
     {
       staleTime: 30 * 1000, // 30 seconds
