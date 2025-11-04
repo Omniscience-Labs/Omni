@@ -1086,6 +1086,33 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(verify_and_get
         loader = await get_agent_loader()
         agent_obj = await loader.load_agent(agent_data['agent_id'], user_id, load_config=True)
         
+        # Extract agent config from agent_obj
+        agent_config_dict = agent_obj.to_dict() if hasattr(agent_obj, 'to_dict') else {}
+        
+        # Get system_prompt, configured_mcps, custom_mcps, agentpress_tools from agent_obj or version_data
+        if version_data:
+            system_prompt = version_data.get('system_prompt', '')
+            configured_mcps = version_data.get('configured_mcps', [])
+            custom_mcps = version_data.get('custom_mcps', [])
+            agentpress_tools = version_data.get('agentpress_tools', {})
+        elif agent_obj.config_loaded:
+            system_prompt = agent_obj.system_prompt or ''
+            configured_mcps = agent_obj.configured_mcps or []
+            custom_mcps = agent_obj.custom_mcps or []
+            agentpress_tools = agent_obj.agentpress_tools or {}
+        else:
+            system_prompt = ''
+            configured_mcps = []
+            custom_mcps = []
+            agentpress_tools = {}
+        
+        # Extract agent_config for avatar/color/profile_image
+        agent_config = {
+            'avatar': agent_obj.icon_name if hasattr(agent_obj, 'icon_name') else agent_data.get('icon_name'),
+            'avatar_color': agent_obj.icon_color if hasattr(agent_obj, 'icon_color') else agent_data.get('icon_color'),
+            'profile_image_url': agent_data.get('profile_image_url')
+        }
+        
         return {
             "agent": AgentResponse(
                 agent_id=agent_data['agent_id'],
