@@ -253,6 +253,136 @@ async def _get_effective_model(model_name: Optional[str], agent_config: Optional
         return effective_model
 
 
+async def _load_agent_config(client, agent_id: Optional[str], account_id: str, user_id: str, is_new_thread: bool = False) -> Optional[dict]:
+    """
+    Load agent configuration, trying specified agent_id first, then default agent.
+    
+    Args:
+        client: Database client
+        agent_id: Optional agent ID to load
+        account_id: Account ID
+        user_id: User ID for version access
+        is_new_thread: Whether this is for a new thread
+    
+    Returns:
+        Agent configuration dict or None if no agent found
+    """
+    agent_config = None
+    effective_agent_id = agent_id
+    
+    logger.debug(f"[AGENT LOAD] Loading agent config: agent_id={agent_id}, account_id={account_id}")
+    
+    if effective_agent_id:
+        logger.debug(f"[AGENT LOAD] Querying for agent: {effective_agent_id}")
+        agent_result = await client.table('agents').select('*').eq('agent_id', effective_agent_id).eq('account_id', account_id).execute()
+        logger.debug(f"[AGENT LOAD] Query result: found {len(agent_result.data) if agent_result.data else 0} agents")
+        
+        if agent_result.data:
+            agent_data = agent_result.data[0]
+            version_data = None
+            if agent_data.get('current_version_id'):
+                try:
+                    version_service = await _get_version_service()
+                    version_obj = await version_service.get_version(
+                        agent_id=effective_agent_id,
+                        version_id=agent_data['current_version_id'],
+                        user_id=user_id
+                    )
+                    version_data = version_obj.to_dict()
+                    logger.debug(f"[AGENT LOAD] Got version data from version manager: {version_data.get('version_name')}")
+                except Exception as e:
+                    logger.warning(f"[AGENT LOAD] Failed to get version data: {e}")
+            
+            agent_config = extract_agent_config(agent_data, version_data)
+            logger.debug(f"[AGENT LOAD] Loaded agent config for {effective_agent_id}")
+    
+    if not agent_config:
+        logger.debug(f"[AGENT LOAD] No agent config yet, querying for default agent")
+        default_agent_result = await client.table('agents').select('*').eq('account_id', account_id).eq('is_default', True).execute()
+        logger.debug(f"[AGENT LOAD] Default agent query result: found {len(default_agent_result.data) if default_agent_result.data else 0} default agents")
+        
+        if default_agent_result.data:
+            agent_data = default_agent_result.data[0]
+            version_data = None
+            if agent_data.get('current_version_id'):
+                try:
+                    version_service = await _get_version_service()
+                    version_obj = await version_service.get_version(
+                        agent_id=agent_data['agent_id'],
+                        version_id=agent_data['current_version_id'],
+                        user_id=user_id
+                    )
+                    version_data = version_obj.to_dict()
+                    logger.debug(f"[AGENT LOAD] Got default agent version from version manager: {version_data.get('version_name')}")
+                except Exception as e:
+                    logger.warning(f"[AGENT LOAD] Failed to get default agent version data: {e}")
+            
+            agent_config = extract_agent_config(agent_data, version_data)
+            logger.debug(f"[AGENT LOAD] Loaded default agent config")
+    
+    return agent_config
+
+
+async def _check_billing_and_limits(client, account_id: str, model_name: str, check_project_limit: bool = False):
+    """
+    Check billing status, model access, and limits, raising HTTPException if checks fail.
+    
+    Args:
+        client: Database client
+        account_id: Account ID
+        model_name: Model name to check access for
+        check_project_limit: Whether to check project limit
+    
+    Raises:
+        HTTPException: If any check fails
+    """
+    # Run all checks concurrently
+    model_check_task = asyncio.create_task(can_use_model(client, account_id, model_name))
+    billing_check_task = asyncio.create_task(check_billing_status(client, account_id))
+    limit_check_task = asyncio.create_task(check_agent_run_limit(client, account_id))
+    
+    tasks = [model_check_task, billing_check_task, limit_check_task]
+    if check_project_limit:
+        project_limit_task = asyncio.create_task(check_project_count_limit(client, account_id))
+        tasks.append(project_limit_task)
+    
+    results = await asyncio.gather(*tasks)
+    
+    (can_use, model_message, allowed_models), (can_run, message, subscription), limit_check = results[:3]
+    
+    # Check results and raise appropriate errors
+    if not can_use:
+        raise HTTPException(status_code=403, detail={"message": model_message, "allowed_models": allowed_models})
+    
+    if not can_run:
+        raise HTTPException(status_code=402, detail={"message": message, "subscription": subscription})
+    
+    if not limit_check['can_start']:
+        error_detail = {
+            "message": f"Maximum of {config.MAX_PARALLEL_AGENT_RUNS} parallel agent runs allowed within 24 hours. You currently have {limit_check['running_count']} running.",
+            "running_thread_ids": limit_check['running_thread_ids'],
+            "running_count": limit_check['running_count'],
+            "limit": config.MAX_PARALLEL_AGENT_RUNS
+        }
+        logger.warning(f"Agent run limit exceeded for account {account_id}: {limit_check['running_count']} running agents")
+        raise HTTPException(status_code=429, detail=error_detail)
+    
+    if check_project_limit and len(results) > 3:
+        project_limit_check = results[3]
+        if not project_limit_check['can_create']:
+            error_detail = {
+                "message": f"Maximum of {project_limit_check['limit']} projects allowed for your current plan. You have {project_limit_check['current_count']} projects.",
+                "current_count": project_limit_check['current_count'],
+                "limit": project_limit_check['limit'],
+                "tier_name": project_limit_check['tier_name'],
+                "error_code": "PROJECT_LIMIT_EXCEEDED"
+            }
+            logger.warning(f"Project limit exceeded for account {account_id}: {project_limit_check['current_count']}/{project_limit_check['limit']} projects")
+            raise HTTPException(status_code=402, detail=error_detail)
+
+
+
+
 async def _create_agent_run_record(client, thread_id: str, agent_config: Optional[dict], effective_model: str) -> str:
     """
     Create an agent run record in the database.
