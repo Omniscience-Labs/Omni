@@ -257,6 +257,15 @@ class ThreadManager:
                     try:
                         parsed_item = json.loads(content)
                         parsed_item['message_id'] = item['message_id']
+                        
+                        # Fix tool_calls arguments format for LiteLLM compatibility
+                        if 'tool_calls' in parsed_item and parsed_item['tool_calls']:
+                            for tool_call in parsed_item['tool_calls']:
+                                if 'function' in tool_call and 'arguments' in tool_call['function']:
+                                    # Convert arguments from dict to JSON string if needed
+                                    if isinstance(tool_call['function']['arguments'], dict):
+                                        tool_call['function']['arguments'] = json.dumps(tool_call['function']['arguments'])
+                        
                         messages.append(parsed_item)
                     except json.JSONDecodeError:
                         # If compressed, content is a plain string (not JSON) - this is expected
@@ -270,6 +279,15 @@ class ThreadManager:
                             logger.error(f"Failed to parse message: {content[:100]}")
                 else:
                     content['message_id'] = item['message_id']
+                    
+                    # Fix tool_calls arguments format for LiteLLM compatibility
+                    if 'tool_calls' in content and content['tool_calls']:
+                        for tool_call in content['tool_calls']:
+                            if 'function' in tool_call and 'arguments' in tool_call['function']:
+                                # Convert arguments from dict to JSON string if needed
+                                if isinstance(tool_call['function']['arguments'], dict):
+                                    tool_call['function']['arguments'] = json.dumps(tool_call['function']['arguments'])
+                    
                     messages.append(content)
 
             return messages
