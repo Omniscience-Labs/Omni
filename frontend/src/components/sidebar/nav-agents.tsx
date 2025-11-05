@@ -237,25 +237,6 @@ const ThreadItem: React.FC<{
               <span className="truncate">{thread.projectName}</span>
             </Link>
           )}
-          <Link
-            href={thread.url}
-            onClick={(e) =>
-              handleThreadClick(e, thread.threadId, thread.url)
-            }
-            prefetch={false}
-            className="flex items-center flex-1 min-w-0 touch-manipulation"
-          >
-            {isThreadLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2 flex-shrink-0" />
-            ) : (
-              <ThreadIcon 
-                iconName={thread.iconName} 
-                className="mr-2" 
-                size={16} 
-              />
-            )}
-            <span className="truncate">{thread.projectName}</span>
-          </Link>
           
           {/* Running status indicator */}
           {isAgentRunning && (
