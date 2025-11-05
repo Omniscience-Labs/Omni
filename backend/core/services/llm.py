@@ -114,10 +114,11 @@ def setup_provider_router(openai_compatible_api_key: str = None, openai_compatib
     
     # Configure fallbacks: MAP-tagged Bedrock models -> Direct Anthropic API
     fallbacks = [
-        # MAP-tagged Bedrock Haiku 4.5 -> Anthropic Haiku 4.5
+        # MAP-tagged Bedrock Haiku 4.5 -> Anthropic Haiku 4.5 (fallback to Sonnet 4 if Haiku 4.5 not available)
         {
             "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/cyuh6gekrmmh": [
-                "anthropic/claude-haiku-4-5-20251001-v1:0"
+                "anthropic/claude-haiku-4-5",
+                "anthropic/claude-sonnet-4-20250514"  # Fallback if Haiku 4.5 not available via API
             ]
         },
         # MAP-tagged Bedrock Sonnet 4.5 -> Anthropic Sonnet 4.5

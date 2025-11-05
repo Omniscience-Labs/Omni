@@ -1,20 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Check, BarChart3, Image as ImageIcon } from 'lucide-react';
+import { BarChart3, Image as ImageIcon, Presentation, FileText, Users, Search } from 'lucide-react';
 import { SunaModesPanel } from './suna-modes-panel';
-
-interface QuickActionDialogsProps {
-  onSelectPrompt: (prompt: string) => void;
-  onChartsChange?: (charts: string[]) => void;
-  onOutputFormatChange?: (format: string | null) => void;
-}
 
 export function ChartSelectionDialog({ 
   open, 
@@ -59,9 +51,12 @@ export function ChartSelectionDialog({
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <BarChart3 className="w-5 h-5" />
+            <BarChart3 className="w-5 h-5 text-blue-500" />
             Chart & Data Visualization
           </DialogTitle>
+          <DialogDescription>
+            Select chart types and output format for your data visualization
+          </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto">
           <SunaModesPanel
@@ -136,9 +131,12 @@ export function ImageGenerationDialog({
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ImageIcon className="w-5 h-5" />
+            <ImageIcon className="w-5 h-5 text-purple-500" />
             Image Generation
           </DialogTitle>
+          <DialogDescription>
+            Choose an image style or select from sample prompts
+          </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto space-y-6">
           {/* Sample Prompts */}
@@ -194,3 +192,154 @@ export function ImageGenerationDialog({
   );
 }
 
+export function SlidesDialog({ 
+  open, 
+  onOpenChange, 
+  onSelectPrompt 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  onSelectPrompt: (prompt: string) => void;
+}) {
+  const handlePromptSelect = (prompt: string) => {
+    onSelectPrompt(prompt);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Presentation className="w-5 h-5 text-orange-500" />
+            Create Slides
+          </DialogTitle>
+          <DialogDescription>
+            Select a template or choose from sample prompts
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto">
+          <SunaModesPanel
+            selectedMode="slides"
+            onModeSelect={() => {}}
+            onSelectPrompt={handlePromptSelect}
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function DocsDialog({ 
+  open, 
+  onOpenChange, 
+  onSelectPrompt 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  onSelectPrompt: (prompt: string) => void;
+}) {
+  const handlePromptSelect = (prompt: string) => {
+    onSelectPrompt(prompt);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-green-500" />
+            Create Documents
+          </DialogTitle>
+          <DialogDescription>
+            Select a document template or choose from sample prompts
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto">
+          <SunaModesPanel
+            selectedMode="docs"
+            onModeSelect={() => {}}
+            onSelectPrompt={handlePromptSelect}
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function PeopleDialog({ 
+  open, 
+  onOpenChange, 
+  onSelectPrompt 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  onSelectPrompt: (prompt: string) => void;
+}) {
+  const handlePromptSelect = (prompt: string) => {
+    onSelectPrompt(prompt);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-pink-500" />
+            Find People
+          </DialogTitle>
+          <DialogDescription>
+            Search for people based on your criteria
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto">
+          <SunaModesPanel
+            selectedMode="people"
+            onModeSelect={() => {}}
+            onSelectPrompt={handlePromptSelect}
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function ResearchDialog({ 
+  open, 
+  onOpenChange, 
+  onSelectPrompt 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  onSelectPrompt: (prompt: string) => void;
+}) {
+  const handlePromptSelect = (prompt: string) => {
+    onSelectPrompt(prompt);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Search className="w-5 h-5 text-indigo-500" />
+            Research
+          </DialogTitle>
+          <DialogDescription>
+            Research topics and get comprehensive analysis
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto">
+          <SunaModesPanel
+            selectedMode="research"
+            onModeSelect={() => {}}
+            onSelectPrompt={handlePromptSelect}
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
