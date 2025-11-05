@@ -22,6 +22,7 @@ import { useInitiateAgentWithInvalidation } from '@/hooks/react-query/dashboard/
 
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { BillingModal } from '@/components/billing/billing-modal';
 import { ProjectLimitDialog } from '@/components/billing/project-limit-dialog';
 import { CreditsLimitDialog } from '@/components/billing/credits-limit-dialog';
@@ -35,8 +36,9 @@ import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog'
 import { CustomAgentsSection } from './custom-agents-section';
 import { toast } from 'sonner';
 import { ReleaseBadge } from '../auth/release-badge';
-import { Calendar, MessageSquare, Plus, Sparkles, Zap } from 'lucide-react';
+import { Calendar, MessageSquare, Plus, Sparkles, Zap, BarChart3, Image as ImageIcon } from 'lucide-react';
 import { AgentConfigurationDialog } from '@/components/agents/agent-configuration-dialog';
+import { ChartSelectionDialog, ImageGenerationDialog } from './quick-action-dialogs';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
@@ -51,6 +53,8 @@ export function DashboardContent() {
   const [viewMode, setViewMode] = useState<'super-worker' | 'worker-templates'>('super-worker');
   const [selectedCharts, setSelectedCharts] = useState<string[]>([]);
   const [selectedOutputFormat, setSelectedOutputFormat] = useState<string | null>(null);
+  const [showChartDialog, setShowChartDialog] = useState(false);
+  const [showImageDialog, setShowImageDialog] = useState(false);
   
   // Reset data selections when mode changes
   React.useEffect(() => {
@@ -337,7 +341,29 @@ export function DashboardContent() {
                         </p>
                       </div>
 
-                      <div className="w-full">
+                      <div className="w-full space-y-4">
+                        {/* Quick Action Buttons */}
+                        <div className="flex items-center justify-center gap-2 flex-wrap">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowChartDialog(true)}
+                            className="flex items-center gap-2 hover:bg-primary/5 hover:border-primary/50 transition-all duration-200"
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                            <span>Charts & Data</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowImageDialog(true)}
+                            className="flex items-center gap-2 hover:bg-primary/5 hover:border-primary/50 transition-all duration-200"
+                          >
+                            <ImageIcon className="w-4 h-4" />
+                            <span>Generate Image</span>
+                          </Button>
+                        </div>
+                        
                         <ChatInput
                           ref={chatInputRef}
                           onSubmit={handleSubmit}
@@ -430,6 +456,26 @@ export function DashboardContent() {
           }}
         />
       )}
+      
+      {/* Quick Action Dialogs */}
+      <ChartSelectionDialog
+        open={showChartDialog}
+        onOpenChange={setShowChartDialog}
+        onSelectPrompt={(prompt) => {
+          setInputValue(prompt);
+          setShowChartDialog(false);
+        }}
+        onChartsChange={setSelectedCharts}
+        onOutputFormatChange={setSelectedOutputFormat}
+      />
+      <ImageGenerationDialog
+        open={showImageDialog}
+        onOpenChange={setShowImageDialog}
+        onSelectPrompt={(prompt) => {
+          setInputValue(prompt);
+          setShowImageDialog(false);
+        }}
+      />
     </>
   );
 }

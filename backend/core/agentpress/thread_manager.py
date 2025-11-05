@@ -291,15 +291,18 @@ class ThreadManager:
         tool_choice: ToolChoice = "auto",
         native_max_auto_continues: int = 25,
         max_xml_tool_calls: int = 0,
-        generation: Optional[StatefulGenerationClient] = None,
-        latest_user_message_content: Optional[str] = None,
         enable_thinking: Optional[bool] = False,
-        reasoning_effort: Optional[str] = "low",
+        reasoning_effort: Optional[str] = 'low',
+        generation: Optional[StatefulGenerationClient] = None,
         enable_prompt_caching: bool = True,
-        enable_context_manager: bool = True,
+        enable_context_manager: Optional[bool] = None,
+        latest_user_message_content: Optional[str] = None,
     ) -> Union[Dict[str, Any], AsyncGenerator]:
         """Run a conversation thread with LLM integration and tool execution."""
         logger.debug(f"🚀 Starting thread execution for {thread_id} with model {llm_model}")
+
+        # Determine if context manager should be used (default to True)
+        use_context_manager = enable_context_manager if enable_context_manager is not None else True
 
         # Ensure we have a valid ProcessorConfig object
         if processor_config is None:
@@ -323,12 +326,9 @@ class ThreadManager:
         if native_max_auto_continues == 0:
             result = await self._execute_run(
                 thread_id, system_prompt, llm_model, llm_temperature, llm_max_tokens,
-                tool_choice, config, stream,
-                generation, auto_continue_state, temporary_message, latest_user_message_content,
-                enable_thinking=enable_thinking,
-                reasoning_effort=reasoning_effort,
-                enable_prompt_caching=enable_prompt_caching,
-                enable_context_manager=enable_context_manager
+                tool_choice, config, stream, enable_thinking, reasoning_effort,
+                generation, auto_continue_state, temporary_message, enable_prompt_caching,
+                use_context_manager
             )
             
             # If result is an error dict, convert it to a generator that yields the error
@@ -340,25 +340,18 @@ class ThreadManager:
         # Auto-continue execution
         return self._auto_continue_generator(
             thread_id, system_prompt, llm_model, llm_temperature, llm_max_tokens,
-            tool_choice, config, stream,
+            tool_choice, config, stream, enable_thinking, reasoning_effort,
             generation, auto_continue_state, temporary_message,
-            native_max_auto_continues, latest_user_message_content,
-            enable_thinking=enable_thinking,
-            reasoning_effort=reasoning_effort,
-            enable_prompt_caching=enable_prompt_caching,
-            enable_context_manager=enable_context_manager
+            native_max_auto_continues, enable_prompt_caching, use_context_manager
         )
 
     async def _execute_run(
         self, thread_id: str, system_prompt: Dict[str, Any], llm_model: str,
         llm_temperature: float, llm_max_tokens: Optional[int], tool_choice: ToolChoice,
-        config: ProcessorConfig, stream: bool, generation: Optional[StatefulGenerationClient],
+        config: ProcessorConfig, stream: bool, enable_thinking: Optional[bool],
+        reasoning_effort: Optional[str], generation: Optional[StatefulGenerationClient],
         auto_continue_state: Dict[str, Any], temporary_message: Optional[Dict[str, Any]] = None,
-        latest_user_message_content: Optional[str] = None,
-        enable_thinking: Optional[bool] = False,
-        reasoning_effort: Optional[str] = "low",
-        enable_prompt_caching: bool = True,
-        enable_context_manager: bool = True,
+        enable_prompt_caching: bool = False, use_context_manager: bool = True
     ) -> Union[Dict[str, Any], AsyncGenerator]:
         """Execute a single LLM run."""
         
@@ -369,7 +362,7 @@ class ThreadManager:
             
         try:
             # Use passed parameters instead of hardcoded values
-            ENABLE_CONTEXT_MANAGER = enable_context_manager
+            ENABLE_CONTEXT_MANAGER = use_context_manager
             ENABLE_PROMPT_CACHING = enable_prompt_caching
             
             # Fast path: Check stored token count + new message tokens
@@ -427,15 +420,8 @@ class ThreadManager:
                                 # Auto-continue: No new user message, last_total already includes everything
                                 new_msg_tokens = 0
                                 logger.debug(f"✅ Auto-continue detected (count={auto_continue_state['count']}), skipping new message token count")
-                            elif latest_user_message_content:
-                                # First turn: Use passed content (avoids DB query)
-                                new_msg_tokens = token_counter(
-                                    model=llm_model, 
-                                    messages=[{"role": "user", "content": latest_user_message_content}]
-                                )
-                                logger.debug(f"First turn: counting {new_msg_tokens} tokens from latest_user_message_content")
                             else:
-                                # First turn fallback: Query DB if content not provided
+                                # First turn: Query DB for latest user message
                                 latest_msg_result = await client.table('messages')\
                                     .select('content')\
                                     .eq('thread_id', thread_id)\
@@ -452,7 +438,7 @@ class ThreadManager:
                                             model=llm_model, 
                                             messages=[{"role": "user", "content": new_msg_content}]
                                         )
-                                        logger.debug(f"First turn (DB fallback): counting {new_msg_tokens} tokens from DB query")
+                                        logger.debug(f"First turn: counting {new_msg_tokens} tokens from DB query")
                             
                             estimated_total = last_total_tokens + new_msg_tokens
                             estimated_total_tokens = estimated_total  # Store for response processor
@@ -624,13 +610,11 @@ class ThreadManager:
     async def _auto_continue_generator(
         self, thread_id: str, system_prompt: Dict[str, Any], llm_model: str,
         llm_temperature: float, llm_max_tokens: Optional[int], tool_choice: ToolChoice,
-        config: ProcessorConfig, stream: bool, generation: Optional[StatefulGenerationClient],
+        config: ProcessorConfig, stream: bool, enable_thinking: Optional[bool],
+        reasoning_effort: Optional[str], generation: Optional[StatefulGenerationClient],
         auto_continue_state: Dict[str, Any], temporary_message: Optional[Dict[str, Any]],
-        native_max_auto_continues: int, latest_user_message_content: Optional[str] = None,
-        enable_thinking: Optional[bool] = False,
-        reasoning_effort: Optional[str] = "low",
-        enable_prompt_caching: bool = True,
-        enable_context_manager: bool = True,
+        native_max_auto_continues: int, enable_prompt_caching: bool = False,
+        use_context_manager: bool = True
     ) -> AsyncGenerator:
         """Generator that handles auto-continue logic."""
         logger.debug(f"Starting auto-continue generator, max: {native_max_auto_continues}")
@@ -647,14 +631,10 @@ class ThreadManager:
             try:
                 response_gen = await self._execute_run(
                     thread_id, system_prompt, llm_model, llm_temperature, llm_max_tokens,
-                    tool_choice, config, stream,
+                    tool_choice, config, stream, enable_thinking, reasoning_effort,
                     generation, auto_continue_state,
                     temporary_message if auto_continue_state['count'] == 0 else None,
-                    latest_user_message_content if auto_continue_state['count'] == 0 else None,
-                    enable_thinking=enable_thinking,
-                    reasoning_effort=reasoning_effort,
-                    enable_prompt_caching=enable_prompt_caching,
-                    enable_context_manager=enable_context_manager
+                    enable_prompt_caching, use_context_manager
                 )
 
                 # Handle error responses

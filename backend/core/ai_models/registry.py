@@ -3,8 +3,8 @@ from .ai_models import Model, ModelProvider, ModelCapability, ModelPricing, Mode
 from core.utils.config import config, EnvMode
 from core.utils.logger import logger
 
-DEFAULT_FREE_MODEL = "Claude Sonnet 4"
-DEFAULT_PREMIUM_MODEL = "Claude Sonnet 4"
+DEFAULT_FREE_MODEL = "Haiku 4.5"
+DEFAULT_PREMIUM_MODEL = "Haiku 4.5"
 
 # Determine if we should use Bedrock or Anthropic API
 def should_use_bedrock() -> bool:
@@ -63,8 +63,8 @@ class ModelRegistry:
             id="anthropic/claude-haiku-4-5" if is_local else "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/cyuh6gekrmmh",
             name="Haiku 4.5",
             provider=ModelProvider.ANTHROPIC,
-            aliases=["claude-sonnet-4", "anthropic/claude-sonnet-4", "Claude Sonnet 4", "claude-sonnet-4-20250514"],
-            context_window=1_000_000,
+            aliases=["claude-haiku-4.5", "anthropic/claude-haiku-4.5", "Claude Haiku 4.5"],
+            context_window=200_000,
             capabilities=[
                 ModelCapability.CHAT,
                 ModelCapability.FUNCTION_CALLING,
