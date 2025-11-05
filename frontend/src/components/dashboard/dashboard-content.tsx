@@ -36,9 +36,9 @@ import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog'
 import { CustomAgentsSection } from './custom-agents-section';
 import { toast } from 'sonner';
 import { ReleaseBadge } from '../auth/release-badge';
-import { Calendar, MessageSquare, Plus, Sparkles, Zap, BarChart3, Image as ImageIcon } from 'lucide-react';
+import { Calendar, MessageSquare, Plus, Sparkles, Zap, BarChart3, Image as ImageIcon, Presentation, FileText, Users, Search } from 'lucide-react';
 import { AgentConfigurationDialog } from '@/components/agents/agent-configuration-dialog';
-import { ChartSelectionDialog, ImageGenerationDialog } from './quick-action-dialogs';
+import { ChartSelectionDialog, ImageGenerationDialog, SlidesDialog, DocsDialog, PeopleDialog, ResearchDialog } from './quick-action-dialogs';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
@@ -55,6 +55,10 @@ export function DashboardContent() {
   const [selectedOutputFormat, setSelectedOutputFormat] = useState<string | null>(null);
   const [showChartDialog, setShowChartDialog] = useState(false);
   const [showImageDialog, setShowImageDialog] = useState(false);
+  const [showSlidesDialog, setShowSlidesDialog] = useState(false);
+  const [showDocsDialog, setShowDocsDialog] = useState(false);
+  const [showPeopleDialog, setShowPeopleDialog] = useState(false);
+  const [showResearchDialog, setShowResearchDialog] = useState(false);
   
   // Reset data selections when mode changes
   React.useEffect(() => {
@@ -348,19 +352,55 @@ export function DashboardContent() {
                             variant="outline"
                             size="sm"
                             onClick={() => setShowChartDialog(true)}
-                            className="flex items-center gap-2 hover:bg-primary/5 hover:border-primary/50 transition-all duration-200"
+                            className="flex items-center gap-2 hover:bg-blue-500/10 hover:border-blue-500/50 transition-all duration-200"
                           >
-                            <BarChart3 className="w-4 h-4" />
+                            <BarChart3 className="w-4 h-4 text-blue-500" />
                             <span>Charts & Data</span>
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setShowImageDialog(true)}
-                            className="flex items-center gap-2 hover:bg-primary/5 hover:border-primary/50 transition-all duration-200"
+                            className="flex items-center gap-2 hover:bg-purple-500/10 hover:border-purple-500/50 transition-all duration-200"
                           >
-                            <ImageIcon className="w-4 h-4" />
+                            <ImageIcon className="w-4 h-4 text-purple-500" />
                             <span>Generate Image</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowSlidesDialog(true)}
+                            className="flex items-center gap-2 hover:bg-orange-500/10 hover:border-orange-500/50 transition-all duration-200"
+                          >
+                            <Presentation className="w-4 h-4 text-orange-500" />
+                            <span>Create Slides</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowDocsDialog(true)}
+                            className="flex items-center gap-2 hover:bg-green-500/10 hover:border-green-500/50 transition-all duration-200"
+                          >
+                            <FileText className="w-4 h-4 text-green-500" />
+                            <span>Documents</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowPeopleDialog(true)}
+                            className="flex items-center gap-2 hover:bg-pink-500/10 hover:border-pink-500/50 transition-all duration-200"
+                          >
+                            <Users className="w-4 h-4 text-pink-500" />
+                            <span>Find People</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowResearchDialog(true)}
+                            className="flex items-center gap-2 hover:bg-indigo-500/10 hover:border-indigo-500/50 transition-all duration-200"
+                          >
+                            <Search className="w-4 h-4 text-indigo-500" />
+                            <span>Research</span>
                           </Button>
                         </div>
                         
@@ -474,6 +514,38 @@ export function DashboardContent() {
         onSelectPrompt={(prompt) => {
           setInputValue(prompt);
           setShowImageDialog(false);
+        }}
+      />
+      <SlidesDialog
+        open={showSlidesDialog}
+        onOpenChange={setShowSlidesDialog}
+        onSelectPrompt={(prompt) => {
+          setInputValue(prompt);
+          setShowSlidesDialog(false);
+        }}
+      />
+      <DocsDialog
+        open={showDocsDialog}
+        onOpenChange={setShowDocsDialog}
+        onSelectPrompt={(prompt) => {
+          setInputValue(prompt);
+          setShowDocsDialog(false);
+        }}
+      />
+      <PeopleDialog
+        open={showPeopleDialog}
+        onOpenChange={setShowPeopleDialog}
+        onSelectPrompt={(prompt) => {
+          setInputValue(prompt);
+          setShowPeopleDialog(false);
+        }}
+      />
+      <ResearchDialog
+        open={showResearchDialog}
+        onOpenChange={setShowResearchDialog}
+        onSelectPrompt={(prompt) => {
+          setInputValue(prompt);
+          setShowResearchDialog(false);
         }}
       />
     </>
