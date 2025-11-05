@@ -214,12 +214,26 @@ class ToolkitService:
     
     async def search_toolkits(self, query: str, category: Optional[str] = None, limit: int = 100, cursor: Optional[str] = None) -> Dict[str, Any]:
         try:
-            all_toolkits_response = await self.list_toolkits(limit=500, cursor=cursor, category=category)
-            toolkits = all_toolkits_response.get("items", [])
+            # Fetch all available toolkits for comprehensive search
+            # We need to fetch all toolkits to ensure search finds everything
+            all_toolkits = []
+            current_cursor = None
+            fetch_limit = 500
+            max_fetches = 4  # Fetch up to 2000 total toolkits (500 * 4)
+            
+            for _ in range(max_fetches):
+                batch_response = await self.list_toolkits(limit=fetch_limit, cursor=current_cursor, category=category)
+                batch_items = batch_response.get("items", [])
+                all_toolkits.extend(batch_items)
+                
+                current_cursor = batch_response.get("next_cursor")
+                if not current_cursor:
+                    break
+            
             query_lower = query.lower()
             
             filtered_toolkits = [
-                toolkit for toolkit in toolkits
+                toolkit for toolkit in all_toolkits
                 if query_lower in toolkit.name.lower() 
                 or (toolkit.description and query_lower in toolkit.description.lower())
                 or any(query_lower in tag.lower() for tag in toolkit.tags)
@@ -235,7 +249,7 @@ class ToolkitService:
                 "next_cursor": None
             }
             
-            logger.debug(f"Found {len(filtered_toolkits)} toolkits matching query: {query}" + (f" in category {category}" if category else ""))
+            logger.debug(f"Searched through {len(all_toolkits)} toolkits, found {len(filtered_toolkits)} matching query: {query}" + (f" in category {category}" if category else ""))
             return result
             
         except Exception as e:
