@@ -290,32 +290,48 @@ class ThreadManager:
                     
                     messages.append(content)
 
-            # Deduplicate tool results - keep only the last result for each tool_call_id
-            # This prevents "Found multiple tool_result blocks with same id" errors
-            seen_tool_call_ids = {}
+            # Clean up tool results to prevent orphans and duplicates
+            # First pass: collect valid tool_call_ids from assistant messages
+            valid_tool_call_ids = set()
+            for msg in messages:
+                if isinstance(msg, dict) and msg.get('role') == 'assistant' and msg.get('tool_calls'):
+                    for tool_call in msg['tool_calls']:
+                        if 'id' in tool_call:
+                            valid_tool_call_ids.add(tool_call['id'])
+            
+            # Second pass: deduplicate tool results, keeping only latest valid ones
+            seen_tool_call_ids = {}  # Maps tool_call_id -> latest message index
+            
+            for idx, msg in enumerate(messages):
+                if isinstance(msg, dict) and msg.get('role') == 'tool' and 'tool_call_id' in msg:
+                    tool_call_id = msg['tool_call_id']
+                    
+                    # Only track this if it's valid (has a matching tool_use)
+                    if tool_call_id in valid_tool_call_ids:
+                        if tool_call_id in seen_tool_call_ids:
+                            logger.warning(f"Found duplicate tool result for tool_call_id={tool_call_id}, will keep only the latest one")
+                        seen_tool_call_ids[tool_call_id] = idx
+                    else:
+                        logger.warning(f"Found orphaned tool result with tool_call_id={tool_call_id}, will remove it")
+            
+            # Third pass: build final message list
             deduplicated_messages = []
-            
             for idx, msg in enumerate(messages):
-                # Check if this is a tool result message
-                if isinstance(msg, dict) and msg.get('role') == 'tool' and 'tool_call_id' in msg:
-                    tool_call_id = msg['tool_call_id']
-                    # Track the index of this tool result
-                    if tool_call_id in seen_tool_call_ids:
-                        # Mark the previous one for removal (we keep the latest)
-                        logger.warning(f"Found duplicate tool result for tool_call_id={tool_call_id}, will keep only the latest one")
-                    seen_tool_call_ids[tool_call_id] = idx
-            
-            # Build the final list, excluding duplicates
-            for idx, msg in enumerate(messages):
-                is_duplicate = False
-                if isinstance(msg, dict) and msg.get('role') == 'tool' and 'tool_call_id' in msg:
-                    tool_call_id = msg['tool_call_id']
-                    # Only include this tool result if it's the latest one we saw
-                    if seen_tool_call_ids[tool_call_id] != idx:
-                        is_duplicate = True
-                        logger.debug(f"Skipping duplicate tool result for tool_call_id={tool_call_id}")
+                should_skip = False
                 
-                if not is_duplicate:
+                if isinstance(msg, dict) and msg.get('role') == 'tool' and 'tool_call_id' in msg:
+                    tool_call_id = msg['tool_call_id']
+                    
+                    # Skip if orphaned (no matching tool_use)
+                    if tool_call_id not in valid_tool_call_ids:
+                        should_skip = True
+                        logger.debug(f"Removing orphaned tool result for tool_call_id={tool_call_id}")
+                    # Skip if duplicate (not the latest)
+                    elif seen_tool_call_ids.get(tool_call_id) != idx:
+                        should_skip = True
+                        logger.debug(f"Removing duplicate tool result for tool_call_id={tool_call_id}")
+                
+                if not should_skip:
                     deduplicated_messages.append(msg)
             
             return deduplicated_messages
@@ -593,6 +609,16 @@ class ThreadManager:
             # Update generation tracking
             if generation:
                 try:
+                    # Convert tools to Langfuse-compatible format (list of tool names)
+                    # Instead of sending full OpenAPI schemas which causes Pydantic validation errors
+                    tools_for_langfuse = None
+                    if openapi_tool_schemas:
+                        tools_for_langfuse = [
+                            tool.get('function', {}).get('name', 'unknown') 
+                            if isinstance(tool, dict) else str(tool)
+                            for tool in (openapi_tool_schemas if isinstance(openapi_tool_schemas, list) else [])
+                        ]
+                    
                     generation.update(
                         input=prepared_messages,
                         start_time=datetime.now(timezone.utc),
@@ -601,7 +627,7 @@ class ThreadManager:
                             "max_tokens": llm_max_tokens,
                             "temperature": llm_temperature,
                             "tool_choice": tool_choice,
-                            "tools": openapi_tool_schemas,
+                            "tools": tools_for_langfuse,  # Simple list of tool names
                         }
                     )
                 except Exception as e:
