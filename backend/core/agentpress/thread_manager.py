@@ -2,6 +2,7 @@
 Simplified conversation thread management system for AgentPress.
 """
 
+import asyncio
 import json
 from typing import List, Dict, Any, Optional, Type, Union, AsyncGenerator, Literal, cast
 from core.services.llm import make_llm_api_call, LLMError
@@ -400,11 +401,13 @@ class ThreadManager:
             return result
 
         # Auto-continue execution
+        cancellation_event = asyncio.Event()  # Create cancellation event for this run
         return self._auto_continue_generator(
             thread_id, system_prompt, llm_model, llm_temperature, llm_max_tokens,
             tool_choice, config, stream, enable_thinking, reasoning_effort,
             generation, auto_continue_state, temporary_message,
-            native_max_auto_continues, enable_prompt_caching, use_context_manager
+            native_max_auto_continues, enable_prompt_caching, use_context_manager,
+            cancellation_event
         )
 
     async def _execute_run(
@@ -413,7 +416,8 @@ class ThreadManager:
         config: ProcessorConfig, stream: bool, enable_thinking: Optional[bool],
         reasoning_effort: Optional[str], generation: Optional[StatefulGenerationClient],
         auto_continue_state: Dict[str, Any], temporary_message: Optional[Dict[str, Any]] = None,
-        enable_prompt_caching: bool = False, use_context_manager: bool = True
+        enable_prompt_caching: bool = False, use_context_manager: bool = True,
+        cancellation_event: Optional[asyncio.Event] = None
     ) -> Union[Dict[str, Any], AsyncGenerator]:
         """Execute a single LLM run."""
         
@@ -667,7 +671,7 @@ class ThreadManager:
                     cast(AsyncGenerator, llm_response), thread_id, prepared_messages,
                     llm_model, config, True,
                     auto_continue_state['count'], auto_continue_state['continuous_state'],
-                    generation, estimated_total_tokens
+                    generation, estimated_total_tokens, cancellation_event
                 )
             else:
                 return self.response_processor.process_non_streaming_response(
@@ -686,7 +690,7 @@ class ThreadManager:
         reasoning_effort: Optional[str], generation: Optional[StatefulGenerationClient],
         auto_continue_state: Dict[str, Any], temporary_message: Optional[Dict[str, Any]],
         native_max_auto_continues: int, enable_prompt_caching: bool = False,
-        use_context_manager: bool = True
+        use_context_manager: bool = True, cancellation_event: Optional[asyncio.Event] = None
     ) -> AsyncGenerator:
         """Generator that handles auto-continue logic."""
         logger.debug(f"Starting auto-continue generator, max: {native_max_auto_continues}")
@@ -701,12 +705,17 @@ class ThreadManager:
             auto_continue_state['active'] = False  # Reset for this iteration
             
             try:
+                # Check for cancellation before continuing
+                if cancellation_event and cancellation_event.is_set():
+                    logger.info(f"Cancellation signal received in auto-continue generator for thread {thread_id}")
+                    break
+                
                 response_gen = await self._execute_run(
                     thread_id, system_prompt, llm_model, llm_temperature, llm_max_tokens,
                     tool_choice, config, stream, enable_thinking, reasoning_effort,
                     generation, auto_continue_state,
                     temporary_message if auto_continue_state['count'] == 0 else None,
-                    enable_prompt_caching, use_context_manager
+                    enable_prompt_caching, use_context_manager, cancellation_event
                 )
 
                 # Handle error responses
@@ -717,6 +726,11 @@ class ThreadManager:
                 # Process streaming response
                 if hasattr(response_gen, '__aiter__'):
                     async for chunk in cast(AsyncGenerator, response_gen):
+                        # Check for cancellation
+                        if cancellation_event and cancellation_event.is_set():
+                            logger.info(f"Cancellation signal received while processing stream in auto-continue for thread {thread_id}")
+                            break
+                        
                         # Check for auto-continue triggers
                         should_continue = self._check_auto_continue_trigger(
                             chunk, auto_continue_state, native_max_auto_continues
