@@ -323,6 +323,11 @@ class ResponseProcessor:
 
             chunk_count = 0
             async for chunk in llm_response:
+                # Check for cancellation before processing each chunk
+                if cancellation_event and cancellation_event.is_set():
+                    logger.info(f"Cancellation signal received in streaming response for thread {thread_id}")
+                    break
+                
                 chunk_count += 1
                 
                 # Track timing
@@ -398,18 +403,6 @@ class ResponseProcessor:
                             for xml_chunk in xml_chunks:
                                 current_xml_content = current_xml_content.replace(xml_chunk, "", 1)
                                 xml_chunks_buffer.append(xml_chunk)
-                                
-                                # 🎯 Yield XML chunk to frontend immediately so tool calls appear inline
-                                now_xml_chunk = datetime.now(timezone.utc).isoformat()
-                                yield {
-                                    "sequence": __sequence,
-                                    "message_id": None, "thread_id": thread_id, "type": "assistant",
-                                    "is_llm_message": True,
-                                    "content": to_json_string({"role": "assistant", "content": xml_chunk}),
-                                    "metadata": to_json_string({"stream_status": "chunk", "thread_run_id": thread_run_id}),
-                                    "created_at": now_xml_chunk, "updated_at": now_xml_chunk
-                                }
-                                __sequence += 1
                                 
                                 result = self._parse_xml_tool_call(xml_chunk)
                                 if result:
