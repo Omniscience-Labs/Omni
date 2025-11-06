@@ -490,9 +490,13 @@ class ResponseProcessor:
 
                             if has_complete_tool_call and config.execute_tools and config.execute_on_stream:
                                 current_tool = tool_calls_buffer[idx]
+                                raw_arguments = current_tool['function']['arguments']
+                                logger.debug(f"🔍 Raw arguments type: {type(raw_arguments)}, first 200 chars: {str(raw_arguments)[:200]}")
+                                parsed_arguments = safe_json_parse(raw_arguments)
+                                logger.debug(f"🔍 Parsed arguments type: {type(parsed_arguments)}")
                                 tool_call_data = {
                                     "function_name": current_tool['function']['name'],
-                                    "arguments": safe_json_parse(current_tool['function']['arguments']),
+                                    "arguments": parsed_arguments,
                                     "id": current_tool['id']
                                 }
                                 current_assistant_id = last_assistant_message_object['message_id'] if last_assistant_message_object else None
@@ -1554,9 +1558,16 @@ class ResponseProcessor:
                     # Continue with tool execution if credit check fails
             
             if isinstance(arguments, str):
-                try:
-                    arguments = safe_json_parse(arguments)
-                except json.JSONDecodeError:
+                logger.debug(f"🔍 Arguments is string, first 200 chars: {arguments[:200]}")
+                parsed = safe_json_parse(arguments)
+                logger.debug(f"🔍 After safe_json_parse, type: {type(parsed)}, is_dict: {isinstance(parsed, dict)}, is_list: {isinstance(parsed, list)}")
+                # safe_json_parse returns the string itself if parsing fails
+                # So check if the result is actually a dict/list
+                if isinstance(parsed, (dict, list)):
+                    arguments = parsed
+                else:
+                    # Parsing failed, wrap the string
+                    logger.warning(f"⚠️ Failed to parse arguments, wrapping in dict. Original: {arguments[:200]}")
                     arguments = {"text": arguments}
             
             # Get available functions from tool registry
