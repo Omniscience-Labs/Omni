@@ -9,6 +9,10 @@ DEFAULT_PREMIUM_MODEL = "Haiku 4.5"
 # Determine if we should use Bedrock or Anthropic API
 def should_use_bedrock() -> bool:
     """Determine if Bedrock should be used based on environment and configuration."""
+    # TEMPORARY: Hardcoded to False - using Anthropic API only for now
+    # TODO: Remove this when Bedrock permissions are fixed
+    return False
+    
     # Always use Anthropic API in local mode
     if config.ENV_MODE == EnvMode.LOCAL:
         return False
@@ -45,11 +49,14 @@ _use_bedrock = should_use_bedrock()
 if config.ENV_MODE == EnvMode.LOCAL or not _use_bedrock:
     PREMIUM_MODEL_ID = "anthropic/claude-haiku-4-5"
     FREE_MODEL_ID = "anthropic/claude-sonnet-4-20250514"
+    logger.info("🔵 Using Anthropic API directly (no Bedrock fallback)")
 else:  # STAGING or PRODUCTION with Bedrock enabled
     PREMIUM_MODEL_ID = "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/cyuh6gekrmmh"
     FREE_MODEL_ID = "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/4vac4byw7fqr"
+    logger.info("🟠 Using AWS Bedrock with Anthropic API fallback")
 
 is_local = config.ENV_MODE == EnvMode.LOCAL
+use_anthropic_direct = is_local or not _use_bedrock  # Use Anthropic API directly if local OR if Bedrock disabled
 
 class ModelRegistry:
     def __init__(self):
@@ -60,7 +67,7 @@ class ModelRegistry:
     def _initialize_models(self):
         # Claude Haiku 4.5 - New default model with 67% cost reduction
         self.register(Model(
-            id="anthropic/claude-haiku-4-5" if is_local else "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/cyuh6gekrmmh",
+            id="anthropic/claude-haiku-4-5" if use_anthropic_direct else "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/cyuh6gekrmmh",
             name="Haiku 4.5",
             provider=ModelProvider.ANTHROPIC,
             aliases=["claude-haiku-4.5", "anthropic/claude-haiku-4.5", "Claude Haiku 4.5"],
@@ -82,7 +89,7 @@ class ModelRegistry:
         ))
         
         self.register(Model(
-            id="anthropic/claude-sonnet-4-5-20250929" if is_local else "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/pe55zlhpikcf",
+            id="anthropic/claude-sonnet-4-5-20250929" if use_anthropic_direct else "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/pe55zlhpikcf",
             name="Sonnet 4.5",
             provider=ModelProvider.ANTHROPIC,
             aliases=["claude-sonnet-4.5", "anthropic/claude-sonnet-4.5", "Claude Sonnet 4.5", "claude-sonnet-4-5-20250929", "global.anthropic.claude-sonnet-4-5-20250929-v1:0", "arn:aws:bedrock:us-west-2:935064898258:inference-profile/global.anthropic.claude-sonnet-4-5-20250929-v1:0", "bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0"],
@@ -109,7 +116,7 @@ class ModelRegistry:
         ))
         
         self.register(Model(
-            id="anthropic/claude-sonnet-4-20250514" if is_local else "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/4vac4byw7fqr",
+            id="anthropic/claude-sonnet-4-20250514" if use_anthropic_direct else "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/4vac4byw7fqr",
             name="Sonnet 4",
             provider=ModelProvider.ANTHROPIC,
             aliases=["claude-sonnet-4", "Claude Sonnet 4", "claude-sonnet-4-20250514", "arn:aws:bedrock:us-west-2:935064898258:inference-profile/us.anthropic.claude-sonnet-4-20250514-v1:0", "bedrock/anthropic.claude-sonnet-4-20250514-v1:0"],
@@ -136,7 +143,7 @@ class ModelRegistry:
         ))
         
         self.register(Model(
-            id="anthropic/claude-3-7-sonnet-latest" if is_local else "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+            id="anthropic/claude-3-7-sonnet-latest" if use_anthropic_direct else "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
             name="Sonnet 3.7",
             provider=ModelProvider.ANTHROPIC,
             aliases=["claude-3.7", "Claude 3.7 Sonnet", "claude-3-7-sonnet-latest", "arn:aws:bedrock:us-west-2:935064898258:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0", "bedrock/anthropic.claude-3-7-sonnet-20250219-v1:0"],
