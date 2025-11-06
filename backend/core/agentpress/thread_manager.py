@@ -290,7 +290,35 @@ class ThreadManager:
                     
                     messages.append(content)
 
-            return messages
+            # Deduplicate tool results - keep only the last result for each tool_call_id
+            # This prevents "Found multiple tool_result blocks with same id" errors
+            seen_tool_call_ids = {}
+            deduplicated_messages = []
+            
+            for idx, msg in enumerate(messages):
+                # Check if this is a tool result message
+                if isinstance(msg, dict) and msg.get('role') == 'tool' and 'tool_call_id' in msg:
+                    tool_call_id = msg['tool_call_id']
+                    # Track the index of this tool result
+                    if tool_call_id in seen_tool_call_ids:
+                        # Mark the previous one for removal (we keep the latest)
+                        logger.warning(f"Found duplicate tool result for tool_call_id={tool_call_id}, will keep only the latest one")
+                    seen_tool_call_ids[tool_call_id] = idx
+            
+            # Build the final list, excluding duplicates
+            for idx, msg in enumerate(messages):
+                is_duplicate = False
+                if isinstance(msg, dict) and msg.get('role') == 'tool' and 'tool_call_id' in msg:
+                    tool_call_id = msg['tool_call_id']
+                    # Only include this tool result if it's the latest one we saw
+                    if seen_tool_call_ids[tool_call_id] != idx:
+                        is_duplicate = True
+                        logger.debug(f"Skipping duplicate tool result for tool_call_id={tool_call_id}")
+                
+                if not is_duplicate:
+                    deduplicated_messages.append(msg)
+            
+            return deduplicated_messages
 
         except Exception as e:
             logger.error(f"Failed to get messages for thread {thread_id}: {str(e)}", exc_info=True)

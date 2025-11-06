@@ -480,10 +480,12 @@ class ResponseProcessor:
                                 tool_calls_buffer[idx]['function']['name'] and
                                 tool_calls_buffer[idx]['function']['arguments']):
                                 try:
-                                    safe_json_parse(tool_calls_buffer[idx]['function']['arguments'])
+                                    # Use json.loads for validation - it raises exceptions for incomplete JSON
+                                    # safe_json_parse doesn't raise exceptions, so it can't detect incomplete JSON
+                                    json.loads(tool_calls_buffer[idx]['function']['arguments'])
                                     has_complete_tool_call = True
                                     logger.debug(f"✅ Complete native tool call detected: {tool_calls_buffer[idx]['function']['name']}")
-                                except json.JSONDecodeError: 
+                                except (json.JSONDecodeError, ValueError): 
                                     logger.debug(f"⏳ Tool call arguments still incomplete for {tool_calls_buffer[idx]['function']['name']}")
                                     pass
 
