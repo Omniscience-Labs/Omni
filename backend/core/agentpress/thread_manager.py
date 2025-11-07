@@ -295,14 +295,25 @@ class ThreadManager:
             # First pass: collect valid tool_call_ids from assistant messages
             # Messages are always stored in OpenAI format (tool_calls at top level)
             valid_tool_call_ids = set()
+            assistant_messages_with_tools = 0
+            assistant_messages_total = 0
             for msg in messages:
                 if isinstance(msg, dict) and msg.get('role') == 'assistant':
+                    assistant_messages_total += 1
                     # OpenAI format: tool_calls at top level
                     # (Messages are always stored in OpenAI format in the database)
-                    if msg.get('tool_calls'):
-                        for tool_call in msg['tool_calls']:
-                            if 'id' in tool_call:
-                                valid_tool_call_ids.add(tool_call['id'])
+                    tool_calls = msg.get('tool_calls')
+                    if tool_calls:
+                        assistant_messages_with_tools += 1
+                        if isinstance(tool_calls, list):
+                            for tool_call in tool_calls:
+                                if isinstance(tool_call, dict) and 'id' in tool_call:
+                                    valid_tool_call_ids.add(tool_call['id'])
+                                    logger.debug(f"✅ Found tool_call_id={tool_call['id']} for tool={tool_call.get('function', {}).get('name', 'unknown')}")
+                        else:
+                            logger.warning(f"⚠️ Assistant message has tool_calls but it's not a list: {type(tool_calls)}")
+                    
+            logger.info(f"📊 Deduplication: {len(valid_tool_call_ids)} valid tool_call_ids from {assistant_messages_with_tools}/{assistant_messages_total} assistant messages")
             
             # Second pass: deduplicate tool results, keeping only latest valid ones
             seen_tool_call_ids = {}  # Maps tool_call_id -> latest message index
