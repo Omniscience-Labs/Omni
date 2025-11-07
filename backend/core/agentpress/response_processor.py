@@ -654,18 +654,35 @@ class ResponseProcessor:
 
             # Fix: Extract content from final response if not accumulated during streaming
             # This happens when LLM sends content + tool_calls - content might only be in final response
+            logger.debug(f"🔍 Checking content extraction: accumulated_content={bool(accumulated_content)} (len={len(accumulated_content)}), final_llm_response={final_llm_response is not None}")
             if not accumulated_content and final_llm_response:
                 try:
+                    logger.debug(f"🔍 Attempting content extraction from final_llm_response type: {type(final_llm_response)}")
+                    logger.debug(f"🔍 Has choices: {hasattr(final_llm_response, 'choices')}, choices value: {getattr(final_llm_response, 'choices', None)}")
                     if hasattr(final_llm_response, 'choices') and final_llm_response.choices:
                         first_choice = final_llm_response.choices[0]
+                        logger.debug(f"🔍 First choice type: {type(first_choice)}, has message: {hasattr(first_choice, 'message')}, has delta: {hasattr(first_choice, 'delta')}")
                         if hasattr(first_choice, 'message') and hasattr(first_choice.message, 'content'):
                             extracted_content = first_choice.message.content
+                            logger.debug(f"🔍 Extracted from message.content: {extracted_content}")
                             if extracted_content:
                                 accumulated_content = extracted_content
                                 logger.info(f"📝 Extracted content from final response: {len(accumulated_content)} chars")
                                 self.trace.event(name="extracted_content_from_final_response", level="DEFAULT", status_message=(f"Extracted content from final response: {len(accumulated_content)} chars"))
+                        elif hasattr(first_choice, 'delta') and hasattr(first_choice.delta, 'content'):
+                            extracted_content = first_choice.delta.content
+                            logger.debug(f"🔍 Extracted from delta.content: {extracted_content}")
+                            if extracted_content:
+                                accumulated_content = extracted_content
+                                logger.info(f"📝 Extracted content from final response delta: {len(accumulated_content)} chars")
+                        else:
+                            logger.warning(f"🔍 first_choice has neither message.content nor delta.content")
+                    else:
+                        logger.warning(f"🔍 final_llm_response has no choices or choices is empty")
                 except Exception as e:
                     logger.warning(f"Failed to extract content from final response: {e}")
+                    import traceback
+                    logger.warning(f"Traceback: {traceback.format_exc()}")
 
             should_auto_continue = (can_auto_continue and finish_reason == 'length')
 
