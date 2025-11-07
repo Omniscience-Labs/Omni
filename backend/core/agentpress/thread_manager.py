@@ -291,63 +291,34 @@ class ThreadManager:
                     
                     messages.append(content)
 
-            # Clean up tool results to prevent orphans and duplicates
-            # First pass: collect valid tool_call_ids from assistant messages
-            # Messages are always stored in OpenAI format (tool_calls at top level)
-            valid_tool_call_ids = set()
-            assistant_messages_with_tools = 0
-            assistant_messages_total = 0
-            for msg in messages:
-                if isinstance(msg, dict) and msg.get('role') == 'assistant':
-                    assistant_messages_total += 1
-                    # OpenAI format: tool_calls at top level
-                    # (Messages are always stored in OpenAI format in the database)
-                    tool_calls = msg.get('tool_calls')
-                    if tool_calls:
-                        assistant_messages_with_tools += 1
-                        if isinstance(tool_calls, list):
-                            for tool_call in tool_calls:
-                                if isinstance(tool_call, dict) and 'id' in tool_call:
-                                    valid_tool_call_ids.add(tool_call['id'])
-                                    logger.debug(f"✅ Found tool_call_id={tool_call['id']} for tool={tool_call.get('function', {}).get('name', 'unknown')}")
-                        else:
-                            logger.warning(f"⚠️ Assistant message has tool_calls but it's not a list: {type(tool_calls)}")
-                    
-            logger.info(f"📊 Deduplication: {len(valid_tool_call_ids)} valid tool_call_ids from {assistant_messages_with_tools}/{assistant_messages_total} assistant messages")
-            
-            # Second pass: deduplicate tool results, keeping only latest valid ones
-            seen_tool_call_ids = {}  # Maps tool_call_id -> latest message index
-            
-            for idx, msg in enumerate(messages):
-                if isinstance(msg, dict) and msg.get('role') == 'tool' and 'tool_call_id' in msg:
-                    tool_call_id = msg['tool_call_id']
-                    
-                    # Only track this if it's valid (has a matching tool_use)
-                    if tool_call_id in valid_tool_call_ids:
-                        if tool_call_id in seen_tool_call_ids:
-                            logger.warning(f"Found duplicate tool result for tool_call_id={tool_call_id}, will keep only the latest one")
-                        seen_tool_call_ids[tool_call_id] = idx
-                    else:
-                        logger.warning(f"Found orphaned tool result with tool_call_id={tool_call_id}, will remove it")
-            
-            # Third pass: build final message list
+            # Deduplicate tool results - keep only the last result for each tool_call_id
+            # This prevents "Found multiple tool_result blocks with same id" errors
+            # Uses permissive approach: doesn't validate against assistant messages
+            # This works even when assistant messages aren't saved (e.g., empty content from Anthropic)
+            seen_tool_call_ids = {}
             deduplicated_messages = []
+            
             for idx, msg in enumerate(messages):
-                should_skip = False
-                
+                # Check if this is a tool result message
                 if isinstance(msg, dict) and msg.get('role') == 'tool' and 'tool_call_id' in msg:
                     tool_call_id = msg['tool_call_id']
-                    
-                    # Skip if orphaned (no matching tool_use)
-                    if tool_call_id not in valid_tool_call_ids:
-                        should_skip = True
-                        logger.debug(f"Removing orphaned tool result for tool_call_id={tool_call_id}")
-                    # Skip if duplicate (not the latest)
-                    elif seen_tool_call_ids.get(tool_call_id) != idx:
-                        should_skip = True
-                        logger.debug(f"Removing duplicate tool result for tool_call_id={tool_call_id}")
+                    # Track the index of this tool result
+                    if tool_call_id in seen_tool_call_ids:
+                        # Mark the previous one for removal (we keep the latest)
+                        logger.warning(f"Found duplicate tool result for tool_call_id={tool_call_id}, will keep only the latest one")
+                    seen_tool_call_ids[tool_call_id] = idx
+            
+            # Build the final list, excluding duplicates
+            for idx, msg in enumerate(messages):
+                is_duplicate = False
+                if isinstance(msg, dict) and msg.get('role') == 'tool' and 'tool_call_id' in msg:
+                    tool_call_id = msg['tool_call_id']
+                    # Only include this tool result if it's the latest one we saw
+                    if seen_tool_call_ids[tool_call_id] != idx:
+                        is_duplicate = True
+                        logger.debug(f"Skipping duplicate tool result for tool_call_id={tool_call_id}")
                 
-                if not should_skip:
+                if not is_duplicate:
                     deduplicated_messages.append(msg)
             
             return deduplicated_messages
