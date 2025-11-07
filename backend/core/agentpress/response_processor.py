@@ -236,6 +236,7 @@ class ResponseProcessor:
         continuous_state: Optional[Dict[str, Any]] = None,
         generation = None,
         estimated_total_tokens: Optional[int] = None,
+        cancellation_event: Optional[asyncio.Event] = None,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """Process a streaming LLM response, handling tool calls and execution.
         
@@ -253,6 +254,10 @@ class ResponseProcessor:
             Complete message objects matching the DB schema, except for content chunks.
         """
         logger.info(f"Starting streaming response processing for thread {thread_id}")
+        
+        # Initialize cancellation event if not provided
+        if cancellation_event is None:
+            cancellation_event = asyncio.Event()
         
         # Initialize from continuous state if provided (for auto-continue)
         continuous_state = continuous_state or {}
