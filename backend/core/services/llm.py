@@ -179,54 +179,14 @@ def _configure_token_limits(params: Dict[str, Any], model_name: str, max_tokens:
     params[param_name] = max_tokens
     # logger.debug(f"Set {param_name}={max_tokens} for model: {model_name}")
 
-def _convert_tool_messages_for_anthropic(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    Convert OpenAI-format tool messages to Anthropic format.
-    
-    Anthropic expects tool results in a user message with tool_result blocks,
-    not as separate tool-role messages. This is needed when using Anthropic API directly
-    (not through Bedrock, which handles conversion automatically).
-    """
-    converted_messages = []
-    i = 0
-    
-    while i < len(messages):
-        msg = messages[i]
-        
-        # If this is a tool message (OpenAI format), convert it
-        if isinstance(msg, dict) and msg.get('role') == 'tool':
-            # Collect consecutive tool messages
-            tool_results = []
-            while i < len(messages) and isinstance(messages[i], dict) and messages[i].get('role') == 'tool':
-                tool_msg = messages[i]
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": tool_msg.get('tool_call_id'),
-                    "content": tool_msg.get('content', '')
-                })
-                i += 1
-            
-            # Create a user message with tool_result blocks
-            converted_messages.append({
-                "role": "user",
-                "content": tool_results
-            })
-        else:
-            # Keep other messages as-is
-            converted_messages.append(msg)
-            i += 1
-    
-    return converted_messages
-
 def _configure_anthropic(params: Dict[str, Any], model_name: str, messages: List[Dict[str, Any]]) -> None:
     """Configure Anthropic-specific parameters."""
     if not ("claude" in model_name.lower() or "anthropic" in model_name.lower()):
         return
     
-    # Only convert tool messages if NOT using Bedrock (Bedrock handles conversion automatically)
-    if not params.get("model", "").startswith("bedrock/"):
-        params["messages"] = _convert_tool_messages_for_anthropic(messages)
-        logger.debug("Converted tool messages from OpenAI format to Anthropic format (direct API)")
+    # Note: LiteLLM automatically handles OpenAI → Anthropic format conversion
+    # when using anthropic/ prefix, so we don't need manual conversion here.
+    # Only Bedrock or direct Anthropic SDK usage would need special handling.
     
     # Include prompt caching and context-1m beta features
     params["extra_headers"] = {
