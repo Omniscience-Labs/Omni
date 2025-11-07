@@ -652,6 +652,21 @@ class ResponseProcessor:
                 logger.debug(f"Stream finished with reason: xml_tool_limit_reached after {xml_tool_call_count} XML tool calls")
                 self.trace.event(name="stream_finished_with_reason_xml_tool_limit_reached_after_xml_tool_calls", level="DEFAULT", status_message=(f"Stream finished with reason: xml_tool_limit_reached after {xml_tool_call_count} XML tool calls"))
 
+            # Fix: Extract content from final response if not accumulated during streaming
+            # This happens when LLM sends content + tool_calls - content might only be in final response
+            if not accumulated_content and final_llm_response:
+                try:
+                    if hasattr(final_llm_response, 'choices') and final_llm_response.choices:
+                        first_choice = final_llm_response.choices[0]
+                        if hasattr(first_choice, 'message') and hasattr(first_choice.message, 'content'):
+                            extracted_content = first_choice.message.content
+                            if extracted_content:
+                                accumulated_content = extracted_content
+                                logger.info(f"📝 Extracted content from final response: {len(accumulated_content)} chars")
+                                self.trace.event(name="extracted_content_from_final_response", level="DEFAULT", status_message=(f"Extracted content from final response: {len(accumulated_content)} chars"))
+                except Exception as e:
+                    logger.warning(f"Failed to extract content from final response: {e}")
+
             should_auto_continue = (can_auto_continue and finish_reason == 'length')
 
             if accumulated_content and not should_auto_continue:
