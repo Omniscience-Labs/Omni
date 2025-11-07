@@ -293,12 +293,22 @@ class ThreadManager:
 
             # Clean up tool results to prevent orphans and duplicates
             # First pass: collect valid tool_call_ids from assistant messages
+            # Support both OpenAI format (tool_calls) and Anthropic format (content with tool_use)
             valid_tool_call_ids = set()
             for msg in messages:
-                if isinstance(msg, dict) and msg.get('role') == 'assistant' and msg.get('tool_calls'):
-                    for tool_call in msg['tool_calls']:
-                        if 'id' in tool_call:
-                            valid_tool_call_ids.add(tool_call['id'])
+                if isinstance(msg, dict) and msg.get('role') == 'assistant':
+                    # OpenAI format: tool_calls at top level
+                    if msg.get('tool_calls'):
+                        for tool_call in msg['tool_calls']:
+                            if 'id' in tool_call:
+                                valid_tool_call_ids.add(tool_call['id'])
+                    
+                    # Anthropic format: content is a list with tool_use blocks
+                    content = msg.get('content')
+                    if isinstance(content, list):
+                        for block in content:
+                            if isinstance(block, dict) and block.get('type') == 'tool_use' and 'id' in block:
+                                valid_tool_call_ids.add(block['id'])
             
             # Second pass: deduplicate tool results, keeping only latest valid ones
             seen_tool_call_ids = {}  # Maps tool_call_id -> latest message index

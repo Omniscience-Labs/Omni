@@ -438,7 +438,6 @@ class ResponseProcessor:
 
                     # --- Process Native Tool Call Chunks ---
                     if config.native_tool_calling and delta and hasattr(delta, 'tool_calls') and delta.tool_calls:
-                        logger.debug(f"🔧 [NATIVE_TOOLS] Detected {len(delta.tool_calls)} tool call chunks")
                         for tool_call_chunk in delta.tool_calls:
                             # Yield Native Tool Call Chunk (transient status, not saved)
                             # ... (safe extraction logic for tool_call_data_chunk) ...
