@@ -203,6 +203,36 @@ export function AgentModelSelector({
       });
     }
 
+    // Final check: Always ensure Haiku 4.5 is present in staging/local
+    const isStagingOrLocal = typeof window !== 'undefined' && (
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
+    );
+    
+    if (isStagingOrLocal) {
+      const finalModels = Array.from(modelMap.values());
+      const hasHaiku = finalModels.some(m => 
+        m.id === 'claude-haiku-4.5' || 
+        m.id === 'anthropic/claude-haiku-4-5' ||
+        m.label === 'Omni Quick 4.5'
+      );
+      
+      if (!hasHaiku) {
+        console.log('🔧 [AgentModelSelector] Force-adding Haiku 4.5 as final fallback');
+        modelMap.set('anthropic/claude-haiku-4-5', {
+          id: 'claude-haiku-4.5',
+          label: 'Omni Quick 4.5',
+          requiresSubscription: false,
+          priority: 102,
+          recommended: false,
+          top: true,
+          capabilities: ['CHAT', 'FUNCTION_CALLING', 'VISION'],
+          contextWindow: 200000,
+          isCustom: false
+        });
+      }
+    }
+
     return Array.from(modelMap.values());
   }, [modelsData?.models, allModels, customModels]);
   

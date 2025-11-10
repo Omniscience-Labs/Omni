@@ -30,8 +30,13 @@ export const useModelStore = create<ModelStore>()(
 
 // Utility functions for compatibility
 export const formatModelName = (name: string): string => {
-  // Special case for Haiku 4.5 to display as "Omni 4.5"
+  // Special case for Haiku 4.5 to display as "Omni Quick 4.5"
   if (name === 'Haiku 4.5' || name === 'Claude Haiku 4.5' || name === 'claude-haiku-4.5' || name === 'anthropic/claude-haiku-4-5') {
+    return 'Omni Quick 4.5';
+  }
+  
+  // Special case for Sonnet 4 to display as "Omni 4.5"
+  if (name === 'Claude Sonnet 4' || name === 'claude-sonnet-4' || name === 'anthropic/claude-sonnet-4-20250514') {
     return 'Omni 4.5';
   }
   
