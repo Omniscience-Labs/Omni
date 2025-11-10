@@ -744,6 +744,12 @@ async def get_available_models(
             env_name = "Local Development" if config.ENV_MODE == EnvMode.LOCAL else "Staging"
             logger.debug(f"Running in {env_name.lower()} mode - all models available")
             all_models = model_manager.list_available_models(include_disabled=False)
+            logger.debug(f"🔍 [AVAILABLE_MODELS] Found {len(all_models)} models in {env_name.lower()} mode")
+            
+            # Debug: Log all model IDs and names
+            for model_data in all_models:
+                logger.debug(f"🔍 [AVAILABLE_MODELS] Model: id={model_data.get('id')}, name={model_data.get('name')}, aliases={model_data.get('aliases')}")
+            
             model_info = []
             
             for model_data in all_models:
@@ -759,6 +765,8 @@ async def get_available_models(
                     "recommended": model_data["recommended"],
                     "priority": model_data["priority"]
                 })
+            
+            logger.debug(f"🔍 [AVAILABLE_MODELS] Returning {len(model_info)} models: {[m['display_name'] for m in model_info]}")
             
             return {
                 "models": model_info,
