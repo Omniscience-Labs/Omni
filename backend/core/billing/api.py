@@ -768,6 +768,13 @@ async def get_available_models(
             
             logger.debug(f"🔍 [AVAILABLE_MODELS] Returning {len(model_info)} models: {[m['display_name'] for m in model_info]}")
             
+            # Check specifically for Haiku 4.5
+            haiku_models = [m for m in model_info if 'haiku' in m['id'].lower() or 'haiku' in m['display_name'].lower()]
+            if haiku_models:
+                logger.info(f"✅ [AVAILABLE_MODELS] Haiku 4.5 FOUND in response: {haiku_models}")
+            else:
+                logger.warning(f"❌ [AVAILABLE_MODELS] Haiku 4.5 NOT FOUND in response! All model IDs: {[m['id'] for m in model_info]}")
+            
             return {
                 "models": model_info,
                 "subscription_tier": env_name,
