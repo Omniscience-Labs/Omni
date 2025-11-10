@@ -292,6 +292,19 @@ class ThreadManager:
         else:
             logger.error(f"Invalid processor_config type: {type(processor_config)}, creating default")
             config = ProcessorConfig()
+        
+        # Auto-enable native tool calling for models with FUNCTION_CALLING capability
+        # This ensures Haiku 4.5 and other models with function calling get native tool support
+        try:
+            from core.ai_models import model_manager
+            from core.ai_models.ai_models import ModelCapability
+            model = model_manager.get_model(llm_model)
+            if model and ModelCapability.FUNCTION_CALLING in model.capabilities:
+                if not config.native_tool_calling:
+                    logger.debug(f"🔧 Auto-enabling native tool calling for {llm_model} (has FUNCTION_CALLING capability)")
+                    config.native_tool_calling = True
+        except Exception as e:
+            logger.debug(f"Could not check model capabilities for {llm_model}: {e}")
             
         if max_xml_tool_calls > 0 and not config.max_xml_tool_calls:
             config.max_xml_tool_calls = max_xml_tool_calls
