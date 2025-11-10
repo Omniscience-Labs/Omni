@@ -48,7 +48,7 @@ class ModelRegistry:
                 input_cost_per_million_tokens=1.00,
                 output_cost_per_million_tokens=5.00
             ),
-            tier_availability=["paid"],
+            tier_availability=["free", "paid"],
             priority=102,
             recommended=True,
             enabled=True

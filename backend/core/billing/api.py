@@ -740,8 +740,9 @@ async def get_available_models(
         from core.services.supabase import DBConnection
         # Use the implemented get_allowed_models_for_user function
         
-        if config.ENV_MODE == EnvMode.LOCAL:
-            logger.debug("Running in local development mode - all models available")
+        if config.ENV_MODE == EnvMode.LOCAL or config.ENV_MODE == EnvMode.STAGING:
+            env_name = "Local Development" if config.ENV_MODE == EnvMode.LOCAL else "Staging"
+            logger.debug(f"Running in {env_name.lower()} mode - all models available")
             all_models = model_manager.list_available_models(include_disabled=False)
             model_info = []
             
@@ -761,7 +762,7 @@ async def get_available_models(
             
             return {
                 "models": model_info,
-                "subscription_tier": "Local Development",
+                "subscription_tier": env_name,
                 "total_models": len(model_info)
             }
         
