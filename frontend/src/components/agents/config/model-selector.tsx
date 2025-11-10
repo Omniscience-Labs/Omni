@@ -79,28 +79,18 @@ export function AgentModelSelector({
     const modelMap = new Map();
 
     if (modelsData?.models) {
-      // Debug: Log all models from API
-      console.log('🔍 [AgentModelSelector] All models from API:', modelsData.models.map(m => ({
-        id: m.id,
-        short_name: m.short_name,
-        display_name: m.display_name,
-        requires_subscription: m.requires_subscription
-      })));
-      
       modelsData.models.forEach(model => {
-        const shortName = model.short_name || model.id;
-        let displayName = model.display_name || shortName;
+        let displayName = model.display_name || model.short_name || model.id;
         
-        // Transform Haiku 4.5 to Omni Quick 4.5
-        if (displayName === 'Haiku 4.5' || displayName === 'Claude Haiku 4.5' || displayName === 'claude-haiku-4.5' || 
-            shortName === 'claude-haiku-4.5' || model.id === 'anthropic/claude-haiku-4-5') {
+        // Transform model display names
+        if (displayName === 'Haiku 4.5' || displayName === 'Claude Haiku 4.5') {
           displayName = 'Omni Quick 4.5';
+        } else if (displayName === 'Claude Sonnet 4') {
+          displayName = 'Omni 4.5';
         }
         
-        // Use model.id as key to ensure uniqueness (not shortName which might collide)
-        const mapKey = model.id || shortName;
-        modelMap.set(mapKey, {
-          id: shortName,
+        modelMap.set(model.id, {
+          id: model.id, // Use actual model ID for uniqueness
           label: displayName,
           requiresSubscription: model.requires_subscription || false,
           priority: model.priority || 0,
@@ -111,76 +101,15 @@ export function AgentModelSelector({
           isCustom: false
         });
       });
-      
-      // Debug: Log final model map with subscription status
-      const finalModels = Array.from(modelMap.values());
-      console.log('🔍 [AgentModelSelector] Final model map:', finalModels.map(m => ({
-        id: m.id,
-        label: m.label,
-        requiresSubscription: m.requiresSubscription,
-        priority: m.priority
-      })));
-      
-      // Check specifically for Haiku 4.5
-      const haikuModel = finalModels.find(m => m.id === 'claude-haiku-4.5' || m.id === 'anthropic/claude-haiku-4-5');
-      if (haikuModel) {
-        console.log('✅ [AgentModelSelector] Haiku 4.5 FOUND in model map:', haikuModel);
-      } else {
-        console.warn('❌ [AgentModelSelector] Haiku 4.5 NOT FOUND in model map!');
-        
-        // Fallback: Add Haiku 4.5 manually if missing (for staging/local)
-        const isStagingOrLocal = typeof window !== 'undefined' && (
-          process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
-          process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
-        );
-        
-        if (isStagingOrLocal) {
-          console.log('🔧 [AgentModelSelector] Adding Haiku 4.5 as fallback for staging/local');
-          modelMap.set('anthropic/claude-haiku-4-5', {
-            id: 'claude-haiku-4.5',
-            label: 'Omni Quick 4.5',
-            requiresSubscription: false,
-            priority: 102,
-            recommended: false,
-            top: true,
-            capabilities: ['CHAT', 'FUNCTION_CALLING', 'VISION'],
-            contextWindow: 200000,
-            isCustom: false
-          });
-        }
-      }
     } else {
       // Fallback to allModels if API data not available
       allModels.forEach(model => {
         modelMap.set(model.id, {
           ...model,
+          recommended: false,
           isCustom: false
         });
       });
-      
-      // Also add Haiku 4.5 as fallback if not in allModels
-      const hasHaiku = Array.from(modelMap.values()).some(m => 
-        m.id === 'claude-haiku-4.5' || m.id === 'anthropic/claude-haiku-4-5'
-      );
-      if (!hasHaiku) {
-        const isStagingOrLocal = typeof window !== 'undefined' && (
-          process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
-          process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
-        );
-        if (isStagingOrLocal) {
-          modelMap.set('anthropic/claude-haiku-4-5', {
-            id: 'claude-haiku-4.5',
-            label: 'Omni Quick 4.5',
-            requiresSubscription: false,
-            priority: 102,
-            recommended: false,
-            top: true,
-            capabilities: ['CHAT', 'FUNCTION_CALLING', 'VISION'],
-            contextWindow: 200000,
-            isCustom: false
-          });
-        }
-      }
     }
 
     if (isLocalMode()) {
@@ -201,36 +130,6 @@ export function AgentModelSelector({
           });
         }
       });
-    }
-
-    // Final check: Always ensure Haiku 4.5 is present in staging/local
-    const isStagingOrLocal = typeof window !== 'undefined' && (
-      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
-      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
-    );
-    
-    if (isStagingOrLocal) {
-      const finalModels = Array.from(modelMap.values());
-      const hasHaiku = finalModels.some(m => 
-        m.id === 'claude-haiku-4.5' || 
-        m.id === 'anthropic/claude-haiku-4-5' ||
-        m.label === 'Omni Quick 4.5'
-      );
-      
-      if (!hasHaiku) {
-        console.log('🔧 [AgentModelSelector] Force-adding Haiku 4.5 as final fallback');
-        modelMap.set('anthropic/claude-haiku-4-5', {
-          id: 'claude-haiku-4.5',
-          label: 'Omni Quick 4.5',
-          requiresSubscription: false,
-          priority: 102,
-          recommended: false,
-          top: true,
-          capabilities: ['CHAT', 'FUNCTION_CALLING', 'VISION'],
-          contextWindow: 200000,
-          isCustom: false
-        });
-      }
     }
 
     return Array.from(modelMap.values());
