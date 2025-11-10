@@ -83,7 +83,8 @@ export function AgentModelSelector({
       console.log('🔍 [AgentModelSelector] All models from API:', modelsData.models.map(m => ({
         id: m.id,
         short_name: m.short_name,
-        display_name: m.display_name
+        display_name: m.display_name,
+        requires_subscription: m.requires_subscription
       })));
       
       modelsData.models.forEach(model => {
@@ -111,11 +112,43 @@ export function AgentModelSelector({
         });
       });
       
-      // Debug: Log final model map
-      console.log('🔍 [AgentModelSelector] Final model map:', Array.from(modelMap.values()).map(m => ({
+      // Debug: Log final model map with subscription status
+      const finalModels = Array.from(modelMap.values());
+      console.log('🔍 [AgentModelSelector] Final model map:', finalModels.map(m => ({
         id: m.id,
-        label: m.label
+        label: m.label,
+        requiresSubscription: m.requiresSubscription,
+        priority: m.priority
       })));
+      
+      // Check specifically for Haiku 4.5
+      const haikuModel = finalModels.find(m => m.id === 'claude-haiku-4.5' || m.id === 'anthropic/claude-haiku-4-5');
+      if (haikuModel) {
+        console.log('✅ [AgentModelSelector] Haiku 4.5 FOUND in model map:', haikuModel);
+      } else {
+        console.warn('❌ [AgentModelSelector] Haiku 4.5 NOT FOUND in model map!');
+        
+        // Fallback: Add Haiku 4.5 manually if missing (for staging/local)
+        const isStagingOrLocal = typeof window !== 'undefined' && (
+          process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
+          process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
+        );
+        
+        if (isStagingOrLocal) {
+          console.log('🔧 [AgentModelSelector] Adding Haiku 4.5 as fallback for staging/local');
+          modelMap.set('anthropic/claude-haiku-4-5', {
+            id: 'claude-haiku-4.5',
+            label: 'Omni Quick 4.5',
+            requiresSubscription: false,
+            priority: 102,
+            recommended: false,
+            top: true,
+            capabilities: ['CHAT', 'FUNCTION_CALLING', 'VISION'],
+            contextWindow: 200000,
+            isCustom: false
+          });
+        }
+      }
     } else {
       // Fallback to allModels if API data not available
       allModels.forEach(model => {
@@ -124,6 +157,30 @@ export function AgentModelSelector({
           isCustom: false
         });
       });
+      
+      // Also add Haiku 4.5 as fallback if not in allModels
+      const hasHaiku = Array.from(modelMap.values()).some(m => 
+        m.id === 'claude-haiku-4.5' || m.id === 'anthropic/claude-haiku-4-5'
+      );
+      if (!hasHaiku) {
+        const isStagingOrLocal = typeof window !== 'undefined' && (
+          process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
+          process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
+        );
+        if (isStagingOrLocal) {
+          modelMap.set('anthropic/claude-haiku-4-5', {
+            id: 'claude-haiku-4.5',
+            label: 'Omni Quick 4.5',
+            requiresSubscription: false,
+            priority: 102,
+            recommended: false,
+            top: true,
+            capabilities: ['CHAT', 'FUNCTION_CALLING', 'VISION'],
+            contextWindow: 200000,
+            isCustom: false
+          });
+        }
+      }
     }
 
     if (isLocalMode()) {
@@ -172,6 +229,15 @@ export function AgentModelSelector({
 
   const freeModels = sortedModels.filter(m => !m.requiresSubscription);
   const premiumModels = sortedModels.filter(m => m.requiresSubscription);
+
+  // Debug: Log filtered models
+  useEffect(() => {
+    if (isOpen) {
+      console.log('🔍 [AgentModelSelector] Popup opened - Free models:', freeModels.map(m => ({ id: m.id, label: m.label })));
+      console.log('🔍 [AgentModelSelector] Popup opened - Premium models:', premiumModels.map(m => ({ id: m.id, label: m.label })));
+      console.log('🔍 [AgentModelSelector] Popup opened - All sorted models:', sortedModels.map(m => ({ id: m.id, label: m.label })));
+    }
+  }, [isOpen, freeModels, premiumModels, sortedModels]);
 
   const shouldDisplayAll = !isLocalMode() && premiumModels.length > 0;
 
