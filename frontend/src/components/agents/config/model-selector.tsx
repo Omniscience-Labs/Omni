@@ -79,6 +79,14 @@ export function AgentModelSelector({
     const modelMap = new Map();
 
     if (modelsData?.models) {
+      // Debug: Log raw API response
+      console.log('🔍 [AgentModelSelector] Raw API response - Total models:', modelsData.models.length);
+      console.log('🔍 [AgentModelSelector] Raw models:', modelsData.models.map(m => ({ 
+        id: m.id, 
+        display_name: m.display_name,
+        short_name: m.short_name 
+      })));
+      
       modelsData.models.forEach(model => {
         let displayName = model.display_name || model.short_name || model.id;
         
@@ -101,6 +109,8 @@ export function AgentModelSelector({
           isCustom: false
         });
       });
+      
+      console.log('🔍 [AgentModelSelector] Final modelMap size:', modelMap.size);
     } else {
       // Fallback to allModels if API data not available
       allModels.forEach(model => {
