@@ -110,6 +110,16 @@ export const useModelSelection = () => {
       return availableModels; // All models accessible in enterprise mode
     }
     
+    // In staging/local environments, all models are accessible (matching backend behavior)
+    const isStagingOrLocal = typeof window !== 'undefined' && (
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
+    );
+    
+    if (isStagingOrLocal) {
+      return availableModels; // All models accessible in staging/local
+    }
+    
     const hasActiveSubscription = subscriptionData?.status === 'active' || subscriptionData?.status === 'trialing';
     return availableModels.filter(model => hasActiveSubscription || !model.requiresSubscription);
   }, [availableModels, subscriptionData]);
