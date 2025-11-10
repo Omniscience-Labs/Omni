@@ -259,6 +259,22 @@ class ThreadManager:
             logger.error(f"Failed to get messages for thread {thread_id}: {str(e)}", exc_info=True)
             return []
     
+    def _serialize_tool_call_arguments(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Serialize tool call arguments from dict to JSON string for API compatibility.
+        
+        This fixes messages stored with native tool calling format (dict arguments)
+        so they can be sent to Anthropic's API which expects JSON strings.
+        """
+        for message in messages:
+            if message.get('role') == 'assistant' and message.get('tool_calls'):
+                for tool_call in message['tool_calls']:
+                    if tool_call.get('function') and isinstance(tool_call['function'].get('arguments'), dict):
+                        # Convert dict to JSON string
+                        tool_call['function']['arguments'] = json.dumps(tool_call['function']['arguments'])
+                        logger.debug(f"🔧 Serialized tool call arguments for {tool_call['function'].get('name')}")
+        return messages
+    
     async def run_thread(
         self,
         thread_id: str,
@@ -343,6 +359,9 @@ class ThreadManager:
         try:
             # Get and prepare messages
             messages = await self.get_llm_messages(thread_id)
+            
+            # Serialize tool call arguments (convert dict to JSON string for API compatibility)
+            messages = self._serialize_tool_call_arguments(messages)
             
             # Handle auto-continue context
             if auto_continue_state['count'] > 0 and auto_continue_state['continuous_state'].get('accumulated_content'):
