@@ -81,7 +81,13 @@ export function AgentModelSelector({
     if (modelsData?.models) {
       modelsData.models.forEach(model => {
         const shortName = model.short_name || model.id;
-        const displayName = model.display_name || shortName;
+        let displayName = model.display_name || shortName;
+        
+        // Transform Haiku 4.5 to Omni 4.5 (matching use-model-selection.ts)
+        if (displayName === 'Haiku 4.5' || displayName === 'Claude Haiku 4.5' || displayName === 'claude-haiku-4.5' || 
+            shortName === 'claude-haiku-4.5' || model.id === 'anthropic/claude-haiku-4-5') {
+          displayName = 'Omni 4.5';
+        }
         
         modelMap.set(shortName, {
           id: shortName,
