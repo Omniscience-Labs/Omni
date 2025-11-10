@@ -58,7 +58,7 @@ export const useModelSelection = () => {
       models = [
         { 
           id: 'claude-haiku-4.5', 
-          label: 'Omni 4.5', 
+          label: 'Omni Quick 4.5', 
           requiresSubscription: false,
           priority: 102,
           recommended: true
@@ -74,10 +74,10 @@ export const useModelSelection = () => {
         .map(model => {
           let label = model.display_name || model.short_name || model.id;
           
-          // Transform Haiku 4.5 to Omni 4.5
+          // Transform Haiku 4.5 to Omni Quick 4.5
           if (label === 'Haiku 4.5' || label === 'Claude Haiku 4.5' || label === 'claude-haiku-4.5' || 
               (model.short_name || model.id) === 'anthropic/claude-haiku-4-5') {
-            label = 'Omni 4.5';
+            label = 'Omni Quick 4.5';
           }
           
           return {
