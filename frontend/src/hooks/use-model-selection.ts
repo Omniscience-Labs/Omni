@@ -107,6 +107,7 @@ export const useModelSelection = () => {
       process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
     
     if (isEnterpriseMode) {
+      console.log('🔧 [useModelSelection] Enterprise mode - all models accessible');
       return availableModels; // All models accessible in enterprise mode
     }
     
@@ -117,10 +118,12 @@ export const useModelSelection = () => {
     );
     
     if (isStagingOrLocal) {
+      console.log('🔧 [useModelSelection] Staging/Local mode - all models accessible');
       return availableModels; // All models accessible in staging/local
     }
     
     const hasActiveSubscription = subscriptionData?.status === 'active' || subscriptionData?.status === 'trialing';
+    console.log('🔧 [useModelSelection] Production mode - hasActiveSubscription:', hasActiveSubscription);
     return availableModels.filter(model => hasActiveSubscription || !model.requiresSubscription);
   }, [availableModels, subscriptionData]);
 
