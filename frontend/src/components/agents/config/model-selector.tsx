@@ -206,7 +206,23 @@ export function AgentModelSelector({
       return;
     }
     
-    const hasAccess = isLocalMode() || canAccessModel(modelId);
+    // Check if enterprise mode or staging/local
+    const isEnterpriseMode = typeof window !== 'undefined' && 
+      process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+    const isStagingOrLocal = typeof window !== 'undefined' && (
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
+    );
+    
+    const hasAccess = isLocalMode() || isEnterpriseMode || isStagingOrLocal || canAccessModel(modelId);
+    
+    console.log('🔧 [AgentModelSelector] handleSelect:', { 
+      modelId, 
+      isEnterpriseMode, 
+      isStagingOrLocal, 
+      hasAccess 
+    });
+    
     if (hasAccess) {
       onChange(modelId);
       setIsOpen(false);
