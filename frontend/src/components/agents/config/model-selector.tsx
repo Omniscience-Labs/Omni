@@ -162,9 +162,15 @@ export function AgentModelSelector({
   // Debug: Log filtered models
   useEffect(() => {
     if (isOpen) {
-      console.log('🔍 [AgentModelSelector] Popup opened - Free models:', freeModels.map(m => ({ id: m.id, label: m.label })));
-      console.log('🔍 [AgentModelSelector] Popup opened - Premium models:', premiumModels.map(m => ({ id: m.id, label: m.label })));
       console.log('🔍 [AgentModelSelector] Popup opened - All sorted models:', sortedModels.map(m => ({ id: m.id, label: m.label })));
+      console.log('🔍 [AgentModelSelector] Free models:', freeModels.length);
+      console.log('🔍 [AgentModelSelector] Premium models:', premiumModels.length);
+      
+      // Check specifically for both Omni models
+      const hasOmniQuick = sortedModels.some(m => m.label === 'Omni Quick 4.5' || m.id.includes('haiku'));
+      const hasOmni = sortedModels.some(m => m.label === 'Omni 4.5' || m.id.includes('sonnet-4'));
+      console.log('✅ [AgentModelSelector] Has Omni Quick 4.5 (Haiku):', hasOmniQuick);
+      console.log('✅ [AgentModelSelector] Has Omni 4.5 (Sonnet):', hasOmni);
     }
   }, [isOpen, freeModels, premiumModels, sortedModels]);
 

@@ -768,12 +768,19 @@ async def get_available_models(
             
             logger.debug(f"🔍 [AVAILABLE_MODELS] Returning {len(model_info)} models: {[m['display_name'] for m in model_info]}")
             
-            # Check specifically for Haiku 4.5
+            # Check specifically for Haiku 4.5 and Sonnet 4
             haiku_models = [m for m in model_info if 'haiku' in m['id'].lower() or 'haiku' in m['display_name'].lower()]
+            sonnet_models = [m for m in model_info if 'sonnet' in m['id'].lower() or 'sonnet' in m['display_name'].lower()]
+            
             if haiku_models:
-                logger.info(f"✅ [AVAILABLE_MODELS] Haiku 4.5 FOUND in response: {haiku_models}")
+                logger.info(f"✅ [AVAILABLE_MODELS] Haiku 4.5 FOUND: {[{'id': m['id'], 'name': m['display_name']} for m in haiku_models]}")
             else:
-                logger.warning(f"❌ [AVAILABLE_MODELS] Haiku 4.5 NOT FOUND in response! All model IDs: {[m['id'] for m in model_info]}")
+                logger.warning(f"❌ [AVAILABLE_MODELS] Haiku 4.5 NOT FOUND!")
+            
+            if sonnet_models:
+                logger.info(f"✅ [AVAILABLE_MODELS] Sonnet 4 FOUND: {[{'id': m['id'], 'name': m['display_name']} for m in sonnet_models]}")
+            else:
+                logger.warning(f"❌ [AVAILABLE_MODELS] Sonnet 4 NOT FOUND!")
             
             return {
                 "models": model_info,
