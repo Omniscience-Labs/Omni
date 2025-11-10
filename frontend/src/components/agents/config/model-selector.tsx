@@ -79,17 +79,26 @@ export function AgentModelSelector({
     const modelMap = new Map();
 
     if (modelsData?.models) {
+      // Debug: Log all models from API
+      console.log('🔍 [AgentModelSelector] All models from API:', modelsData.models.map(m => ({
+        id: m.id,
+        short_name: m.short_name,
+        display_name: m.display_name
+      })));
+      
       modelsData.models.forEach(model => {
         const shortName = model.short_name || model.id;
         let displayName = model.display_name || shortName;
         
-        // Transform Haiku 4.5 to Omni 4.5 (matching use-model-selection.ts)
+        // Transform Haiku 4.5 to Omni Quick 4.5
         if (displayName === 'Haiku 4.5' || displayName === 'Claude Haiku 4.5' || displayName === 'claude-haiku-4.5' || 
             shortName === 'claude-haiku-4.5' || model.id === 'anthropic/claude-haiku-4-5') {
-          displayName = 'Omni 4.5';
+          displayName = 'Omni Quick 4.5';
         }
         
-        modelMap.set(shortName, {
+        // Use model.id as key to ensure uniqueness (not shortName which might collide)
+        const mapKey = model.id || shortName;
+        modelMap.set(mapKey, {
           id: shortName,
           label: displayName,
           requiresSubscription: model.requires_subscription || false,
@@ -101,6 +110,12 @@ export function AgentModelSelector({
           isCustom: false
         });
       });
+      
+      // Debug: Log final model map
+      console.log('🔍 [AgentModelSelector] Final model map:', Array.from(modelMap.values()).map(m => ({
+        id: m.id,
+        label: m.label
+      })));
     } else {
       // Fallback to allModels if API data not available
       allModels.forEach(model => {
