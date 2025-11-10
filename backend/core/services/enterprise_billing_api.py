@@ -244,22 +244,43 @@ async def get_available_models(
     if not config.ENTERPRISE_MODE:
         raise HTTPException(status_code=400, detail="Enterprise mode not enabled")
     
-    # Enterprise users get access to all models
+    # Enterprise users get access to all models from the model registry
+    from core.ai_models import model_manager
+    from core.utils.logger import logger
+    
+    all_models = model_manager.list_available_models(include_disabled=False)
+    logger.debug(f"🔍 [ENTERPRISE_AVAILABLE_MODELS] Found {len(all_models)} models")
+    
+    model_info = []
+    for model_data in all_models:
+        model_info.append({
+            "id": model_data["id"],
+            "display_name": model_data["name"],
+            "short_name": model_data.get("aliases", [model_data["name"]])[0] if model_data.get("aliases") else model_data["name"],
+            "requires_subscription": False,  # All models available in enterprise mode
+            "input_cost_per_million_tokens": model_data["pricing"]["input_per_million"] if model_data["pricing"] else None,
+            "output_cost_per_million_tokens": model_data["pricing"]["output_per_million"] if model_data["pricing"] else None,
+            "context_window": model_data["context_window"],
+            "capabilities": model_data["capabilities"],
+            "recommended": model_data["recommended"],
+            "priority": model_data["priority"]
+        })
+    
+    # Check specifically for Haiku 4.5 and Sonnet 4
+    haiku_models = [m for m in model_info if 'haiku' in m['id'].lower() or 'haiku' in m['display_name'].lower()]
+    sonnet_models = [m for m in model_info if 'sonnet' in m['id'].lower() or 'sonnet' in m['display_name'].lower()]
+    
+    if haiku_models:
+        logger.info(f"✅ [ENTERPRISE_AVAILABLE_MODELS] Haiku 4.5 FOUND: {[{'id': m['id'], 'name': m['display_name']} for m in haiku_models]}")
+    if sonnet_models:
+        logger.info(f"✅ [ENTERPRISE_AVAILABLE_MODELS] Sonnet 4 FOUND: {[{'id': m['id'], 'name': m['display_name']} for m in sonnet_models]}")
+    
+    model_info.sort(key=lambda x: (-x["priority"], x["display_name"]))
+    
     return {
-        "available_models": [
-            "openai/gpt-4o",
-            "openai/gpt-4o-mini",
-            "anthropic/claude-3-5-sonnet-20241022",
-            "anthropic/claude-3-5-haiku-20241022",
-            "google/gemini-2.0-flash-exp",
-            "google/gemini-1.5-pro",
-            "google/gemini-1.5-flash",
-            "deepseek/deepseek-chat",
-            "xai/grok-2-1212",
-            "xai/grok-2-vision-1212"
-        ],
-        "tier": "enterprise",
-        "message": "All models available for enterprise users"
+        "models": model_info,
+        "subscription_tier": "Enterprise",
+        "total_models": len(model_info)
     }
 
 # Stub endpoints that don't apply to enterprise but might be called by frontend
