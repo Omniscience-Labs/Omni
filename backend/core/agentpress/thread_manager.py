@@ -1,5 +1,6 @@
 """
 Simplified conversation thread management system for AgentPress.
+Updated: 2025-11-11 - Fixed tool calling and model selection
 """
 
 import json
