@@ -410,7 +410,20 @@ export function AgentModelSelector({
                   isHighlighted && "bg-accent",
                   !accessible && !disabled && "opacity-70"
                 )}
-                onClick={() => !disabled && handleSelect(model.id)}
+                onClick={() => {
+                  console.log('👆 [AgentModelSelector] DropdownMenuItem onClick fired!', {
+                    modelId: model.id,
+                    modelLabel: model.label,
+                    disabled,
+                    accessible,
+                    willCallHandleSelect: !disabled
+                  });
+                  if (!disabled) {
+                    handleSelect(model.id);
+                  } else {
+                    console.log('❌ [AgentModelSelector] Click blocked because disabled=true');
+                  }
+                }}
                 onMouseEnter={() => setHighlightedIndex(index)}
               >
                 <div className="flex items-center">
