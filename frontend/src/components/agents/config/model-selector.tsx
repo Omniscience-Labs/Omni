@@ -198,9 +198,14 @@ export function AgentModelSelector({
   }, [isOpen]);
 
   const handleSelect = (modelId: string) => {
+    console.log('🚀 [AgentModelSelector] handleSelect CALLED with modelId:', modelId);
+    console.log('🚀 [AgentModelSelector] Current selectedModel before change:', selectedModel);
+    console.log('🚀 [AgentModelSelector] Current value prop:', value);
+    
     const isCustomModel = customModels.some(model => model.id === modelId);
     
     if (isCustomModel && isLocalMode()) {
+      console.log('🚀 [AgentModelSelector] Custom model in local mode - calling onChange');
       onChange(modelId);
       setIsOpen(false);
       return;
@@ -216,17 +221,22 @@ export function AgentModelSelector({
     
     const hasAccess = isLocalMode() || isEnterpriseMode || isStagingOrLocal || canAccessModel(modelId);
     
-    console.log('🔧 [AgentModelSelector] handleSelect:', { 
+    console.log('🔧 [AgentModelSelector] handleSelect check:', { 
       modelId, 
       isEnterpriseMode, 
-      isStagingOrLocal, 
-      hasAccess 
+      isStagingOrLocal,
+      isLocalMode: isLocalMode(),
+      hasAccess,
+      willCallOnChange: hasAccess
     });
     
     if (hasAccess) {
+      console.log('✅ [AgentModelSelector] Has access - calling onChange with:', modelId);
       onChange(modelId);
+      console.log('✅ [AgentModelSelector] onChange called, closing dropdown');
       setIsOpen(false);
     } else {
+      console.log('❌ [AgentModelSelector] No access - showing paywall');
       setLockedModel(modelId);
       setPaywallOpen(true);
     }
