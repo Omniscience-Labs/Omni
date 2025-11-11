@@ -107,6 +107,16 @@ export function AgentModelSelector({
   // Use the prop value if provided, otherwise fall back to store value
   // Always normalize to ensure we have the full ID
   const selectedModel = normalizeModelId(value !== undefined ? value : storeSelectedModel);
+  
+  // Debug: Log when value prop changes
+  useEffect(() => {
+    console.log('🔄 [AgentModelSelector] Value prop changed:', {
+      rawValueProp: value,
+      normalizedSelectedModel: selectedModel,
+      storeSelectedModel,
+      usingValueProp: value !== undefined
+    });
+  }, [value, selectedModel, storeSelectedModel]);
 
   const enhancedModelOptions = useMemo(() => {
     const modelMap = new Map();
@@ -274,8 +284,9 @@ export function AgentModelSelector({
     
     if (hasAccess) {
       console.log('✅ [AgentModelSelector] Has access - calling onChange with:', modelId);
+      console.log('✅ [AgentModelSelector] Before onChange - current value prop:', value);
       onChange(modelId);
-      console.log('✅ [AgentModelSelector] onChange called, closing dropdown');
+      console.log('✅ [AgentModelSelector] After onChange - waiting for parent to update value prop');
       setIsOpen(false);
     } else {
       console.log('❌ [AgentModelSelector] No access - showing paywall');

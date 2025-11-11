@@ -247,7 +247,13 @@ export function AgentConfigurationDialog({
   };
 
   const handleModelChange = (model: string) => {
-    setFormData(prev => ({ ...prev, model }));
+    console.log('📝 [AgentConfigDialog] handleModelChange called with:', model);
+    console.log('📝 [AgentConfigDialog] Current formData.model:', formData.model);
+    setFormData(prev => {
+      const newFormData = { ...prev, model };
+      console.log('📝 [AgentConfigDialog] Updated formData.model to:', newFormData.model);
+      return newFormData;
+    });
   };
 
   const handleToolsChange = (tools: Record<string, boolean | { enabled: boolean; description: string }>) => {
