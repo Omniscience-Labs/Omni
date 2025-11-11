@@ -249,6 +249,8 @@ export function AgentConfigurationDialog({
   const handleModelChange = (model: string) => {
     console.log('📝 [AgentConfigDialog] handleModelChange called with:', model);
     console.log('📝 [AgentConfigDialog] Current formData.model:', formData.model);
+    // Force alert to debug if this is being called
+    alert(`🔔 Parent received model change: ${model}`);
     setFormData(prev => {
       const newFormData = { ...prev, model };
       console.log('📝 [AgentConfigDialog] Updated formData.model to:', newFormData.model);
