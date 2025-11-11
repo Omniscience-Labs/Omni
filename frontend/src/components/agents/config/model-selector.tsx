@@ -73,7 +73,7 @@ export function AgentModelSelector({
   const customModels = storeCustomModels;
   
   // Use the prop value if provided, otherwise fall back to store value
-  const selectedModel = value || storeSelectedModel;
+  const selectedModel = value !== undefined ? value : storeSelectedModel;
 
   const enhancedModelOptions = useMemo(() => {
     const modelMap = new Map();
