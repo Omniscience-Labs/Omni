@@ -122,6 +122,7 @@ export function AgentModelSelector({
       
       modelsData.models.forEach(model => {
         let displayName = model.display_name || model.short_name || model.id;
+        const originalName = displayName;
         
         // Transform model display names
         if (displayName === 'Haiku 4.5' || displayName === 'Claude Haiku 4.5') {
@@ -129,6 +130,8 @@ export function AgentModelSelector({
         } else if (displayName === 'Claude Sonnet 4') {
           displayName = 'Omni 4.5';
         }
+        
+        console.log(`🔄 [AgentModelSelector] Transforming: "${originalName}" -> "${displayName}" (ID: ${model.id})`);
         
         modelMap.set(model.id, {
           id: model.id, // Use actual model ID for uniqueness
@@ -144,6 +147,7 @@ export function AgentModelSelector({
       });
       
       console.log('🔍 [AgentModelSelector] Final modelMap size:', modelMap.size);
+      console.log('🔍 [AgentModelSelector] All models in map:', Array.from(modelMap.values()).map(m => ({ id: m.id, label: m.label })));
     } else {
       // Fallback to allModels if API data not available
       allModels.forEach(model => {
@@ -180,6 +184,11 @@ export function AgentModelSelector({
   
   const selectedModelDisplay = useMemo(() => {
     const model = enhancedModelOptions.find(m => m.id === selectedModel);
+    console.log('🎯 [AgentModelSelector] Selected model lookup:', {
+      selectedModel,
+      foundModel: model ? { id: model.id, label: model.label } : null,
+      allAvailableIds: enhancedModelOptions.map(m => m.id)
+    });
     return model?.label || selectedModel;
   }, [selectedModel, enhancedModelOptions]);
 
