@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Check, Search, AlertTriangle, Crown, Cpu, Plus, Edit, Trash, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -72,8 +72,41 @@ export function AgentModelSelector({
 
   const customModels = storeCustomModels;
   
+  // Helper function to normalize model ID - handles both short names and full IDs
+  const normalizeModelId = useCallback((modelValue: string | undefined): string | undefined => {
+    if (!modelValue) return undefined;
+    
+    // If it's already a full ID (contains '/'), return as is
+    if (modelValue.includes('/')) return modelValue;
+    
+    // Try to find the full ID from the API data by matching short_name or display_name
+    const matchingModel = modelsData?.models?.find(m => 
+      m.short_name === modelValue || 
+      m.display_name === modelValue ||
+      m.id.endsWith(`/${modelValue}`) ||
+      m.id.endsWith(`-${modelValue}`)
+    );
+    
+    if (matchingModel) {
+      console.log(`🔄 [AgentModelSelector] Normalized "${modelValue}" to "${matchingModel.id}"`);
+      return matchingModel.id;
+    }
+    
+    // If not found in API data, try to construct the full ID
+    // Common patterns: "claude-haiku-4.5" -> "anthropic/claude-haiku-4-5"
+    if (modelValue.startsWith('claude-')) {
+      const normalizedName = modelValue.replace(/\./g, '-');
+      return `anthropic/${normalizedName}`;
+    }
+    
+    // Return as is if we can't normalize
+    console.warn(`⚠️ [AgentModelSelector] Could not normalize model ID: ${modelValue}`);
+    return modelValue;
+  }, [modelsData]);
+  
   // Use the prop value if provided, otherwise fall back to store value
-  const selectedModel = value !== undefined ? value : storeSelectedModel;
+  // Always normalize to ensure we have the full ID
+  const selectedModel = normalizeModelId(value !== undefined ? value : storeSelectedModel);
 
   const enhancedModelOptions = useMemo(() => {
     const modelMap = new Map();
