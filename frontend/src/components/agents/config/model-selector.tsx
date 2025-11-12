@@ -288,8 +288,10 @@ export function AgentModelSelector({
     if (hasAccess) {
       console.log('✅ [AgentModelSelector] Has access - calling onChange with:', modelId);
       console.log('✅ [AgentModelSelector] Before onChange - current value prop:', value);
+      console.log('✅ [AgentModelSelector] onChange type:', typeof onChange);
+      console.log('✅ [AgentModelSelector] onChange function:', onChange);
       onChange(modelId);
-      console.log('✅ [AgentModelSelector] After onChange - waiting for parent to update value prop');
+      console.log('✅ [AgentModelSelector] After onChange called - waiting for parent to update value prop');
       setIsOpen(false);
     } else {
       console.log('❌ [AgentModelSelector] No access - showing paywall');
