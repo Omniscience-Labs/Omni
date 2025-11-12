@@ -44,6 +44,14 @@ export function AgentModelSelector({
   variant = 'default',
   className,
 }: AgentModelSelectorProps) {
+  console.log('🔴 [AgentModelSelector] COMPONENT MOUNTED/RENDERED', {
+    valueProp: value,
+    onChangeType: typeof onChange,
+    onChangeDefined: !!onChange,
+    disabled,
+    variant
+  });
+  
   const { 
     allModels, 
     canAccessModel, 
