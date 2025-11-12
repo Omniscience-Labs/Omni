@@ -84,7 +84,10 @@ export function AgentModelSelector({
       m.short_name === modelValue || 
       m.display_name === modelValue ||
       m.id.endsWith(`/${modelValue}`) ||
-      m.id.endsWith(`-${modelValue}`)
+      m.id.endsWith(`-${modelValue}`) ||
+      // Also check if the value matches any part of the model name
+      m.display_name?.toLowerCase().includes(modelValue.toLowerCase()) ||
+      m.short_name?.toLowerCase().includes(modelValue.toLowerCase())
     );
     
     if (matchingModel) {
@@ -99,8 +102,8 @@ export function AgentModelSelector({
       return `anthropic/${normalizedName}`;
     }
     
-    // Return as is if we can't normalize
-    console.warn(`⚠️ [AgentModelSelector] Could not normalize model ID: ${modelValue}`);
+    // Return as is if we can't normalize - this allows the backend to resolve it
+    console.log(`⚠️ [AgentModelSelector] Could not normalize model ID: ${modelValue}, returning as-is`);
     return modelValue;
   }, [modelsData]);
   

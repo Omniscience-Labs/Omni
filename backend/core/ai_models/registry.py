@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Set
 from .ai_models import Model, ModelProvider, ModelCapability, ModelPricing
 
 DEFAULT_FREE_MODEL = "Haiku 4.5"
-DEFAULT_PREMIUM_MODEL = "Haiku 4.5"
+DEFAULT_PREMIUM_MODEL = "Claude Sonnet 4"
 
 class ModelRegistry:
     def __init__(self):
