@@ -212,6 +212,12 @@ async def update_agent(
             needs_new_version = True
             version_changes['agentpress_tools'] = agent_data.agentpress_tools
         
+        # Check if model has changed
+        if agent_data.model is not None and values_different(agent_data.model, current_version_data.get('model')):
+            needs_new_version = True
+            version_changes['model'] = agent_data.model
+            logger.debug(f"Model changed for agent {agent_id}: {current_version_data.get('model')} -> {agent_data.model}")
+        
         update_data = {}
         if agent_data.name is not None:
             update_data["name"] = agent_data.name
@@ -261,6 +267,18 @@ async def update_agent(
             current_custom_mcps = current_version_data.get('custom_mcps', [])
 
         current_agentpress_tools = agent_data.agentpress_tools if agent_data.agentpress_tools is not None else current_version_data.get('agentpress_tools', {})
+        
+        # Resolve model ID to ensure we store the canonical full ID
+        current_model = agent_data.model if agent_data.model is not None else current_version_data.get('model')
+        if current_model:
+            from core.ai_models import model_manager
+            resolved_model = model_manager.resolve_model_id(current_model)
+            if resolved_model:
+                current_model = resolved_model
+                logger.debug(f"Resolved model ID for agent {agent_id}: {agent_data.model} -> {current_model}")
+            else:
+                logger.warning(f"Could not resolve model ID for agent {agent_id}: {current_model}, storing as-is")
+        
         new_version_id = None
         if needs_new_version:
             try:
@@ -273,6 +291,7 @@ async def update_agent(
                     configured_mcps=current_configured_mcps,
                     custom_mcps=current_custom_mcps,
                     agentpress_tools=current_agentpress_tools,
+                    model=current_model,
                     change_description="Configuration updated"
                 )
                 
