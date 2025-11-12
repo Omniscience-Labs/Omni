@@ -93,11 +93,6 @@ export function AgentConfigurationDialog({
     }
   }, [open, initialTab]);
 
-  // Debug: Track formData.model changes
-  useEffect(() => {
-    console.log('🔄 [AgentConfigDialog] formData.model changed to:', formData.model);
-  }, [formData.model]);
-
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -150,6 +145,11 @@ export function AgentConfigurationDialog({
     setOriginalFormData(newFormData);
     setEditName(configSource.name || '');
   }, [agent, versionData]);
+
+  // Debug: Track formData.model changes
+  useEffect(() => {
+    console.log('🔄 [AgentConfigDialog] formData.model changed to:', formData.model);
+  }, [formData.model]);
 
   const isSunaAgent = agent?.metadata?.is_suna_default || false;
   const restrictions = agent?.metadata?.restrictions || {};
