@@ -93,6 +93,11 @@ export function AgentConfigurationDialog({
     }
   }, [open, initialTab]);
 
+  // Debug: Track formData.model changes
+  useEffect(() => {
+    console.log('🔄 [AgentConfigDialog] formData.model changed to:', formData.model);
+  }, [formData.model]);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -247,13 +252,21 @@ export function AgentConfigurationDialog({
   };
 
   const handleModelChange = (model: string) => {
-    console.log('📝 [AgentConfigDialog] handleModelChange called with:', model);
+    console.log('📝 [AgentConfigDialog] ========== handleModelChange START ==========');
+    console.log('📝 [AgentConfigDialog] Received model:', model);
     console.log('📝 [AgentConfigDialog] Current formData.model:', formData.model);
+    console.log('📝 [AgentConfigDialog] Type of model:', typeof model);
+    console.log('📝 [AgentConfigDialog] Model value:', JSON.stringify(model));
+    
     setFormData(prev => {
+      console.log('📝 [AgentConfigDialog] Inside setFormData - prev.model:', prev.model);
       const newFormData = { ...prev, model };
-      console.log('📝 [AgentConfigDialog] Updated formData.model to:', newFormData.model);
+      console.log('📝 [AgentConfigDialog] Inside setFormData - newFormData.model:', newFormData.model);
+      console.log('📝 [AgentConfigDialog] Models are different?', prev.model !== model);
       return newFormData;
     });
+    
+    console.log('📝 [AgentConfigDialog] ========== handleModelChange END ==========');
   };
 
   const handleToolsChange = (tools: Record<string, boolean | { enabled: boolean; description: string }>) => {
@@ -477,7 +490,10 @@ export function AgentConfigurationDialog({
                       <Label className="text-base font-semibold mb-3 block">Model</Label>
                       <AgentModelSelector
                         value={formData.model}
-                        onChange={handleModelChange}
+                        onChange={(model) => {
+                          console.log('🎯 [AgentConfigDialog] AgentModelSelector onChange FIRED with:', model);
+                          handleModelChange(model);
+                        }}
                         disabled={isViewingOldVersion}
                         variant="default"
                       />
