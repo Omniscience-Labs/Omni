@@ -173,34 +173,26 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     };
 
     const handleModelChangeWithSave = useCallback(async (modelId: string) => {
-        console.log('🔄 [UnifiedConfigMenu] Model change requested:', { modelId, selectedAgentId });
-        
         // Update the ref FIRST to prevent sync from overriding
         if (selectedAgentId) {
             lastSyncedModelRef.current = { agentId: selectedAgentId, model: modelId };
-            console.log('✅ [UnifiedConfigMenu] Updated lastSyncedModelRef to prevent override:', lastSyncedModelRef.current);
         }
         
         // Update local state immediately for UI responsiveness
         onModelChange(modelId);
-        console.log('✅ [UnifiedConfigMenu] Called onModelChange with:', modelId);
         
         // If an agent is selected, also save to backend
         if (selectedAgentId) {
             try {
-                console.log('💾 [UnifiedConfigMenu] Saving model to agent backend:', { agentId: selectedAgentId, model: modelId });
                 await updateAgentMutation.mutateAsync({
                     agentId: selectedAgentId,
                     model: modelId,
                 });
-                console.log('✅ [UnifiedConfigMenu] Model saved successfully to agent');
-                toast.success('Model updated successfully');
+                toast.success('Model updated');
             } catch (error) {
-                console.error('❌ [UnifiedConfigMenu] Failed to save model to agent:', error);
-                toast.error('Failed to update agent model');
+                console.error('Failed to save model:', error);
+                toast.error('Failed to update model');
             }
-        } else {
-            console.log('ℹ️ [UnifiedConfigMenu] No agent selected, only updating local state');
         }
     }, [selectedAgentId, onModelChange, updateAgentMutation]);
 
@@ -238,12 +230,6 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
         if (lastSynced?.agentId === agentId && lastSynced?.model === agentModel) {
             return; // Already synced, don't update again
         }
-        
-        console.log('🔄 [UnifiedConfigMenu] Syncing model from agent:', { 
-            agentId,
-            agentModel, 
-            currentSelectedModel: selectedModel 
-        });
         
         // Update the model and track what we synced
         lastSyncedModelRef.current = { agentId, model: agentModel };
