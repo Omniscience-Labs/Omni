@@ -112,7 +112,7 @@ class ModelRegistry:
             ),
             tier_availability=["paid", "free"],
             priority=85,
-            enabled=False,
+            enabled=True,  # ✅ ENABLED for enterprise mode
             recommended=False
         ))
         
