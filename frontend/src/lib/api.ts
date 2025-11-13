@@ -2180,13 +2180,12 @@ export const getAvailableModels = async (): Promise<AvailableModelsResponse> => 
       throw new NoAccessTokenAvailableError();
     }
 
-    // Use enterprise endpoint if in enterprise mode, otherwise use billing endpoint
+    // Both enterprise and regular billing use the same endpoint
+    // The backend switches which router is mounted based on ENTERPRISE_MODE
+    const endpoint = `${API_URL}/billing/available-models`;
     const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
-    const endpoint = isEnterpriseMode 
-      ? `${API_URL}/enterprise-api/available-models`
-      : `${API_URL}/billing/available-models`;
     
-    console.log('📡 [getAvailableModels] Calling endpoint:', endpoint, '(Enterprise mode:', isEnterpriseMode, ')');
+    console.log('📡 [getAvailableModels] Calling:', endpoint, '(Enterprise mode:', isEnterpriseMode, ')');
 
     const response = await fetch(endpoint, {
       headers: {
@@ -2199,7 +2198,7 @@ export const getAvailableModels = async (): Promise<AvailableModelsResponse> => 
         .text()
         .catch(() => 'No error details available');
       console.error(
-        `Error getting available models: ${response.status} ${response.statusText}`,
+        `❌ [getAvailableModels] Error: ${response.status} ${response.statusText}`,
         errorText,
       );
       throw new Error(
@@ -2207,7 +2206,15 @@ export const getAvailableModels = async (): Promise<AvailableModelsResponse> => 
       );
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log('✅ [getAvailableModels] Received data:', {
+      modelsCount: data.models?.length,
+      totalModels: data.total_models,
+      tier: data.subscription_tier,
+      firstFewModels: data.models?.slice(0, 3).map((m: any) => m.id || m.display_name)
+    });
+    
+    return data;
   } catch (error) {
     if (error instanceof NoAccessTokenAvailableError) {
       throw error;
