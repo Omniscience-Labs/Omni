@@ -276,6 +276,82 @@ class ThreadManager:
                         logger.debug(f"🔧 Serialized tool call arguments for {tool_call['function'].get('name')}")
         return messages
     
+    def _convert_tool_messages_for_anthropic(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Convert tool messages to Anthropic's expected format.
+        
+        Anthropic expects:
+        1. Assistant messages with tool_calls to have content as a list with tool_use blocks
+        2. Tool results to be in tool_result content blocks within the SAME assistant message
+        
+        This function:
+        - Converts assistant messages with tool_calls to content blocks with tool_use
+        - Merges tool messages into the previous assistant message as tool_result blocks
+        """
+        if not messages:
+            return messages
+        
+        converted_messages = []
+        i = 0
+        
+        while i < len(messages):
+            message = messages[i].copy()  # Work with a copy to avoid modifying original
+            
+            # Handle assistant messages with tool_calls - convert to Anthropic format
+            if message.get('role') == 'assistant' and message.get('tool_calls'):
+                # Ensure content is a list
+                if not isinstance(message.get('content'), list):
+                    prev_content = message.get('content', '')
+                    message['content'] = [
+                        {'type': 'text', 'text': prev_content} if prev_content else {'type': 'text', 'text': ''}
+                    ]
+                
+                # Convert tool_calls to tool_use content blocks
+                for tool_call in message.get('tool_calls', []):
+                    tool_use_block = {
+                        'type': 'tool_use',
+                        'id': tool_call.get('id'),
+                        'name': tool_call.get('function', {}).get('name', ''),
+                        'input': json.loads(tool_call.get('function', {}).get('arguments', '{}')) if isinstance(tool_call.get('function', {}).get('arguments'), str) else tool_call.get('function', {}).get('arguments', {})
+                    }
+                    message['content'].append(tool_use_block)
+                
+                # Remove tool_calls from top level (Anthropic uses content blocks)
+                del message['tool_calls']
+                converted_messages.append(message)
+                
+            # Handle tool messages - merge into previous assistant message
+            elif message.get('role') == 'tool' and message.get('tool_call_id'):
+                # Find the previous assistant message
+                if converted_messages and converted_messages[-1].get('role') == 'assistant':
+                    prev_assistant = converted_messages[-1]
+                    
+                    # Ensure content is a list
+                    if not isinstance(prev_assistant.get('content'), list):
+                        prev_content = prev_assistant.get('content', '')
+                        prev_assistant['content'] = [
+                            {'type': 'text', 'text': prev_content} if prev_content else {'type': 'text', 'text': ''}
+                        ]
+                    
+                    # Add tool_result block to assistant message content
+                    tool_result_block = {
+                        'type': 'tool_result',
+                        'tool_use_id': message['tool_call_id'],
+                        'content': message.get('content', '')
+                    }
+                    prev_assistant['content'].append(tool_result_block)
+                    logger.debug(f"🔧 Merged tool result {message['tool_call_id']} into assistant message")
+                else:
+                    # No previous assistant message found, skip this tool message
+                    logger.warning(f"⚠️ Tool message {message.get('tool_call_id')} has no preceding assistant message, skipping")
+            else:
+                # Regular message, add as-is
+                converted_messages.append(message)
+            
+            i += 1
+        
+        return converted_messages
+    
     async def run_thread(
         self,
         thread_id: str,
@@ -363,6 +439,9 @@ class ThreadManager:
             
             # Serialize tool call arguments (convert dict to JSON string for API compatibility)
             messages = self._serialize_tool_call_arguments(messages)
+            
+            # Convert tool messages to Anthropic format (merge tool results into assistant messages)
+            messages = self._convert_tool_messages_for_anthropic(messages)
             
             # Handle auto-continue context
             if auto_continue_state['count'] > 0 and auto_continue_state['continuous_state'].get('accumulated_content'):
