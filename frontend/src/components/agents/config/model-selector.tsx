@@ -216,7 +216,15 @@ export function AgentModelSelector({
       return;
     }
     
-    const hasAccess = isLocalMode() || canAccessModel(modelId);
+    // Check if enterprise mode or staging/local environment
+    const isEnterpriseMode = typeof window !== 'undefined' && 
+      process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+    const isStagingOrLocal = typeof window !== 'undefined' && (
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
+    );
+    
+    const hasAccess = isLocalMode() || isEnterpriseMode || isStagingOrLocal || canAccessModel(modelId);
     
     if (hasAccess) {
       onChange(modelId);
@@ -326,7 +334,16 @@ export function AgentModelSelector({
   const renderModelOption = (model: any, index: number) => {
     const isCustom = Boolean(model.isCustom) || 
       (isLocalMode() && customModels.some(m => m.id === model.id));
-    const accessible = isCustom ? true : (isLocalMode() || canAccessModel(model.id));
+    
+    // Check if enterprise mode or staging/local environment
+    const isEnterpriseMode = typeof window !== 'undefined' && 
+      process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+    const isStagingOrLocal = typeof window !== 'undefined' && (
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
+    );
+    
+    const accessible = isCustom ? true : (isLocalMode() || isEnterpriseMode || isStagingOrLocal || canAccessModel(model.id));
     const isHighlighted = index === highlightedIndex;
     const isPremium = model.requiresSubscription;
     const isLowQuality = false; // API models are quality controlled
@@ -512,7 +529,13 @@ export function AgentModelSelector({
                           </div>
                           <div className="relative overflow-hidden" style={{ maxHeight: subscriptionStatus === 'active' ? 'none' : '160px' }}>
                             {(subscriptionStatus === 'active' ? premiumModels : premiumModels.slice(0, 3)).map((model, index) => {
-                              const canAccess = isLocalMode() || canAccessModel(model.id);
+                              const isEnterpriseMode = typeof window !== 'undefined' && 
+                                process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+                              const isStagingOrLocal = typeof window !== 'undefined' && (
+                                process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
+                                process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
+                              );
+                              const canAccess = isLocalMode() || isEnterpriseMode || isStagingOrLocal || canAccessModel(model.id);
                               const isRecommended = model.recommended;
                               
                               return (
@@ -734,7 +757,13 @@ export function AgentModelSelector({
                         </div>
                         <div className="relative overflow-hidden" style={{ maxHeight: subscriptionStatus === 'active' ? 'none' : '160px' }}>
                           {(subscriptionStatus === 'active' ? premiumModels : premiumModels.slice(0, 3)).map((model, index) => {
-                            const canAccess = isLocalMode() || canAccessModel(model.id);
+                            const isEnterpriseMode = typeof window !== 'undefined' && 
+                              process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+                            const isStagingOrLocal = typeof window !== 'undefined' && (
+                              process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
+                              process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
+                            );
+                            const canAccess = isLocalMode() || isEnterpriseMode || isStagingOrLocal || canAccessModel(model.id);
                             const isRecommended = model.recommended;
                             
                             return (
