@@ -2,7 +2,7 @@
 
 import { useModelStore } from '@/lib/stores/model-store';
 import { useSubscriptionData } from '@/contexts/SubscriptionContext';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getAvailableModels } from '@/lib/api';
 
@@ -127,17 +127,39 @@ export const useModelSelection = () => {
     return availableModels.filter(model => hasActiveSubscription || !model.requiresSubscription);
   }, [availableModels, subscriptionData]);
 
+  // Helper function to check if a model is accessible (with fuzzy matching)
+  const isModelAccessible = useCallback((modelId: string | undefined): boolean => {
+    if (!modelId) return false;
+    
+    // Try exact match first
+    if (accessibleModels.some(m => m.id === modelId)) {
+      return true;
+    }
+    
+    // Try fuzzy matching for full vs short IDs
+    if (modelId.includes('/')) {
+      const shortId = modelId.split('/').pop();
+      return accessibleModels.some(m => 
+        m.id === shortId || 
+        m.id.endsWith(`/${shortId}`) || 
+        m.id.endsWith(`-${shortId}`)
+      );
+    }
+    
+    return false;
+  }, [accessibleModels]);
+
   // Initialize selected model when data loads
   useEffect(() => {
     if (isLoading || !accessibleModels.length) return;
 
     // If no model selected or selected model is not accessible, pick default from API data
-    if (!selectedModel || !accessibleModels.some(m => m.id === selectedModel)) {
+    if (!selectedModel || !isModelAccessible(selectedModel)) {
       const hasActiveSubscription = subscriptionData?.status === 'active' || subscriptionData?.status === 'trialing';
       const defaultModelId = getDefaultModel(availableModels, hasActiveSubscription);
       
       // Make sure the default model is accessible
-      const finalModel = accessibleModels.some(m => m.id === defaultModelId) 
+      const finalModel = isModelAccessible(defaultModelId)
         ? defaultModelId 
         : accessibleModels[0]?.id;
         
@@ -146,7 +168,7 @@ export const useModelSelection = () => {
         setSelectedModel(finalModel);
       }
     }
-  }, [selectedModel, accessibleModels, availableModels, isLoading, setSelectedModel, subscriptionData]);
+  }, [selectedModel, accessibleModels, availableModels, isLoading, setSelectedModel, subscriptionData, isModelAccessible]);
 
   const handleModelChange = (modelId: string) => {
     // Try to find exact match first
@@ -183,7 +205,7 @@ export const useModelSelection = () => {
     modelsData, // Expose raw API data for components that need it
     subscriptionStatus: (subscriptionData?.status === 'active' || subscriptionData?.status === 'trialing') ? 'active' as const : 'no_subscription' as const,
     canAccessModel: (modelId: string) => {
-      return accessibleModels.some(m => m.id === modelId);
+      return isModelAccessible(modelId);
     },
     isSubscriptionRequired: (modelId: string) => {
       const model = availableModels.find(m => m.id === modelId);
