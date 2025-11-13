@@ -38,23 +38,37 @@ const getDefaultModel = (models: ModelOption[], hasActiveSubscription: boolean):
 
 export const useModelSelection = () => {
   // Fetch models directly in this hook
-  const { data: modelsData, isLoading } = useQuery({
+  const { data: modelsData, isLoading, error } = useQuery({
     queryKey: ['models', 'available'],
     queryFn: getAvailableModels,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: false,
+    staleTime: 30 * 1000, // 30 seconds (reduced for debugging)
+    refetchOnWindowFocus: true, // Refetch when window regains focus
     retry: 2,
   });
+  
+  // Log any query errors
+  if (error) {
+    console.error('❌ [useModelSelection] Error fetching models:', error);
+  }
 
   const { data: subscriptionData } = useSubscriptionData();
   const { selectedModel, setSelectedModel } = useModelStore();
 
   // Transform API data to ModelOption format with fallback models (like PRODUCTION)
   const availableModels = useMemo<ModelOption[]>(() => {
+    console.log('🔍 [availableModels] Building model list:', { 
+      hasModelsData: !!modelsData, 
+      hasModels: !!modelsData?.models,
+      modelsCount: modelsData?.models?.length,
+      isLoading,
+      rawModelsData: modelsData
+    });
+    
     let models: ModelOption[] = [];
     
     if (!modelsData?.models || isLoading) {
       // Fallback models when API fails (matching PRODUCTION pattern)
+      console.warn('⚠️ [availableModels] Using fallback - no models data or still loading');
       models = [
         { 
           id: 'claude-haiku-4.5', 
@@ -65,6 +79,7 @@ export const useModelSelection = () => {
         },
       ];
     } else {
+      console.log('✅ [availableModels] Processing', modelsData.models.length, 'models from API');
       models = modelsData.models
         .filter(model => {
           // Hide GPT-5 models entirely
