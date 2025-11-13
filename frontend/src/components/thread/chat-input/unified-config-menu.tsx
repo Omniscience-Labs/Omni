@@ -72,6 +72,9 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     const [execDialog, setExecDialog] = useState<{ open: boolean; playbook: any | null; agentId: string | null }>({ open: false, playbook: null, agentId: null });
     const [agentConfigDialog, setAgentConfigDialog] = useState<{ open: boolean; tab: 'general' | 'instructions' | 'knowledge' | 'triggers' | 'playbooks' | 'tools' | 'integrations' }>({ open: false, tab: 'general' });
     
+    // Track the last synced agent model to avoid redundant updates
+    const lastSyncedModelRef = useRef<{ agentId: string; model: string } | null>(null);
+    
     const updateAgentMutation = useUpdateAgent();
 
     // Debounce search query
@@ -175,6 +178,11 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
         // Update local state immediately for UI responsiveness
         onModelChange(modelId);
         
+        // Update the ref to track this manual change
+        if (selectedAgentId) {
+            lastSyncedModelRef.current = { agentId: selectedAgentId, model: modelId };
+        }
+        
         // If an agent is selected, also save to backend
         if (selectedAgentId) {
             try {
@@ -221,16 +229,23 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
         }
         
         const agentModel = displayAgent.current_version.model;
+        const agentId = displayAgent.agent_id;
         
-        // Only update if different to avoid infinite loops
-        if (agentModel !== selectedModel) {
-            console.log('🔄 [UnifiedConfigMenu] Syncing model from agent:', { 
-                agentId: displayAgent.agent_id,
-                agentModel, 
-                currentSelectedModel: selectedModel 
-            });
-            onModelChange(agentModel);
+        // Check if we've already synced this exact combination
+        const lastSynced = lastSyncedModelRef.current;
+        if (lastSynced?.agentId === agentId && lastSynced?.model === agentModel) {
+            return; // Already synced, don't update again
         }
+        
+        console.log('🔄 [UnifiedConfigMenu] Syncing model from agent:', { 
+            agentId,
+            agentModel, 
+            currentSelectedModel: selectedModel 
+        });
+        
+        // Update the model and track what we synced
+        lastSyncedModelRef.current = { agentId, model: agentModel };
+        onModelChange(agentModel);
     }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId, selectedModel, onModelChange]);
 
     const currentAgentIdForPlaybooks = isLoggedIn ? displayAgent?.agent_id || '' : '';
