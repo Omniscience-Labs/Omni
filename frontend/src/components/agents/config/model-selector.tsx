@@ -109,6 +109,17 @@ export function AgentModelSelector({
   // Use the prop value if provided, otherwise fall back to store value
   // Always normalize to ensure we have the full ID
   const selectedModel = normalizeModelId(value !== undefined ? value : storeSelectedModel);
+  
+  // Debug: Log when value prop changes
+  useEffect(() => {
+    if (value !== undefined) {
+      console.log('🔄 [AgentModelSelector] Value prop changed:', {
+        rawValue: value,
+        normalizedSelectedModel: selectedModel,
+        variant
+      });
+    }
+  }, [value, selectedModel, variant]);
 
   const enhancedModelOptions = useMemo(() => {
     const modelMap = new Map();
@@ -208,11 +219,20 @@ export function AgentModelSelector({
   }, [isOpen]);
 
   const handleSelect = (modelId: string) => {
+    console.log('🎯 [AgentModelSelector] handleSelect called:', {
+      modelId,
+      currentSelectedModel: selectedModel,
+      willMatch: selectedModel === modelId,
+      variant
+    });
+    
     const isCustomModel = customModels.some(model => model.id === modelId);
     
     if (isCustomModel && isLocalMode()) {
+      console.log('✅ [AgentModelSelector] Custom model - calling onChange');
       onChange(modelId);
-      setIsOpen(false);
+      // Delay closing to allow checkmark to update
+      setTimeout(() => setIsOpen(false), 100);
       return;
     }
     
@@ -227,9 +247,12 @@ export function AgentModelSelector({
     const hasAccess = isLocalMode() || isEnterpriseMode || isStagingOrLocal || canAccessModel(modelId);
     
     if (hasAccess) {
+      console.log('✅ [AgentModelSelector] Has access - calling onChange');
       onChange(modelId);
-      setIsOpen(false);
+      // Delay closing to allow checkmark to update
+      setTimeout(() => setIsOpen(false), 100);
     } else {
+      console.log('❌ [AgentModelSelector] No access - showing paywall');
       setLockedModel(modelId);
       setPaywallOpen(true);
     }
