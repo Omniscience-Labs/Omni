@@ -74,6 +74,13 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     
     // Track the last synced agent model to avoid redundant updates
     const lastSyncedModelRef = useRef<{ agentId: string; model: string } | null>(null);
+    // Track current selectedModel to avoid reading stale value
+    const selectedModelRef = useRef(selectedModel);
+    
+    // Keep ref in sync with selectedModel
+    useEffect(() => {
+        selectedModelRef.current = selectedModel;
+    }, [selectedModel]);
     
     const updateAgentMutation = useUpdateAgent();
 
@@ -251,10 +258,10 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
             return; // Already synced, don't update again
         }
         
-        // If agent has a model, sync it; otherwise default to Haiku
+        // Normalize the model ID
+        let normalizedModelId: string;
         if (agentModel) {
-            // Normalize the model ID
-            let normalizedModelId = agentModel;
+            normalizedModelId = agentModel;
             if (!agentModel.includes('/')) {
                 if (agentModel.toLowerCase().includes('haiku')) {
                     normalizedModelId = 'anthropic/claude-haiku-4-5';
@@ -262,16 +269,22 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
                     normalizedModelId = 'anthropic/claude-sonnet-4-20250514';
                 }
             }
-            // Update the model and track what we synced
-            lastSyncedModelRef.current = { agentId, model: normalizedModelId };
-            onModelChange(normalizedModelId);
         } else {
             // Agent doesn't have a model set, default to Haiku
-            const defaultModel = 'anthropic/claude-haiku-4-5';
-            lastSyncedModelRef.current = { agentId, model: defaultModel };
-            onModelChange(defaultModel);
+            normalizedModelId = 'anthropic/claude-haiku-4-5';
         }
-    }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId, selectedModel, onModelChange]);
+        
+        // Only update if the normalized model is different from current selection
+        // Use ref to avoid dependency on selectedModel which could cause infinite loops
+        if (normalizedModelId !== selectedModelRef.current) {
+            // Update the model and track what we synced
+            lastSyncedModelRef.current = { agentId, model: agentModel || normalizedModelId };
+            onModelChange(normalizedModelId);
+        } else {
+            // Track that we've checked this combination even if no update needed
+            lastSyncedModelRef.current = { agentId, model: agentModel || normalizedModelId };
+        }
+    }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId, onModelChange]);
 
     const currentAgentIdForPlaybooks = isLoggedIn ? displayAgent?.agent_id || '' : '';
     const { data: playbooks = [], isLoading: playbooksLoading } = useAgentWorkflows(currentAgentIdForPlaybooks);
