@@ -2180,7 +2180,15 @@ export const getAvailableModels = async (): Promise<AvailableModelsResponse> => 
       throw new NoAccessTokenAvailableError();
     }
 
-    const response = await fetch(`${API_URL}/billing/available-models`, {
+    // Use enterprise endpoint if in enterprise mode, otherwise use billing endpoint
+    const isEnterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+    const endpoint = isEnterpriseMode 
+      ? `${API_URL}/enterprise-api/available-models`
+      : `${API_URL}/billing/available-models`;
+    
+    console.log('📡 [getAvailableModels] Calling endpoint:', endpoint, '(Enterprise mode:', isEnterpriseMode, ')');
+
+    const response = await fetch(endpoint, {
       headers: {
         Authorization: `Bearer ${session.access_token}`,
       },
