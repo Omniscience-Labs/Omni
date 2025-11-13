@@ -271,7 +271,7 @@ async def update_agent(
 
         current_agentpress_tools = agent_data.agentpress_tools if agent_data.agentpress_tools is not None else current_version_data.get('agentpress_tools', {})
         
-        # Resolve model ID to ensure we store the canonical full ID
+        # Resolve model ID to ensure we store the canonical full ID in versions
         current_model = agent_data.model if agent_data.model is not None else current_version_data.get('model')
         if current_model:
             from core.ai_models import model_manager
@@ -279,14 +279,8 @@ async def update_agent(
             if resolved_model:
                 current_model = resolved_model
                 logger.debug(f"Resolved model ID for agent {agent_id}: {agent_data.model} -> {current_model}")
-                # Also update the agents table with the resolved model ID
-                if agent_data.model is not None:
-                    update_data['model'] = current_model
             else:
                 logger.warning(f"Could not resolve model ID for agent {agent_id}: {current_model}, storing as-is")
-                # Store as-is if resolution fails
-                if agent_data.model is not None:
-                    update_data['model'] = current_model
         
         new_version_id = None
         if needs_new_version:
