@@ -29,6 +29,8 @@ import { PlaybookExecuteDialog } from '@/components/playbooks/playbook-execute-d
 import { AgentAvatar } from '@/components/thread/content/agent-avatar';
 import { AgentModelSelector } from '@/components/agents/config/model-selector';
 import { AgentConfigurationDialog } from '@/components/agents/agent-configuration-dialog';
+import { useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
+import { toast } from 'sonner';
 
 type UnifiedConfigMenuProps = {
     isLoggedIn?: boolean;
@@ -69,6 +71,8 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     const searchInputRef = useRef<HTMLInputElement>(null);
     const [execDialog, setExecDialog] = useState<{ open: boolean; playbook: any | null; agentId: string | null }>({ open: false, playbook: null, agentId: null });
     const [agentConfigDialog, setAgentConfigDialog] = useState<{ open: boolean; tab: 'general' | 'instructions' | 'knowledge' | 'triggers' | 'playbooks' | 'tools' | 'integrations' }>({ open: false, tab: 'general' });
+    
+    const updateAgentMutation = useUpdateAgent();
 
     // Debounce search query
     useEffect(() => {
@@ -164,6 +168,31 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
         onAgentSelect?.(agentId);
         setIsOpen(false);
     };
+
+    const handleModelChangeWithSave = useCallback(async (modelId: string) => {
+        console.log('🔄 [UnifiedConfigMenu] Model change requested:', { modelId, selectedAgentId });
+        
+        // Update local state immediately for UI responsiveness
+        onModelChange(modelId);
+        
+        // If an agent is selected, also save to backend
+        if (selectedAgentId) {
+            try {
+                console.log('💾 [UnifiedConfigMenu] Saving model to agent backend:', { agentId: selectedAgentId, model: modelId });
+                await updateAgentMutation.mutateAsync({
+                    agentId: selectedAgentId,
+                    model: modelId,
+                });
+                console.log('✅ [UnifiedConfigMenu] Model saved successfully to agent');
+                toast.success('Model updated successfully');
+            } catch (error) {
+                console.error('❌ [UnifiedConfigMenu] Failed to save model to agent:', error);
+                toast.error('Failed to update agent model');
+            }
+        } else {
+            console.log('ℹ️ [UnifiedConfigMenu] No agent selected, only updating local state');
+        }
+    }, [selectedAgentId, onModelChange, updateAgentMutation]);
 
     const handleQuickAction = (action: 'instructions' | 'knowledge' | 'triggers' | 'playbooks') => {
         if (!selectedAgentId && !displayAgent?.agent_id) {
@@ -307,7 +336,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
                         <div className="px-3 py-1 text-[11px] font-medium text-muted-foreground">Models</div>
                         <AgentModelSelector
                             value={selectedModel}
-                            onChange={onModelChange}
+                            onChange={handleModelChangeWithSave}
                             disabled={false}
                             variant="menu-item"
                         />
