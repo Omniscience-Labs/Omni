@@ -149,9 +149,27 @@ export const useModelSelection = () => {
   }, [selectedModel, accessibleModels, availableModels, isLoading, setSelectedModel, subscriptionData]);
 
   const handleModelChange = (modelId: string) => {
-    const model = accessibleModels.find(m => m.id === modelId);
+    // Try to find exact match first
+    let model = accessibleModels.find(m => m.id === modelId);
+    
+    // If not found, try to find by matching the end of the ID (for full vs short IDs)
+    if (!model && modelId.includes('/')) {
+      const shortId = modelId.split('/').pop();
+      model = accessibleModels.find(m => 
+        m.id === shortId || 
+        m.id.endsWith(`/${shortId}`) || 
+        m.id.endsWith(`-${shortId}`)
+      );
+    }
+    
+    // If found via matching, use the canonical ID from the list
     if (model) {
-      console.log('🔧 useModelSelection: Changing model to:', modelId);
+      console.log('🔧 useModelSelection: Changing model to:', model.id, modelId !== model.id ? `(normalized from ${modelId})` : '');
+      setSelectedModel(model.id);
+    } else {
+      // If model not found in list, still set it (backend might have it)
+      // This allows the backend to handle unknown/new models
+      console.warn('⚠️ useModelSelection: Model not in accessible list, setting anyway:', modelId);
       setSelectedModel(modelId);
     }
   };
