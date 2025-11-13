@@ -248,8 +248,11 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
         
         // Update the model and track what we synced
         lastSyncedModelRef.current = { agentId, model: agentModel };
-        onModelChange(agentModel);
-    }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId, selectedModel, onModelChange]);
+        // Defer to avoid React error #185
+        queueMicrotask(() => {
+            onModelChange(agentModel);
+        });
+    }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId, onModelChange]);
 
     const currentAgentIdForPlaybooks = isLoggedIn ? displayAgent?.agent_id || '' : '';
     const { data: playbooks = [], isLoading: playbooksLoading } = useAgentWorkflows(currentAgentIdForPlaybooks);
