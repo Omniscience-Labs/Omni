@@ -34,19 +34,28 @@ const normalizeToFullId = (modelId: string): string => {
 
 export const useModelStore = create<ModelStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       selectedModel: DEFAULT_FREE_MODEL_ID, // Default to Haiku 4.5
       setSelectedModel: (model: string) => {
         const normalizedModel = normalizeToFullId(model);
-        console.log('🔧 ModelStore: Setting selected model to:', normalizedModel, model !== normalizedModel ? `(normalized from ${model})` : '');
         set({ selectedModel: normalizedModel });
       },
     }),
     {
-      name: 'suna-model-selection-v3',
+      name: 'suna-model-selection-v4', // Increment version to clear old cache
       partialize: (state) => ({
         selectedModel: state.selectedModel,
       }),
+      // Migrate old data on load
+      migrate: (persistedState: any, version: number) => {
+        if (persistedState?.selectedModel) {
+          return {
+            ...persistedState,
+            selectedModel: normalizeToFullId(persistedState.selectedModel)
+          };
+        }
+        return persistedState;
+      },
     }
   )
 );
