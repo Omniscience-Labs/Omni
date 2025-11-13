@@ -52,6 +52,28 @@ export function renderAttachments(attachments: string[], fileViewerHandler?: (fi
     return null;
 }
 
+// Helper function to extract image file paths from content
+function extractImagePaths(content: string): string[] {
+    // Pattern to match image filenames (like generated_image_*.png, or any .png/.jpg/etc)
+    const imagePathRegex = /(generated_image_[a-zA-Z0-9]+\.(png|jpg|jpeg|webp|gif)|[a-zA-Z0-9_/-]+\.(png|jpg|jpeg|webp|gif))/gi;
+    const matches = content.match(imagePathRegex) || [];
+    
+    // Remove duplicates and filter out paths that are already in brackets (already extracted)
+    return matches
+        .filter((path, index, self) => self.indexOf(path) === index) // Remove duplicates
+        .filter(path => {
+            // Exclude paths that are already in [Uploaded File: ...] format
+            const beforePath = content.substring(0, content.indexOf(path));
+            const afterPath = content.substring(content.indexOf(path) + path.length);
+            return !beforePath.includes('[Uploaded File:') || !afterPath.includes(']');
+        })
+        .filter(path => {
+            // Exclude paths that are part of URLs (http:// or https://)
+            const beforePath = content.substring(0, content.indexOf(path));
+            return !beforePath.endsWith('http://') && !beforePath.endsWith('https://') && !beforePath.endsWith('://');
+        });
+}
+
 // Render Markdown content while preserving XML tags that should be displayed as tool calls
 function preprocessTextOnlyTools(content: string): string {
     
@@ -330,9 +352,36 @@ export function renderMarkdownContent(
 
     // Add text after the last tag
     if (lastIndex < content.length) {
-        contentParts.push(
-            <ComposioUrlDetector key={`md-${lastIndex}`} content={content.substring(lastIndex)} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words" />
-        );
+        const remainingText = content.substring(lastIndex);
+        
+        // Extract image paths from remaining text
+        const imagePaths = extractImagePaths(remainingText);
+        let cleanedText = remainingText;
+        
+        // Remove image paths from text
+        imagePaths.forEach(imagePath => {
+            cleanedText = cleanedText.replace(new RegExp(imagePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '');
+        });
+        cleanedText = cleanedText.trim();
+        
+        // Render text content
+        if (cleanedText) {
+            contentParts.push(
+                <ComposioUrlDetector key={`md-${lastIndex}`} content={cleanedText} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words" />
+            );
+        }
+        
+        // Render detected images as standalone attachments
+        if (imagePaths.length > 0) {
+            const imageAttachments = renderStandaloneAttachments(imagePaths, fileViewerHandler, sandboxId, project);
+            if (imageAttachments) {
+                contentParts.push(
+                    <div key={`images-${lastIndex}`}>
+                        {imageAttachments}
+                    </div>
+                );
+            }
+        }
     }
 
     return contentParts;
