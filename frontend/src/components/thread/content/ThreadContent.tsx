@@ -761,15 +761,30 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                         // Extract attachments from the message content
                                         const attachmentsMatch = messageContent.match(/\[Uploaded File: (.*?)\]/g);
-                                        const attachments = attachmentsMatch
+                                        const uploadedAttachments = attachmentsMatch
                                             ? attachmentsMatch.map((match: string) => {
                                                 const pathMatch = match.match(/\[Uploaded File: (.*?)\]/);
                                                 return pathMatch ? pathMatch[1] : null;
                                             }).filter(Boolean)
                                             : [];
 
-                                        // Remove attachment info from the message content
-                                        const cleanContent = messageContent.replace(/\[Uploaded File: .*?\]/g, '').trim();
+                                        // Also detect image file paths in the content (like generated_image_*.png)
+                                        const imagePathRegex = /(generated_image_[a-zA-Z0-9]+\.(png|jpg|jpeg|webp|gif)|[a-zA-Z0-9_-]+\.(png|jpg|jpeg|webp|gif))/gi;
+                                        const imageMatches = messageContent.match(imagePathRegex) || [];
+                                        const imageAttachments = imageMatches
+                                            .filter((path, index, self) => self.indexOf(path) === index) // Remove duplicates
+                                            .filter(path => !path.includes('[') && !path.includes(']')); // Exclude already extracted paths
+
+                                        // Combine both types of attachments
+                                        const attachments = [...uploadedAttachments, ...imageAttachments];
+
+                                        // Remove attachment info and image paths from the message content
+                                        let cleanContent = messageContent.replace(/\[Uploaded File: .*?\]/g, '');
+                                        // Remove image file paths that were extracted
+                                        imageAttachments.forEach(imagePath => {
+                                            cleanContent = cleanContent.replace(new RegExp(imagePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '');
+                                        });
+                                        cleanContent = cleanContent.trim();
 
                                         return (
                                             <div key={group.key} className="space-y-3">
