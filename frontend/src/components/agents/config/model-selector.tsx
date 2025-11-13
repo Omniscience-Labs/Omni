@@ -81,15 +81,29 @@ export function AgentModelSelector({
     if (modelValue.includes('/')) return modelValue;
     
     // Try to find the full ID from the API data by matching short_name or display_name
-    const matchingModel = modelsData?.models?.find(m => 
-      m.short_name === modelValue || 
-      m.display_name === modelValue ||
-      m.id.endsWith(`/${modelValue}`) ||
-      m.id.endsWith(`-${modelValue}`) ||
-      // Also check if the value matches any part of the model name
-      m.display_name?.toLowerCase().includes(modelValue.toLowerCase()) ||
-      m.short_name?.toLowerCase().includes(modelValue.toLowerCase())
-    );
+    const matchingModel = modelsData?.models?.find(m => {
+      const modelId = (m.short_name || m.id).toLowerCase();
+      const valueLower = modelValue.toLowerCase();
+      
+      // Check exact matches
+      if (m.short_name === modelValue || m.display_name === modelValue || m.id === modelValue) {
+        return true;
+      }
+      
+      // Check if it's Haiku
+      const isHaikuValue = valueLower.includes('haiku-4-5') || valueLower.includes('haiku-4.5') || valueLower.includes('haiku 4.5');
+      const isHaikuModel = modelId.includes('haiku-4-5') || modelId.includes('haiku-4.5') || modelId.includes('haiku 4.5');
+      
+      // Check if it's Sonnet
+      const isSonnetValue = valueLower.includes('sonnet-4') || valueLower.includes('sonnet 4');
+      const isSonnetModel = modelId.includes('sonnet-4') || modelId.includes('sonnet 4');
+      
+      return (isHaikuValue && isHaikuModel) || (isSonnetValue && isSonnetModel) ||
+             m.id.endsWith(`/${modelValue}`) ||
+             m.id.endsWith(`-${modelValue}`) ||
+             m.display_name?.toLowerCase().includes(valueLower) ||
+             m.short_name?.toLowerCase().includes(valueLower);
+    });
     
     if (matchingModel) {
       return matchingModel.id;
@@ -97,6 +111,13 @@ export function AgentModelSelector({
     
     // If not found in API data, try to construct the full ID
     // Common patterns: "claude-haiku-4.5" -> "anthropic/claude-haiku-4-5"
+    const valueLower = modelValue.toLowerCase();
+    if (valueLower.includes('haiku')) {
+      return 'anthropic/claude-haiku-4-5';
+    }
+    if (valueLower.includes('sonnet')) {
+      return 'anthropic/claude-sonnet-4-20250514';
+    }
     if (modelValue.startsWith('claude-')) {
       const normalizedName = modelValue.replace(/\./g, '-');
       return `anthropic/${normalizedName}`;
@@ -116,6 +137,15 @@ export function AgentModelSelector({
 
     if (modelsData?.models) {
       modelsData.models.forEach(model => {
+        // Only include Haiku and Sonnet models
+        const modelId = model.id.toLowerCase();
+        const isHaiku = modelId.includes('haiku-4-5') || modelId.includes('haiku-4.5') || modelId.includes('haiku 4.5');
+        const isSonnet = modelId.includes('sonnet-4') || modelId.includes('sonnet 4');
+        
+        if (!isHaiku && !isSonnet) {
+          return; // Skip models that aren't Haiku or Sonnet
+        }
+        
         let displayName = model.display_name || model.short_name || model.id;
         
         // Transform model display names
@@ -138,8 +168,16 @@ export function AgentModelSelector({
         });
       });
     } else {
-      // Fallback to allModels if API data not available
+      // Fallback to allModels if API data not available - filter to only Haiku and Sonnet
       allModels.forEach(model => {
+        const modelId = model.id.toLowerCase();
+        const isHaiku = modelId.includes('haiku-4-5') || modelId.includes('haiku-4.5') || modelId.includes('haiku 4.5');
+        const isSonnet = modelId.includes('sonnet-4') || modelId.includes('sonnet 4');
+        
+        if (!isHaiku && !isSonnet) {
+          return; // Skip models that aren't Haiku or Sonnet
+        }
+        
         modelMap.set(model.id, {
           ...model,
           recommended: false,

@@ -55,7 +55,7 @@ export const useModelSelection = () => {
     let models: ModelOption[] = [];
     
     if (!modelsData?.models || isLoading) {
-      // Fallback models when API fails
+      // Fallback models when API fails - only Haiku and Sonnet
       models = [
         { 
           id: 'anthropic/claude-haiku-4-5', 
@@ -64,9 +64,23 @@ export const useModelSelection = () => {
           priority: 102,
           recommended: true
         },
+        {
+          id: 'anthropic/claude-sonnet-4-20250514',
+          label: 'Omni 4.5',
+          requiresSubscription: false,
+          priority: 100,
+          recommended: true
+        }
       ];
     } else {
       models = modelsData.models
+        .filter(model => {
+          // Only include Haiku and Sonnet models
+          const modelId = (model.short_name || model.id).toLowerCase();
+          const isHaiku = modelId.includes('haiku-4-5') || modelId.includes('haiku-4.5') || modelId.includes('haiku 4.5');
+          const isSonnet = modelId.includes('sonnet-4') || modelId.includes('sonnet 4');
+          return isHaiku || isSonnet;
+        })
         .map(model => {
           let label = model.display_name || model.short_name || model.id;
           
@@ -74,6 +88,12 @@ export const useModelSelection = () => {
           if (label === 'Haiku 4.5' || label === 'Claude Haiku 4.5' || label === 'claude-haiku-4.5' || 
               (model.short_name || model.id) === 'anthropic/claude-haiku-4-5') {
             label = 'Omni Quick 4.5';
+          }
+          
+          // Transform Sonnet 4 to Omni 4.5
+          if (label === 'Claude Sonnet 4' || label === 'claude-sonnet-4' || 
+              (model.short_name || model.id)?.includes('sonnet-4')) {
+            label = 'Omni 4.5';
           }
           
           return {
@@ -150,13 +170,18 @@ export const useModelSelection = () => {
 
     // If no model selected or selected model is not accessible, pick default from API data
     if (!selectedModel || !isModelAccessible(selectedModel)) {
-      const hasActiveSubscription = subscriptionData?.status === 'active' || subscriptionData?.status === 'trialing';
-      const defaultModelId = getDefaultModel(availableModels, hasActiveSubscription);
+      // Default to Haiku (highest priority free model)
+      const haikuModel = availableModels.find(m => 
+        m.id.toLowerCase().includes('haiku-4-5') || 
+        m.id.toLowerCase().includes('haiku-4.5')
+      );
+      
+      const defaultModelId = haikuModel?.id || availableModels[0]?.id || 'anthropic/claude-haiku-4-5';
       
       // Make sure the default model is accessible
       const finalModel = isModelAccessible(defaultModelId)
         ? defaultModelId 
-        : accessibleModels[0]?.id;
+        : accessibleModels[0]?.id || 'anthropic/claude-haiku-4-5';
         
       if (finalModel) {
         setSelectedModel(finalModel);
