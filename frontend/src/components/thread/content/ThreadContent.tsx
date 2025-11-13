@@ -235,9 +235,34 @@ export function renderMarkdownContent(
         if (lastIndex < content.length) {
             const remainingText = content.substring(lastIndex);
             if (remainingText.trim()) {
-                contentParts.push(
-                    <ComposioUrlDetector key={`md-${lastIndex}`} content={remainingText} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words" />
-                );
+                // Extract image paths from remaining text
+                const imagePaths = extractImagePaths(remainingText);
+                let cleanedText = remainingText;
+                
+                // Remove image paths from text
+                imagePaths.forEach(imagePath => {
+                    cleanedText = cleanedText.replace(new RegExp(imagePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '');
+                });
+                cleanedText = cleanedText.trim();
+                
+                // Render text content
+                if (cleanedText) {
+                    contentParts.push(
+                        <ComposioUrlDetector key={`md-${lastIndex}`} content={cleanedText} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words" />
+                    );
+                }
+                
+                // Render detected images as standalone attachments
+                if (imagePaths.length > 0) {
+                    const imageAttachments = renderStandaloneAttachments(imagePaths, fileViewerHandler, sandboxId, project);
+                    if (imageAttachments) {
+                        contentParts.push(
+                            <div key={`images-${lastIndex}`}>
+                                {imageAttachments}
+                            </div>
+                        );
+                    }
+                }
             }
         }
 
