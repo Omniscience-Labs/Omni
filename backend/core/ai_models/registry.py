@@ -112,7 +112,7 @@ class ModelRegistry:
             ),
             tier_availability=["paid", "free"],
             priority=85,
-            enabled=True,  # ✅ ENABLED for enterprise mode
+            enabled=False,  # ❌ DISABLED - Only Haiku and Sonnet should be available
             recommended=False
         ))
         

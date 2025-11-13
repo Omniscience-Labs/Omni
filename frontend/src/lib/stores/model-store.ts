@@ -6,9 +6,9 @@ interface ModelStore {
   setSelectedModel: (model: string) => void;
 }
 
-// Default models matching PRODUCTION branch
-const DEFAULT_FREE_MODEL_ID = 'claude-haiku-4.5';
-const DEFAULT_PREMIUM_MODEL_ID = 'claude-haiku-4.5';
+// Default models matching backend registry - using full IDs for consistency
+const DEFAULT_FREE_MODEL_ID = 'anthropic/claude-haiku-4-5';
+const DEFAULT_PREMIUM_MODEL_ID = 'anthropic/claude-sonnet-4-20250514';
 
 export const useModelStore = create<ModelStore>()(
   persist(
