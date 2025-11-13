@@ -173,20 +173,34 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     };
 
     const handleModelChangeWithSave = useCallback(async (modelId: string) => {
+        // Normalize the model ID to ensure we have the full ID
+        let normalizedModelId = modelId;
+        if (!modelId.includes('/')) {
+            // Try to normalize - default to Haiku if we can't determine
+            if (modelId.toLowerCase().includes('haiku')) {
+                normalizedModelId = 'anthropic/claude-haiku-4-5';
+            } else if (modelId.toLowerCase().includes('sonnet')) {
+                normalizedModelId = 'anthropic/claude-sonnet-4-20250514';
+            } else {
+                // Default to Haiku if we can't determine
+                normalizedModelId = 'anthropic/claude-haiku-4-5';
+            }
+        }
+        
         // Update the ref FIRST to prevent sync from overriding
         if (selectedAgentId) {
-            lastSyncedModelRef.current = { agentId: selectedAgentId, model: modelId };
+            lastSyncedModelRef.current = { agentId: selectedAgentId, model: normalizedModelId };
         }
         
         // Update local state immediately for UI responsiveness
-        onModelChange(modelId);
+        onModelChange(normalizedModelId);
         
         // If an agent is selected, also save to backend
         if (selectedAgentId) {
             try {
                 await updateAgentMutation.mutateAsync({
                     agentId: selectedAgentId,
-                    model: modelId,
+                    model: normalizedModelId,
                 });
                 toast.success('Model updated');
             } catch (error) {
@@ -217,12 +231,18 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
 
     // Sync selected model from agent's current_version when agent changes
     useEffect(() => {
-        // Only sync when we have an agent with a model
-        if (!displayAgent?.current_version?.model || displayAgent?.agent_id !== selectedAgentId) {
+        // Only sync when we have an agent selected
+        if (!selectedAgentId || !displayAgent) {
             return;
         }
         
-        const agentModel = displayAgent.current_version.model;
+        // Only sync if the agent matches the selected agent
+        if (displayAgent.agent_id !== selectedAgentId) {
+            return;
+        }
+        
+        // Get model from agent's current_version, or use default
+        const agentModel = displayAgent?.current_version?.model;
         const agentId = displayAgent.agent_id;
         
         // Check if we've already synced this exact combination
@@ -231,10 +251,27 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
             return; // Already synced, don't update again
         }
         
-        // Update the model and track what we synced
-        lastSyncedModelRef.current = { agentId, model: agentModel };
-        onModelChange(agentModel);
-    }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId, onModelChange]);
+        // If agent has a model, sync it; otherwise default to Haiku
+        if (agentModel) {
+            // Normalize the model ID
+            let normalizedModelId = agentModel;
+            if (!agentModel.includes('/')) {
+                if (agentModel.toLowerCase().includes('haiku')) {
+                    normalizedModelId = 'anthropic/claude-haiku-4-5';
+                } else if (agentModel.toLowerCase().includes('sonnet')) {
+                    normalizedModelId = 'anthropic/claude-sonnet-4-20250514';
+                }
+            }
+            // Update the model and track what we synced
+            lastSyncedModelRef.current = { agentId, model: normalizedModelId };
+            onModelChange(normalizedModelId);
+        } else {
+            // Agent doesn't have a model set, default to Haiku
+            const defaultModel = 'anthropic/claude-haiku-4-5';
+            lastSyncedModelRef.current = { agentId, model: defaultModel };
+            onModelChange(defaultModel);
+        }
+    }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId, selectedModel, onModelChange]);
 
     const currentAgentIdForPlaybooks = isLoggedIn ? displayAgent?.agent_id || '' : '';
     const { data: playbooks = [], isLoading: playbooksLoading } = useAgentWorkflows(currentAgentIdForPlaybooks);
