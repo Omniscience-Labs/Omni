@@ -2,7 +2,7 @@
 
 import { useModelStore } from '@/lib/stores/model-store';
 import { useSubscriptionData } from '@/contexts/SubscriptionContext';
-import { useEffect, useMemo, useCallback } from 'react';
+import { useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getAvailableModels } from '@/lib/api';
 
@@ -162,13 +162,14 @@ export const useModelSelection = () => {
     return false;
   }, [accessibleModels]);
 
-  // Initialize selected model when data loads
+  // Initialize selected model when data loads - only run once when models are ready
   useEffect(() => {
     if (isLoading || !accessibleModels.length) {
       return;
     }
 
     // If no model selected or selected model is not accessible, pick default from API data
+    // Only run this check once - don't re-run if selectedModel changes after initialization
     if (!selectedModel || !isModelAccessible(selectedModel)) {
       // Default to Haiku (highest priority free model)
       const haikuModel = availableModels.find(m => 
@@ -183,11 +184,13 @@ export const useModelSelection = () => {
         ? defaultModelId 
         : accessibleModels[0]?.id || 'anthropic/claude-haiku-4-5';
         
-      if (finalModel) {
+      if (finalModel && finalModel !== selectedModel) {
         setSelectedModel(finalModel);
       }
     }
-  }, [selectedModel, accessibleModels, availableModels, isLoading, setSelectedModel, subscriptionData, isModelAccessible]);
+    // Only depend on isLoading and accessibleModels.length - not selectedModel
+    // This prevents the effect from running every time selectedModel changes
+  }, [isLoading, accessibleModels.length, availableModels, setSelectedModel, isModelAccessible]);
 
   const handleModelChange = (modelId: string) => {
     // Try to find exact match first
