@@ -74,19 +74,6 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     
     // Track the last synced agent model to avoid redundant updates
     const lastSyncedModelRef = useRef<{ agentId: string; model: string } | null>(null);
-    // Track current selectedModel to avoid reading stale value
-    const selectedModelRef = useRef(selectedModel);
-    // Track onModelChange to avoid dependency issues
-    const onModelChangeRef = useRef(onModelChange);
-    
-    // Keep refs in sync
-    useEffect(() => {
-        selectedModelRef.current = selectedModel;
-    }, [selectedModel]);
-    
-    useEffect(() => {
-        onModelChangeRef.current = onModelChange;
-    }, [onModelChange]);
     
     const updateAgentMutation = useUpdateAgent();
 
@@ -244,9 +231,8 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     }, [agents, selectedAgentId]);
 
     // Sync selected model from agent's current_version when agent changes
-    // Only sync when agent has a model set - don't force defaults to avoid infinite loops
     useEffect(() => {
-        // Only sync when we have an agent with a model set
+        // Only sync when we have an agent with a model
         if (!displayAgent?.current_version?.model || displayAgent?.agent_id !== selectedAgentId) {
             return;
         }
@@ -260,28 +246,10 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
             return; // Already synced, don't update again
         }
         
-        // Normalize the model ID
-        let normalizedModelId = agentModel;
-        if (!agentModel.includes('/')) {
-            if (agentModel.toLowerCase().includes('haiku')) {
-                normalizedModelId = 'anthropic/claude-haiku-4-5';
-            } else if (agentModel.toLowerCase().includes('sonnet')) {
-                normalizedModelId = 'anthropic/claude-sonnet-4-20250514';
-            }
-        }
-        
-        // Only update if the normalized model is different from current selection
-        // Use refs to avoid dependency issues which could cause infinite loops
-        if (normalizedModelId !== selectedModelRef.current) {
-            // Update the model and track what we synced
-            lastSyncedModelRef.current = { agentId, model: agentModel };
-            // Use ref to avoid React error #185
-            onModelChangeRef.current(normalizedModelId);
-        } else {
-            // Track that we've checked this combination even if no update needed
-            lastSyncedModelRef.current = { agentId, model: agentModel };
-        }
-    }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId]);
+        // Update the model and track what we synced
+        lastSyncedModelRef.current = { agentId, model: agentModel };
+        onModelChange(agentModel);
+    }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId, selectedModel, onModelChange]);
 
     const currentAgentIdForPlaybooks = isLoggedIn ? displayAgent?.agent_id || '' : '';
     const { data: playbooks = [], isLoading: playbooksLoading } = useAgentWorkflows(currentAgentIdForPlaybooks);
