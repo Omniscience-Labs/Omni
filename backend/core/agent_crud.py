@@ -23,6 +23,7 @@ async def update_agent(
     agent_data: AgentUpdateRequest,
     user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
+    logger.info(f"update_agent called: agent_id={agent_id}, model={agent_data.model}, user_id={user_id}")
     logger.debug(f"Updating agent {agent_id} for user: {user_id}")
     
     # Debug logging for icon fields
@@ -213,10 +214,12 @@ async def update_agent(
             version_changes['agentpress_tools'] = agent_data.agentpress_tools
         
         # Check if model has changed
-        if agent_data.model is not None and values_different(agent_data.model, current_version_data.get('model')):
-            needs_new_version = True
-            version_changes['model'] = agent_data.model
-            logger.debug(f"Model changed for agent {agent_id}: {current_version_data.get('model')} -> {agent_data.model}")
+        if agent_data.model is not None:
+            current_model_value = current_version_data.get('model')
+            if values_different(agent_data.model, current_model_value):
+                needs_new_version = True
+                version_changes['model'] = agent_data.model
+                logger.debug(f"Model changed for agent {agent_id}: {current_model_value} -> {agent_data.model}")
         
         update_data = {}
         if agent_data.name is not None:
@@ -282,6 +285,12 @@ async def update_agent(
         new_version_id = None
         if needs_new_version:
             try:
+                logger.info(f"Creating new version for agent {agent_id} with model={current_model}")
+                logger.debug(f"Version creation params: system_prompt_len={len(current_system_prompt) if current_system_prompt else 0}, " +
+                           f"configured_mcps_count={len(current_configured_mcps) if current_configured_mcps else 0}, " +
+                           f"custom_mcps_count={len(current_custom_mcps) if current_custom_mcps else 0}, " +
+                           f"agentpress_tools_keys={list(current_agentpress_tools.keys()) if current_agentpress_tools else []}")
+                
                 version_service = await _get_version_service()
 
                 new_version = await version_service.create_version(
@@ -439,7 +448,9 @@ async def update_agent(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating agent {agent_id} for user {user_id}: {str(e)}")
+        logger.error(f"Error updating agent {agent_id} for user {user_id}: {str(e)}", exc_info=True)
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to update agent: {str(e)}")
 
 @router.delete("/agents/{agent_id}")
