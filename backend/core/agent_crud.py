@@ -274,13 +274,16 @@ async def update_agent(
         # Resolve model ID to ensure we store the canonical full ID in versions
         current_model = agent_data.model if agent_data.model is not None else current_version_data.get('model')
         if current_model:
-            from core.ai_models import model_manager
-            resolved_model = model_manager.resolve_model_id(current_model)
-            if resolved_model:
-                current_model = resolved_model
-                logger.debug(f"Resolved model ID for agent {agent_id}: {agent_data.model} -> {current_model}")
-            else:
-                logger.warning(f"Could not resolve model ID for agent {agent_id}: {current_model}, storing as-is")
+            try:
+                from core.ai_models import model_manager
+                resolved_model = model_manager.resolve_model_id(current_model)
+                if resolved_model:
+                    current_model = resolved_model
+                    logger.debug(f"Resolved model ID for agent {agent_id}: {agent_data.model} -> {current_model}")
+                else:
+                    logger.warning(f"Could not resolve model ID for agent {agent_id}: {current_model}, storing as-is")
+            except Exception as e:
+                logger.warning(f"Error resolving model ID for agent {agent_id}: {e}, storing as-is: {current_model}")
         
         new_version_id = None
         if needs_new_version:
