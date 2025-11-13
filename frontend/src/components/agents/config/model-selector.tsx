@@ -45,14 +45,6 @@ export function AgentModelSelector({
   variant = 'default',
   className,
 }: AgentModelSelectorProps) {
-  console.log('🔴 [AgentModelSelector] COMPONENT MOUNTED/RENDERED', {
-    valueProp: value,
-    onChangeType: typeof onChange,
-    onChangeDefined: !!onChange,
-    disabled,
-    variant
-  });
-  
   const { 
     allModels, 
     canAccessModel, 
@@ -100,7 +92,6 @@ export function AgentModelSelector({
     );
     
     if (matchingModel) {
-      console.log(`🔄 [AgentModelSelector] Normalized "${modelValue}" to "${matchingModel.id}"`);
       return matchingModel.id;
     }
     
@@ -112,39 +103,19 @@ export function AgentModelSelector({
     }
     
     // Return as is if we can't normalize - this allows the backend to resolve it
-    console.log(`⚠️ [AgentModelSelector] Could not normalize model ID: ${modelValue}, returning as-is`);
     return modelValue;
   }, [modelsData]);
   
   // Use the prop value if provided, otherwise fall back to store value
   // Always normalize to ensure we have the full ID
   const selectedModel = normalizeModelId(value !== undefined ? value : storeSelectedModel);
-  
-  // Debug: Log when value prop changes
-  useEffect(() => {
-    console.log('🔄 [AgentModelSelector] Value prop changed:', {
-      rawValueProp: value,
-      normalizedSelectedModel: selectedModel,
-      storeSelectedModel,
-      usingValueProp: value !== undefined
-    });
-  }, [value, selectedModel, storeSelectedModel]);
 
   const enhancedModelOptions = useMemo(() => {
     const modelMap = new Map();
 
     if (modelsData?.models) {
-      // Debug: Log raw API response
-      console.log('🔍 [AgentModelSelector] Raw API response - Total models:', modelsData.models.length);
-      console.log('🔍 [AgentModelSelector] Raw models:', modelsData.models.map(m => ({ 
-        id: m.id, 
-        display_name: m.display_name,
-        short_name: m.short_name 
-      })));
-      
       modelsData.models.forEach(model => {
         let displayName = model.display_name || model.short_name || model.id;
-        const originalName = displayName;
         
         // Transform model display names
         if (displayName === 'Haiku 4.5' || displayName === 'Claude Haiku 4.5') {
@@ -152,8 +123,6 @@ export function AgentModelSelector({
         } else if (displayName === 'Claude Sonnet 4') {
           displayName = 'Omni 4.5';
         }
-        
-        console.log(`🔄 [AgentModelSelector] Transforming: "${originalName}" -> "${displayName}" (ID: ${model.id})`);
         
         modelMap.set(model.id, {
           id: model.id, // Use actual model ID for uniqueness
@@ -167,9 +136,6 @@ export function AgentModelSelector({
           isCustom: false
         });
       });
-      
-      console.log('🔍 [AgentModelSelector] Final modelMap size:', modelMap.size);
-      console.log('🔍 [AgentModelSelector] All models in map:', Array.from(modelMap.values()).map(m => ({ id: m.id, label: m.label })));
     } else {
       // Fallback to allModels if API data not available
       allModels.forEach(model => {
@@ -206,11 +172,6 @@ export function AgentModelSelector({
   
   const selectedModelDisplay = useMemo(() => {
     const model = enhancedModelOptions.find(m => m.id === selectedModel);
-    console.log('🎯 [AgentModelSelector] Selected model lookup:', {
-      selectedModel,
-      foundModel: model ? { id: model.id, label: model.label } : null,
-      allAvailableIds: enhancedModelOptions.map(m => m.id)
-    });
     return model?.label || selectedModel;
   }, [selectedModel, enhancedModelOptions]);
 
@@ -233,21 +194,6 @@ export function AgentModelSelector({
   const freeModels = sortedModels.filter(m => !m.requiresSubscription);
   const premiumModels = sortedModels.filter(m => m.requiresSubscription);
 
-  // Debug: Log filtered models
-  useEffect(() => {
-    if (isOpen) {
-      console.log('🔍 [AgentModelSelector] Popup opened - All sorted models:', sortedModels.map(m => ({ id: m.id, label: m.label })));
-      console.log('🔍 [AgentModelSelector] Free models:', freeModels.length);
-      console.log('🔍 [AgentModelSelector] Premium models:', premiumModels.length);
-      
-      // Check specifically for both Omni models
-      const hasOmniQuick = sortedModels.some(m => m.label === 'Omni Quick 4.5' || m.id.includes('haiku'));
-      const hasOmni = sortedModels.some(m => m.label === 'Omni 4.5' || m.id.includes('sonnet-4'));
-      console.log('✅ [AgentModelSelector] Has Omni Quick 4.5 (Haiku):', hasOmniQuick);
-      console.log('✅ [AgentModelSelector] Has Omni 4.5 (Sonnet):', hasOmni);
-    }
-  }, [isOpen, freeModels, premiumModels, sortedModels]);
-
   const shouldDisplayAll = !isLocalMode() && premiumModels.length > 0;
 
   useEffect(() => {
@@ -262,48 +208,20 @@ export function AgentModelSelector({
   }, [isOpen]);
 
   const handleSelect = (modelId: string) => {
-    console.log('🚀 [AgentModelSelector] handleSelect CALLED with modelId:', modelId);
-    console.log('🚀 [AgentModelSelector] Current selectedModel before change:', selectedModel);
-    console.log('🚀 [AgentModelSelector] Current value prop:', value);
-    
     const isCustomModel = customModels.some(model => model.id === modelId);
     
     if (isCustomModel && isLocalMode()) {
-      console.log('🚀 [AgentModelSelector] Custom model in local mode - calling onChange');
       onChange(modelId);
       setIsOpen(false);
       return;
     }
     
-    // Check if enterprise mode or staging/local
-    const isEnterpriseMode = typeof window !== 'undefined' && 
-      process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
-    const isStagingOrLocal = typeof window !== 'undefined' && (
-      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
-      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
-    );
-    
-    const hasAccess = isLocalMode() || isEnterpriseMode || isStagingOrLocal || canAccessModel(modelId);
-    
-    console.log('🔧 [AgentModelSelector] handleSelect check:', { 
-      modelId, 
-      isEnterpriseMode, 
-      isStagingOrLocal,
-      isLocalMode: isLocalMode(),
-      hasAccess,
-      willCallOnChange: hasAccess
-    });
+    const hasAccess = isLocalMode() || canAccessModel(modelId);
     
     if (hasAccess) {
-      console.log('✅ [AgentModelSelector] Has access - calling onChange with:', modelId);
-      console.log('✅ [AgentModelSelector] Before onChange - current value prop:', value);
-      console.log('✅ [AgentModelSelector] onChange type:', typeof onChange);
-      console.log('✅ [AgentModelSelector] onChange function:', onChange);
       onChange(modelId);
-      console.log('✅ [AgentModelSelector] After onChange called - waiting for parent to update value prop');
       setIsOpen(false);
     } else {
-      console.log('❌ [AgentModelSelector] No access - showing paywall');
       setLockedModel(modelId);
       setPaywallOpen(true);
     }
@@ -424,20 +342,7 @@ export function AgentModelSelector({
                   isHighlighted && "bg-accent",
                   !accessible && !disabled && "opacity-70"
                 )}
-                onClick={() => {
-                  console.log('👆 [AgentModelSelector] DropdownMenuItem onClick fired!', {
-                    modelId: model.id,
-                    modelLabel: model.label,
-                    disabled,
-                    accessible,
-                    willCallHandleSelect: !disabled
-                  });
-                  if (!disabled) {
-                    handleSelect(model.id);
-                  } else {
-                    console.log('❌ [AgentModelSelector] Click blocked because disabled=true');
-                  }
-                }}
+                onClick={() => !disabled && handleSelect(model.id)}
                 onMouseEnter={() => setHighlightedIndex(index)}
               >
                 <div className="flex items-center">
@@ -505,90 +410,222 @@ export function AgentModelSelector({
     );
   };
 
-  // For menu-item variant, render model items directly without a dropdown wrapper
+  // For menu-item variant, render as a simple clickable item that opens its own dropdown
   if (variant === 'menu-item') {
-    console.log('🔴 [AgentModelSelector] Rendering menu-item variant - directly in parent dropdown', {
-      valueProp: value,
-      selectedModel,
-      allModelsCount: allModels.length,
-      allModelIds: allModels.map(m => m.id)
-    });
-    
     return (
-      <div className="w-full">
-        {allModels.map((model, index) => {
-          const isSelected = model.id === selectedModel;
-          const accessible = isLocalMode() || canAccessModel(model.id);
-          const isPremium = model.requiresSubscription;
-          const isRecommended = model.recommended || false;
-
-          // Debug log for each model
-          if (index === 0) {
-            console.log('🔍 [AgentModelSelector] Model comparison example:', {
-              modelId: model.id,
-              selectedModel,
-              isSelected,
-              matches: model.id === selectedModel
-            });
-          }
-
-          return (
-            <DropdownMenuItem
-              key={`model-${model.id}-${index}`}
-              className={cn(
-                "text-sm px-3 rounded-lg py-2 mx-0 my-0.5 flex items-center justify-between cursor-pointer",
-                !accessible && !disabled && "opacity-70",
-                isSelected && "bg-accent"
-              )}
-              onClick={() => {
-                console.log('👆 [AgentModelSelector] Menu item clicked!', {
-                  modelId: model.id,
-                  modelLabel: model.label,
-                  disabled,
-                  accessible
-                });
-                if (!disabled) {
-                  // Check enterprise mode and staging/local environment
-                  const isEnterpriseMode = typeof window !== 'undefined' && 
-                    process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
-                  const isStagingOrLocal = typeof window !== 'undefined' && (
-                    process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
-                    process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
-                  );
-                  const hasAccess = isEnterpriseMode || isStagingOrLocal || !isPremium || isLocalMode();
-                  
-                  if (hasAccess) {
-                    console.log('✅ [AgentModelSelector] Calling onChange with:', model.id);
-                    onChange(model.id);
-                  } else {
-                    console.log('❌ [AgentModelSelector] No access to premium model');
-                    toast.error('Upgrade to access premium models');
-                  }
-                }
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <Cpu className="h-4 w-4" />
-                <span className="font-medium">{model.label}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {isRecommended && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium">
-                    Recommended
-                  </span>
+      <div className="relative">
+        <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild disabled={disabled}>
+                <div
+                  className={cn(
+                    "flex items-center justify-between cursor-pointer rounded-lg px-3 py-2 mx-0 my-0.5 text-sm hover:bg-accent",
+                    disabled && "opacity-50 cursor-not-allowed",
+                    className
+                  )}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Cpu className="h-4 w-4" />
+                    <span className="truncate">{selectedModelDisplay}</span>
+                  </div>
+                </div>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="text-xs">
+              <p>Choose a model</p>
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent
+            align="end"
+            className="w-80 p-0 overflow-hidden"
+            sideOffset={8}
+          >
+            <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent w-full">
+              <div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-medium text-muted-foreground p-2 px-4">All Models</span>
+                  {isLocalMode() && (
+                    <div className="flex items-center gap-1 p-2">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link
+                            href="/settings/env-manager"
+                            className="h-6 w-6 p-0 flex items-center justify-center"
+                          >
+                            <KeyRound className="h-3.5 w-3.5" />
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">
+                          Local .Env Manager
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openAddCustomModelDialog(e);
+                            }}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">
+                          Add a custom model
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  )}
+                </div>
+                <div className="px-1 py-1">
+                  <div className="relative px-1 flex items-center">
+                    <Search className="absolute left-3 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      placeholder="Search models..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={handleSearchInputKeyDown}
+                      className="w-full h-8 px-8 py-1 rounded-lg text-sm focus:outline-none bg-muted"
+                    />
+                  </div>
+                </div>
+                
+                {shouldDisplayAll ? (
+                  <div>
+                    <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                      Available Models
+                    </div>
+                    {freeModels.map((model, index) => renderModelOption(model, index))}
+                    
+                    {premiumModels.length > 0 && (
+                      <>
+                        <div className="mt-4 border-t border-border pt-2">
+                          <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground flex items-center">
+                            <Crown className="h-3.5 w-3.5 mr-1.5" />
+                            {subscriptionStatus === 'active' ? 'Premium Models' : 'Additional Models'}
+                          </div>
+                          <div className="relative overflow-hidden" style={{ maxHeight: subscriptionStatus === 'active' ? 'none' : '160px' }}>
+                            {(subscriptionStatus === 'active' ? premiumModels : premiumModels.slice(0, 3)).map((model, index) => {
+                              const canAccess = isLocalMode() || canAccessModel(model.id);
+                              const isRecommended = model.recommended;
+                              
+                              return (
+                                <Tooltip key={`premium-${model.id}-${index}`}>
+                                  <TooltipTrigger asChild>
+                                    <div className='w-full'>
+                                      <DropdownMenuItem
+                                        className={cn(
+                                          "text-sm px-3 rounded-lg py-2 mx-2 my-0.5 flex items-center justify-between cursor-pointer",
+                                          !canAccess && "opacity-70"
+                                        )}
+                                        onClick={() => handleSelect(model.id)}
+                                      >
+                                        <div className="flex items-center">
+                                          <span className="font-medium">{model.label}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          {isRecommended && (
+                                            <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium whitespace-nowrap">
+                                              Recommended
+                                            </span>
+                                          )}
+                                          {!canAccess && <Crown className="h-3.5 w-3.5 text-muted-foreground" />}
+                                          {selectedModel === model.id && (
+                                            <Check className="h-4 w-4 text-blue-500" />
+                                          )}
+                                        </div>
+                                      </DropdownMenuItem>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="left" className="text-xs max-w-xs">
+                                    <p>
+                                      {canAccess 
+                                        ? (isRecommended ? 'Recommended for optimal performance' : 'Premium model') 
+                                        : 'Requires subscription to access premium model'
+                                      }
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              );
+                            })}
+                            {subscriptionStatus !== 'active' && (
+                              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/95 to-transparent flex items-end justify-center">
+                                <div className="w-full p-3">
+                                  <div className="rounded-xl bg-gradient-to-br from-muted/80 to-muted/70 dark:from-muted/40 dark:to-muted/30 shadow-sm border border-border p-3">
+                                    <div className="flex flex-col space-y-2">
+                                      <div className="flex items-center">
+                                        <Crown className="h-4 w-4 text-muted-foreground mr-2 flex-shrink-0" />
+                                        <div>
+                                          <p className="text-sm font-medium">Unlock all models + higher limits</p>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        className="w-full h-8 font-medium"
+                                        onClick={handleUpgradeClick}
+                                      >
+                                        Upgrade now
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    {sortedModels.length > 0 ? (
+                      sortedModels.map((model, index) => renderModelOption(model, index))
+                    ) : (
+                      <div className="text-sm text-center py-4 text-muted-foreground">
+                        No models match your search
+                      </div>
+                    )}
+                  </div>
                 )}
-                {isPremium && !accessible && !isLocalMode() && (
-                  <Crown className="h-3.5 w-3.5 text-blue-500" />
-                )}
-                {/* Always show check, but only visible when selected */}
-                <Check className={cn(
-                  "h-4 w-4",
-                  isSelected ? "text-blue-500 opacity-100" : "opacity-0"
-                )} />
               </div>
-            </DropdownMenuItem>
-          );
-        })}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {isLocalMode() && (
+          <CustomModelDialog
+            isOpen={isCustomModelDialogOpen}
+            onClose={closeCustomModelDialog}
+            onSave={handleSaveCustomModel}
+            initialData={dialogInitialData}
+            mode={dialogMode}
+          />
+        )}
+        {paywallOpen && (
+          <PaywallDialog
+            open={true}
+            onDialogClose={closePaywallDialog}
+            title="Premium Model"
+            description={
+              lockedModel
+                ? `Subscribe to access ${enhancedModelOptions.find(
+                    (m) => m.id === lockedModel
+                  )?.label}`
+                : 'Subscribe to access premium models with enhanced capabilities'
+            }
+            ctaText="Subscribe Now"
+            cancelText="Maybe Later"
+          />
+        )}
+        <BillingModal
+          open={billingModalOpen}
+          onOpenChange={setBillingModalOpen}
+        />
       </div>
     );
   }
