@@ -175,13 +175,15 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     const handleModelChangeWithSave = useCallback(async (modelId: string) => {
         console.log('🔄 [UnifiedConfigMenu] Model change requested:', { modelId, selectedAgentId });
         
-        // Update local state immediately for UI responsiveness
-        onModelChange(modelId);
-        
-        // Update the ref to track this manual change
+        // Update the ref FIRST to prevent sync from overriding
         if (selectedAgentId) {
             lastSyncedModelRef.current = { agentId: selectedAgentId, model: modelId };
+            console.log('✅ [UnifiedConfigMenu] Updated lastSyncedModelRef to prevent override:', lastSyncedModelRef.current);
         }
+        
+        // Update local state immediately for UI responsiveness
+        onModelChange(modelId);
+        console.log('✅ [UnifiedConfigMenu] Called onModelChange with:', modelId);
         
         // If an agent is selected, also save to backend
         if (selectedAgentId) {
