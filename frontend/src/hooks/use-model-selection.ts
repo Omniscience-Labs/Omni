@@ -151,10 +151,21 @@ export const useModelSelection = () => {
 
   // Initialize selected model when data loads
   useEffect(() => {
-    if (isLoading || !accessibleModels.length) return;
+    console.log('🔄 [Init Effect] Running:', { 
+      isLoading, 
+      accessibleModelsCount: accessibleModels.length,
+      selectedModel,
+      isAccessible: isModelAccessible(selectedModel)
+    });
+    
+    if (isLoading || !accessibleModels.length) {
+      console.log('⏭️ [Init Effect] Skipping - loading or no models');
+      return;
+    }
 
     // If no model selected or selected model is not accessible, pick default from API data
     if (!selectedModel || !isModelAccessible(selectedModel)) {
+      console.log('⚠️ [Init Effect] Need to set default - no model or not accessible');
       const hasActiveSubscription = subscriptionData?.status === 'active' || subscriptionData?.status === 'trialing';
       const defaultModelId = getDefaultModel(availableModels, hasActiveSubscription);
       
@@ -164,34 +175,42 @@ export const useModelSelection = () => {
         : accessibleModels[0]?.id;
         
       if (finalModel) {
-        console.log('🔧 useModelSelection: Setting API-determined default model:', finalModel);
+        console.log('✅ [Init Effect] Setting default model:', finalModel);
         setSelectedModel(finalModel);
       }
+    } else {
+      console.log('✅ [Init Effect] Model is accessible, no change needed');
     }
   }, [selectedModel, accessibleModels, availableModels, isLoading, setSelectedModel, subscriptionData, isModelAccessible]);
 
   const handleModelChange = (modelId: string) => {
+    console.log('📝 [handleModelChange] Called with:', modelId);
+    console.log('📝 [handleModelChange] Available model IDs:', accessibleModels.map(m => m.id));
+    
     // Try to find exact match first
     let model = accessibleModels.find(m => m.id === modelId);
+    console.log('📝 [handleModelChange] Exact match found:', !!model);
     
     // If not found, try to find by matching the end of the ID (for full vs short IDs)
     if (!model && modelId.includes('/')) {
       const shortId = modelId.split('/').pop();
+      console.log('📝 [handleModelChange] Trying fuzzy match with shortId:', shortId);
       model = accessibleModels.find(m => 
         m.id === shortId || 
         m.id.endsWith(`/${shortId}`) || 
         m.id.endsWith(`-${shortId}`)
       );
+      console.log('📝 [handleModelChange] Fuzzy match found:', !!model, model?.id);
     }
     
     // If found via matching, use the canonical ID from the list
     if (model) {
-      console.log('🔧 useModelSelection: Changing model to:', model.id, modelId !== model.id ? `(normalized from ${modelId})` : '');
+      console.log('✅ [handleModelChange] Setting model to:', model.id, modelId !== model.id ? `(normalized from ${modelId})` : '');
       setSelectedModel(model.id);
     } else {
       // If model not found in list, still set it (backend might have it)
       // This allows the backend to handle unknown/new models
-      console.warn('⚠️ useModelSelection: Model not in accessible list, setting anyway:', modelId);
+      console.warn('⚠️ [handleModelChange] Model not in accessible list, setting anyway:', modelId);
       setSelectedModel(modelId);
     }
   };
