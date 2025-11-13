@@ -76,11 +76,17 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     const lastSyncedModelRef = useRef<{ agentId: string; model: string } | null>(null);
     // Track current selectedModel to avoid reading stale value
     const selectedModelRef = useRef(selectedModel);
+    // Track onModelChange to avoid dependency issues
+    const onModelChangeRef = useRef(onModelChange);
     
-    // Keep ref in sync with selectedModel
+    // Keep refs in sync
     useEffect(() => {
         selectedModelRef.current = selectedModel;
     }, [selectedModel]);
+    
+    useEffect(() => {
+        onModelChangeRef.current = onModelChange;
+    }, [onModelChange]);
     
     const updateAgentMutation = useUpdateAgent();
 
@@ -232,24 +238,20 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     };
 
     const displayAgent = useMemo(() => {
+        if (!agents.length) return undefined;
         const found = agents.find(a => a.agent_id === selectedAgentId) || agents[0];
         return found;
     }, [agents, selectedAgentId]);
 
     // Sync selected model from agent's current_version when agent changes
+    // Only sync when agent has a model set - don't force defaults to avoid infinite loops
     useEffect(() => {
-        // Only sync when we have an agent selected
-        if (!selectedAgentId || !displayAgent) {
+        // Only sync when we have an agent with a model set
+        if (!displayAgent?.current_version?.model || displayAgent?.agent_id !== selectedAgentId) {
             return;
         }
         
-        // Only sync if the agent matches the selected agent
-        if (displayAgent.agent_id !== selectedAgentId) {
-            return;
-        }
-        
-        // Get model from agent's current_version, or use default
-        const agentModel = displayAgent?.current_version?.model;
+        const agentModel = displayAgent.current_version.model;
         const agentId = displayAgent.agent_id;
         
         // Check if we've already synced this exact combination
@@ -259,32 +261,27 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
         }
         
         // Normalize the model ID
-        let normalizedModelId: string;
-        if (agentModel) {
-            normalizedModelId = agentModel;
-            if (!agentModel.includes('/')) {
-                if (agentModel.toLowerCase().includes('haiku')) {
-                    normalizedModelId = 'anthropic/claude-haiku-4-5';
-                } else if (agentModel.toLowerCase().includes('sonnet')) {
-                    normalizedModelId = 'anthropic/claude-sonnet-4-20250514';
-                }
+        let normalizedModelId = agentModel;
+        if (!agentModel.includes('/')) {
+            if (agentModel.toLowerCase().includes('haiku')) {
+                normalizedModelId = 'anthropic/claude-haiku-4-5';
+            } else if (agentModel.toLowerCase().includes('sonnet')) {
+                normalizedModelId = 'anthropic/claude-sonnet-4-20250514';
             }
-        } else {
-            // Agent doesn't have a model set, default to Haiku
-            normalizedModelId = 'anthropic/claude-haiku-4-5';
         }
         
         // Only update if the normalized model is different from current selection
-        // Use ref to avoid dependency on selectedModel which could cause infinite loops
+        // Use refs to avoid dependency issues which could cause infinite loops
         if (normalizedModelId !== selectedModelRef.current) {
             // Update the model and track what we synced
-            lastSyncedModelRef.current = { agentId, model: agentModel || normalizedModelId };
-            onModelChange(normalizedModelId);
+            lastSyncedModelRef.current = { agentId, model: agentModel };
+            // Use ref to avoid React error #185
+            onModelChangeRef.current(normalizedModelId);
         } else {
             // Track that we've checked this combination even if no update needed
-            lastSyncedModelRef.current = { agentId, model: agentModel || normalizedModelId };
+            lastSyncedModelRef.current = { agentId, model: agentModel };
         }
-    }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId, onModelChange]);
+    }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId]);
 
     const currentAgentIdForPlaybooks = isLoggedIn ? displayAgent?.agent_id || '' : '';
     const { data: playbooks = [], isLoading: playbooksLoading } = useAgentWorkflows(currentAgentIdForPlaybooks);
