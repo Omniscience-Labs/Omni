@@ -507,7 +507,13 @@ export function AgentModelSelector({
 
   // For menu-item variant, render model items directly without a dropdown wrapper
   if (variant === 'menu-item') {
-    console.log('🔴 [AgentModelSelector] Rendering menu-item variant - directly in parent dropdown');
+    console.log('🔴 [AgentModelSelector] Rendering menu-item variant - directly in parent dropdown', {
+      valueProp: value,
+      selectedModel,
+      allModelsCount: allModels.length,
+      allModelIds: allModels.map(m => m.id)
+    });
+    
     return (
       <div className="w-full">
         {allModels.map((model, index) => {
@@ -516,12 +522,23 @@ export function AgentModelSelector({
           const isPremium = model.requiresSubscription;
           const isRecommended = model.recommended || false;
 
+          // Debug log for each model
+          if (index === 0) {
+            console.log('🔍 [AgentModelSelector] Model comparison example:', {
+              modelId: model.id,
+              selectedModel,
+              isSelected,
+              matches: model.id === selectedModel
+            });
+          }
+
           return (
             <DropdownMenuItem
               key={`model-${model.id}-${index}`}
               className={cn(
                 "text-sm px-3 rounded-lg py-2 mx-0 my-0.5 flex items-center justify-between cursor-pointer",
-                !accessible && !disabled && "opacity-70"
+                !accessible && !disabled && "opacity-70",
+                isSelected && "bg-accent"
               )}
               onClick={() => {
                 console.log('👆 [AgentModelSelector] Menu item clicked!', {
@@ -560,10 +577,14 @@ export function AgentModelSelector({
                     Recommended
                   </span>
                 )}
-                {isSelected && <Check className="h-4 w-4 text-blue-500" />}
                 {isPremium && !accessible && !isLocalMode() && (
                   <Crown className="h-3.5 w-3.5 text-blue-500" />
                 )}
+                {/* Always show check, but only visible when selected */}
+                <Check className={cn(
+                  "h-4 w-4",
+                  isSelected ? "text-blue-500 opacity-100" : "opacity-0"
+                )} />
               </div>
             </DropdownMenuItem>
           );
