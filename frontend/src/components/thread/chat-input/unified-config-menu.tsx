@@ -215,9 +215,19 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
 
     // Sync selected model from agent's current_version when agent changes
     useEffect(() => {
+        console.log('🔍 [UnifiedConfigMenu] Sync effect triggered:', { 
+            hasDisplayAgent: !!displayAgent,
+            displayAgentId: displayAgent?.agent_id,
+            selectedAgentId,
+            hasCurrentVersion: !!displayAgent?.current_version,
+            agentModel: displayAgent?.current_version?.model,
+            currentSelectedModel: selectedModel,
+            agentsCount: agents.length
+        });
+        
         if (displayAgent?.current_version?.model && displayAgent?.agent_id === selectedAgentId) {
             const agentModel = displayAgent.current_version.model;
-            console.log('🔄 [UnifiedConfigMenu] Syncing model from agent:', { 
+            console.log('🔄 [UnifiedConfigMenu] Agent has model in current_version:', { 
                 agentId: displayAgent.agent_id, 
                 agentModel, 
                 currentSelectedModel: selectedModel 
@@ -225,11 +235,18 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
             
             // Only update if different to avoid infinite loops
             if (agentModel !== selectedModel) {
-                console.log('✅ [UnifiedConfigMenu] Updating selected model to match agent:', agentModel);
+                console.log('✅ [UnifiedConfigMenu] Models differ - updating selected model to match agent:', agentModel);
                 onModelChange(agentModel);
+            } else {
+                console.log('ℹ️ [UnifiedConfigMenu] Models already match, no update needed');
             }
+        } else {
+            console.log('⚠️ [UnifiedConfigMenu] Cannot sync - missing data:', {
+                hasModel: !!displayAgent?.current_version?.model,
+                idsMatch: displayAgent?.agent_id === selectedAgentId
+            });
         }
-    }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId, selectedModel, onModelChange]);
+    }, [displayAgent, displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId, selectedModel, onModelChange, agents.length]);
 
     const currentAgentIdForPlaybooks = isLoggedIn ? displayAgent?.agent_id || '' : '';
     const { data: playbooks = [], isLoading: playbooksLoading } = useAgentWorkflows(currentAgentIdForPlaybooks);
