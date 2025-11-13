@@ -213,6 +213,24 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
         return found;
     }, [agents, selectedAgentId]);
 
+    // Sync selected model from agent's current_version when agent changes
+    useEffect(() => {
+        if (displayAgent?.current_version?.model && displayAgent?.agent_id === selectedAgentId) {
+            const agentModel = displayAgent.current_version.model;
+            console.log('🔄 [UnifiedConfigMenu] Syncing model from agent:', { 
+                agentId: displayAgent.agent_id, 
+                agentModel, 
+                currentSelectedModel: selectedModel 
+            });
+            
+            // Only update if different to avoid infinite loops
+            if (agentModel !== selectedModel) {
+                console.log('✅ [UnifiedConfigMenu] Updating selected model to match agent:', agentModel);
+                onModelChange(agentModel);
+            }
+        }
+    }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId, selectedModel, onModelChange]);
+
     const currentAgentIdForPlaybooks = isLoggedIn ? displayAgent?.agent_id || '' : '';
     const { data: playbooks = [], isLoading: playbooksLoading } = useAgentWorkflows(currentAgentIdForPlaybooks);
     const [playbooksExpanded, setPlaybooksExpanded] = useState(true);
