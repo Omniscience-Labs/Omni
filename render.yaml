@@ -117,3 +117,62 @@ services:
     ipAllowList:
       - source: 0.0.0.0/0
         description: allow all internal connections
+
+  - type: worker
+    name: Suna-worker-prod-billing
+    runtime: docker
+    repo: https://github.com/Omniscience-Labs/Omni
+    branch: prod-billing
+    plan: pro
+    region: oregon
+    dockerCommand: uv run dramatiq --skip-logging --processes 2 --threads 2 run_agent_background
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    rootDir: backend
+    autoDeployTrigger: commit
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetCPUPercent: 81
+      targetMemoryPercent: 80
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: suna-redis-prod-billing
+          property: connectionString
+      - fromGroup: Suna Backend Prod Billing
+
+  - type: web
+    name: Suna-backend-prod-billing
+    runtime: docker
+    repo: https://github.com/Omniscience-Labs/Omni
+    branch: prod-billing
+    plan: pro
+    region: oregon
+    dockerCommand: uv run gunicorn api:app --host 0.0.0.0 --port $PORT --worker-class uvicorn.workers.UvicornWorker --workers 1
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    rootDir: backend
+    autoDeployTrigger: commit
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetCPUPercent: 81
+      targetMemoryPercent: 80
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: suna-redis-prod-billing
+          property: connectionString
+      - fromGroup: Suna Backend Prod Billing
+
+  - type: keyvalue
+    name: suna-redis-prod-billing
+    plan: starter
+    region: oregon
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: allow all internal connections
