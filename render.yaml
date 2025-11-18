@@ -58,3 +58,62 @@ services:
     ipAllowList:
       - source: 0.0.0.0/0
         description: allow all internal connections
+
+  - type: worker
+    name: Suna-worker-haiku
+    runtime: docker
+    repo: https://github.com/Omniscience-Labs/Omni
+    branch: haiku
+    plan: pro
+    region: oregon
+    dockerCommand: uv run dramatiq --skip-logging --processes 2 --threads 2 run_agent_background
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    rootDir: backend
+    autoDeployTrigger: commit
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetCPUPercent: 81
+      targetMemoryPercent: 80
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: suna-redis-haiku
+          property: connectionString
+      - fromGroup: Suna Backend Haiku
+
+  - type: web
+    name: Suna-backend-haiku
+    runtime: docker
+    repo: https://github.com/Omniscience-Labs/Omni
+    branch: haiku
+    plan: pro
+    region: oregon
+    dockerCommand: uv run gunicorn api:app --host 0.0.0.0 --port $PORT --worker-class uvicorn.workers.UvicornWorker --workers 1
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    rootDir: backend
+    autoDeployTrigger: commit
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetCPUPercent: 81
+      targetMemoryPercent: 80
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: suna-redis-haiku
+          property: connectionString
+      - fromGroup: Suna Backend Haiku
+
+  - type: keyvalue
+    name: suna-redis-haiku
+    plan: starter
+    region: oregon
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: allow all internal connections

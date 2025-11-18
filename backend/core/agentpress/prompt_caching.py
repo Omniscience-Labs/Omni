@@ -35,6 +35,7 @@ Based on Anthropic documentation and mathematical optimization (Sept 2025).
 """
 
 from typing import Dict, Any, List, Optional
+import json
 from core.utils.logger import logger
 
 
@@ -93,6 +94,76 @@ def get_message_token_count(message: Dict[str, Any], model: str = "claude-3-5-so
 def get_messages_token_count(messages: List[Dict[str, Any]], model: str = "claude-3-5-sonnet-20240620") -> int:
     """Get total token count for a list of messages."""
     return sum(get_message_token_count(msg, model) for msg in messages)
+
+def normalize_messages_for_token_counting(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Normalize messages with Anthropic content blocks to a format LiteLLM's token_counter understands.
+    
+    Converts Anthropic content blocks (tool_use, tool_result) to plain text strings
+    so LiteLLM's token_counter can process them correctly.
+    """
+    normalized = []
+    
+    for msg in messages:
+        normalized_msg = msg.copy()
+        content = msg.get('content', '')
+        
+        if isinstance(content, list):
+            # Convert Anthropic content blocks to plain text
+            text_parts = []
+            for item in content:
+                if isinstance(item, dict):
+                    block_type = item.get('type')
+                    if block_type == 'text':
+                        text_parts.append(item.get('text', ''))
+                    elif block_type == 'tool_use':
+                        # Convert tool_use to text representation
+                        tool_name = item.get('name', '')
+                        tool_input = item.get('input', {})
+                        input_str = json.dumps(tool_input) if tool_input else '{}'
+                        text_parts.append(f"[Tool Use: {tool_name} with input: {input_str}]")
+                    elif block_type == 'tool_result':
+                        # Convert tool_result to text representation
+                        result_content = item.get('content', '')
+                        if isinstance(result_content, dict):
+                            result_content = json.dumps(result_content)
+                        text_parts.append(f"[Tool Result: {result_content}]")
+                    else:
+                        # Unknown block type - convert to JSON string
+                        text_parts.append(json.dumps(item))
+                else:
+                    # Non-dict item - convert to string
+                    text_parts.append(str(item))
+            
+            # Replace content list with concatenated text
+            normalized_msg['content'] = ' '.join(text_parts)
+        
+        normalized.append(normalized_msg)
+    
+    return normalized
+
+def safe_token_counter(model: str, messages: Optional[List[Dict[str, Any]]] = None, text: Optional[str] = None) -> int:
+    """
+    Safe wrapper around LiteLLM's token_counter that handles Anthropic content blocks.
+    
+    Args:
+        model: Model name for token counting
+        messages: List of messages (will be normalized if needed)
+        text: Plain text string (alternative to messages)
+    
+    Returns:
+        Token count
+    """
+    from litellm import token_counter
+    
+    if messages is not None:
+        # Normalize messages to handle Anthropic content blocks
+        normalized_messages = normalize_messages_for_token_counting(messages)
+        return token_counter(model=model, messages=normalized_messages)
+    elif text is not None:
+        return token_counter(model=model, text=text)
+    else:
+        raise ValueError("Either messages or text must be provided")
 
 def calculate_optimal_cache_threshold(
     context_window: int, 

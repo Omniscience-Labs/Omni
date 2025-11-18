@@ -9,6 +9,7 @@ import json
 from typing import List, Dict, Any, Optional, Union
 
 from litellm.utils import token_counter
+from core.agentpress.prompt_caching import safe_token_counter
 from core.services.supabase import DBConnection
 from core.utils.logger import logger
 from core.ai_models import model_manager
@@ -90,7 +91,7 @@ class ContextManager:
   
     def compress_tool_result_messages(self, messages: List[Dict[str, Any]], llm_model: str, max_tokens: Optional[int], token_threshold: int = 1000) -> List[Dict[str, Any]]:
         """Compress the tool result messages except the most recent one."""
-        uncompressed_total_token_count = token_counter(model=llm_model, messages=messages)
+        uncompressed_total_token_count = safe_token_counter(model=llm_model, messages=messages)
         max_tokens_value = max_tokens or (100 * 1000)
 
         if uncompressed_total_token_count > max_tokens_value:
@@ -100,7 +101,7 @@ class ContextManager:
                     continue  # Skip non-dict messages
                 if self.is_tool_result_message(msg):  # Only compress ToolResult messages
                     _i += 1  # Count the number of ToolResult messages
-                    msg_token_count = token_counter(messages=[msg])  # Count the number of tokens in the message
+                    msg_token_count = safe_token_counter(model=llm_model, messages=[msg])  # Count the number of tokens in the message
                     if msg_token_count > token_threshold:  # If the message is too long
                         if _i > 1:  # If this is not the most recent ToolResult message
                             message_id = msg.get('message_id')  # Get the message_id
@@ -114,7 +115,7 @@ class ContextManager:
 
     def compress_user_messages(self, messages: List[Dict[str, Any]], llm_model: str, max_tokens: Optional[int], token_threshold: int = 1000) -> List[Dict[str, Any]]:
         """Compress the user messages except the most recent one."""
-        uncompressed_total_token_count = token_counter(model=llm_model, messages=messages)
+        uncompressed_total_token_count = safe_token_counter(model=llm_model, messages=messages)
         max_tokens_value = max_tokens or (100 * 1000)
 
         if uncompressed_total_token_count > max_tokens_value:
@@ -124,7 +125,7 @@ class ContextManager:
                     continue  # Skip non-dict messages
                 if msg.get('role') == 'user':  # Only compress User messages
                     _i += 1  # Count the number of User messages
-                    msg_token_count = token_counter(messages=[msg])  # Count the number of tokens in the message
+                    msg_token_count = safe_token_counter(model=llm_model, messages=[msg])  # Count the number of tokens in the message
                     if msg_token_count > token_threshold:  # If the message is too long
                         if _i > 1:  # If this is not the most recent User message
                             message_id = msg.get('message_id')  # Get the message_id
@@ -138,7 +139,7 @@ class ContextManager:
 
     def compress_assistant_messages(self, messages: List[Dict[str, Any]], llm_model: str, max_tokens: Optional[int], token_threshold: int = 1000) -> List[Dict[str, Any]]:
         """Compress the assistant messages except the most recent one."""
-        uncompressed_total_token_count = token_counter(model=llm_model, messages=messages)
+        uncompressed_total_token_count = safe_token_counter(model=llm_model, messages=messages)
         max_tokens_value = max_tokens or (100 * 1000)
         
         if uncompressed_total_token_count > max_tokens_value:
@@ -148,7 +149,7 @@ class ContextManager:
                     continue  # Skip non-dict messages
                 if msg.get('role') == 'assistant':  # Only compress Assistant messages
                     _i += 1  # Count the number of Assistant messages
-                    msg_token_count = token_counter(messages=[msg])  # Count the number of tokens in the message
+                    msg_token_count = safe_token_counter(model=llm_model, messages=[msg])  # Count the number of tokens in the message
                     if msg_token_count > token_threshold:  # If the message is too long
                         if _i > 1:  # If this is not the most recent Assistant message
                             message_id = msg.get('message_id')  # Get the message_id
@@ -218,13 +219,13 @@ class ContextManager:
         result = messages
         result = self.remove_meta_messages(result)
 
-        uncompressed_total_token_count = token_counter(model=llm_model, messages=result)
+        uncompressed_total_token_count = safe_token_counter(model=llm_model, messages=result)
 
         result = self.compress_tool_result_messages(result, llm_model, max_tokens, token_threshold)
         result = self.compress_user_messages(result, llm_model, max_tokens, token_threshold)
         result = self.compress_assistant_messages(result, llm_model, max_tokens, token_threshold)
 
-        compressed_token_count = token_counter(model=llm_model, messages=result)
+        compressed_token_count = safe_token_counter(model=llm_model, messages=result)
 
         logger.info(f"Context compression: {uncompressed_total_token_count} -> {compressed_token_count} tokens")
 
@@ -263,7 +264,7 @@ class ContextManager:
         result = self.remove_meta_messages(result)
 
         # Early exit if no compression needed
-        initial_token_count = token_counter(model=llm_model, messages=result)
+        initial_token_count = safe_token_counter(model=llm_model, messages=result)
         max_allowed_tokens = max_tokens or (100 * 1000)
         
         if initial_token_count <= max_allowed_tokens:
@@ -300,11 +301,11 @@ class ContextManager:
 
             # Recalculate token count
             messages_to_count = ([system_message] + conversation_messages) if system_message else conversation_messages
-            current_token_count = token_counter(model=llm_model, messages=messages_to_count)
+            current_token_count = safe_token_counter(model=llm_model, messages=messages_to_count)
 
         # Prepare final result
         final_messages = ([system_message] + conversation_messages) if system_message else conversation_messages
-        final_token_count = token_counter(model=llm_model, messages=final_messages)
+        final_token_count = safe_token_counter(model=llm_model, messages=final_messages)
         
         logger.info(f"Context compression (omit): {initial_token_count} -> {final_token_count} tokens ({len(messages)} -> {len(final_messages)} messages)")
             

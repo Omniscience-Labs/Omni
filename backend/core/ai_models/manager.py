@@ -139,6 +139,7 @@ class ModelManager:
         return {
             "id": model.id,
             "name": model.name,
+            "aliases": model.aliases,
             "provider": model.provider.value,
             "context_window": model.context_window,
             "max_output_tokens": model.max_output_tokens,

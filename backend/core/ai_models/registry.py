@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional, Set
 from .ai_models import Model, ModelProvider, ModelCapability, ModelPricing
 
-DEFAULT_FREE_MODEL = "Claude Sonnet 4"
+DEFAULT_FREE_MODEL = "Haiku 4.5"
 DEFAULT_PREMIUM_MODEL = "Claude Sonnet 4"
 
 class ModelRegistry:
@@ -29,6 +29,27 @@ class ModelRegistry:
             ),
             tier_availability=["free", "paid"],
             priority=100,
+            recommended=True,
+            enabled=True
+        ))
+        
+        self.register(Model(
+            id="anthropic/claude-haiku-4-5",
+            name="Haiku 4.5",
+            provider=ModelProvider.ANTHROPIC,
+            aliases=["claude-haiku-4.5", "anthropic/claude-haiku-4.5", "Claude Haiku 4.5"],
+            context_window=200_000,
+            capabilities=[
+                ModelCapability.CHAT,
+                ModelCapability.FUNCTION_CALLING,
+                ModelCapability.VISION,
+            ],
+            pricing=ModelPricing(
+                input_cost_per_million_tokens=1.00,
+                output_cost_per_million_tokens=5.00
+            ),
+            tier_availability=["free", "paid"],
+            priority=102,
             recommended=True,
             enabled=True
         ))
@@ -91,7 +112,7 @@ class ModelRegistry:
             ),
             tier_availability=["paid", "free"],
             priority=85,
-            enabled=False,
+            enabled=False,  # ❌ DISABLED - Only Haiku and Sonnet should be available
             recommended=False
         ))
         
