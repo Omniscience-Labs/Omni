@@ -171,9 +171,13 @@ class AgentService:
             count_query=count_query
         )
         
+        # Load version data for all agents to include current_version with model
+        version_map = await self._load_agent_versions_batch(paginated_result.data)
+        
         agent_responses = []
         for agent_data in paginated_result.data:
-            agent_response = await self._transform_agent_data(agent_data)
+            version_data = version_map.get(agent_data['agent_id'])
+            agent_response = await self._transform_agent_data(agent_data, version_data)
             agent_responses.append(agent_response)
         
         return PaginatedResponse(
@@ -343,7 +347,26 @@ class AgentService:
         configured_mcps = agent_config['configured_mcps']
         custom_mcps = agent_config['custom_mcps']
         agentpress_tools = agent_config['agentpress_tools']
-        current_version = agent_config.get('current_version')
+        
+        # Build current_version object from version_data if available
+        current_version = None
+        if version_data:
+            from .api_models import AgentVersionResponse
+            current_version = AgentVersionResponse(
+                version_id=version_data['version_id'],
+                agent_id=version_data['agent_id'],
+                version_number=version_data['version_number'],
+                version_name=version_data['version_name'],
+                system_prompt=version_data.get('system_prompt', system_prompt),
+                model=version_data.get('model'),
+                configured_mcps=version_data.get('configured_mcps', configured_mcps),
+                custom_mcps=version_data.get('custom_mcps', custom_mcps),
+                agentpress_tools=version_data.get('agentpress_tools', agentpress_tools),
+                is_active=version_data.get('is_active', True),
+                created_at=version_data.get('created_at'),
+                updated_at=version_data.get('updated_at', version_data.get('created_at')),
+                created_by=version_data.get('created_by')
+            )
         
         return {
             "agent_id": agent_data['agent_id'],

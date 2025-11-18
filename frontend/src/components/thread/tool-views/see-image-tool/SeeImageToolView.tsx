@@ -17,22 +17,43 @@ import { GenericToolView } from '../GenericToolView';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useImageContent } from '@/hooks/use-image-content';
 
-function SafeImage({ src, alt, filePath, className }: { src: string; alt: string; filePath: string; className?: string }) {
+function SafeImage({ src, alt, filePath, className, sandboxId }: { src: string; alt: string; filePath: string; className?: string; sandboxId?: string }) {
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [attempts, setAttempts] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const { session } = useAuth();
+  
+  // Use the hook for authenticated images if we have a sandboxId
+  const isAuthenticatedUrl = src.includes('/sandboxes/') && src.includes('/files/content');
+  const { data: authenticatedImageUrl, isLoading: isLoadingAuth, error: authError } = useImageContent(
+    sandboxId && isAuthenticatedUrl ? sandboxId : undefined,
+    sandboxId && isAuthenticatedUrl ? filePath : undefined
+  );
 
   useEffect(() => {
     const setupAuthenticatedImage = async () => {
-      if (src.includes('/sandboxes/') && src.includes('/files/content')) {
+      // If we're using the hook, wait for it to load
+      if (sandboxId && isAuthenticatedUrl) {
+        if (authenticatedImageUrl) {
+          setImgSrc(authenticatedImageUrl);
+          setError(false);
+        } else if (authError) {
+          console.error('Error loading authenticated image via hook:', authError);
+          setError(true);
+        }
+        return;
+      }
+      
+      // For non-authenticated URLs or when sandboxId is not available
+      if (isAuthenticatedUrl && session?.access_token) {
         try {
           const response = await fetch(src, {
             headers: {
-              'Authorization': `Bearer ${session?.access_token}`
+              'Authorization': `Bearer ${session.access_token}`
             }
           });
 
@@ -43,25 +64,27 @@ function SafeImage({ src, alt, filePath, className }: { src: string; alt: string
           const blob = await response.blob();
           const url = URL.createObjectURL(blob);
           setImgSrc(url);
+          setError(false);
         } catch (err) {
           console.error('Error loading authenticated image:', err);
           setError(true);
         }
       } else {
+        // Direct URL or non-authenticated
         setImgSrc(src);
+        setError(false);
       }
     };
 
     setupAuthenticatedImage();
-    setError(false);
     setAttempts(0);
 
     return () => {
-      if (imgSrc && imgSrc.startsWith('blob:')) {
+      if (imgSrc && imgSrc.startsWith('blob:') && !authenticatedImageUrl) {
         URL.revokeObjectURL(imgSrc);
       }
     };
-  }, [src, session?.access_token]);
+  }, [src, session?.access_token, sandboxId, isAuthenticatedUrl, authenticatedImageUrl, authError]);
 
   const handleError = () => {
     if (attempts < 3) {
@@ -124,7 +147,7 @@ function SafeImage({ src, alt, filePath, className }: { src: string; alt: string
     );
   }
 
-  if (!imgSrc) {
+  if (!imgSrc && (isLoadingAuth || !error)) {
     return (
       <div className="flex py-8 flex-col items-center justify-center w-full h-64 bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-900/50 dark:to-zinc-800/30 rounded-lg border-zinc-200 dark:border-zinc-700/50 shadow-inner">
         <div className="space-y-2 w-full max-w-md py-8">
@@ -137,6 +160,20 @@ function SafeImage({ src, alt, filePath, className }: { src: string; alt: string
             <Skeleton className="h-8 w-8 rounded-full" />
           </div>
         </div>
+      </div>
+    );
+  }
+  
+  if (!imgSrc && error) {
+    return (
+      <div className="flex flex-col items-center justify-center w-full h-64 bg-gradient-to-b from-rose-50 to-rose-100 dark:from-rose-950/30 dark:to-rose-900/20 rounded-lg border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 shadow-inner">
+        <div className="bg-white dark:bg-black/30 p-3 rounded-full shadow-md mb-3">
+          <ImageOff className="h-8 w-8 text-rose-500 dark:text-rose-400" />
+        </div>
+        <p className="text-sm font-medium">Unable to load image</p>
+        <p className="text-xs text-rose-600/70 dark:text-rose-400/70 mt-1 max-w-xs text-center break-all">
+          {filePath}
+        </p>
       </div>
     );
   }
@@ -387,6 +424,7 @@ export function SeeImageToolView({
                 alt={description || filename}
                 filePath={filePath}
                 className="max-w-full max-h-[500px] object-contain"
+                sandboxId={typeof project?.sandbox === 'string' ? project.sandbox : project?.sandbox?.id}
               />
             </div>
           </div>

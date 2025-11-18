@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Check, Search, AlertTriangle, Crown, Cpu, Plus, Edit, Trash, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,6 +23,7 @@ import { CustomModelDialog, CustomModelFormData } from '@/components/thread/chat
 import { PaywallDialog } from '@/components/payment/paywall-dialog';
 import { BillingModal } from '@/components/billing/billing-modal';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 interface CustomModel {
   id: string;
@@ -72,19 +73,90 @@ export function AgentModelSelector({
 
   const customModels = storeCustomModels;
   
+  // Helper function to normalize model ID - handles both short names and full IDs
+  const normalizeModelId = useCallback((modelValue: string | undefined): string | undefined => {
+    if (!modelValue) return undefined;
+    
+    // If it's already a full ID (contains '/'), return as is
+    if (modelValue.includes('/')) return modelValue;
+    
+    // Try to find the full ID from the API data by matching short_name or display_name
+    const matchingModel = modelsData?.models?.find(m => {
+      const modelId = (m.short_name || m.id).toLowerCase();
+      const valueLower = modelValue.toLowerCase();
+      
+      // Check exact matches
+      if (m.short_name === modelValue || m.display_name === modelValue || m.id === modelValue) {
+        return true;
+      }
+      
+      // Check if it's Haiku
+      const isHaikuValue = valueLower.includes('haiku-4-5') || valueLower.includes('haiku-4.5') || valueLower.includes('haiku 4.5');
+      const isHaikuModel = modelId.includes('haiku-4-5') || modelId.includes('haiku-4.5') || modelId.includes('haiku 4.5');
+      
+      // Check if it's Sonnet
+      const isSonnetValue = valueLower.includes('sonnet-4') || valueLower.includes('sonnet 4');
+      const isSonnetModel = modelId.includes('sonnet-4') || modelId.includes('sonnet 4');
+      
+      return (isHaikuValue && isHaikuModel) || (isSonnetValue && isSonnetModel) ||
+             m.id.endsWith(`/${modelValue}`) ||
+             m.id.endsWith(`-${modelValue}`) ||
+             m.display_name?.toLowerCase().includes(valueLower) ||
+             m.short_name?.toLowerCase().includes(valueLower);
+    });
+    
+    if (matchingModel) {
+      return matchingModel.id;
+    }
+    
+    // If not found in API data, try to construct the full ID
+    // Common patterns: "claude-haiku-4.5" -> "anthropic/claude-haiku-4-5"
+    const valueLower = modelValue.toLowerCase();
+    if (valueLower.includes('haiku')) {
+      return 'anthropic/claude-haiku-4-5';
+    }
+    if (valueLower.includes('sonnet')) {
+      return 'anthropic/claude-sonnet-4-20250514';
+    }
+    if (modelValue.startsWith('claude-')) {
+      const normalizedName = modelValue.replace(/\./g, '-');
+      return `anthropic/${normalizedName}`;
+    }
+    
+    // Return as is if we can't normalize - this allows the backend to resolve it
+    return modelValue;
+  }, [modelsData]);
+  
   // Use the prop value if provided, otherwise fall back to store value
-  const selectedModel = value || storeSelectedModel;
+  // Always normalize to ensure we have the full ID
+  const selectedModel = normalizeModelId(value !== undefined ? value : storeSelectedModel);
+  
 
   const enhancedModelOptions = useMemo(() => {
     const modelMap = new Map();
 
     if (modelsData?.models) {
       modelsData.models.forEach(model => {
-        const shortName = model.short_name || model.id;
-        const displayName = model.display_name || shortName;
+        // Only include Haiku and Sonnet models
+        const modelId = model.id.toLowerCase();
+        const isHaiku = modelId.includes('haiku-4-5') || modelId.includes('haiku-4.5') || modelId.includes('haiku 4.5');
+        const isSonnet = modelId.includes('sonnet-4') || modelId.includes('sonnet 4');
         
-        modelMap.set(shortName, {
-          id: shortName,
+        if (!isHaiku && !isSonnet) {
+          return; // Skip models that aren't Haiku or Sonnet
+        }
+        
+        let displayName = model.display_name || model.short_name || model.id;
+        
+        // Transform model display names
+        if (displayName === 'Haiku 4.5' || displayName === 'Claude Haiku 4.5') {
+          displayName = 'Omni Quick 4.5';
+        } else if (displayName === 'Claude Sonnet 4') {
+          displayName = 'Omni 4.5';
+        }
+        
+        modelMap.set(model.id, {
+          id: model.id, // Use actual model ID for uniqueness
           label: displayName,
           requiresSubscription: model.requires_subscription || false,
           priority: model.priority || 0,
@@ -96,10 +168,19 @@ export function AgentModelSelector({
         });
       });
     } else {
-      // Fallback to allModels if API data not available
+      // Fallback to allModels if API data not available - filter to only Haiku and Sonnet
       allModels.forEach(model => {
+        const modelId = model.id.toLowerCase();
+        const isHaiku = modelId.includes('haiku-4-5') || modelId.includes('haiku-4.5') || modelId.includes('haiku 4.5');
+        const isSonnet = modelId.includes('sonnet-4') || modelId.includes('sonnet 4');
+        
+        if (!isHaiku && !isSonnet) {
+          return; // Skip models that aren't Haiku or Sonnet
+        }
+        
         modelMap.set(model.id, {
           ...model,
+          recommended: false,
           isCustom: false
         });
       });
@@ -170,14 +251,25 @@ export function AgentModelSelector({
     
     if (isCustomModel && isLocalMode()) {
       onChange(modelId);
-      setIsOpen(false);
       return;
     }
     
-    const hasAccess = isLocalMode() || canAccessModel(modelId);
+    // Check if enterprise mode or staging/local environment
+    const isEnterpriseMode = typeof window !== 'undefined' && 
+      process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+    const isStagingOrLocal = typeof window !== 'undefined' && (
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
+    );
+    
+    const hasAccess = isLocalMode() || isEnterpriseMode || isStagingOrLocal || canAccessModel(modelId);
+    
     if (hasAccess) {
       onChange(modelId);
-      setIsOpen(false);
+      // Close after a brief delay to let React update and show the checkmark
+      requestAnimationFrame(() => {
+        setIsOpen(false);
+      });
     } else {
       setLockedModel(modelId);
       setPaywallOpen(true);
@@ -283,7 +375,16 @@ export function AgentModelSelector({
   const renderModelOption = (model: any, index: number) => {
     const isCustom = Boolean(model.isCustom) || 
       (isLocalMode() && customModels.some(m => m.id === model.id));
-    const accessible = isCustom ? true : (isLocalMode() || canAccessModel(model.id));
+    
+    // Check if enterprise mode or staging/local environment
+    const isEnterpriseMode = typeof window !== 'undefined' && 
+      process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+    const isStagingOrLocal = typeof window !== 'undefined' && (
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
+    );
+    
+    const accessible = isCustom ? true : (isLocalMode() || isEnterpriseMode || isStagingOrLocal || canAccessModel(model.id));
     const isHighlighted = index === highlightedIndex;
     const isPremium = model.requiresSubscription;
     const isLowQuality = false; // API models are quality controlled
@@ -367,63 +468,264 @@ export function AgentModelSelector({
     );
   };
 
+  // For menu-item variant, render as a simple clickable item that opens its own dropdown
+  if (variant === 'menu-item') {
+    return (
+      <div className="relative">
+        <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild disabled={disabled}>
+                <div
+                  className={cn(
+                    "flex items-center justify-between cursor-pointer rounded-lg px-3 py-2 mx-0 my-0.5 text-sm hover:bg-accent",
+                    disabled && "opacity-50 cursor-not-allowed",
+                    className
+                  )}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Cpu className="h-4 w-4" />
+                    <span className="truncate">{selectedModelDisplay}</span>
+                  </div>
+                </div>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="text-xs">
+              <p>Choose a model</p>
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent
+            align="end"
+            className="w-80 p-0 overflow-hidden"
+            sideOffset={8}
+          >
+            <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent w-full">
+              <div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-medium text-muted-foreground p-2 px-4">All Models</span>
+                  {isLocalMode() && (
+                    <div className="flex items-center gap-1 p-2">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link
+                            href="/settings/env-manager"
+                            className="h-6 w-6 p-0 flex items-center justify-center"
+                          >
+                            <KeyRound className="h-3.5 w-3.5" />
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">
+                          Local .Env Manager
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openAddCustomModelDialog(e);
+                            }}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">
+                          Add a custom model
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  )}
+                </div>
+                <div className="px-1 py-1">
+                  <div className="relative px-1 flex items-center">
+                    <Search className="absolute left-3 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      placeholder="Search models..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={handleSearchInputKeyDown}
+                      className="w-full h-8 px-8 py-1 rounded-lg text-sm focus:outline-none bg-muted"
+                    />
+                  </div>
+                </div>
+                
+                {shouldDisplayAll ? (
+                  <div>
+                    <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                      Available Models
+                    </div>
+                    {freeModels.map((model, index) => renderModelOption(model, index))}
+                    
+                    {premiumModels.length > 0 && (
+                      <>
+                        <div className="mt-4 border-t border-border pt-2">
+                          <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground flex items-center">
+                            <Crown className="h-3.5 w-3.5 mr-1.5" />
+                            {subscriptionStatus === 'active' ? 'Premium Models' : 'Additional Models'}
+                          </div>
+                          <div className="relative overflow-hidden" style={{ maxHeight: subscriptionStatus === 'active' ? 'none' : '160px' }}>
+                            {(subscriptionStatus === 'active' ? premiumModels : premiumModels.slice(0, 3)).map((model, index) => {
+                              const isEnterpriseMode = typeof window !== 'undefined' && 
+                                process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+                              const isStagingOrLocal = typeof window !== 'undefined' && (
+                                process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
+                                process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
+                              );
+                              const canAccess = isLocalMode() || isEnterpriseMode || isStagingOrLocal || canAccessModel(model.id);
+                              const isRecommended = model.recommended;
+                              
+                              return (
+                                <Tooltip key={`premium-${model.id}-${index}`}>
+                                  <TooltipTrigger asChild>
+                                    <div className='w-full'>
+                                      <DropdownMenuItem
+                                        className={cn(
+                                          "text-sm px-3 rounded-lg py-2 mx-2 my-0.5 flex items-center justify-between cursor-pointer",
+                                          !canAccess && "opacity-70"
+                                        )}
+                                        onClick={() => handleSelect(model.id)}
+                                      >
+                                        <div className="flex items-center">
+                                          <span className="font-medium">{model.label}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          {isRecommended && (
+                                            <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium whitespace-nowrap">
+                                              Recommended
+                                            </span>
+                                          )}
+                                          {!canAccess && <Crown className="h-3.5 w-3.5 text-muted-foreground" />}
+                                          {selectedModel === model.id && (
+                                            <Check className="h-4 w-4 text-blue-500" />
+                                          )}
+                                        </div>
+                                      </DropdownMenuItem>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="left" className="text-xs max-w-xs">
+                                    <p>
+                                      {canAccess 
+                                        ? (isRecommended ? 'Recommended for optimal performance' : 'Premium model') 
+                                        : 'Requires subscription to access premium model'
+                                      }
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              );
+                            })}
+                            {subscriptionStatus !== 'active' && (
+                              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/95 to-transparent flex items-end justify-center">
+                                <div className="w-full p-3">
+                                  <div className="rounded-xl bg-gradient-to-br from-muted/80 to-muted/70 dark:from-muted/40 dark:to-muted/30 shadow-sm border border-border p-3">
+                                    <div className="flex flex-col space-y-2">
+                                      <div className="flex items-center">
+                                        <Crown className="h-4 w-4 text-muted-foreground mr-2 flex-shrink-0" />
+                                        <div>
+                                          <p className="text-sm font-medium">Unlock all models + higher limits</p>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        className="w-full h-8 font-medium"
+                                        onClick={handleUpgradeClick}
+                                      >
+                                        Upgrade now
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    {sortedModels.length > 0 ? (
+                      sortedModels.map((model, index) => renderModelOption(model, index))
+                    ) : (
+                      <div className="text-sm text-center py-4 text-muted-foreground">
+                        No models match your search
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {isLocalMode() && (
+          <CustomModelDialog
+            isOpen={isCustomModelDialogOpen}
+            onClose={closeCustomModelDialog}
+            onSave={handleSaveCustomModel}
+            initialData={dialogInitialData}
+            mode={dialogMode}
+          />
+        )}
+        {paywallOpen && (
+          <PaywallDialog
+            open={true}
+            onDialogClose={closePaywallDialog}
+            title="Premium Model"
+            description={
+              lockedModel
+                ? `Subscribe to access ${enhancedModelOptions.find(
+                    (m) => m.id === lockedModel
+                  )?.label}`
+                : 'Subscribe to access premium models with enhanced capabilities'
+            }
+            ctaText="Subscribe Now"
+            cancelText="Maybe Later"
+          />
+        )}
+        <BillingModal
+          open={billingModalOpen}
+          onOpenChange={setBillingModalOpen}
+        />
+      </div>
+    );
+  }
+
+  // Default variant - full dropdown menu
   return (
     <div className="relative">
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <Tooltip>
           <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild disabled={disabled}>
-                {variant === 'menu-item' ? (
-                  <div
-                    className={cn(
-                      "flex items-center justify-between cursor-pointer rounded-lg px-3 py-2 mx-0 my-0.5 text-sm hover:bg-accent",
-                      disabled && "opacity-50 cursor-not-allowed",
-                      className
-                    )}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="relative flex items-center justify-center">
-                        <Cpu className="h-4 w-4" />
-                        {/* API models are quality controlled - no low quality warning needed */}
-                      </div>
-                      <span className="truncate">{selectedModelDisplay}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {allModels.find(m => m.id === selectedModel)?.recommended && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium">
-                          Recommended
-                        </span>
-                      )}
-                      <Check className="h-4 w-4 text-blue-500" />
-                    </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "h-8 px-4 py-2",
+                    disabled && "opacity-50 cursor-not-allowed",
+                    className
+                  )}
+                >
+                  <div className="relative flex items-center justify-center">
+                    <Cpu className="h-4 w-4" />
+                    {/* API models are quality controlled - no low quality warning needed */}
                   </div>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      "h-8 px-4 py-2",
-                      disabled && "opacity-50 cursor-not-allowed",
-                      className
-                    )}
-                  >
-                    <div className="relative flex items-center justify-center">
-                      <Cpu className="h-4 w-4" />
-                      {/* API models are quality controlled - no low quality warning needed */}
-                    </div>
-                    <span className="text-sm">{selectedModelDisplay}</span>
-                  </Button>
-                )}
+                  <span className="text-sm">{selectedModelDisplay}</span>
+                </Button>
               </DropdownMenuTrigger>
             </TooltipTrigger>
-            <TooltipContent side={variant === 'menu-item' ? 'left' : 'top'} className="text-xs">
+            <TooltipContent side='top' className="text-xs">
               <p>Choose a model for this agent</p>
             </TooltipContent>
         </Tooltip>
         <DropdownMenuContent
-          align={variant === 'menu-item' ? 'end' : 'start'}
+          align='start'
           className="w-76 p-0 overflow-hidden"
-          sideOffset={variant === 'menu-item' ? 8 : 4}
+          sideOffset={4}
         >
           <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent w-full">
             <div>
@@ -496,7 +798,13 @@ export function AgentModelSelector({
                         </div>
                         <div className="relative overflow-hidden" style={{ maxHeight: subscriptionStatus === 'active' ? 'none' : '160px' }}>
                           {(subscriptionStatus === 'active' ? premiumModels : premiumModels.slice(0, 3)).map((model, index) => {
-                            const canAccess = isLocalMode() || canAccessModel(model.id);
+                            const isEnterpriseMode = typeof window !== 'undefined' && 
+                              process.env.NEXT_PUBLIC_ENTERPRISE_MODE === 'true';
+                            const isStagingOrLocal = typeof window !== 'undefined' && (
+                              process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
+                              process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
+                            );
+                            const canAccess = isLocalMode() || isEnterpriseMode || isStagingOrLocal || canAccessModel(model.id);
                             const isRecommended = model.recommended;
                             
                             return (

@@ -2,7 +2,7 @@
 
 import { useModelStore } from '@/lib/stores/model-store';
 import { useSubscriptionData } from '@/contexts/SubscriptionContext';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getAvailableModels } from '@/lib/api';
 
@@ -38,45 +38,61 @@ const getDefaultModel = (models: ModelOption[], hasActiveSubscription: boolean):
 
 export const useModelSelection = () => {
   // Fetch models directly in this hook
-  const { data: modelsData, isLoading } = useQuery({
+  const { data: modelsData, isLoading, error } = useQuery({
     queryKey: ['models', 'available'],
     queryFn: getAvailableModels,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: false,
+    staleTime: 30 * 1000, // 30 seconds (reduced for debugging)
+    refetchOnWindowFocus: true, // Refetch when window regains focus
     retry: 2,
   });
+  
 
   const { data: subscriptionData } = useSubscriptionData();
   const { selectedModel, setSelectedModel } = useModelStore();
 
-  // Transform API data to ModelOption format with fallback models (like PRODUCTION)
+  // Transform API data to ModelOption format with fallback models
   const availableModels = useMemo<ModelOption[]>(() => {
     let models: ModelOption[] = [];
     
     if (!modelsData?.models || isLoading) {
-      // Fallback models when API fails (matching PRODUCTION pattern)
+      // Fallback models when API fails - only Haiku and Sonnet
       models = [
         { 
-          id: 'claude-haiku-4.5', 
-          label: 'Omni 4.5', 
+          id: 'anthropic/claude-haiku-4-5', 
+          label: 'Omni Quick 4.5', 
           requiresSubscription: false,
           priority: 102,
           recommended: true
         },
+        {
+          id: 'anthropic/claude-sonnet-4-20250514',
+          label: 'Omni 4.5',
+          requiresSubscription: false,
+          priority: 100,
+          recommended: true
+        }
       ];
     } else {
       models = modelsData.models
         .filter(model => {
-          // Hide GPT-5 models entirely
-          const modelName = model.display_name || model.short_name || model.id;
-          return !modelName.toLowerCase().includes('gpt-5');
+          // Only include Haiku and Sonnet models
+          const modelId = (model.short_name || model.id).toLowerCase();
+          const isHaiku = modelId.includes('haiku-4-5') || modelId.includes('haiku-4.5') || modelId.includes('haiku 4.5');
+          const isSonnet = modelId.includes('sonnet-4') || modelId.includes('sonnet 4');
+          return isHaiku || isSonnet;
         })
         .map(model => {
           let label = model.display_name || model.short_name || model.id;
           
-          // Transform Haiku 4.5 to Omni 4.5
+          // Transform Haiku 4.5 to Omni Quick 4.5
           if (label === 'Haiku 4.5' || label === 'Claude Haiku 4.5' || label === 'claude-haiku-4.5' || 
               (model.short_name || model.id) === 'anthropic/claude-haiku-4-5') {
+            label = 'Omni Quick 4.5';
+          }
+          
+          // Transform Sonnet 4 to Omni 4.5
+          if (label === 'Claude Sonnet 4' || label === 'claude-sonnet-4' || 
+              (model.short_name || model.id)?.includes('sonnet-4')) {
             label = 'Omni 4.5';
           }
           
@@ -100,7 +116,7 @@ export const useModelSelection = () => {
     });
   }, [modelsData, isLoading]);
 
-  // Get accessible models based on subscription (matching PRODUCTION pattern)
+  // Get accessible models based on subscription
   const accessibleModels = useMemo(() => {
     // Check enterprise mode safely to avoid hydration mismatches
     const isEnterpriseMode = typeof window !== 'undefined' && 
@@ -110,37 +126,88 @@ export const useModelSelection = () => {
       return availableModels; // All models accessible in enterprise mode
     }
     
+    // In staging/local environments, all models are accessible
+    const isStagingOrLocal = typeof window !== 'undefined' && (
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'staging' ||
+      process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
+    );
+    
+    if (isStagingOrLocal) {
+      return availableModels; // All models accessible in staging/local
+    }
+    
     const hasActiveSubscription = subscriptionData?.status === 'active' || subscriptionData?.status === 'trialing';
     return availableModels.filter(model => hasActiveSubscription || !model.requiresSubscription);
   }, [availableModels, subscriptionData]);
 
-  // Initialize selected model when data loads
+  // Helper function to check if a model is accessible (with fuzzy matching)
+  const isModelAccessible = useCallback((modelId: string | undefined): boolean => {
+    if (!modelId) return false;
+    
+    // Try exact match first
+    if (accessibleModels.some(m => m.id === modelId)) {
+      return true;
+    }
+    
+    // Try fuzzy matching for full vs short IDs
+    if (modelId.includes('/')) {
+      const shortId = modelId.split('/').pop();
+      return accessibleModels.some(m => 
+        m.id === shortId || 
+        m.id.endsWith(`/${shortId}`) || 
+        m.id.endsWith(`-${shortId}`)
+      );
+    }
+    
+    return false;
+  }, [accessibleModels]);
+
+  // Initialize selected model when data loads - only run once when models are ready
   useEffect(() => {
-    if (isLoading || !accessibleModels.length) return;
+    if (isLoading || !accessibleModels.length) {
+      return;
+    }
 
     // If no model selected or selected model is not accessible, pick default from API data
-    if (!selectedModel || !accessibleModels.some(m => m.id === selectedModel)) {
-      const hasActiveSubscription = subscriptionData?.status === 'active' || subscriptionData?.status === 'trialing';
-      const defaultModelId = getDefaultModel(availableModels, hasActiveSubscription);
+    // Only run this check once - don't re-run if selectedModel changes after initialization
+    if (!selectedModel || !isModelAccessible(selectedModel)) {
+      // Default to Haiku (highest priority free model)
+      const haikuModel = availableModels.find(m => 
+        m.id.toLowerCase().includes('haiku-4-5') || 
+        m.id.toLowerCase().includes('haiku-4.5')
+      );
+      
+      const defaultModelId = haikuModel?.id || availableModels[0]?.id || 'anthropic/claude-haiku-4-5';
       
       // Make sure the default model is accessible
-      const finalModel = accessibleModels.some(m => m.id === defaultModelId) 
+      const finalModel = isModelAccessible(defaultModelId)
         ? defaultModelId 
-        : accessibleModels[0]?.id;
+        : accessibleModels[0]?.id || 'anthropic/claude-haiku-4-5';
         
-      if (finalModel) {
-        console.log('🔧 useModelSelection: Setting API-determined default model:', finalModel);
+      if (finalModel && finalModel !== selectedModel) {
         setSelectedModel(finalModel);
       }
     }
-  }, [selectedModel, accessibleModels, availableModels, isLoading, setSelectedModel, subscriptionData]);
+    // Only depend on isLoading and accessibleModels.length - not selectedModel
+    // This prevents the effect from running every time selectedModel changes
+  }, [isLoading, accessibleModels.length, availableModels, setSelectedModel, isModelAccessible]);
 
   const handleModelChange = (modelId: string) => {
-    const model = accessibleModels.find(m => m.id === modelId);
-    if (model) {
-      console.log('🔧 useModelSelection: Changing model to:', modelId);
-      setSelectedModel(modelId);
+    // Try to find exact match first
+    let model = accessibleModels.find(m => m.id === modelId);
+    
+    // If not found, try to find by matching the end of the ID (for full vs short IDs)
+    if (!model && modelId.includes('/')) {
+      const shortId = modelId.split('/').pop();
+      model = accessibleModels.find(m => 
+        m.id === shortId || 
+        m.id.endsWith(`/${shortId}`) || 
+        m.id.endsWith(`-${shortId}`)
+      );
     }
+    
+    // Use the canonical ID from the list if found, otherwise use as-is
+    setSelectedModel(model ? model.id : modelId);
   };
 
   return {
@@ -152,7 +219,7 @@ export const useModelSelection = () => {
     modelsData, // Expose raw API data for components that need it
     subscriptionStatus: (subscriptionData?.status === 'active' || subscriptionData?.status === 'trialing') ? 'active' as const : 'no_subscription' as const,
     canAccessModel: (modelId: string) => {
-      return accessibleModels.some(m => m.id === modelId);
+      return isModelAccessible(modelId);
     },
     isSubscriptionRequired: (modelId: string) => {
       const model = availableModels.find(m => m.id === modelId);

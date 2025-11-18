@@ -48,9 +48,18 @@ const extractFromNewFormat = (content: any): ImageEditGenerateData => {
     let generatedImagePath: string | null = null;
     if (result.output && typeof result.output === 'string') {
       // Look for patterns like "Image saved as: generated_image_xxx.png"
-      const imagePathMatch = result.output.match(/Image saved as:\s*([^\s.]+\.(png|jpg|jpeg|webp|gif))/i);
+      // More flexible regex: matches any filename including underscores
+      const imagePathMatch = result.output.match(/Image saved as:\s*([a-zA-Z0-9_-]+\.(png|jpg|jpeg|webp|gif))/i);
       if (imagePathMatch) {
         generatedImagePath = imagePathMatch[1];
+      }
+      
+      // Fallback: Try to find any image filename in the output
+      if (!generatedImagePath) {
+        const fallbackMatch = result.output.match(/(generated_image_[a-zA-Z0-9]+\.(png|jpg|jpeg|webp|gif))/i);
+        if (fallbackMatch) {
+          generatedImagePath = fallbackMatch[1];
+        }
       }
     }
 
