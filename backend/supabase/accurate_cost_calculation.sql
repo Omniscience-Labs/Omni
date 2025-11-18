@@ -51,7 +51,7 @@ WITH params AS (
 ),
 
 -- Extract all usage data from messages table
--- OPTIMIZED: Apply date filter first with literal values (no CROSS JOIN), then filter by type
+-- OPTIMIZED: Use direct date literals (better for query planner) and apply filters in optimal order
 message_usage AS (
   SELECT 
     m.message_id,
@@ -74,9 +74,9 @@ message_usage AS (
   FROM messages m
   INNER JOIN threads t ON t.thread_id = m.thread_id
   WHERE m.type = 'assistant_response_end'
-    -- Date range filter FIRST (most selective, uses index if available)
-    AND m.created_at >= (SELECT start_date FROM params)
-    AND m.created_at < (SELECT end_date FROM params)
+    -- Date range filter FIRST (most selective, uses index) - CHANGE THESE DATES BELOW
+    AND m.created_at >= '2025-11-01'::timestamp
+    AND m.created_at < '2025-11-19'::timestamp
     -- Then filter JSONB (less selective but still important)
     AND m.content ? 'usage'
     AND m.content->'usage' ? 'prompt_tokens'
@@ -195,9 +195,9 @@ nearest_failure AS (
     FROM messages m2
     WHERE m2.thread_id = mu.thread_id
       AND m2.type = 'status'
-      -- Date filter to limit scan range
-      AND m2.created_at >= (SELECT start_date FROM params) - INTERVAL '1 day'
-      AND m2.created_at < (SELECT end_date FROM params) + INTERVAL '1 day'
+      -- Date filter to limit scan range (matches main query dates)
+      AND m2.created_at >= '2025-11-01'::timestamp - INTERVAL '1 day'
+      AND m2.created_at < '2025-11-19'::timestamp + INTERVAL '1 day'
       AND (
         m2.content->>'status_type' = 'billing_failure'
         OR (m2.content ? 'message' AND (
@@ -297,7 +297,44 @@ SELECT
   
   -- Cache usage stats
   COUNT(*) FILTER (WHERE cache_read_tokens > 0) AS messages_with_cache_read,
-  COUNT(*) FILTER (WHERE cache_creation_tokens > 0) AS messages_with_cache_creation
+  COUNT(*) FILTER (WHERE cache_creation_tokens > 0) AS messages_with_cache_creation,
+  
+  -- MODEL-SPECIFIC COST BREAKDOWNS
+  -- Sonnet 4 costs (all)
+  ROUND(SUM(regular_token_cost) FILTER (WHERE model ILIKE '%sonnet-4%' OR model ILIKE '%sonnet-4-20250514%')::numeric, 4) AS sonnet4_regular_cost_usd,
+  ROUND(SUM(cache_read_cost) FILTER (WHERE model ILIKE '%sonnet-4%' OR model ILIKE '%sonnet-4-20250514%')::numeric, 4) AS sonnet4_cache_read_cost_usd,
+  ROUND(SUM(cache_creation_cost) FILTER (WHERE model ILIKE '%sonnet-4%' OR model ILIKE '%sonnet-4-20250514%')::numeric, 4) AS sonnet4_cache_write_cost_usd,
+  ROUND(SUM(total_cost) FILTER (WHERE model ILIKE '%sonnet-4%' OR model ILIKE '%sonnet-4-20250514%')::numeric, 4) AS sonnet4_total_cost_usd,
+  
+  -- Sonnet 4 long-context costs (>200k tokens)
+  ROUND(SUM(regular_token_cost) FILTER (WHERE (model ILIKE '%sonnet-4%' OR model ILIKE '%sonnet-4-20250514%') AND effective_input_tokens > 200000)::numeric, 4) AS sonnet4_longctx_regular_cost_usd,
+  ROUND(SUM(cache_read_cost) FILTER (WHERE (model ILIKE '%sonnet-4%' OR model ILIKE '%sonnet-4-20250514%') AND effective_input_tokens > 200000)::numeric, 4) AS sonnet4_longctx_cache_read_cost_usd,
+  ROUND(SUM(cache_creation_cost) FILTER (WHERE (model ILIKE '%sonnet-4%' OR model ILIKE '%sonnet-4-20250514%') AND effective_input_tokens > 200000)::numeric, 4) AS sonnet4_longctx_cache_write_cost_usd,
+  ROUND(SUM(total_cost) FILTER (WHERE (model ILIKE '%sonnet-4%' OR model ILIKE '%sonnet-4-20250514%') AND effective_input_tokens > 200000)::numeric, 4) AS sonnet4_longctx_total_cost_usd,
+  
+  -- Sonnet 4 normal costs (<=200k tokens)
+  ROUND(SUM(regular_token_cost) FILTER (WHERE (model ILIKE '%sonnet-4%' OR model ILIKE '%sonnet-4-20250514%') AND effective_input_tokens <= 200000)::numeric, 4) AS sonnet4_normal_regular_cost_usd,
+  ROUND(SUM(cache_read_cost) FILTER (WHERE (model ILIKE '%sonnet-4%' OR model ILIKE '%sonnet-4-20250514%') AND effective_input_tokens <= 200000)::numeric, 4) AS sonnet4_normal_cache_read_cost_usd,
+  ROUND(SUM(cache_creation_cost) FILTER (WHERE (model ILIKE '%sonnet-4%' OR model ILIKE '%sonnet-4-20250514%') AND effective_input_tokens <= 200000)::numeric, 4) AS sonnet4_normal_cache_write_cost_usd,
+  ROUND(SUM(total_cost) FILTER (WHERE (model ILIKE '%sonnet-4%' OR model ILIKE '%sonnet-4-20250514%') AND effective_input_tokens <= 200000)::numeric, 4) AS sonnet4_normal_total_cost_usd,
+  
+  -- Haiku costs
+  ROUND(SUM(regular_token_cost) FILTER (WHERE model ILIKE '%haiku%')::numeric, 4) AS haiku_regular_cost_usd,
+  ROUND(SUM(cache_read_cost) FILTER (WHERE model ILIKE '%haiku%')::numeric, 4) AS haiku_cache_read_cost_usd,
+  ROUND(SUM(cache_creation_cost) FILTER (WHERE model ILIKE '%haiku%')::numeric, 4) AS haiku_cache_write_cost_usd,
+  ROUND(SUM(total_cost) FILTER (WHERE model ILIKE '%haiku%')::numeric, 4) AS haiku_total_cost_usd,
+  
+  -- Other Sonnet costs
+  ROUND(SUM(regular_token_cost) FILTER (WHERE model ILIKE '%sonnet%' AND model NOT ILIKE '%sonnet-4%')::numeric, 4) AS sonnet_other_regular_cost_usd,
+  ROUND(SUM(cache_read_cost) FILTER (WHERE model ILIKE '%sonnet%' AND model NOT ILIKE '%sonnet-4%')::numeric, 4) AS sonnet_other_cache_read_cost_usd,
+  ROUND(SUM(cache_creation_cost) FILTER (WHERE model ILIKE '%sonnet%' AND model NOT ILIKE '%sonnet-4%')::numeric, 4) AS sonnet_other_cache_write_cost_usd,
+  ROUND(SUM(total_cost) FILTER (WHERE model ILIKE '%sonnet%' AND model NOT ILIKE '%sonnet-4%')::numeric, 4) AS sonnet_other_total_cost_usd,
+  
+  -- Opus costs
+  ROUND(SUM(regular_token_cost) FILTER (WHERE model ILIKE '%opus%')::numeric, 4) AS opus_regular_cost_usd,
+  ROUND(SUM(cache_read_cost) FILTER (WHERE model ILIKE '%opus%')::numeric, 4) AS opus_cache_read_cost_usd,
+  ROUND(SUM(cache_creation_cost) FILTER (WHERE model ILIKE '%opus%')::numeric, 4) AS opus_cache_write_cost_usd,
+  ROUND(SUM(total_cost) FILTER (WHERE model ILIKE '%opus%')::numeric, 4) AS opus_total_cost_usd
 
 FROM final_costs
 GROUP BY GROUPING SETS ((account_id), ())
