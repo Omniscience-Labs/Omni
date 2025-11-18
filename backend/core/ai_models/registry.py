@@ -45,8 +45,8 @@ class ModelRegistry:
                 ModelCapability.VISION,
             ],
             pricing=ModelPricing(
-                input_cost_per_million_tokens=1.00,
-                output_cost_per_million_tokens=5.00
+                input_cost_per_million_tokens=2.40,
+                output_cost_per_million_tokens=12.00
             ),
             tier_availability=["free", "paid"],
             priority=102,
