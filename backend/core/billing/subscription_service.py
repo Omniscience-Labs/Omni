@@ -689,6 +689,14 @@ class SubscriptionService:
         """
         try:
             from core.ai_models import model_manager
+            from core.utils.config import config, EnvMode
+            
+            # In staging/local environments, return all models
+            if config.ENV_MODE == EnvMode.LOCAL or config.ENV_MODE == EnvMode.STAGING:
+                all_models = model_manager.list_available_models(include_disabled=False)
+                allowed_model_ids = [model_data["id"] for model_data in all_models]
+                logger.debug(f"[ALLOWED_MODELS] User {user_id} in {config.ENV_MODE.value} - has access to all {len(allowed_model_ids)} models")
+                return allowed_model_ids
             
             # Get user's subscription tier
             tier_info = await self.get_user_subscription_tier(user_id)

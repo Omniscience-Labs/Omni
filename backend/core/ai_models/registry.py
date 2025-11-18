@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Set
 from .ai_models import Model, ModelProvider, ModelCapability, ModelPricing
 
 DEFAULT_FREE_MODEL = "Haiku 4.5"
-DEFAULT_PREMIUM_MODEL = "Haiku 4.5"
+DEFAULT_PREMIUM_MODEL = "Claude Sonnet 4"
 
 class ModelRegistry:
     def __init__(self):
@@ -48,7 +48,7 @@ class ModelRegistry:
                 input_cost_per_million_tokens=1.00,
                 output_cost_per_million_tokens=5.00
             ),
-            tier_availability=["paid"],
+            tier_availability=["free", "paid"],
             priority=102,
             recommended=True,
             enabled=True
@@ -112,7 +112,7 @@ class ModelRegistry:
             ),
             tier_availability=["paid", "free"],
             priority=85,
-            enabled=False,
+            enabled=False,  # ❌ DISABLED - Only Haiku and Sonnet should be available
             recommended=False
         ))
         

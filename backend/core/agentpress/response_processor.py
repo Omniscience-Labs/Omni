@@ -67,13 +67,19 @@ class ProcessorConfig:
     native_tool_calling: bool = False
 
     execute_tools: bool = True
-    execute_on_stream: bool = False
+    execute_on_stream: bool = False  # CRITICAL: Never execute tools during streaming - wait for complete JSON!
     tool_execution_strategy: ToolExecutionStrategy = "parallel"
     xml_adding_strategy: XmlAddingStrategy = "assistant_message"
     max_xml_tool_calls: int = 0  # 0 means no limit
     
     def __post_init__(self):
         """Validate configuration after initialization."""
+        # CRITICAL: Force execute_on_stream to False to prevent premature tool execution during streaming
+        # This fixes the bug where tools execute with incomplete JSON arguments
+        if self.execute_on_stream:
+            logger.warning("⚠️ execute_on_stream was True, forcing to False to prevent streaming execution bug")
+            self.execute_on_stream = False
+        
         if self.xml_tool_calling is False and self.native_tool_calling is False and self.execute_tools:
             raise ValueError("At least one tool calling format (XML or native) must be enabled if execute_tools is True")
             
