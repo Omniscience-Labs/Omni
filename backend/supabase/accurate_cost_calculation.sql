@@ -2,6 +2,12 @@
 -- ACCURATE COST CALCULATION FROM MESSAGES TABLE
 -- Uses messages table as source of truth for all token data
 -- Matches Anthropic pricing and cache handling logic
+-- 
+-- PERFORMANCE NOTE: For better performance with large datasets (85k+ rows),
+-- consider creating this index:
+-- CREATE INDEX IF NOT EXISTS idx_messages_type_created_at 
+--   ON messages(type, created_at) 
+--   WHERE type = 'assistant_response_end';
 -- =====================================================
 
 WITH params AS (
@@ -45,6 +51,7 @@ WITH params AS (
 ),
 
 -- Extract all usage data from messages table
+-- OPTIMIZED: Apply date filter first with literal values (no CROSS JOIN), then filter by type
 message_usage AS (
   SELECT 
     m.message_id,
@@ -65,15 +72,15 @@ message_usage AS (
      + COALESCE((m.content->'usage'->>'cache_creation_input_tokens')::int, 0))::int AS effective_input_tokens
     
   FROM messages m
-  LEFT JOIN threads t ON t.thread_id = m.thread_id
-  CROSS JOIN params p
+  INNER JOIN threads t ON t.thread_id = m.thread_id
   WHERE m.type = 'assistant_response_end'
+    -- Date range filter FIRST (most selective, uses index if available)
+    AND m.created_at >= (SELECT start_date FROM params)
+    AND m.created_at < (SELECT end_date FROM params)
+    -- Then filter JSONB (less selective but still important)
     AND m.content ? 'usage'
     AND m.content->'usage' ? 'prompt_tokens'
     AND t.account_id IS NOT NULL
-    -- Date range filter
-    AND m.created_at >= p.start_date
-    AND m.created_at < p.end_date
 ),
 
 -- Calculate costs per message
@@ -177,6 +184,7 @@ cost_calculations AS (
 ),
 
 -- Detect billing failures (messages that failed to charge)
+-- OPTIMIZED: Add date filter to avoid scanning all status messages
 nearest_failure AS (
   SELECT 
     mu.message_id,
@@ -187,6 +195,9 @@ nearest_failure AS (
     FROM messages m2
     WHERE m2.thread_id = mu.thread_id
       AND m2.type = 'status'
+      -- Date filter to limit scan range
+      AND m2.created_at >= (SELECT start_date FROM params) - INTERVAL '1 day'
+      AND m2.created_at < (SELECT end_date FROM params) + INTERVAL '1 day'
       AND (
         m2.content->>'status_type' = 'billing_failure'
         OR (m2.content ? 'message' AND (
