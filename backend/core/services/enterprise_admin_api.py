@@ -28,6 +28,10 @@ class LoadCreditsRequest(BaseModel):
     amount: float
     description: Optional[str] = None
 
+class RemoveCreditsRequest(BaseModel):
+    amount: float
+    description: Optional[str] = None
+
 class SetUserLimitRequest(BaseModel):
     account_id: str
     monthly_limit: float
@@ -217,6 +221,32 @@ async def load_credits(
             
     except Exception as e:
         logger.error(f"Error loading credits: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/remove-credits")
+async def remove_credits(
+    request: RemoveCreditsRequest,
+    admin_user_id: str = Depends(verify_omni_admin)
+):
+    """Remove credits from the enterprise account."""
+    try:
+        result = await enterprise_billing.remove_credits(
+            amount=request.amount,
+            description=request.description,
+            performed_by=admin_user_id
+        )
+        
+        if result['success']:
+            return {
+                "success": True,
+                "new_balance": result['new_balance'],
+                "amount_removed": request.amount
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.get('error', 'Failed to remove credits'))
+            
+    except Exception as e:
+        logger.error(f"Error removing credits: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/users")
