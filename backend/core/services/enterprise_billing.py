@@ -272,6 +272,53 @@ class SimplifiedEnterpriseBillingService:
             logger.error(f"Error loading enterprise credits: {e}")
             raise
     
+    async def remove_credits(
+        self,
+        amount: float,
+        description: str = None,
+        performed_by: str = None
+    ) -> Dict[str, Any]:
+        """Remove credits from the enterprise account."""
+        if not config.ENTERPRISE_MODE:
+            raise ValueError("Enterprise mode not enabled")
+        
+        try:
+            db = DBConnection()
+            client = await db.client
+            
+            # Call the database function
+            result = await client.rpc('remove_enterprise_credits', {
+                'p_amount': amount,
+                'p_description': description,
+                'p_performed_by': performed_by
+            }).execute()
+            
+            if result and hasattr(result, 'data') and result.data and len(result.data) > 0:
+                response = result.data[0]
+                if response['success']:
+                    logger.info(
+                        f"Removed ${amount:.2f} enterprise credits",
+                        amount=amount,
+                        new_balance=response['new_balance'],
+                        performed_by=performed_by
+                    )
+                    return {
+                        'success': True,
+                        'new_balance': response['new_balance'],
+                        'amount_removed': amount
+                    }
+                else:
+                    return {
+                        'success': False,
+                        'error': response.get('error_message', 'Failed to remove credits')
+                    }
+            
+            return {'success': False, 'error': 'Failed to remove credits'}
+            
+        except Exception as e:
+            logger.error(f"Error removing enterprise credits: {e}")
+            raise
+    
     async def get_global_setting(self, setting_key: str) -> Optional[Dict[str, Any]]:
         """Get a global enterprise setting."""
         if not config.ENTERPRISE_MODE:

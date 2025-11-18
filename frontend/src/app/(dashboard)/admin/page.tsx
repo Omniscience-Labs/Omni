@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { DollarSign, Users, Activity, CreditCard, Loader2, AlertCircle, Plus, Settings, ExternalLink } from 'lucide-react';
+import { DollarSign, Users, Activity, CreditCard, Loader2, AlertCircle, Plus, Minus, Settings, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import {
@@ -95,7 +95,12 @@ export default function AdminPage() {
           <h1 className="text-3xl font-bold">Enterprise Admin</h1>
           <p className="text-muted-foreground">Manage enterprise billing and user limits</p>
         </div>
-        {adminCheck?.isOmniAdmin && <LoadCreditsButton />}
+        {adminCheck?.isOmniAdmin && (
+          <div className="flex gap-2">
+            <LoadCreditsButton />
+            <RemoveCreditsButton />
+          </div>
+        )}
       </div>
       
       {/* Global Defaults */}
@@ -337,6 +342,89 @@ function LoadCreditsButton() {
               </>
             ) : (
               `Load $${amount.toFixed(2)}`
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RemoveCreditsButton() {
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState(0);
+  const [description, setDescription] = useState('');
+  const queryClient = useQueryClient();
+  
+  const removeMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiClient.request('/enterprise/remove-credits', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['enterprise-status'] });
+      queryClient.invalidateQueries({ queryKey: ['enterprise-users'] });
+      toast.success(`Removed $${amount} credits successfully!`);
+      setOpen(false);
+      setAmount(0);
+      setDescription('');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to remove credits');
+    }
+  });
+  
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="destructive">
+          <Minus className="h-4 w-4 mr-2" />
+          Remove Credits
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Remove Credits</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="remove-amount">Amount ($)</Label>
+            <Input
+              id="remove-amount"
+              type="number"
+              min="0"
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+              placeholder="1000.00"
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="remove-description">Description (Optional)</Label>
+            <Input
+              id="remove-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Manual credit removal"
+            />
+          </div>
+          <Button 
+            onClick={() => removeMutation.mutate({ amount, description })}
+            disabled={amount <= 0 || removeMutation.isPending}
+            variant="destructive"
+            className="w-full"
+          >
+            {removeMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Removing...
+              </>
+            ) : (
+              `Remove $${amount.toFixed(2)}`
             )}
           </Button>
         </div>
