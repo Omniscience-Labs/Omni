@@ -37,7 +37,7 @@ class ModelRegistry:
             id="anthropic/claude-haiku-4-5",
             name="Haiku 4.5",
             provider=ModelProvider.ANTHROPIC,
-            aliases=["claude-haiku-4.5", "anthropic/claude-haiku-4.5", "Claude Haiku 4.5"],
+            aliases=["claude-haiku-4.5", "claude-haiku-4-5", "anthropic/claude-haiku-4.5", "anthropic/claude-haiku-4-5", "Claude Haiku 4.5"],
             context_window=200_000,
             capabilities=[
                 ModelCapability.CHAT,
