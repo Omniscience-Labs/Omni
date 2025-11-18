@@ -29,6 +29,8 @@ import { PlaybookExecuteDialog } from '@/components/playbooks/playbook-execute-d
 import { AgentAvatar } from '@/components/thread/content/agent-avatar';
 import { AgentModelSelector } from '@/components/agents/config/model-selector';
 import { AgentConfigurationDialog } from '@/components/agents/agent-configuration-dialog';
+import { useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
+import { toast } from 'sonner';
 
 type UnifiedConfigMenuProps = {
     isLoggedIn?: boolean;
@@ -69,6 +71,11 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     const searchInputRef = useRef<HTMLInputElement>(null);
     const [execDialog, setExecDialog] = useState<{ open: boolean; playbook: any | null; agentId: string | null }>({ open: false, playbook: null, agentId: null });
     const [agentConfigDialog, setAgentConfigDialog] = useState<{ open: boolean; tab: 'general' | 'instructions' | 'knowledge' | 'triggers' | 'playbooks' | 'tools' | 'integrations' }>({ open: false, tab: 'general' });
+    
+    // Track the last synced agent model to avoid redundant updates
+    const lastSyncedModelRef = useRef<{ agentId: string; model: string } | null>(null);
+    
+    const updateAgentMutation = useUpdateAgent();
 
     // Debounce search query
     useEffect(() => {
@@ -165,6 +172,44 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
         setIsOpen(false);
     };
 
+    const handleModelChangeWithSave = useCallback(async (modelId: string) => {
+        // Normalize the model ID to ensure we have the full ID
+        let normalizedModelId = modelId;
+        if (!modelId.includes('/')) {
+            // Try to normalize - default to Haiku if we can't determine
+            if (modelId.toLowerCase().includes('haiku')) {
+                normalizedModelId = 'anthropic/claude-haiku-4-5';
+            } else if (modelId.toLowerCase().includes('sonnet')) {
+                normalizedModelId = 'anthropic/claude-sonnet-4-20250514';
+            } else {
+                // Default to Haiku if we can't determine
+                normalizedModelId = 'anthropic/claude-haiku-4-5';
+            }
+        }
+        
+        // Update the ref FIRST to prevent sync from overriding
+        if (selectedAgentId) {
+            lastSyncedModelRef.current = { agentId: selectedAgentId, model: normalizedModelId };
+        }
+        
+        // Update local state immediately for UI responsiveness
+        onModelChange(normalizedModelId);
+        
+        // If an agent is selected, also save to backend
+        if (selectedAgentId) {
+            try {
+                await updateAgentMutation.mutateAsync({
+                    agentId: selectedAgentId,
+                    model: normalizedModelId,
+                });
+                toast.success('Model updated');
+            } catch (error) {
+                console.error('Failed to save model:', error);
+                toast.error('Failed to update model');
+            }
+        }
+    }, [selectedAgentId, onModelChange, updateAgentMutation]);
+
     const handleQuickAction = (action: 'instructions' | 'knowledge' | 'triggers' | 'playbooks') => {
         if (!selectedAgentId && !displayAgent?.agent_id) {
             return;
@@ -180,9 +225,31 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     };
 
     const displayAgent = useMemo(() => {
+        if (!agents.length) return undefined;
         const found = agents.find(a => a.agent_id === selectedAgentId) || agents[0];
         return found;
     }, [agents, selectedAgentId]);
+
+    // Sync selected model from agent's current_version when agent changes
+    useEffect(() => {
+        // Only sync when we have an agent with a model
+        if (!displayAgent?.current_version?.model || displayAgent?.agent_id !== selectedAgentId) {
+            return;
+        }
+        
+        const agentModel = displayAgent.current_version.model;
+        const agentId = displayAgent.agent_id;
+        
+        // Check if we've already synced this exact combination
+        const lastSynced = lastSyncedModelRef.current;
+        if (lastSynced?.agentId === agentId && lastSynced?.model === agentModel) {
+            return; // Already synced, don't update again
+        }
+        
+        // Update the model and track what we synced
+        lastSyncedModelRef.current = { agentId, model: agentModel };
+        onModelChange(agentModel);
+    }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId, selectedModel, onModelChange]);
 
     const currentAgentIdForPlaybooks = isLoggedIn ? displayAgent?.agent_id || '' : '';
     const { data: playbooks = [], isLoading: playbooksLoading } = useAgentWorkflows(currentAgentIdForPlaybooks);
@@ -307,7 +374,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
                         <div className="px-3 py-1 text-[11px] font-medium text-muted-foreground">Models</div>
                         <AgentModelSelector
                             value={selectedModel}
-                            onChange={onModelChange}
+                            onChange={handleModelChangeWithSave}
                             disabled={false}
                             variant="menu-item"
                         />

@@ -148,6 +148,7 @@ export type AgentUpdateRequest = {
   name?: string;
   description?: string;
   system_prompt?: string;
+  model?: string;
   configured_mcps?: Array<{
     name: string;
     config: Record<string, any>;
