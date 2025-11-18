@@ -8,6 +8,11 @@ WITH params AS (
   SELECT
     1.20::numeric AS margin_mult,  -- Your margin multiplier (from billing/config.py)
     
+    -- Date range filter (change these dates as needed)
+    -- Format: 'YYYY-MM-DD' (inclusive start, exclusive end - so end date is actually the day after)
+    '2024-11-01'::date AS start_date,      -- Start date (inclusive)
+    '2024-11-19'::date AS end_date,        -- End date (exclusive, so Nov 19 means up to Nov 18 23:59:59)
+    
     -- Model pricing per million tokens
     -- Haiku 4.5 (using 2.5 to match old query, registry shows 2.40)
     2.5::numeric AS haiku_input_per_m,
@@ -61,10 +66,14 @@ message_usage AS (
     
   FROM messages m
   LEFT JOIN threads t ON t.thread_id = m.thread_id
+  CROSS JOIN params p
   WHERE m.type = 'assistant_response_end'
     AND m.content ? 'usage'
     AND m.content->'usage' ? 'prompt_tokens'
     AND t.account_id IS NOT NULL
+    -- Date range filter
+    AND m.created_at >= p.start_date
+    AND m.created_at < p.end_date
 ),
 
 -- Calculate costs per message
