@@ -702,6 +702,15 @@ class ResponseProcessor:
                                     "function": {"name": tc_buf['function']['name'],"arguments": args}
                                 })
                             except json.JSONDecodeError: continue
+                
+                # CRITICAL FIX: Override finish_reason to 'tool_calls' if tool calls exist
+                # Sonnet 4 may return finish_reason='stop' even when tool calls are present,
+                # which prevents auto-continue from triggering. This ensures auto-continue works correctly.
+                if complete_native_tool_calls and finish_reason != "xml_tool_limit_reached":
+                    if finish_reason != 'tool_calls':
+                        logger.info(f"🔧 Overriding finish_reason from '{finish_reason}' to 'tool_calls' because {len(complete_native_tool_calls)} tool call(s) detected")
+                        self.trace.event(name="override_finish_reason_for_tool_calls", level="DEFAULT", status_message=(f"Overriding finish_reason from '{finish_reason}' to 'tool_calls' because {len(complete_native_tool_calls)} tool call(s) detected"))
+                        finish_reason = 'tool_calls'
 
                 # Structure content to match established reasoning pattern (same as Claude/Anthropic)
                 if accumulated_thinking:
@@ -1150,6 +1159,14 @@ class ResponseProcessor:
                                      }
                                  })
 
+            # CRITICAL FIX: Override finish_reason to 'tool_calls' if tool calls exist
+            # Sonnet 4 may return finish_reason='stop' even when tool calls are present,
+            # which prevents auto-continue from triggering. This ensures auto-continue works correctly.
+            if native_tool_calls_for_message and finish_reason != "xml_tool_limit_reached":
+                if finish_reason != 'tool_calls':
+                    logger.info(f"🔧 NON-STREAMING: Overriding finish_reason from '{finish_reason}' to 'tool_calls' because {len(native_tool_calls_for_message)} tool call(s) detected")
+                    self.trace.event(name="override_finish_reason_for_tool_calls_non_streaming", level="DEFAULT", status_message=(f"Overriding finish_reason from '{finish_reason}' to 'tool_calls' because {len(native_tool_calls_for_message)} tool call(s) detected"))
+                    finish_reason = 'tool_calls'
 
             # --- SAVE and YIELD Final Assistant Message ---
             message_data = {"role": "assistant", "content": content, "tool_calls": native_tool_calls_for_message or None}
