@@ -695,13 +695,30 @@ class ThreadManager:
 
         elif chunk.get('type') == 'status':
             try:
-                content = json.loads(chunk.get('content', '{}'))
-                if content.get('finish_reason') == 'length':
-                    logger.debug(f"Auto-continuing for length limit ({auto_continue_state['count'] + 1}/{native_max_auto_continues})")
-                    auto_continue_state['active'] = True
-                    auto_continue_state['count'] += 1
-                    return True
-            except (json.JSONDecodeError, TypeError):
+                content = chunk.get('content', '{}')
+                # Handle both JSON string and dict formats
+                if isinstance(content, str):
+                    content = json.loads(content)
+                
+                # Check for finish status with tool_calls finish_reason
+                if content.get('status_type') == 'finish':
+                    finish_reason = content.get('finish_reason')
+                    if finish_reason == 'tool_calls':
+                        if native_max_auto_continues > 0:
+                            logger.debug(f"Auto-continuing for tool_calls from status message ({auto_continue_state['count'] + 1}/{native_max_auto_continues})")
+                            auto_continue_state['active'] = True
+                            auto_continue_state['count'] += 1
+                            return True
+                    elif finish_reason == 'xml_tool_limit_reached':
+                        logger.debug("Stopping auto-continue due to XML tool limit")
+                        auto_continue_state['active'] = False
+                    elif finish_reason == 'length':
+                        logger.debug(f"Auto-continuing for length limit ({auto_continue_state['count'] + 1}/{native_max_auto_continues})")
+                        auto_continue_state['active'] = True
+                        auto_continue_state['count'] += 1
+                        return True
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.debug(f"Error parsing status content for auto-continue check: {e}")
                 pass
                 
         return False
