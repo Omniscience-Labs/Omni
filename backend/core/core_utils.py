@@ -188,7 +188,7 @@ async def generate_and_update_project_name(project_id: str, prompt: str):
         db_conn = DBConnection()
         client = await db_conn.client
 
-        model_name = "openai/gpt-5-nano"
+        model_name = "anthropic/claude-haiku-4-5"  # Use Haiku instead of gpt-5-nano
         
         # Use pre-loaded Lucide React icons (loaded once at module level)
         relevant_icons = RELEVANT_ICONS
@@ -275,7 +275,7 @@ async def generate_agent_icon_and_colors(name: str, description: str = None) -> 
     """Generates an agent icon and colors using an LLM based on agent name and description."""
     logger.debug(f"Generating icon and colors for agent: {name}")
     try:
-        model_name = "openai/gpt-5-nano"
+        model_name = "anthropic/claude-haiku-4-5"  # Use Haiku instead of gpt-5-nano
         
         # Use pre-loaded Lucide React icons (loaded once at module level)
         relevant_icons = RELEVANT_ICONS
