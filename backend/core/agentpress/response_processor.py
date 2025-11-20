@@ -582,14 +582,14 @@ class ResponseProcessor:
                 logger.info("🔥 NO PROVIDER TOKEN DATA: Using LiteLLM token counting fallback")
                 
                 try:
-                    from litellm import token_counter
+                    from core.agentpress.prompt_caching import safe_token_counter
                     
-                    prompt_tokens = token_counter(
+                    prompt_tokens = safe_token_counter(
                         model=llm_model,
                         messages=prompt_messages
                     )
 
-                    completion_tokens = token_counter(
+                    completion_tokens = safe_token_counter(
                         model=llm_model,
                         text=accumulated_content or ""
                     )

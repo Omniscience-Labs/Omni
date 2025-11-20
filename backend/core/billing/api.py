@@ -740,6 +740,17 @@ async def get_available_models(
         from core.services.supabase import DBConnection
         # Use the implemented get_allowed_models_for_user function
         
+        # Check Redis cache first (cache key includes account_id and env mode)
+        cache_key = f"available_models:{account_id}:{config.ENV_MODE.value}"
+        try:
+            cached_result = await Cache.get(cache_key)
+            if cached_result:
+                logger.debug(f"✅ [AVAILABLE_MODELS] Cache hit for account {account_id}")
+                return cached_result
+        except Exception as e:
+            logger.debug(f"Redis cache lookup failed (non-critical): {e}")
+            # Continue without cache - don't fail the request
+        
         if config.ENV_MODE == EnvMode.LOCAL or config.ENV_MODE == EnvMode.STAGING:
             env_name = "Local Development" if config.ENV_MODE == EnvMode.LOCAL else "Staging"
             logger.debug(f"Running in {env_name.lower()} mode - all models available")
@@ -782,11 +793,20 @@ async def get_available_models(
             else:
                 logger.warning(f"❌ [AVAILABLE_MODELS] Sonnet 4 NOT FOUND!")
             
-            return {
+            result = {
                 "models": model_info,
                 "subscription_tier": env_name,
                 "total_models": len(model_info)
             }
+            
+            # Cache the result for 1 hour (3600 seconds)
+            try:
+                await Cache.set(cache_key, result, ttl=3600)
+                logger.debug(f"✅ [AVAILABLE_MODELS] Cached result for account {account_id}")
+            except Exception as e:
+                logger.debug(f"Redis cache write failed (non-critical): {e}")
+            
+            return result
         
         # Check if enterprise mode is enabled
         if config.ENTERPRISE_MODE:
@@ -810,12 +830,21 @@ async def get_available_models(
             
             model_info.sort(key=lambda x: (-x["priority"], x["display_name"]))
             
-            return {
+            result = {
                 "models": model_info,
                 "subscription_tier": "Enterprise",
                 "total_models": len(model_info),
                 "allowed_models_count": len(model_info)  # All models allowed in enterprise
             }
+            
+            # Cache the result for 1 hour (3600 seconds)
+            try:
+                await Cache.set(cache_key, result, ttl=3600)
+                logger.debug(f"✅ [AVAILABLE_MODELS] Cached enterprise result for account {account_id}")
+            except Exception as e:
+                logger.debug(f"Redis cache write failed (non-critical): {e}")
+            
+            return result
         
         db = DBConnection()
         client = await db.client
@@ -858,12 +887,21 @@ async def get_available_models(
         
         model_info.sort(key=lambda x: (-x["priority"], x["display_name"]))
         
-        return {
+        result = {
             "models": model_info,
             "subscription_tier": tier_name,
             "total_models": len(model_info),
             "allowed_models_count": len([m for m in model_info if not m["requires_subscription"]])
         }
+        
+        # Cache the result for 1 hour (3600 seconds)
+        try:
+            await Cache.set(cache_key, result, ttl=3600)
+            logger.debug(f"✅ [AVAILABLE_MODELS] Cached result for account {account_id}")
+        except Exception as e:
+            logger.debug(f"Redis cache write failed (non-critical): {e}")
+        
+        return result
         
     except Exception as e:
         logger.error("Error getting available models", error=str(e))
