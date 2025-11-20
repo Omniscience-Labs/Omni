@@ -41,8 +41,9 @@ export const useModelSelection = () => {
   const { data: modelsData, isLoading, error } = useQuery({
     queryKey: ['models', 'available'],
     queryFn: getAvailableModels,
-    staleTime: 30 * 1000, // 30 seconds (reduced for debugging)
-    refetchOnWindowFocus: true, // Refetch when window regains focus
+    staleTime: 10 * 60 * 1000, // 10 minutes - models don't change frequently
+    refetchOnWindowFocus: false, // Don't refetch on window focus - reduces unnecessary requests
+    refetchInterval: false, // Never auto-refetch - models are static
     retry: 2,
   });
   

@@ -26,6 +26,8 @@ export function useAdminCheck() {
     },
     enabled: !!user,
     retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 30 * 60 * 1000, // 30 minutes - admin status rarely changes
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchInterval: false, // Never auto-refetch
   });
 }
