@@ -168,7 +168,17 @@ def is_model_allowed(tier_name: str, model: str) -> bool:
     tier = TIERS.get(tier_name, TIERS['none'])
     if 'all' in tier.models:
         return True
-    return model in tier.models
+    if model in tier.models:
+        return True
+    
+    # For free/none tiers with empty models list, check model's tier_availability
+    if not tier.models and tier_name in ['free', 'none']:
+        from core.ai_models import model_manager
+        model_obj = model_manager.get_model(model)
+        if model_obj and 'free' in model_obj.tier_availability:
+            return True
+    
+    return False
 
 def get_project_limit(tier_name: str) -> int:
     tier = TIERS.get(tier_name)
