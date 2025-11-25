@@ -202,6 +202,8 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
                     agentId: selectedAgentId,
                     model: normalizedModelId,
                 });
+                // Update ref AFTER successful save to prevent sync from overriding
+                lastSyncedModelRef.current = { agentId: selectedAgentId, model: normalizedModelId };
                 toast.success('Model updated');
             } catch (error) {
                 console.error('Failed to save model:', error);
@@ -231,6 +233,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     }, [agents, selectedAgentId]);
 
     // Sync selected model from agent's current_version when agent changes
+    // Only sync when the agent ID changes (user switches agents), not when user changes model
     useEffect(() => {
         // Only sync when we have an agent with a model
         if (!displayAgent?.current_version?.model || displayAgent?.agent_id !== selectedAgentId) {
@@ -246,10 +249,17 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
             return; // Already synced, don't update again
         }
         
-        // Update the model and track what we synced
+        // Only sync if the agent ID changed (user switched agents)
+        // If same agent, don't override user's manual model selection
+        if (lastSynced?.agentId === agentId) {
+            // Same agent - user may have manually changed model, don't override
+            return;
+        }
+        
+        // Agent ID changed - sync model from new agent
         lastSyncedModelRef.current = { agentId, model: agentModel };
         onModelChange(agentModel);
-    }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId, selectedModel, onModelChange]);
+    }, [displayAgent?.agent_id, selectedAgentId, onModelChange]); // Only sync when agent ID changes
 
     const currentAgentIdForPlaybooks = isLoggedIn ? displayAgent?.agent_id || '' : '';
     const { data: playbooks = [], isLoading: playbooksLoading } = useAgentWorkflows(currentAgentIdForPlaybooks);

@@ -130,7 +130,7 @@ export function AgentConfigurationDialog({
       name: configSource.name || '',
       description: configSource.description || '',
       system_prompt: configSource.system_prompt || '',
-      model: configSource.model,
+      model: configSource.model || 'anthropic/claude-haiku-4-5', // Default to Haiku if no model set
       agentpress_tools: configSource.agentpress_tools || DEFAULT_AGENTPRESS_TOOLS,
       configured_mcps: configSource.configured_mcps || [],
       custom_mcps: configSource.custom_mcps || [],
@@ -334,7 +334,10 @@ export function AgentConfigurationDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-5xl h-[85vh] overflow-hidden p-0 gap-0 flex flex-col">
+        <DialogContent 
+          className="max-w-5xl h-[85vh] overflow-hidden p-0 gap-0 flex flex-col"
+          aria-describedby="agent-config-description"
+        >
           <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -425,7 +428,7 @@ export function AgentConfigurationDialog({
                       )}
                     </div>
                   )}
-                  <DialogDescription>
+                  <DialogDescription id="agent-config-description">
                     Configure your agent's capabilities and behavior
                   </DialogDescription>
                 </div>
