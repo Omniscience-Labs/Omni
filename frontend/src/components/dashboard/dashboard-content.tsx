@@ -118,11 +118,8 @@ export function DashboardContent() {
   // Feature flag for custom agents section
 
   // Fetch agents to get the selected agent's name
-  const { data: agentsResponse } = useAgents({
-    limit: 100,
-    sort_by: 'name',
-    sort_order: 'asc'
-  });
+  // Using empty params to use default cached query
+  const { data: agentsResponse } = useAgents();
 
   const agents = agentsResponse?.agents || [];
   const selectedAgent = selectedAgentId

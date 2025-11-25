@@ -40,11 +40,8 @@ export default function DashboardLayoutContent({
 
   const { data: projects } = useProjects();
   const { data: threads } = useThreads();
-  const { data: agentsResponse } = useAgents({
-    limit: 100,
-    sort_by: 'name',
-    sort_order: 'asc'
-  });
+  // Using empty params to use default cached query (shared across components)
+  const { data: agentsResponse } = useAgents();
 
   useEffect(() => {
     if (maintenanceNotice?.enabled) {
