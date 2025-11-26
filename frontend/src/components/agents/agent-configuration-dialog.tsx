@@ -126,11 +126,24 @@ export function AgentConfigurationDialog({
       };
     }
 
+    // Get model from versionData first, then agent.current_version.model, then agent.model, then default
+    const model = versionData?.model 
+      || agent?.current_version?.model 
+      || configSource.model 
+      || 'anthropic/claude-haiku-4-5';
+
+    console.log('🎯 [AgentConfigDialog] Initializing formData with model:', {
+      'versionData?.model': versionData?.model,
+      'agent?.current_version?.model': agent?.current_version?.model,
+      'configSource.model': configSource.model,
+      'final model': model
+    });
+
     const newFormData = {
       name: configSource.name || '',
       description: configSource.description || '',
       system_prompt: configSource.system_prompt || '',
-      model: configSource.model || 'anthropic/claude-haiku-4-5', // Default to Haiku if no model set
+      model: model,
       agentpress_tools: configSource.agentpress_tools || DEFAULT_AGENTPRESS_TOOLS,
       configured_mcps: configSource.configured_mcps || [],
       custom_mcps: configSource.custom_mcps || [],
