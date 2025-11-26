@@ -194,6 +194,8 @@ export const useModelSelection = () => {
   }, [isLoading, accessibleModels.length, availableModels, setSelectedModel, isModelAccessible]);
 
   const handleModelChange = (modelId: string) => {
+    console.log('🟠 [useModelSelection] handleModelChange called with:', modelId);
+    
     // Try to find exact match first
     let model = accessibleModels.find(m => m.id === modelId);
     
@@ -208,7 +210,9 @@ export const useModelSelection = () => {
     }
     
     // Use the canonical ID from the list if found, otherwise use as-is
-    setSelectedModel(model ? model.id : modelId);
+    const finalModelId = model ? model.id : modelId;
+    console.log('🟠 [useModelSelection] Setting selectedModel to:', finalModelId);
+    setSelectedModel(finalModelId);
   };
 
   return {
