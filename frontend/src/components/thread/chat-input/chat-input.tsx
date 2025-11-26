@@ -243,6 +243,13 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       const baseModelName = getActualModelId(selectedModel);
       const thinkingEnabled = false; // Thinking mode removed - use API models directly
 
+      console.log('🔵 [ChatInput] Submitting message with model:', {
+        selectedModel,
+        baseModelName,
+        agent_id: selectedAgentId,
+        timestamp: new Date().toISOString()
+      });
+
       posthog.capture("task_prompt_submitted", { message });
 
       onSubmit(message, {

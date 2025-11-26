@@ -63,16 +63,19 @@ async def start_agent(
 
     # Use model from config if not specified in the request
     model_name = body.model_name
+    logger.info(f"🟢 [StartAgent] Received model_name from frontend: {model_name}")
     logger.debug(f"Original model_name from request: {model_name}")
 
     # Log the model name after alias resolution using new model manager
     from core.ai_models import model_manager
     resolved_model = model_manager.resolve_model_id(model_name)
+    logger.info(f"🟢 [StartAgent] Resolved model name: {resolved_model}")
     logger.debug(f"Resolved model name: {resolved_model}")
 
     # Update model_name to use the resolved version
     model_name = resolved_model
 
+    logger.info(f"🟢 [StartAgent] Starting agent with final model: {model_name}")
     logger.debug(f"Starting new agent for thread: {thread_id} with config: model={model_name}, thinking={body.enable_thinking}, effort={body.reasoning_effort}, stream={body.stream}, context_manager={body.enable_context_manager} (Instance: {utils.instance_id})")
     client = await utils.db.client
 

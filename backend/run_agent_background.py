@@ -134,7 +134,7 @@ async def run_agent_background(
     thread_id: str,
     instance_id: str,
     project_id: str,
-    model_name: str = "Claude Sonnet 4",
+    model_name: Optional[str] = None,  # ⭐ FIXED: Don't default to Sonnet - let agent config or explicit selection determine model
     enable_thinking: Optional[bool] = False,
     reasoning_effort: Optional[str] = 'low',
     stream: bool = True,
@@ -181,6 +181,16 @@ async def run_agent_background(
     logger.info(f"Starting background agent run: {agent_run_id} for thread: {thread_id} (Instance: {instance_id})")
     
     from core.ai_models import model_manager
+
+    # ⭐ FIXED: Use agent config model as fallback if model_name not provided
+    # This allows the agent's configured model to be used when no explicit model is specified
+    if not model_name and agent_config and agent_config.get('model'):
+        model_name = agent_config['model']
+        logger.info(f"📌 No model specified in request, using model from agent config: {model_name}")
+    elif not model_name:
+        # Final fallback to Haiku (cheapest model) instead of Sonnet
+        model_name = "anthropic/claude-haiku-4-5"
+        logger.warning(f"⚠️ No model specified and no agent config model found, using default fallback: {model_name}")
 
     effective_model = model_manager.resolve_model_id(model_name)
     
