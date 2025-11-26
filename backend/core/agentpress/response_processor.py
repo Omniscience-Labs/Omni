@@ -703,6 +703,27 @@ class ResponseProcessor:
                                 })
                             except json.JSONDecodeError: continue
                 
+                # Optional: Fallback JSON parsing for providers that return structured JSON in content
+                # when finish_reason is "stop" and no explicit tool_calls are present
+                if config.native_tool_calling and not complete_native_tool_calls and accumulated_content and finish_reason == "stop":
+                    try:
+                        parsed = json.loads(accumulated_content.strip())
+                        # Check if this looks like a tool call structure
+                        if isinstance(parsed, dict) and "name" in parsed:
+                            logger.info(f"🔧 Detected structured JSON tool call in content: {parsed.get('name')}")
+                            complete_native_tool_calls.append({
+                                "id": f"fallback_{uuid.uuid4().hex[:8]}",
+                                "type": "function",
+                                "function": {
+                                    "name": parsed.get("name"),
+                                    "arguments": parsed.get("args", parsed.get("arguments", {}))
+                                }
+                            })
+                            self.trace.event(name="fallback_json_tool_call_parsed", level="DEFAULT", 
+                                           status_message=f"Parsed structured JSON as tool call: {parsed.get('name')}")
+                    except (json.JSONDecodeError, ValueError, TypeError):
+                        pass  # Not JSON or not a valid tool call structure
+                
                 # CRITICAL FIX: Override finish_reason to 'tool_calls' if tool calls exist
                 # Sonnet 4 may return finish_reason='stop' even when tool calls are present,
                 # which prevents auto-continue from triggering. This ensures auto-continue works correctly.
@@ -894,6 +915,13 @@ class ResponseProcessor:
 
             # --- Final Finish Status ---
             if finish_reason and finish_reason != "xml_tool_limit_reached":
+                # Defensive check: If there are finished native tool calls but finish_reason is "stop" or None,
+                # override it so downstream logic knows a tool call happened
+                if config.native_tool_calling and complete_native_tool_calls:
+                    if finish_reason not in {"tool_calls", "xml_tool_limit_reached"}:
+                        logger.debug(f"🔧 [FINAL] Overriding finish_reason from '{finish_reason}' to 'tool_calls' before yielding finish status")
+                        finish_reason = "tool_calls"
+                
                 finish_content = {"status_type": "finish", "finish_reason": finish_reason}
                 finish_msg_obj = await self.add_message(
                     thread_id=thread_id, type="status", content=finish_content, 
@@ -1159,6 +1187,37 @@ class ResponseProcessor:
                                      }
                                  })
 
+            # Optional: Fallback JSON parsing for providers that return structured JSON in content
+            # when finish_reason is "stop" and no explicit tool_calls are present
+            if config.native_tool_calling and not native_tool_calls_for_message and content and finish_reason == "stop":
+                try:
+                    parsed = json.loads(content.strip())
+                    # Check if this looks like a tool call structure
+                    if isinstance(parsed, dict) and "name" in parsed:
+                        logger.info(f"🔧 NON-STREAMING: Detected structured JSON tool call in content: {parsed.get('name')}")
+                        tool_id = f"fallback_{uuid.uuid4().hex[:8]}"
+                        native_tool_calls_for_message.append({
+                            "id": tool_id,
+                            "type": "function",
+                            "function": {
+                                "name": parsed.get("name"),
+                                "arguments": json.dumps(parsed.get("args", parsed.get("arguments", {}))) if not isinstance(parsed.get("args", parsed.get("arguments", {})), str) else parsed.get("args", parsed.get("arguments", {}))
+                            }
+                        })
+                        # Also add to all_tool_data for execution
+                        all_tool_data.append({
+                            "tool_call": {
+                                "function_name": parsed.get("name"),
+                                "arguments": parsed.get("args", parsed.get("arguments", {})),
+                                "id": tool_id
+                            },
+                            "parsing_details": None
+                        })
+                        self.trace.event(name="fallback_json_tool_call_parsed_non_streaming", level="DEFAULT", 
+                                       status_message=f"Parsed structured JSON as tool call: {parsed.get('name')}")
+                except (json.JSONDecodeError, ValueError, TypeError):
+                    pass  # Not JSON or not a valid tool call structure
+
             # CRITICAL FIX: Override finish_reason to 'tool_calls' if tool calls exist
             # Sonnet 4 may return finish_reason='stop' even when tool calls are present,
             # which prevents auto-continue from triggering. This ensures auto-continue works correctly.
@@ -1246,6 +1305,13 @@ class ResponseProcessor:
 
             # --- Save and Yield Final Status ---
             if finish_reason:
+                # Defensive check: If there are finished native tool calls but finish_reason is "stop" or None,
+                # override it so downstream logic knows a tool call happened
+                if config.native_tool_calling and native_tool_calls_for_message:
+                    if finish_reason not in {"tool_calls", "xml_tool_limit_reached"}:
+                        logger.debug(f"🔧 [NON-STREAMING FINAL] Overriding finish_reason from '{finish_reason}' to 'tool_calls' before yielding finish status")
+                        finish_reason = "tool_calls"
+                
                 finish_content = {"status_type": "finish", "finish_reason": finish_reason}
                 finish_msg_obj = await self.add_message(
                     thread_id=thread_id, type="status", content=finish_content, 

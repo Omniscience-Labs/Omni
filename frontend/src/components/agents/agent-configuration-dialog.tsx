@@ -93,6 +93,16 @@ export function AgentConfigurationDialog({
     }
   }, [open, initialTab]);
 
+  // Track the last loaded agent/version to avoid resetting user edits
+  const lastLoadedRef = useRef<string>('');
+  
+  // Reset tracking when dialog closes so fresh data loads on next open
+  useEffect(() => {
+    if (!open) {
+      lastLoadedRef.current = '';
+    }
+  }, [open]);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -115,6 +125,19 @@ export function AgentConfigurationDialog({
   useEffect(() => {
     if (!agent) return;
 
+    // Create a unique key for this agent+version combination
+    const currentLoadKey = `${agent.agent_id}_${versionData?.version_number || 'current'}`;
+    
+    // Only reset formData if we're loading a NEW agent or version
+    // Don't reset on every render - preserve user edits!
+    if (lastLoadedRef.current === currentLoadKey) {
+      console.log('🎯 [AgentConfigDialog] Same agent/version - preserving user edits');
+      return;
+    }
+    
+    lastLoadedRef.current = currentLoadKey;
+    console.log('🎯 [AgentConfigDialog] Loading new agent/version:', currentLoadKey);
+
     let configSource = agent;
     if (versionData) {
       configSource = {
@@ -126,16 +149,18 @@ export function AgentConfigurationDialog({
       };
     }
 
-    // Get model from versionData first, then agent.current_version.model, then agent.model, then default
+    // ⭐ FIXED: Get model from versionData first, then configSource, then current_version
+    // Note: This only runs when loading a NEW agent/version (due to lastLoadedRef check above)
+    // User edits are preserved because this effect won't run for the same agent/version
     const model = versionData?.model 
+      || configSource.model
       || agent?.current_version?.model 
-      || configSource.model 
       || 'anthropic/claude-haiku-4-5';
 
-    console.log('🎯 [AgentConfigDialog] Initializing formData with model:', {
+    console.log('🎯 [AgentConfigDialog] Loading NEW agent/version - initializing formData with model:', {
       'versionData?.model': versionData?.model,
-      'agent?.current_version?.model': agent?.current_version?.model,
       'configSource.model': configSource.model,
+      'agent?.current_version?.model': agent?.current_version?.model,
       'final model': model
     });
 
