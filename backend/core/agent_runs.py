@@ -138,8 +138,7 @@ async def start_agent(
             else:
                 logger.info(f"Using agent {agent_config['name']} ({effective_agent_id}) - no version data")
             source = "request" if body.agent_id else "fallback"
-    else:
-
+    
     if not agent_config:
         default_agent_result = await client.table('agents').select('*').eq('account_id', account_id).eq('is_default', True).execute()
         
