@@ -402,15 +402,7 @@ async def update_agent(
         
         from .config_helper import extract_agent_config
         
-        # Debug logging before extract_agent_config
-        if config.ENV_MODE == EnvMode.STAGING:
-            print(f"[DEBUG] update_agent: Before extract_agent_config - agent has icon_name={agent.get('icon_name')}, icon_color={agent.get('icon_color')}, icon_background={agent.get('icon_background')}")
-        
         agent_config = extract_agent_config(agent, version_data)
-        
-        # Debug logging after extract_agent_config
-        if config.ENV_MODE == EnvMode.STAGING:
-            print(f"[DEBUG] update_agent: After extract_agent_config - agent_config has icon_name={agent_config.get('icon_name')}, icon_color={agent_config.get('icon_color')}, icon_background={agent_config.get('icon_background')}")
         
         system_prompt = agent_config['system_prompt']
         configured_mcps = agent_config['configured_mcps']
@@ -666,16 +658,7 @@ async def get_agent(agent_id: str, user_id: str = Depends(verify_and_get_user_id
         
         from .config_helper import extract_agent_config
         
-        # Debug logging before extract_agent_config
-        if config.ENV_MODE == EnvMode.STAGING:
-            print(f"[DEBUG] get_agent: Before extract_agent_config - agent_data has icon_name={agent_data.get('icon_name')}, icon_color={agent_data.get('icon_color')}, icon_background={agent_data.get('icon_background')}")
-        
         agent_config = extract_agent_config(agent_data, version_data)
-        
-        # Debug logging after extract_agent_config
-        if config.ENV_MODE == EnvMode.STAGING:
-            print(f"[DEBUG] get_agent: After extract_agent_config - agent_config has icon_name={agent_config.get('icon_name')}, icon_color={agent_config.get('icon_color')}, icon_background={agent_config.get('icon_background')}")
-            print(f"[DEBUG] get_agent: Final response will use icon fields from agent_config")
         
         system_prompt = agent_config['system_prompt']
         configured_mcps = agent_config['configured_mcps']

@@ -131,23 +131,17 @@ async def start_agent(
                 except Exception as e:
                     logger.warning(f"[AGENT LOAD] Failed to get version data: {e}")
             
-            logger.debug(f"[AGENT LOAD] About to call extract_agent_config with agent_data keys: {list(agent_data.keys())}")
-            # logger.debug(f"[AGENT LOAD] version_data type: {type(version_data)}, has data: {version_data is not None}")
-            
             agent_config = extract_agent_config(agent_data, version_data)
             
             if version_data:
-                logger.debug(f"Using agent {agent_config['name']} ({effective_agent_id}) version {agent_config.get('version_name', 'v1')}")
+                logger.info(f"Using agent {agent_config['name']} ({effective_agent_id}) version {agent_config.get('version_name', 'v1')}")
             else:
-                logger.debug(f"Using agent {agent_config['name']} ({effective_agent_id}) - no version data")
+                logger.info(f"Using agent {agent_config['name']} ({effective_agent_id}) - no version data")
             source = "request" if body.agent_id else "fallback"
     else:
-        logger.debug(f"[AGENT LOAD] No effective_agent_id, will try default agent")
 
     if not agent_config:
-        logger.debug(f"[AGENT LOAD] No agent config yet, querying for default agent")
         default_agent_result = await client.table('agents').select('*').eq('account_id', account_id).eq('is_default', True).execute()
-        logger.debug(f"[AGENT LOAD] Default agent query result: found {len(default_agent_result.data) if default_agent_result.data else 0} default agents")
         
         if default_agent_result.data:
             agent_data = default_agent_result.data[0]
@@ -163,24 +157,19 @@ async def start_agent(
                         user_id=user_id
                     )
                     version_data = version_obj.to_dict()
-                    logger.debug(f"[AGENT LOAD] Got default agent version from version manager: {version_data.get('version_name')}")
                 except Exception as e:
                     logger.warning(f"[AGENT LOAD] Failed to get default agent version data: {e}")
-            
-            logger.debug(f"[AGENT LOAD] About to call extract_agent_config for DEFAULT agent with version data: {version_data is not None}")
             
             agent_config = extract_agent_config(agent_data, version_data)
             
             if version_data:
-                logger.debug(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) version {agent_config.get('version_name', 'v1')}")
+                logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) version {agent_config.get('version_name', 'v1')}")
             else:
-                logger.debug(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) - no version data")
+                logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) - no version data")
         else:
             logger.warning(f"[AGENT LOAD] No default agent found for account {account_id}")
 
-    logger.debug(f"[AGENT LOAD] Final agent_config: {agent_config is not None}")
     if agent_config:
-        logger.debug(f"[AGENT LOAD] Agent config keys: {list(agent_config.keys())}")
         logger.debug(f"Using agent {agent_config['agent_id']} for this agent run (thread remains agent-agnostic)")
 
     # Unified billing and model access check
@@ -461,7 +450,6 @@ async def stream_agent_run(
     request: Request = None
 ):
     """Stream the responses of an agent run using Redis Lists and Pub/Sub."""
-    logger.debug(f"Starting stream for agent run: {agent_run_id}")
     client = await utils.db.client
 
     user_id = await get_user_id_from_stream_auth(request, token) # practically instant
@@ -477,7 +465,6 @@ async def stream_agent_run(
     control_channel = f"agent_run:{agent_run_id}:control" # Global control channel
 
     async def stream_generator(agent_run_data):
-        logger.debug(f"Streaming responses for {agent_run_id} using Redis list {response_list_key} and channel {response_channel}")
         last_processed_index = -1
         # Single pubsub used for response + control
         listener_task = None
@@ -490,7 +477,6 @@ async def stream_agent_run(
             initial_responses = []
             if initial_responses_json:
                 initial_responses = [json.loads(r) for r in initial_responses_json]
-                logger.debug(f"Sending {len(initial_responses)} initial responses for {agent_run_id}")
                 for response in initial_responses:
                     yield f"data: {json.dumps(response)}\n\n"
                 last_processed_index = len(initial_responses) - 1
@@ -500,7 +486,6 @@ async def stream_agent_run(
             current_status = agent_run_data.get('status') if agent_run_data else None
 
             if current_status != 'running':
-                logger.debug(f"Agent run {agent_run_id} is not running (status: {current_status}). Ending stream.")
                 yield f"data: {json.dumps({'type': 'status', 'status': 'completed'})}\n\n"
                 return
           
@@ -511,7 +496,6 @@ async def stream_agent_run(
             # 3. Use a single Pub/Sub connection subscribed to both channels
             pubsub = await redis.create_pubsub()
             await pubsub.subscribe(response_channel, control_channel)
-            logger.debug(f"Subscribed to channels: {response_channel}, {control_channel}")
 
             # Queue to communicate between listeners and the main generator loop
             message_queue = asyncio.Queue()
@@ -714,19 +698,15 @@ async def initiate_agent_with_files(
             except Exception as e:
                 logger.warning(f"[AGENT INITIATE] Failed to get version data: {e}")
         
-        logger.debug(f"[AGENT INITIATE] About to call extract_agent_config with version data: {version_data is not None}")
-        
         agent_config = extract_agent_config(agent_data, version_data)
         
         if version_data:
-            logger.debug(f"Using custom agent: {agent_config['name']} ({agent_id}) version {agent_config.get('version_name', 'v1')}")
+            logger.info(f"Using custom agent: {agent_config['name']} ({agent_id}) version {agent_config.get('version_name', 'v1')}")
         else:
-            logger.debug(f"Using custom agent: {agent_config['name']} ({agent_id}) - no version data")
+            logger.info(f"Using custom agent: {agent_config['name']} ({agent_id}) - no version data")
     else:
-        logger.debug(f"[AGENT INITIATE] No agent_id provided, querying for default agent")
         # Try to get default agent for the account
         default_agent_result = await client.table('agents').select('*').eq('account_id', account_id).eq('is_default', True).execute()
-        logger.debug(f"[AGENT INITIATE] Default agent query result: found {len(default_agent_result.data) if default_agent_result.data else 0} default agents")
         
         if default_agent_result.data:
             agent_data = default_agent_result.data[0]
@@ -742,24 +722,19 @@ async def initiate_agent_with_files(
                         user_id=user_id
                     )
                     version_data = version_obj.to_dict()
-                    logger.debug(f"[AGENT INITIATE] Got default agent version from version manager: {version_data.get('version_name')}")
                 except Exception as e:
                     logger.warning(f"[AGENT INITIATE] Failed to get default agent version data: {e}")
-            
-            logger.debug(f"[AGENT INITIATE] About to call extract_agent_config for DEFAULT agent with version data: {version_data is not None}")
             
             agent_config = extract_agent_config(agent_data, version_data)
             
             if version_data:
-                logger.debug(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) version {agent_config.get('version_name', 'v1')}")
+                logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) version {agent_config.get('version_name', 'v1')}")
             else:
-                logger.debug(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) - no version data")
+                logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) - no version data")
         else:
             logger.warning(f"[AGENT INITIATE] No default agent found for account {account_id}")
     
-    logger.debug(f"[AGENT INITIATE] Final agent_config: {agent_config is not None}")
     if agent_config:
-        logger.debug(f"[AGENT INITIATE] Agent config keys: {list(agent_config.keys())}")
 
     # Unified billing and model access check
     can_proceed, error_message, context = await billing_integration.check_model_and_billing_access(

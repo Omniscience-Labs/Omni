@@ -98,11 +98,6 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
     is_suna_default = metadata.get('is_suna_default', False)
     is_omni_default = metadata.get('is_omni_default', False)
     
-    # Debug logging
-    if os.getenv("ENV_MODE", "").upper() == "STAGING":
-        print(f"[DEBUG] extract_agent_config: Called for agent {agent_id}, is_suna_default={is_suna_default}, is_omni_default={is_omni_default}")
-        print(f"[DEBUG] extract_agent_config: Input agent_data has icon_name={agent_data.get('icon_name')}, icon_color={agent_data.get('icon_color')}, icon_background={agent_data.get('icon_background')}")
-    
     # Handle Suna agents with special logic
     if is_suna_default:
         return _extract_suna_agent_config(agent_data, version_data)
@@ -226,12 +221,7 @@ def _extract_omni_agent_config(agent_data: Dict[str, Any], version_data: Optiona
 def _extract_custom_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     agent_id = agent_data.get('agent_id', 'Unknown')
     
-    # Debug logging for icon fields
-    if os.getenv("ENV_MODE", "").upper() == "STAGING":
-        print(f"[DEBUG] _extract_custom_agent_config: Input agent_data has icon_name={agent_data.get('icon_name')}, icon_color={agent_data.get('icon_color')}, icon_background={agent_data.get('icon_background')}")
-    
     if version_data:
-        logger.debug(f"Using version data for custom agent {agent_id} (version: {version_data.get('version_name', 'unknown')})")
         
         if version_data.get('config'):
             config = version_data['config'].copy()
@@ -277,15 +267,9 @@ def _extract_custom_agent_config(agent_data: Dict[str, Any], version_data: Optio
             'restrictions': {}
         }
         
-        # Debug logging for returned config
-        if os.getenv("ENV_MODE", "").upper() == "STAGING":
-            print(f"[DEBUG] _extract_custom_agent_config: Returning config with icon_name={config.get('icon_name')}, icon_color={config.get('icon_color')}, icon_background={config.get('icon_background')}")
-        
         return config
     
     logger.warning(f"No version data found for custom agent {agent_id}, creating default configuration")
-    logger.debug(f"Agent data keys: {list(agent_data.keys())}")
-    logger.debug(f"Agent current_version_id: {agent_data.get('current_version_id')}")
     
     fallback_config = {
         'agent_id': agent_data['agent_id'],
