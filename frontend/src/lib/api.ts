@@ -1088,7 +1088,17 @@ export const streamAgent = (
   }
 
   try {
-    const setupStream = async () => {
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 10;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let isManualCleanup = false;
+
+    const connectStream = async () => {
+      // Check if we've been manually cleaned up
+      if (isManualCleanup) {
+        return;
+      }
+
       try {
         const status = await getAgentStatus(agentRunId);
         if (status.status !== 'running') {
@@ -1151,135 +1161,110 @@ export const streamAgent = (
 
       eventSource.onmessage = (event) => {
         try {
-          const rawData = event.data;
-          if (rawData.includes('"type": "ping"')) return;
+          // Reset reconnect attempts on successful message
+          reconnectAttempts = 0;
 
+          const rawData = event.data;
+          
           // Skip empty messages
           if (!rawData || rawData.trim() === '') {
             return;
           }
 
-          // Check for error status messages
+          // Parse JSON payload
+          let payload: any;
           try {
-            const jsonData = JSON.parse(rawData);
-            if (jsonData.status === 'error') {
-              console.error(`[STREAM] Error status received for ${agentRunId}:`, jsonData);
-              
-              // Pass the error message to the callback
-              callbacks.onError(jsonData.message || 'Unknown error occurred');
-              
-              // Don't close the stream for error status messages as they may continue
-              return;
-            }
+            payload = JSON.parse(rawData);
           } catch (jsonError) {
-            // Not JSON or invalid JSON, continue with normal processing
-          }
-
-          // Check for "Agent run not found" error
-          if (
-            rawData.includes('Agent run') &&
-            rawData.includes('not found in active runs')
-          ) {
-            // Add to non-running set to prevent future reconnection attempts
-            nonRunningAgentRuns.add(agentRunId);
-
-            // Notify about the error
-            callbacks.onError('Agent run not found in active runs');
-
-            // Clean up
-            cleanupEventSource(agentRunId, 'agent run not found');
-            callbacks.onClose();
-
+            console.error('[STREAM] Invalid JSON from stream:', jsonError, rawData);
+            callbacks.onError(jsonError instanceof Error ? jsonError : new Error('Invalid JSON from stream'));
             return;
           }
 
-          // Check for completion messages
-          if (
-            rawData.includes('"type": "status"') &&
-            rawData.includes('"status": "completed"')
-          ) {
-            // Check for specific completion messages that indicate we should stop checking
-            if (rawData.includes('Agent run completed successfully')) {
-              // Add to non-running set to prevent future reconnection attempts
+          // Skip ping messages
+          if (payload.type === 'ping') {
+            return;
+          }
+
+          // Handle different message types
+          const messageType = payload.type;
+          const messageStatus = payload.status;
+
+          // Handle error status
+          if (messageType === 'status' && messageStatus === 'error') {
+            console.error(`[STREAM] Error status received for ${agentRunId}:`, payload);
+            callbacks.onError(payload.message || 'Unknown error occurred');
+            // Don't close - may continue with more messages
+            return;
+          }
+
+          // Handle completion statuses - these terminate the stream
+          if (messageType === 'status' && ['completed', 'finish', 'failed', 'stopped'].includes(messageStatus)) {
+            console.log(`[STREAM] Terminal status received: ${messageStatus}`, payload);
+            
+            // Add to non-running set for completed/failed
+            if (['completed', 'finish', 'failed'].includes(messageStatus)) {
               nonRunningAgentRuns.add(agentRunId);
             }
 
-            // Notify about the message
+            // Pass the message to handler
             callbacks.onMessage(rawData);
 
-            // Clean up
-            cleanupEventSource(agentRunId, 'agent run completed');
+            // Clean up and close
+            cleanupEventSource(agentRunId, `agent run ${messageStatus}`);
             callbacks.onClose();
-
             return;
           }
 
-          // Check for thread run end message
-          if (
-            rawData.includes('"type": "status"') &&
-            rawData.includes('thread_run_end')
-          ) {
-            // Notify about the message
-            callbacks.onMessage(rawData);
-            return;
-          }
-
-          // For all other messages, just pass them through
+          // Pass all other messages to handler (content, tool_result, tool_execution, status updates)
           callbacks.onMessage(rawData);
+          
         } catch (error) {
           console.error(`[STREAM] Error handling message:`, error);
           callbacks.onError(error instanceof Error ? error : String(error));
         }
       };
 
-      eventSource.onerror = (event) => {
-        console.error(`[STREAM] EventSource error for ${agentRunId}:`, event);
+      eventSource.onerror = () => {
+        console.warn(`[STREAM] Stream lost for ${agentRunId}, reconnecting...`);
         
-        // Check if the agent is still running
-        getAgentStatus(agentRunId)
-          .then((status) => {
-            if (status.status !== 'running') {
-              nonRunningAgentRuns.add(agentRunId);
-              cleanupEventSource(agentRunId, 'agent not running');
-              callbacks.onClose();
-            } else {
-              // Let the browser handle reconnection for non-fatal errors
-            }
-          })
-          .catch((err) => {
-            console.error(
-              `[STREAM] Error checking agent status after stream error:`,
-              err,
-            );
+        // Close the current connection
+        eventSource.close();
+        activeStreams.delete(agentRunId);
 
-            // Check if this is a "not found" error
-            const errMsg = err instanceof Error ? err.message : String(err);
-            const isNotFoundErr =
-              errMsg.includes('not found') ||
-              errMsg.includes('404') ||
-              errMsg.includes('does not exist');
+        // Check if we should attempt reconnection
+        if (isManualCleanup || reconnectAttempts >= maxReconnectAttempts) {
+          if (reconnectAttempts >= maxReconnectAttempts) {
+            console.error(`[STREAM] Max reconnection attempts reached for ${agentRunId}`);
+            callbacks.onError('Stream connection lost - maximum reconnection attempts exceeded');
+          }
+          callbacks.onClose();
+          return;
+        }
 
-            if (isNotFoundErr) {
-              nonRunningAgentRuns.add(agentRunId);
-              cleanupEventSource(agentRunId, 'agent not found');
-              callbacks.onClose();
-            } else {
-              // For other errors, still clean up the stream to prevent memory leaks
-              // but don't add to nonRunningAgentRuns as it might be a temporary network issue
-              console.warn(`[STREAM] Cleaning up stream for ${agentRunId} due to persistent error`);
-              cleanupEventSource(agentRunId, 'persistent error');
-              callbacks.onError(errMsg);
-              callbacks.onClose();
-            }
-          });
+        // Attempt to reconnect with exponential backoff
+        reconnectAttempts++;
+        const backoffMs = Math.min(300 * Math.pow(2, reconnectAttempts - 1), 5000); // 300ms, 600ms, 1.2s, 2.4s, 4.8s, max 5s
+        
+        reconnectTimer = setTimeout(() => {
+          if (!isManualCleanup) {
+            console.log(`[STREAM] Reconnecting... (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+            connectStream();
+          }
+        }, backoffMs);
       };
     };
 
-    // Start the stream setup
-    setupStream();
+    // Start the stream
+    connectStream();
 
     // Return a cleanup function
     return () => {
+      isManualCleanup = true;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
       cleanupEventSource(agentRunId, 'manual cleanup');
     };
   } catch (error) {

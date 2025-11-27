@@ -245,6 +245,12 @@ export function useAgentStream(
         return;
       }
 
+      // Clear safety timeout
+      if ((window as any).streamSafetyTimeout) {
+        clearTimeout((window as any).streamSafetyTimeout);
+        (window as any).streamSafetyTimeout = null;
+      }
+
       if (streamCleanupRef.current) {
         streamCleanupRef.current();
         streamCleanupRef.current = null;
@@ -384,6 +390,42 @@ export function useAgentStream(
       // Update status to streaming if we receive a valid message
       if (status !== 'streaming') updateStatus('streaming');
 
+      // Handle streaming-only message types (not saved to DB)
+      // These are intermediate messages from ResponseProcessor during tool execution
+      const messageType = (message as any).type;
+      
+      if (messageType === 'tool_result') {
+        // Handle tool result from ResponseProcessor
+        console.log('[useAgentStream] Tool result received:', parsedContent);
+        setToolCall(null); // Clear tool execution indicator
+        return; // Don't process further - this is an intermediate streaming message
+      }
+      
+      if (messageType === 'tool_execution') {
+        // Handle tool execution indicator from ResponseProcessor
+        const toolName = parsedContent.function_name || 'unknown';
+        console.log(`[useAgentStream] Tool execution started: ${toolName}`);
+        setToolCall({
+          role: 'assistant',
+          status_type: 'tool_started',
+          name: toolName,
+          arguments: parsedContent.arguments || {},
+          tool_index: parsedContent.tool_index,
+        });
+        return; // Don't process further - this is an intermediate streaming message
+      }
+      
+      // Set a safety timeout to prevent UI stall if stream hangs
+      // Reset on each message received
+      if ((window as any).streamSafetyTimeout) {
+        clearTimeout((window as any).streamSafetyTimeout);
+      }
+      (window as any).streamSafetyTimeout = setTimeout(() => {
+        console.error('[useAgentStream] Stream safety timeout - no messages received for 60 seconds');
+        setError('Stream connection lost - no response from server');
+        finalizeStream('error', currentRunIdRef.current);
+      }, 60000); // 60 second timeout
+
       switch (message.type) {
         case 'assistant':
           if (
@@ -414,6 +456,31 @@ export function useAgentStream(
           if (message.message_id) callbacks.onMessage(message);
           break;
         case 'status':
+          // Check if this is a top-level status message (e.g., from backend control)
+          if (parsedContent.status) {
+            const statusValue = parsedContent.status;
+            if (statusValue === 'completed' || statusValue === 'finish') {
+              console.log('[useAgentStream] Agent run completed:', parsedContent);
+              finalizeStream('completed', currentRunIdRef.current);
+              break;
+            } else if (statusValue === 'failed' || statusValue === 'error') {
+              const errorMsg = parsedContent.message || 'Agent run failed';
+              console.error('[useAgentStream] Agent run failed:', errorMsg);
+              setError(errorMsg);
+              finalizeStream('failed', currentRunIdRef.current);
+              break;
+            } else if (statusValue === 'stopped') {
+              console.log('[useAgentStream] Agent run stopped');
+              finalizeStream('stopped', currentRunIdRef.current);
+              break;
+            } else if (statusValue === 'executing_tools') {
+              console.log('[useAgentStream] Agent executing tools');
+              updateStatus('streaming'); // Keep status as streaming during tool execution
+              break;
+            }
+          }
+          
+          // Handle status_type field (internal ResponseProcessor status updates)
           switch (parsedContent.status_type) {
             case 'tool_started':
               setToolCall({
@@ -435,8 +502,9 @@ export function useAgentStream(
             case 'thread_run_end':
               break;
             case 'finish':
-              // Optional: Handle finish reasons like 'xml_tool_limit_reached'
-              // Don't finalize here, wait for thread_run_end or completion message
+              // ResponseProcessor finish status - treat as completion
+              console.log('[useAgentStream] Received finish status:', parsedContent.finish_reason);
+              finalizeStream('completed', currentRunIdRef.current);
               break;
             case 'error':
               setError(parsedContent.message || 'Agent run failed');

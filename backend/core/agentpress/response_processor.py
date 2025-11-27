@@ -694,14 +694,45 @@ class ResponseProcessor:
                 # Update complete_native_tool_calls from buffer (initialized earlier)
                 if config.native_tool_calling:
                     for idx, tc_buf in tool_calls_buffer.items():
-                        if tc_buf['id'] and tc_buf['function']['name'] and tc_buf['function']['arguments']:
-                            try:
-                                args = safe_json_parse(tc_buf['function']['arguments'])
-                                complete_native_tool_calls.append({
-                                    "id": tc_buf['id'], "type": "function",
-                                    "function": {"name": tc_buf['function']['name'],"arguments": args}
-                                })
-                            except json.JSONDecodeError: continue
+                        # Defensive checks for malformed tool calls
+                        if not tc_buf.get('id'):
+                            logger.warning(f"Skipping tool call at index {idx}: missing 'id'")
+                            continue
+                        if not tc_buf.get('function', {}).get('name'):
+                            logger.warning(f"Skipping tool call at index {idx}: missing function name")
+                            continue
+                        if not tc_buf.get('function', {}).get('arguments'):
+                            logger.warning(f"Skipping tool call at index {idx}: missing arguments")
+                            continue
+                        
+                        try:
+                            # Try to parse arguments JSON
+                            args_str = tc_buf['function']['arguments']
+                            if isinstance(args_str, str):
+                                args = safe_json_parse(args_str)
+                            else:
+                                args = args_str  # Already parsed
+                            
+                            complete_native_tool_calls.append({
+                                "id": tc_buf['id'], 
+                                "type": "function",
+                                "function": {
+                                    "name": tc_buf['function']['name'],
+                                    "arguments": args
+                                }
+                            })
+                        except (json.JSONDecodeError, ValueError, TypeError) as e:
+                            logger.error(f"Failed to parse tool call at index {idx}: {e}")
+                            logger.error(f"Malformed arguments: {tc_buf['function'].get('arguments', 'N/A')}")
+                            # Continue processing other tool calls
+                            continue
+                    
+                    # Log detected tool calls
+                    if complete_native_tool_calls:
+                        tool_names = [tc['function']['name'] for tc in complete_native_tool_calls]
+                        logger.info(f"🔧 [TOOL_CALLS] Detected {len(complete_native_tool_calls)} native tool call(s): {', '.join(tool_names)}")
+                        self.trace.event(name="native_tool_calls_detected", level="DEFAULT",
+                                       status_message=f"Detected {len(complete_native_tool_calls)} tool calls: {', '.join(tool_names)}")
                 
                 # Optional: Fallback JSON parsing for providers that return structured JSON in content
                 # when finish_reason is "stop" and no explicit tool_calls are present
@@ -848,14 +879,25 @@ class ResponseProcessor:
                     logger.debug(f"⚙️ Config: execute_on_stream={config.execute_on_stream}, strategy={config.tool_execution_strategy}")
                     self.trace.event(name="executing_tools_after_stream", level="DEFAULT", status_message=(f"Executing {len(final_tool_calls_to_process)} tools ({config.tool_execution_strategy}) after stream"))
 
+                    # CRITICAL: Yield status to UI to prevent stall during tool execution
+                    executing_status = {"type": "status", "status": "executing_tools", 
+                                       "tool_count": len(final_tool_calls_to_process),
+                                       "content": to_json_string({"status_type": "executing_tools"})}
+                    yield executing_status
+
                     try:
-                        results_list = await self._execute_tools(final_tool_calls_to_process, config.tool_execution_strategy)
+                        results_list = await self._execute_tools(final_tool_calls_to_process, config.tool_execution_strategy, thread_id)
                         logger.debug(f"✅ STREAMING: Tool execution after stream completed, got {len(results_list)} results")
                     except Exception as stream_exec_error:
                         logger.error(f"❌ STREAMING: Tool execution after stream failed: {str(stream_exec_error)}")
                         logger.error(f"❌ Error type: {type(stream_exec_error).__name__}")
                         logger.error(f"❌ Tool calls that failed: {final_tool_calls_to_process}")
-                        raise
+                        # Don't raise - yield error status and continue
+                        error_status = {"type": "status", "status": "failed",
+                                       "message": f"Tool execution failed: {str(stream_exec_error)}",
+                                       "content": to_json_string({"status_type": "error"})}
+                        yield error_status
+                        return
                     current_tool_idx = 0
                     for tc, res in results_list:
                        # Map back using all_tool_data_map which has correct indices
@@ -914,12 +956,19 @@ class ResponseProcessor:
                              # Optionally yield error status for saving failure?
 
             # --- Final Finish Status ---
-            if finish_reason and finish_reason != "xml_tool_limit_reached":
+            # DEFENSIVE: Always yield a finish status, even if finish_reason is None
+            # This ensures the stream never hangs waiting for a completion signal
+            if not finish_reason:
+                logger.warning("No finish_reason received from LLM, defaulting to 'stop'")
+                finish_reason = "stop"
+            
+            # Skip yielding finish for xml_tool_limit_reached (handled separately)
+            if finish_reason != "xml_tool_limit_reached":
                 # Defensive check: If there are finished native tool calls but finish_reason is "stop" or None,
-                # override it so downstream logic knows a tool call happened
+                # override it so downstream logic knows a tool call happened and can auto-continue
                 if config.native_tool_calling and complete_native_tool_calls:
                     if finish_reason not in {"tool_calls", "xml_tool_limit_reached"}:
-                        logger.debug(f"🔧 [FINAL] Overriding finish_reason from '{finish_reason}' to 'tool_calls' before yielding finish status")
+                        logger.info(f"🔧 [FINAL] Overriding finish_reason from '{finish_reason}' to 'tool_calls' before yielding finish status")
                         finish_reason = "tool_calls"
                 
                 finish_content = {"status_type": "finish", "finish_reason": finish_reason}
@@ -927,7 +976,13 @@ class ResponseProcessor:
                     thread_id=thread_id, type="status", content=finish_content, 
                     is_llm_message=False, metadata={"thread_run_id": thread_run_id}
                 )
-                if finish_msg_obj: yield format_for_yield(finish_msg_obj)
+                if finish_msg_obj: 
+                    yield format_for_yield(finish_msg_obj)
+                else:
+                    # If saving failed, still yield the status to prevent stream hang
+                    logger.warning("Failed to save finish status message, yielding anyway")
+                    yield {"type": "status", "status_type": "finish", "finish_reason": finish_reason,
+                           "content": to_json_string(finish_content)}
 
             # Check if agent should terminate after processing pending tools
             if agent_should_terminate:

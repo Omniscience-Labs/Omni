@@ -465,10 +465,10 @@ async def stream_agent_run(
 
     async def stream_generator(agent_run_data):
         last_processed_index = -1
-        # Single pubsub used for response + control
-        listener_task = None
+        listener_task = None  # Initialize before try block to avoid UnboundLocalError
         terminate_stream = False
         initial_yield_complete = False
+        has_yielded_final_status = False  # Prevent duplicate final status messages
 
         try:
             # 1. Fetch and yield initial responses from Redis list
@@ -500,42 +500,77 @@ async def stream_agent_run(
             message_queue = asyncio.Queue()
 
             async def listen_messages():
-                try:
-                    listener = pubsub.listen()
-                    while not terminate_stream:
+                """Listen to Redis pub/sub with automatic reconnection on errors."""
+                retry_count = 0
+                max_retries = 10
+                base_delay = 0.1  # 100ms base delay
+                
+                while not terminate_stream and retry_count < max_retries:
+                    try:
+                        # (Re)create pubsub and subscribe
+                        local_pubsub = await redis.create_pubsub()
+                        await local_pubsub.subscribe(response_channel, control_channel)
+                        listener = local_pubsub.listen()
+                        
+                        # Reset retry count on successful connection
+                        if retry_count > 0:
+                            logger.info(f"Redis reconnected successfully for {agent_run_id} after {retry_count} attempts")
+                            retry_count = 0
+                        
+                        while not terminate_stream:
+                            try:
+                                message = await asyncio.wait_for(listener.__anext__(), timeout=30.0)
+                                if message and isinstance(message, dict) and message.get("type") == "message":
+                                    channel = message.get("channel")
+                                    data = message.get("data")
+                                    if isinstance(data, bytes):
+                                        data = data.decode('utf-8')
+
+                                    if channel == response_channel and data == "new":
+                                        await message_queue.put({"type": "new_response"})
+                                    elif channel == control_channel and data in ["STOP", "END_STREAM", "ERROR"]:
+                                        logger.debug(f"Received control signal '{data}' for {agent_run_id}")
+                                        await message_queue.put({"type": "control", "data": data})
+                                        return  # Stop listening on control signal
+
+                            except asyncio.TimeoutError:
+                                # Timeout waiting for message, continue listening
+                                continue
+                            except StopAsyncIteration:
+                                logger.warning(f"Listener stopped for {agent_run_id}.")
+                                # Don't return immediately, try to reconnect
+                                break  # Break inner loop to trigger reconnection
+                            except (ConnectionError, redis_exceptions.ConnectionError, redis_exceptions.TimeoutError) as e:
+                                logger.warning(f"Redis connection error in listener for {agent_run_id}: {e}, will retry")
+                                # Break inner loop to trigger reconnection
+                                break
+                            except Exception as e:
+                                logger.error(f"Unexpected error in listener for {agent_run_id}: {e}")
+                                # Break inner loop to trigger reconnection
+                                break
+                        
+                        # Clean up the local pubsub connection before retry
                         try:
-                            message = await asyncio.wait_for(listener.__anext__(), timeout=30.0)
-                            if message and isinstance(message, dict) and message.get("type") == "message":
-                                channel = message.get("channel")
-                                data = message.get("data")
-                                if isinstance(data, bytes):
-                                    data = data.decode('utf-8')
-
-                                if channel == response_channel and data == "new":
-                                    await message_queue.put({"type": "new_response"})
-                                elif channel == control_channel and data in ["STOP", "END_STREAM", "ERROR"]:
-                                    logger.debug(f"Received control signal '{data}' for {agent_run_id}")
-                                    await message_queue.put({"type": "control", "data": data})
-                                    return  # Stop listening on control signal
-
-                        except asyncio.TimeoutError:
-                            # Timeout waiting for message, continue listening
-                            continue
-                        except StopAsyncIteration:
-                            logger.warning(f"Listener stopped for {agent_run_id}.")
-                            await message_queue.put({"type": "error", "data": "Listener stopped unexpectedly"})
+                            await local_pubsub.unsubscribe()
+                            await local_pubsub.aclose()
+                        except Exception:
+                            pass
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to initialize listener for {agent_run_id}: {e}")
+                    
+                    # If we're here, we need to retry
+                    if not terminate_stream:
+                        retry_count += 1
+                        if retry_count >= max_retries:
+                            logger.error(f"Max Redis reconnection attempts ({max_retries}) reached for {agent_run_id}")
+                            await message_queue.put({"type": "error", "data": "Redis connection lost - max retries exceeded"})
                             return
-                        except (ConnectionError, redis_exceptions.ConnectionError, redis_exceptions.TimeoutError) as e:
-                            logger.warning(f"Redis connection error in listener for {agent_run_id}: {e}")
-                            await message_queue.put({"type": "error", "data": "Redis connection lost"})
-                            return
-                        except Exception as e:
-                            logger.error(f"Error in listener for {agent_run_id}: {e}")
-                            await message_queue.put({"type": "error", "data": "Listener failed"})
-                            return
-                except Exception as e:
-                    logger.error(f"Failed to initialize listener for {agent_run_id}: {e}")
-                    await message_queue.put({"type": "error", "data": "Failed to initialize listener"})
+                        
+                        # Exponential backoff with jitter
+                        delay = min(base_delay * (2 ** retry_count), 5.0)  # Max 5 seconds
+                        logger.info(f"Retrying Redis connection for {agent_run_id} in {delay:.2f}s (attempt {retry_count}/{max_retries})")
+                        await asyncio.sleep(delay)
 
 
             listener_task = asyncio.create_task(listen_messages())
@@ -553,27 +588,64 @@ async def stream_agent_run(
                         if new_responses_json:
                             new_responses = [json.loads(r) for r in new_responses_json]
                             num_new = len(new_responses)
-                            # logger.debug(f"Received {num_new} new responses for {agent_run_id} (index {new_start_index} onwards)")
+                            
                             for response in new_responses:
+                                response_type = response.get('type')
+                                
+                                # Log important status updates
+                                if response_type == 'status':
+                                    status_val = response.get('status')
+                                    status_type = response.get('status_type')
+                                    if status_val in ['executing_tools', 'completed', 'failed', 'stopped', 'finish']:
+                                        logger.info(f"📊 [STREAM] Status update for {agent_run_id}: {status_val or status_type}")
+                                    if status_val in ['completed', 'failed', 'stopped', 'finish']:
+                                        has_yielded_final_status = True
+                                        terminate_stream = True
+                                
+                                # Log tool results
+                                elif response_type == 'tool_result':
+                                    tool_name = response.get('tool_call', {}).get('function', {}).get('name', 'unknown')
+                                    logger.info(f"🔧 [STREAM] Tool result for {agent_run_id}: {tool_name}")
+                                
                                 yield f"data: {json.dumps(response)}\n\n"
-                                # Check if this response signals completion
-                                if response.get('type') == 'status' and response.get('status') in ['completed', 'failed', 'stopped']:
-                                    logger.debug(f"Detected run completion via status message in stream: {response.get('status')}")
-                                    terminate_stream = True
-                                    break # Stop processing further new responses
+                                
+                                if terminate_stream:
+                                    break
+                            
                             last_processed_index += num_new
                         if terminate_stream: break
 
                     elif queue_item["type"] == "control":
                         control_signal = queue_item["data"]
-                        terminate_stream = True # Stop the stream on any control signal
-                        yield f"data: {json.dumps({'type': 'status', 'status': control_signal})}\n\n"
+                        terminate_stream = True
+                        
+                        # Map control signals to proper status values
+                        # END_STREAM → completed (successful completion)
+                        # ERROR → failed (actual error)
+                        # STOP → stopped (user-initiated stop)
+                        if control_signal == "END_STREAM":
+                            final_status = "completed"
+                        elif control_signal == "ERROR":
+                            final_status = "failed"
+                        elif control_signal == "STOP":
+                            final_status = "stopped"
+                        else:
+                            final_status = "completed"  # Default fallback
+                        
+                        logger.info(f"🏁 [STREAM] Control signal '{control_signal}' → final status '{final_status}' for {agent_run_id}")
+                        
+                        # Only yield final status if we haven't already
+                        if not has_yielded_final_status:
+                            yield f"data: {json.dumps({'type': 'status', 'status': final_status})}\n\n"
+                            has_yielded_final_status = True
                         break
 
                     elif queue_item["type"] == "error":
-                        logger.error(f"Listener error for {agent_run_id}: {queue_item['data']}")
+                        logger.error(f"❌ [STREAM] Listener error for {agent_run_id}: {queue_item['data']}")
                         terminate_stream = True
-                        yield f"data: {json.dumps({'type': 'status', 'status': 'error'})}\n\n"
+                        if not has_yielded_final_status:
+                            yield f"data: {json.dumps({'type': 'status', 'status': 'failed', 'message': 'Stream connection lost'})}\n\n"
+                            has_yielded_final_status = True
                         break
 
                 except asyncio.CancelledError:

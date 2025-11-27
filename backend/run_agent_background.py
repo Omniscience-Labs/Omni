@@ -274,6 +274,17 @@ async def run_agent_background(
                 trace.span(name="agent_run_stopped").end(status_message="agent_run_stopped", level="WARNING")
                 break
 
+            # Log tool-specific messages
+            response_type = response.get('type')
+            if response_type == 'tool_result':
+                tool_call = response.get('tool_call', {})
+                tool_name = tool_call.get('function', {}).get('name', 'unknown')
+                result_preview = str(response.get('result', {}))[:100]
+                logger.info(f"🔧 [TOOL_RESULT] Tool '{tool_name}' executed: {result_preview}...")
+            elif response_type == 'tool_execution':
+                tool_name = response.get('function_name', 'unknown')
+                logger.info(f"🔧 [TOOL_CALL] Executing tool '{tool_name}'")
+
             # Store response in Redis list and publish notification
             response_json = json.dumps(response)
             pending_redis_operations.append(asyncio.create_task(redis.rpush(response_list_key, response_json)))
@@ -281,10 +292,32 @@ async def run_agent_background(
             total_responses += 1
 
             # Check for agent-signaled completion or error
-            if response.get('type') == 'status':
+            if response_type == 'status':
                  status_val = response.get('status')
-                 # logger.debug(f"Agent status: {status_val}")
+                 status_type = response.get('status_type')
                  
+                 # Handle ResponseProcessor's "finish" status with finish_reason
+                 # This is the terminal status from ResponseProcessor after streaming completes
+                 if status_val == 'finish' or status_type == 'finish':
+                     finish_reason = response.get('finish_reason')
+                     logger.info(f"✅ Agent run {agent_run_id} finished with finish_reason: {finish_reason}")
+                     
+                     # DON'T break if finish_reason is 'tool_calls' - auto-continue should handle this
+                     # Only break for final completion statuses
+                     if finish_reason in ['stop', 'end_turn', 'max_tokens', 'length', 'agent_terminated']:
+                         final_status = "completed"
+                         break
+                     elif finish_reason == 'tool_calls':
+                         # Auto-continue will handle this, don't break
+                         logger.info(f"🔄 finish_reason='tool_calls' - auto-continue will trigger new LLM call")
+                         continue
+                     else:
+                         # Unknown finish_reason, default to completed
+                         logger.warning(f"Unknown finish_reason: {finish_reason}, treating as completed")
+                         final_status = "completed"
+                         break
+                 
+                 # Handle explicit status messages
                  if status_val in ['completed', 'failed', 'stopped', 'error']:
                      logger.info(f"Agent run {agent_run_id} finished with status: {status_val}")
                      final_status = status_val if status_val != 'error' else 'failed'
@@ -292,6 +325,12 @@ async def run_agent_background(
                          error_message = response.get('message', f"Run ended with status: {status_val}")
                          logger.error(f"Agent run failed: {error_message}")
                      break
+                 
+                 # Log intermediate status messages (executing_tools, thinking, etc.)
+                 if status_val in ['executing_tools', 'thinking']:
+                     logger.info(f"📊 Agent status update: {status_val}")
+                 elif status_type in ['tool_started', 'tool_completed', 'tool_failed']:
+                     logger.info(f"🔧 Tool status: {status_type}")
 
         # If loop finished without explicit completion/error/stop signal, mark as completed
         if final_status == "running":
@@ -335,14 +374,49 @@ async def run_agent_background(
             except Exception as e:
                 logger.warning(f"Failed to dispatch conversation memory storage for {final_status} run: {str(e)}")
 
-        # Publish final control signal (END_STREAM or ERROR)
-        control_signal = "END_STREAM" if final_status == "completed" else "ERROR" if final_status == "failed" else "STOP"
-        try:
-            await redis.publish(global_control_channel, control_signal)
-            # No need to publish to instance channel as the run is ending on this instance
-            logger.debug(f"Published final control signal '{control_signal}' to {global_control_channel}")
-        except Exception as e:
-            logger.warning(f"Failed to publish final control signal {control_signal}: {str(e)}")
+        # Wait for all pending Redis operations to complete
+        if pending_redis_operations:
+            try:
+                await asyncio.gather(*pending_redis_operations, return_exceptions=True)
+                logger.debug(f"Completed {len(pending_redis_operations)} pending Redis operations")
+            except Exception as e:
+                logger.warning(f"Error waiting for pending Redis operations: {e}")
+        
+        # 50ms linger delay to ensure all pending Redis operations complete
+        # This prevents dropped messages during stream finalization
+        await asyncio.sleep(0.05)
+        
+        # Publish final control signal based on final_status
+        # Map internal status to control signals:
+        # - "completed" → "END_STREAM" (successful completion)
+        # - "failed" → "ERROR" (actual error/failure)
+        # - "stopped" → "STOP" (user-initiated stop)
+        if final_status == "completed":
+            control_signal = "END_STREAM"
+        elif final_status == "failed":
+            control_signal = "ERROR"
+        elif final_status == "stopped":
+            control_signal = "STOP"
+        else:
+            # Fallback for any unexpected status - treat as completed
+            logger.warning(f"Unexpected final_status: {final_status}, defaulting to END_STREAM")
+            control_signal = "END_STREAM"
+            final_status = "completed"  # Normalize status
+        
+        # CRITICAL: Always publish control signal, even if previous operations failed
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                await redis.publish(global_control_channel, control_signal)
+                logger.info(f"🏁 Published final control signal '{control_signal}' (status: {final_status}) to {global_control_channel}")
+                break  # Success
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Failed to publish control signal (attempt {attempt + 1}/{max_retries}): {e}, retrying...")
+                    await asyncio.sleep(0.1)
+                else:
+                    logger.error(f"Failed to publish final control signal after {max_retries} attempts: {e}")
+                    # Continue anyway - client will timeout
 
     except Exception as e:
         error_message = str(e)
