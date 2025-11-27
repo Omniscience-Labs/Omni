@@ -733,8 +733,6 @@ async def initiate_agent_with_files(
         else:
             logger.warning(f"[AGENT INITIATE] No default agent found for account {account_id}")
     
-    if agent_config:
-
     # Unified billing and model access check
     can_proceed, error_message, context = await billing_integration.check_model_and_billing_access(
         account_id, model_name, client
