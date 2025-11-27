@@ -173,8 +173,6 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     };
 
     const handleModelChangeWithSave = useCallback(async (modelId: string) => {
-        console.log('🟣 [UnifiedConfigMenu] handleModelChangeWithSave called with:', modelId);
-        
         // Normalize the model ID to ensure we have the full ID
         let normalizedModelId = modelId;
         if (!modelId.includes('/')) {
@@ -189,45 +187,29 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
             }
         }
         
-        console.log('🟣 [UnifiedConfigMenu] Normalized model ID:', normalizedModelId);
-        console.log('🟣 [UnifiedConfigMenu] Selected agent ID:', selectedAgentId);
-        
         // Update the ref FIRST to prevent sync from overriding
         if (selectedAgentId) {
             lastSyncedModelRef.current = { agentId: selectedAgentId, model: normalizedModelId };
-            console.log('🟣 [UnifiedConfigMenu] Updated lastSyncedModelRef:', lastSyncedModelRef.current);
         }
         
         // Update local state immediately for UI responsiveness
-        console.log('🟣 [UnifiedConfigMenu] Calling onModelChange with:', normalizedModelId);
         onModelChange(normalizedModelId);
         
         // If an agent is selected, also save to backend
         if (selectedAgentId) {
             try {
-                console.log('🟣 [UnifiedConfigMenu] Saving model to backend:', { agentId: selectedAgentId, model: normalizedModelId });
-                const updatedAgent = await updateAgentMutation.mutateAsync({
+                await updateAgentMutation.mutateAsync({
                     agentId: selectedAgentId,
                     model: normalizedModelId,
                 });
                 // Update ref AFTER successful save to prevent sync from overriding
                 lastSyncedModelRef.current = { agentId: selectedAgentId, model: normalizedModelId };
-                console.log('🟣 [UnifiedConfigMenu] ✅ Model saved successfully, updated agent:', updatedAgent);
-                
-                // ⭐ Force refresh agents list to ensure dropdown shows updated model
-                // This is needed because there's a 1-second delay in the mutation's invalidation
-                setTimeout(() => {
-                    console.log('🟣 [UnifiedConfigMenu] Refreshing agents list after model save');
-                    // The agents query will automatically refetch due to invalidation in useUpdateAgent
-                }, 100);
                 
                 toast.success('Model updated');
             } catch (error) {
-                console.error('🟣 [UnifiedConfigMenu] ❌ Failed to save model:', error);
+                console.error('Failed to save model:', error);
                 toast.error('Failed to update model');
             }
-        } else {
-            console.log('🟣 [UnifiedConfigMenu] No agent selected, skipping backend save');
         }
     }, [selectedAgentId, onModelChange, updateAgentMutation]);
 
@@ -254,16 +236,8 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     // Sync selected model from agent's current_version when model changes in backend
     // This ensures the dropdown always shows what the backend is actually using
     useEffect(() => {
-        console.log('🟣 [UnifiedConfigMenu] Sync effect running:', {
-            'displayAgent?.agent_id': displayAgent?.agent_id,
-            'selectedAgentId': selectedAgentId,
-            'displayAgent?.current_version?.model': displayAgent?.current_version?.model,
-            'lastSyncedModelRef.current': lastSyncedModelRef.current
-        });
-        
         // Only sync when we have an agent with a model
         if (!displayAgent?.current_version?.model || displayAgent?.agent_id !== selectedAgentId) {
-            console.log('🟣 [UnifiedConfigMenu] Sync skipped: no agent or ID mismatch');
             return;
         }
         
@@ -273,13 +247,11 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
         // Check if we've already synced this exact combination
         const lastSynced = lastSyncedModelRef.current;
         if (lastSynced?.agentId === agentId && lastSynced?.model === agentModel) {
-            console.log('🟣 [UnifiedConfigMenu] Sync skipped: already synced this exact combination');
             return; // Already synced, don't update again
         }
         
         // ⭐ FIXED: Always sync when agent's model changes (even for same agent)
         // This ensures dropdown shows what backend is using after save
-        console.log('🟣 [UnifiedConfigMenu] ✅ Syncing model from backend:', agentModel);
         lastSyncedModelRef.current = { agentId, model: agentModel };
         onModelChange(agentModel);
     }, [displayAgent?.agent_id, displayAgent?.current_version?.model, selectedAgentId, onModelChange]);
