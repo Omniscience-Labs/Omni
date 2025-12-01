@@ -132,7 +132,7 @@ class MCPToolExecutor:
         url = custom_config['url']
         headers = custom_config.get('headers', {})
         
-        async with asyncio.timeout(30):
+        async with asyncio.timeout(360):
             try:
                 async with sse_client(url, headers=headers) as (read, write):
                     async with ClientSession(read, write) as session:
