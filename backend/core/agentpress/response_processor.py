@@ -370,8 +370,87 @@ class ResponseProcessor:
                     if delta and hasattr(delta, 'content') and delta.content:
                         chunk_content = delta.content
                         # logger.debug(f"Processing chunk_content: type={type(chunk_content)}, value={chunk_content}")
+                        
+                        # ✅ FIX: Handle Anthropic content blocks (Claude 3.5/4.5 format)
+                        # Content can be a list with {"type": "text", "text": "..."} or {"type": "tool_use", ...}
                         if isinstance(chunk_content, list):
-                            chunk_content = ''.join(str(item) for item in chunk_content)
+                            # Extract text content and tool_use blocks separately
+                            text_parts = []
+                            for item in chunk_content:
+                                if isinstance(item, dict):
+                                    block_type = item.get('type')
+                                    if block_type == 'text':
+                                        # Extract text content
+                                        text_parts.append(item.get('text', ''))
+                                    elif block_type == 'tool_use' and config.native_tool_calling:
+                                        # ✅ NEW: Handle tool_use blocks from content (Anthropic format)
+                                        # This happens when Anthropic returns tool calls in content blocks
+                                        tool_use_id = item.get('id')
+                                        tool_name = item.get('name', '')
+                                        tool_input = item.get('input', {})
+                                        
+                                        if tool_use_id and tool_name:
+                                            logger.debug(f"🔧 [STREAMING] Detected tool_use block in content: {tool_name}")
+                                            # Add to tool_calls_buffer similar to native tool calls
+                                            # Use a unique index based on tool_use_id
+                                            idx = hash(tool_use_id) % 1000  # Simple hash for index
+                                            
+                                            if idx not in tool_calls_buffer:
+                                                tool_calls_buffer[idx] = {
+                                                    'id': tool_use_id,
+                                                    'function': {'name': tool_name, 'arguments': ''}
+                                                }
+                                            
+                                            # Convert input dict to JSON string for consistency
+                                            tool_input_str = json.dumps(tool_input) if not isinstance(tool_input, str) else tool_input
+                                            tool_calls_buffer[idx]['function']['arguments'] = tool_input_str
+                                            
+                                            # Check if complete (tool_use blocks are always complete)
+                                            try:
+                                                safe_json_parse(tool_input_str)
+                                                # tool_use blocks from content are always complete
+                                                
+                                                if config.execute_tools and config.execute_on_stream:
+                                                    tool_call_data = {
+                                                        "function_name": tool_name,
+                                                        "arguments": tool_input if isinstance(tool_input, dict) else safe_json_parse(tool_input_str),
+                                                        "id": tool_use_id
+                                                    }
+                                                    current_assistant_id = last_assistant_message_object['message_id'] if last_assistant_message_object else None
+                                                    context = self._create_tool_context(
+                                                        tool_call_data, tool_index, current_assistant_id, None
+                                                    )
+                                                    started_msg_obj = await self._yield_and_save_tool_started(context, thread_id, thread_run_id)
+                                                    if started_msg_obj: yield format_for_yield(started_msg_obj)
+                                                    yielded_tool_indices.add(tool_index)
+                                                    
+                                                    execution_task = asyncio.create_task(self._execute_tool(tool_call_data, thread_id))
+                                                    pending_tool_executions.append({
+                                                        "task": execution_task, "tool_call": tool_call_data,
+                                                        "tool_index": tool_index, "context": context
+                                                    })
+                                                    tool_index += 1
+                                                    
+                                                    # Add to complete_native_tool_calls for final message
+                                                    complete_native_tool_calls.append({
+                                                        "id": tool_use_id,
+                                                        "type": "function",
+                                                        "function": {
+                                                            "name": tool_name,
+                                                            "arguments": tool_input_str
+                                                        }
+                                                    })
+                                            except json.JSONDecodeError:
+                                                pass
+                                    else:
+                                        # Unknown block type - convert to string
+                                        text_parts.append(str(item))
+                                else:
+                                    # Non-dict item - convert to string
+                                    text_parts.append(str(item))
+                            
+                            # Join text parts for accumulated content
+                            chunk_content = ''.join(text_parts)
                         # print(chunk_content, end='', flush=True)
                         # logger.debug(f"About to concatenate chunk_content (type={type(chunk_content)}) to accumulated_content (type={type(accumulated_content)})")
                         accumulated_content += chunk_content
@@ -1207,6 +1286,58 @@ class ResponseProcessor:
                  if response_message:
                      if hasattr(response_message, 'content') and response_message.content:
                          content = response_message.content
+                         
+                         # ✅ FIX: Handle Anthropic content blocks (Claude 3.5/4.5 format)
+                         # Content can be a list with {"type": "text", "text": "..."} or {"type": "tool_use", ...}
+                         if isinstance(content, list):
+                             # Extract text content and tool_use blocks separately
+                             text_parts = []
+                             for item in content:
+                                 if isinstance(item, dict):
+                                     block_type = item.get('type')
+                                     if block_type == 'text':
+                                         # Extract text content
+                                         text_parts.append(item.get('text', ''))
+                                     elif block_type == 'tool_use' and config.native_tool_calling:
+                                         # ✅ NEW: Handle tool_use blocks from content (Anthropic format)
+                                         # This happens when Anthropic returns tool calls in content blocks
+                                         tool_use_id = item.get('id')
+                                         tool_name = item.get('name', '')
+                                         tool_input = item.get('input', {})
+                                         
+                                         if tool_use_id and tool_name:
+                                             logger.info(f"🔧 [NON-STREAMING] Detected tool_use block in content: {tool_name}")
+                                             
+                                             # Convert input dict to JSON string for consistency
+                                             tool_input_str = json.dumps(tool_input) if not isinstance(tool_input, str) else tool_input
+                                             tool_input_dict = tool_input if isinstance(tool_input, dict) else safe_json_parse(tool_input_str)
+                                             
+                                             exec_tool_call = {
+                                                 "function_name": tool_name,
+                                                 "arguments": tool_input_dict,
+                                                 "id": tool_use_id
+                                             }
+                                             
+                                             logger.info(f"[TOOL_DETECTION] Adding tool_use block as tool call: {exec_tool_call['function_name']}")
+                                             all_tool_data.append({"tool_call": exec_tool_call, "parsing_details": None})
+                                             native_tool_calls_for_message.append({
+                                                 "id": tool_use_id,
+                                                 "type": "function",
+                                                 "function": {
+                                                     "name": tool_name,
+                                                     "arguments": tool_input_str
+                                                 }
+                                             })
+                                     else:
+                                         # Unknown block type - convert to string
+                                         text_parts.append(str(item))
+                                 else:
+                                     # Non-dict item - convert to string
+                                     text_parts.append(str(item))
+                             
+                             # Join text parts for content
+                             content = ''.join(text_parts)
+                         
                          if config.xml_tool_calling:
                              parsed_xml_data = self._parse_xml_tool_calls(content)
                              logger.info(f"[TOOL_DETECTION] Found {len(parsed_xml_data)} XML tool calls in content")
@@ -1223,6 +1354,7 @@ class ResponseProcessor:
                                  finish_reason = "xml_tool_limit_reached"
                              all_tool_data.extend(parsed_xml_data)
 
+                     # ✅ Handle newer format: top-level tool_calls (also supported by Claude 3.5/4.5)
                      if config.native_tool_calling and hasattr(response_message, 'tool_calls') and response_message.tool_calls:
                           logger.info(f"[TOOL_DETECTION] Found {len(response_message.tool_calls)} native tool calls in LLM response")
                           for tool_call in response_message.tool_calls:
