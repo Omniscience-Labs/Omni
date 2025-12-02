@@ -35,18 +35,19 @@ class ModelRegistry:
         
         self.register(Model(
             id="anthropic/claude-haiku-4-5",
-            name="Haiku 4.5",
+            name="Claude Haiku 4.5",
             provider=ModelProvider.ANTHROPIC,
             aliases=["claude-haiku-4.5", "anthropic/claude-haiku-4.5", "Claude Haiku 4.5"],
             context_window=200_000,
+            max_output_tokens=8192,
             capabilities=[
                 ModelCapability.CHAT,
                 ModelCapability.FUNCTION_CALLING,
                 ModelCapability.VISION,
             ],
             pricing=ModelPricing(
-                input_cost_per_million_tokens=1.00,
-                output_cost_per_million_tokens=5.00
+                input_cost_per_million_tokens=0.15,
+                output_cost_per_million_tokens=0.60
             ),
             tier_availability=["free", "paid"],
             priority=102,

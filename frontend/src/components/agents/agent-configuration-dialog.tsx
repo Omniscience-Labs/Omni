@@ -152,15 +152,25 @@ export function AgentConfigurationDialog({
     // ⭐ FIXED: Get model from versionData first, then configSource, then current_version
     // Note: This only runs when loading a NEW agent/version (due to lastLoadedRef check above)
     // User edits are preserved because this effect won't run for the same agent/version
-    const model = versionData?.model 
+    // ⚠️ GUARD: Only reset model if we have a valid value from backend
+    // If backend returns undefined/null, preserve existing formData.model to prevent infinite re-renders
+    const resolvedModel = versionData?.model 
       || configSource.model
-      || agent?.current_version?.model 
-      || 'anthropic/claude-haiku-4-5';
+      || agent?.current_version?.model;
+    
+    // Use resolvedModel if available, otherwise preserve existing formData.model
+    // Only fall back to default if formData.model is also undefined (initial load)
+    const currentModel = formData.model;
+    const model = resolvedModel !== undefined && resolvedModel !== null 
+      ? resolvedModel 
+      : (currentModel !== undefined ? currentModel : 'anthropic/claude-haiku-4-5');
 
     console.log('🎯 [AgentConfigDialog] Loading NEW agent/version - initializing formData with model:', {
       'versionData?.model': versionData?.model,
       'configSource.model': configSource.model,
       'agent?.current_version?.model': agent?.current_version?.model,
+      'resolvedModel': resolvedModel,
+      'formData.model (preserved)': currentModel,
       'final model': model
     });
 
