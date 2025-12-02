@@ -1305,45 +1305,45 @@ class ResponseProcessor:
                      if hasattr(response_message, 'content') and response_message.content:
                          content = response_message.content
                          
-                        # ✅ FIX: Handle Anthropic content blocks (Claude 3.5/4.5 format)
-                        # Content can be a list with {"type": "text", "text": "..."} or {"type": "tool_use", ...}
-                        if isinstance(content, list):
-                            # Use parse_claude_tool_calls to extract tool calls from content blocks
-                            if config.native_tool_calling:
-                                tool_calls_from_content = parse_claude_tool_calls(content)
-                                if tool_calls_from_content:
-                                    logger.info(f"🔧 [NON-STREAMING] Detected {len(tool_calls_from_content)} tool_use block(s) in content")
-                                    for tool_call in tool_calls_from_content:
-                                        tool_use_id = tool_call.get('id')
-                                        tool_name = tool_call.get('name', '')
-                                        tool_input = tool_call.get('input', {})
-                                        
-                                        if tool_use_id and tool_name:
-                                            logger.info(f"🔧 [NON-STREAMING] Processing tool_use block: {tool_name} (id: {tool_use_id})")
-                                            
-                                            # tool_input is already a dict from Anthropic, use it directly
-                                            tool_input_dict = tool_input if isinstance(tool_input, dict) else safe_json_parse(str(tool_input))
-                                            tool_input_str = json.dumps(tool_input_dict) if isinstance(tool_input_dict, dict) else str(tool_input)
-                                            
-                                            exec_tool_call = {
-                                                "function_name": tool_name,
-                                                "arguments": tool_input_dict,
-                                                "id": tool_use_id
-                                            }
-                                            
-                                            logger.info(f"[TOOL_DETECTION] Adding tool_use block as tool call: {exec_tool_call['function_name']}")
-                                            all_tool_data.append({"tool_call": exec_tool_call, "parsing_details": None})
-                                            native_tool_calls_for_message.append({
-                                                "id": tool_use_id,
-                                                "type": "function",
-                                                "function": {
-                                                    "name": tool_name,
-                                                    "arguments": tool_input_str
-                                                }
-                                            })
-                            
-                            # Extract text content from Claude content blocks
-                            content = extract_text_from_claude_content(content)
+                         # ✅ FIX: Handle Anthropic content blocks (Claude 3.5/4.5 format)
+                         # Content can be a list with {"type": "text", "text": "..."} or {"type": "tool_use", ...}
+                         if isinstance(content, list):
+                             # Use parse_claude_tool_calls to extract tool calls from content blocks
+                             if config.native_tool_calling:
+                                 tool_calls_from_content = parse_claude_tool_calls(content)
+                                 if tool_calls_from_content:
+                                     logger.info(f"🔧 [NON-STREAMING] Detected {len(tool_calls_from_content)} tool_use block(s) in content")
+                                     for tool_call in tool_calls_from_content:
+                                         tool_use_id = tool_call.get('id')
+                                         tool_name = tool_call.get('name', '')
+                                         tool_input = tool_call.get('input', {})
+                                         
+                                         if tool_use_id and tool_name:
+                                             logger.info(f"🔧 [NON-STREAMING] Processing tool_use block: {tool_name} (id: {tool_use_id})")
+                                             
+                                             # tool_input is already a dict from Anthropic, use it directly
+                                             tool_input_dict = tool_input if isinstance(tool_input, dict) else safe_json_parse(str(tool_input))
+                                             tool_input_str = json.dumps(tool_input_dict) if isinstance(tool_input_dict, dict) else str(tool_input)
+                                             
+                                             exec_tool_call = {
+                                                 "function_name": tool_name,
+                                                 "arguments": tool_input_dict,
+                                                 "id": tool_use_id
+                                             }
+                                             
+                                             logger.info(f"[TOOL_DETECTION] Adding tool_use block as tool call: {exec_tool_call['function_name']}")
+                                             all_tool_data.append({"tool_call": exec_tool_call, "parsing_details": None})
+                                             native_tool_calls_for_message.append({
+                                                 "id": tool_use_id,
+                                                 "type": "function",
+                                                 "function": {
+                                                     "name": tool_name,
+                                                     "arguments": tool_input_str
+                                                 }
+                                             })
+                             
+                             # Extract text content from Claude content blocks
+                             content = extract_text_from_claude_content(content)
                          
                          if config.xml_tool_calling:
                              parsed_xml_data = self._parse_xml_tool_calls(content)
