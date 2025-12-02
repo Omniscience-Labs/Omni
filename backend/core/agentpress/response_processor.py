@@ -24,7 +24,8 @@ from langfuse.client import StatefulTraceClient
 from core.services.langfuse import langfuse
 from core.utils.json_helpers import (
     ensure_dict, ensure_list, safe_json_parse, 
-    to_json_string, format_for_yield
+    to_json_string, format_for_yield, parse_claude_tool_calls,
+    extract_text_from_claude_content
 )
 
 # Type alias for XML result adding strategy
@@ -374,34 +375,27 @@ class ResponseProcessor:
                         # ✅ FIX: Handle Anthropic content blocks (Claude 3.5/4.5 format)
                         # Content can be a list with {"type": "text", "text": "..."} or {"type": "tool_use", ...}
                         if isinstance(chunk_content, list):
-                            # Extract text content and tool_use blocks separately
-                            text_parts = []
-                            for item in chunk_content:
-                                if isinstance(item, dict):
-                                    block_type = item.get('type')
-                                    if block_type == 'text':
-                                        # Extract text content
-                                        text_parts.append(item.get('text', ''))
-                                    elif block_type == 'tool_use' and config.native_tool_calling:
-                                        # ✅ NEW: Handle tool_use blocks from content (Anthropic format)
-                                        # Claude returns: {"type": "tool_use", "id": "...", "name": "...", "input": {...}}
-                                        # This happens when Anthropic returns tool calls in content blocks
-                                        tool_use_id = item.get('id')
-                                        tool_name = item.get('name', '')
-                                        tool_input = item.get('input', {})
+                            # Use parse_claude_tool_calls to extract tool calls from content blocks
+                            if config.native_tool_calling:
+                                tool_calls_from_content = parse_claude_tool_calls(chunk_content)
+                                if tool_calls_from_content:
+                                    logger.info(f"🔧 [STREAMING] Detected {len(tool_calls_from_content)} tool_use block(s) in content")
+                                    for tool_call in tool_calls_from_content:
+                                        tool_use_id = tool_call.get('id')
+                                        tool_name = tool_call.get('name', '')
+                                        tool_input = tool_call.get('input', {})
                                         
                                         if tool_use_id and tool_name:
-                                            logger.info(f"🔧 [STREAMING] Detected tool_use block in content: {tool_name} (id: {tool_use_id})")
+                                            logger.info(f"🔧 [STREAMING] Processing tool_use block: {tool_name} (id: {tool_use_id})")
                                             
                                             # Convert input dict to JSON string for consistency
-                                            # tool_input is already a dict from Anthropic, so we can use it directly
                                             tool_input_dict = tool_input if isinstance(tool_input, dict) else safe_json_parse(str(tool_input))
                                             tool_input_str = json.dumps(tool_input_dict) if isinstance(tool_input_dict, dict) else str(tool_input)
                                             
                                             # tool_use blocks from content are always complete (not streamed)
-                                            # Use tool_use_id as a unique identifier for the buffer
-                                            # Convert ID to a stable index (use last few chars as index)
-                                            idx = len(tool_calls_buffer)  # Use sequential index to avoid collisions
+                                            # Use prefixed key with tool_use_id to avoid collisions with streaming tool_calls
+                                            # Streaming tool_calls use "stream_{index}", so we use "content_{id}" to ensure uniqueness
+                                            idx = f"content_{tool_use_id}"
                                             
                                             # Store in buffer for consistency with other tool call handling
                                             tool_calls_buffer[idx] = {
@@ -443,17 +437,10 @@ class ResponseProcessor:
                                                     "tool_index": tool_index, "context": context
                                                 })
                                                 tool_index += 1
-                                        else:
-                                            logger.warning(f"⚠️ [STREAMING] Invalid tool_use block: missing id or name. Block: {item}")
-                                    else:
-                                        # Unknown block type - convert to string
-                                        text_parts.append(str(item))
-                                else:
-                                    # Non-dict item - convert to string
-                                    text_parts.append(str(item))
                             
-                            # Join text parts for accumulated content
-                            chunk_content = ''.join(text_parts)
+                            # Extract text content from Claude content blocks
+                            from core.utils.json_helpers import extract_text_from_claude_content
+                            chunk_content = extract_text_from_claude_content(chunk_content)
                         # print(chunk_content, end='', flush=True)
                         # logger.debug(f"About to concatenate chunk_content (type={type(chunk_content)}) to accumulated_content (type={type(accumulated_content)})")
                         accumulated_content += chunk_content
@@ -540,7 +527,14 @@ class ResponseProcessor:
 
                             # --- Buffer and Execute Complete Native Tool Calls ---
                             if not hasattr(tool_call_chunk, 'function'): continue
-                            idx = tool_call_chunk.index if hasattr(tool_call_chunk, 'index') else 0
+                            
+                            # Use prefixed key to avoid collisions with content-block tool_use items
+                            # Content-block items use "content_{id}", so we use "stream_{index}" for streaming
+                            base_idx = tool_call_chunk.index if hasattr(tool_call_chunk, 'index') else 0
+                            idx = f"stream_{base_idx}"
+                            
+                            # If we have an ID, we can use it as a more stable key (but keep prefix for safety)
+                            # However, ID might not be available in first chunk, so we stick with stream_{index}
                             
                             # Initialize buffer entry if not exists
                             if idx not in tool_calls_buffer:
@@ -1041,7 +1035,32 @@ class ResponseProcessor:
                              # Optionally yield error status for saving failure?
 
             # --- Final Finish Status ---
-            # DEFENSIVE: Always yield a finish status, even if finish_reason is None
+            # CRITICAL: Do not finish the run if tool_calls exist - set status to "executing_tools" instead
+            # Check for tool calls from both native and XML sources
+            has_tool_calls = False
+            if config.native_tool_calling and complete_native_tool_calls:
+                has_tool_calls = True
+            if config.xml_tool_calling and xml_chunks_buffer:
+                has_tool_calls = True
+            
+            if has_tool_calls:
+                # When tool_calls exist: set status = "executing_tools" and return tool_calls payload
+                logger.info(f"🔧 [STREAMING] Tool calls detected - setting status to 'executing_tools' instead of finishing")
+                executing_status = {"type": "status", "status": "executing_tools", 
+                                   "status_type": "executing_tools",
+                                   "content": to_json_string({"status_type": "executing_tools", "tool_calls": complete_native_tool_calls or None})}
+                executing_msg_obj = await self.add_message(
+                    thread_id=thread_id, type="status", content={"status_type": "executing_tools"}, 
+                    is_llm_message=False, metadata={"thread_run_id": thread_run_id}
+                )
+                if executing_msg_obj:
+                    yield format_for_yield(executing_msg_obj)
+                else:
+                    yield executing_status
+                # Don't yield finish status when tool_calls exist - auto-continue will handle it
+                return
+            
+            # DEFENSIVE: Always yield a finish status if no tool calls, even if finish_reason is None
             # This ensures the stream never hangs waiting for a completion signal
             if not finish_reason:
                 logger.warning("No finish_reason received from LLM, defaulting to 'stop'")
@@ -1049,13 +1068,6 @@ class ResponseProcessor:
             
             # Skip yielding finish for xml_tool_limit_reached (handled separately)
             if finish_reason != "xml_tool_limit_reached":
-                # Defensive check: If there are finished native tool calls but finish_reason is "stop" or None,
-                # override it so downstream logic knows a tool call happened and can auto-continue
-                if config.native_tool_calling and complete_native_tool_calls:
-                    if finish_reason not in {"tool_calls", "xml_tool_limit_reached"}:
-                        logger.info(f"🔧 [FINAL] Overriding finish_reason from '{finish_reason}' to 'tool_calls' before yielding finish status")
-                        finish_reason = "tool_calls"
-                
                 finish_content = {"status_type": "finish", "finish_reason": finish_reason}
                 finish_msg_obj = await self.add_message(
                     thread_id=thread_id, type="status", content=finish_content, 
@@ -1293,58 +1305,45 @@ class ResponseProcessor:
                      if hasattr(response_message, 'content') and response_message.content:
                          content = response_message.content
                          
-                         # ✅ FIX: Handle Anthropic content blocks (Claude 3.5/4.5 format)
-                         # Content can be a list with {"type": "text", "text": "..."} or {"type": "tool_use", ...}
-                         if isinstance(content, list):
-                             # Extract text content and tool_use blocks separately
-                             text_parts = []
-                             for item in content:
-                                 if isinstance(item, dict):
-                                     block_type = item.get('type')
-                                     if block_type == 'text':
-                                         # Extract text content
-                                         text_parts.append(item.get('text', ''))
-                                     elif block_type == 'tool_use' and config.native_tool_calling:
-                                         # ✅ NEW: Handle tool_use blocks from content (Anthropic format)
-                                         # This happens when Anthropic returns tool calls in content blocks
-                                         tool_use_id = item.get('id')
-                                         tool_name = item.get('name', '')
-                                         tool_input = item.get('input', {})
-                                         
-                                         if tool_use_id and tool_name:
-                                             logger.info(f"🔧 [NON-STREAMING] Detected tool_use block in content: {tool_name} (id: {tool_use_id})")
-                                             
-                                             # tool_input is already a dict from Anthropic, use it directly
-                                             tool_input_dict = tool_input if isinstance(tool_input, dict) else safe_json_parse(str(tool_input))
-                                             tool_input_str = json.dumps(tool_input_dict) if isinstance(tool_input_dict, dict) else str(tool_input)
-                                             
-                                             exec_tool_call = {
-                                                 "function_name": tool_name,
-                                                 "arguments": tool_input_dict,
-                                                 "id": tool_use_id
-                                             }
-                                             
-                                             logger.info(f"[TOOL_DETECTION] Adding tool_use block as tool call: {exec_tool_call['function_name']}")
-                                             all_tool_data.append({"tool_call": exec_tool_call, "parsing_details": None})
-                                             native_tool_calls_for_message.append({
-                                                 "id": tool_use_id,
-                                                 "type": "function",
-                                                 "function": {
-                                                     "name": tool_name,
-                                                     "arguments": tool_input_str
-                                                 }
-                                             })
-                                         else:
-                                             logger.warning(f"⚠️ [NON-STREAMING] Invalid tool_use block: missing id or name. Block: {item}")
-                                     else:
-                                         # Unknown block type - convert to string
-                                         text_parts.append(str(item))
-                                 else:
-                                     # Non-dict item - convert to string
-                                     text_parts.append(str(item))
-                             
-                             # Join text parts for content
-                             content = ''.join(text_parts)
+                        # ✅ FIX: Handle Anthropic content blocks (Claude 3.5/4.5 format)
+                        # Content can be a list with {"type": "text", "text": "..."} or {"type": "tool_use", ...}
+                        if isinstance(content, list):
+                            # Use parse_claude_tool_calls to extract tool calls from content blocks
+                            if config.native_tool_calling:
+                                tool_calls_from_content = parse_claude_tool_calls(content)
+                                if tool_calls_from_content:
+                                    logger.info(f"🔧 [NON-STREAMING] Detected {len(tool_calls_from_content)} tool_use block(s) in content")
+                                    for tool_call in tool_calls_from_content:
+                                        tool_use_id = tool_call.get('id')
+                                        tool_name = tool_call.get('name', '')
+                                        tool_input = tool_call.get('input', {})
+                                        
+                                        if tool_use_id and tool_name:
+                                            logger.info(f"🔧 [NON-STREAMING] Processing tool_use block: {tool_name} (id: {tool_use_id})")
+                                            
+                                            # tool_input is already a dict from Anthropic, use it directly
+                                            tool_input_dict = tool_input if isinstance(tool_input, dict) else safe_json_parse(str(tool_input))
+                                            tool_input_str = json.dumps(tool_input_dict) if isinstance(tool_input_dict, dict) else str(tool_input)
+                                            
+                                            exec_tool_call = {
+                                                "function_name": tool_name,
+                                                "arguments": tool_input_dict,
+                                                "id": tool_use_id
+                                            }
+                                            
+                                            logger.info(f"[TOOL_DETECTION] Adding tool_use block as tool call: {exec_tool_call['function_name']}")
+                                            all_tool_data.append({"tool_call": exec_tool_call, "parsing_details": None})
+                                            native_tool_calls_for_message.append({
+                                                "id": tool_use_id,
+                                                "type": "function",
+                                                "function": {
+                                                    "name": tool_name,
+                                                    "arguments": tool_input_str
+                                                }
+                                            })
+                            
+                            # Extract text content from Claude content blocks
+                            content = extract_text_from_claude_content(content)
                          
                          if config.xml_tool_calling:
                              parsed_xml_data = self._parse_xml_tool_calls(content)
@@ -1362,25 +1361,62 @@ class ResponseProcessor:
                                  finish_reason = "xml_tool_limit_reached"
                              all_tool_data.extend(parsed_xml_data)
 
-                     # ✅ Handle newer format: top-level tool_calls (also supported by Claude 3.5/4.5)
-                     if config.native_tool_calling and hasattr(response_message, 'tool_calls') and response_message.tool_calls:
-                          logger.info(f"[TOOL_DETECTION] Found {len(response_message.tool_calls)} native tool calls in LLM response")
-                          for tool_call in response_message.tool_calls:
-                             if hasattr(tool_call, 'function'):
-                                 exec_tool_call = {
-                                     "function_name": tool_call.function.name,
-                                     "arguments": safe_json_parse(tool_call.function.arguments) if isinstance(tool_call.function.arguments, str) else tool_call.function.arguments,
-                                     "id": tool_call.id if hasattr(tool_call, 'id') else str(uuid.uuid4())
-                                 }
-                                 logger.info(f"[TOOL_DETECTION] Adding native tool call: {exec_tool_call['function_name']}")
-                                 all_tool_data.append({"tool_call": exec_tool_call, "parsing_details": None})
-                                 native_tool_calls_for_message.append({
-                                     "id": exec_tool_call["id"], "type": "function",
-                                     "function": {
-                                         "name": tool_call.function.name,
-                                         "arguments": tool_call.function.arguments if isinstance(tool_call.function.arguments, str) else to_json_string(tool_call.function.arguments)
+                     # ✅ Handle tool_calls from response_message (OpenAI-style or Claude format)
+                     # Stop looking for OpenAI-style function_call - use parse_claude_tool_calls instead
+                     if config.native_tool_calling:
+                         # Check if response_message has tool_calls attribute
+                         if hasattr(response_message, 'tool_calls') and response_message.tool_calls:
+                             # Parse tool_calls using parse_claude_tool_calls (handles both formats)
+                             tool_calls_parsed = parse_claude_tool_calls(response_message.tool_calls)
+                             if tool_calls_parsed:
+                                 logger.info(f"[TOOL_DETECTION] Found {len(tool_calls_parsed)} native tool calls in LLM response")
+                                 for tool_call in tool_calls_parsed:
+                                     tool_name = tool_call.get('name', '')
+                                     tool_input = tool_call.get('input', {})
+                                     tool_id = tool_call.get('id', str(uuid.uuid4()))
+                                     
+                                     exec_tool_call = {
+                                         "function_name": tool_name,
+                                         "arguments": tool_input if isinstance(tool_input, dict) else safe_json_parse(str(tool_input)),
+                                         "id": tool_id
                                      }
-                                 })
+                                     logger.info(f"[TOOL_DETECTION] Adding native tool call: {exec_tool_call['function_name']}")
+                                     all_tool_data.append({"tool_call": exec_tool_call, "parsing_details": None})
+                                     
+                                     tool_input_str = json.dumps(exec_tool_call['arguments']) if isinstance(exec_tool_call['arguments'], dict) else str(exec_tool_call['arguments'])
+                                     native_tool_calls_for_message.append({
+                                         "id": tool_id, "type": "function",
+                                         "function": {
+                                             "name": tool_name,
+                                             "arguments": tool_input_str
+                                         }
+                                     })
+                         # Also check content for tool_calls (fallback)
+                         elif isinstance(content, (dict, list)):
+                             tool_calls_from_content_dict = parse_claude_tool_calls(content)
+                             if tool_calls_from_content_dict:
+                                 logger.info(f"[TOOL_DETECTION] Found {len(tool_calls_from_content_dict)} tool calls in content dict/list")
+                                 for tool_call in tool_calls_from_content_dict:
+                                     tool_name = tool_call.get('name', '')
+                                     tool_input = tool_call.get('input', {})
+                                     tool_id = tool_call.get('id', str(uuid.uuid4()))
+                                     
+                                     exec_tool_call = {
+                                         "function_name": tool_name,
+                                         "arguments": tool_input if isinstance(tool_input, dict) else safe_json_parse(str(tool_input)),
+                                         "id": tool_id
+                                     }
+                                     logger.info(f"[TOOL_DETECTION] Adding tool call from content: {exec_tool_call['function_name']}")
+                                     all_tool_data.append({"tool_call": exec_tool_call, "parsing_details": None})
+                                     
+                                     tool_input_str = json.dumps(exec_tool_call['arguments']) if isinstance(exec_tool_call['arguments'], dict) else str(exec_tool_call['arguments'])
+                                     native_tool_calls_for_message.append({
+                                         "id": tool_id, "type": "function",
+                                         "function": {
+                                             "name": tool_name,
+                                             "arguments": tool_input_str
+                                         }
+                                     })
 
             # Optional: Fallback JSON parsing for providers that return structured JSON in content
             # when finish_reason is "stop" and no explicit tool_calls are present
@@ -1499,14 +1535,33 @@ class ResponseProcessor:
                     tool_index += 1
 
             # --- Save and Yield Final Status ---
+            # CRITICAL: Do not finish the run if tool_calls exist - set status to "executing_tools" instead
+            # Check for tool calls from both native and XML sources
+            has_tool_calls = False
+            if config.native_tool_calling and native_tool_calls_for_message:
+                has_tool_calls = True
+            if config.xml_tool_calling and all_tool_data:
+                has_tool_calls = True
+            
+            if has_tool_calls:
+                # When tool_calls exist: set status = "executing_tools" and return tool_calls payload
+                logger.info(f"🔧 [NON-STREAMING] Tool calls detected - setting status to 'executing_tools' instead of finishing")
+                executing_status = {"type": "status", "status": "executing_tools", 
+                                   "status_type": "executing_tools",
+                                   "content": to_json_string({"status_type": "executing_tools", "tool_calls": native_tool_calls_for_message or None})}
+                executing_msg_obj = await self.add_message(
+                    thread_id=thread_id, type="status", content={"status_type": "executing_tools"}, 
+                    is_llm_message=False, metadata={"thread_run_id": thread_run_id}
+                )
+                if executing_msg_obj:
+                    yield format_for_yield(executing_msg_obj)
+                else:
+                    yield executing_status
+                # Don't yield finish status when tool_calls exist - auto-continue will handle it
+                return
+            
+            # Yield finish status only if no tool calls exist
             if finish_reason:
-                # Defensive check: If there are finished native tool calls but finish_reason is "stop" or None,
-                # override it so downstream logic knows a tool call happened
-                if config.native_tool_calling and native_tool_calls_for_message:
-                    if finish_reason not in {"tool_calls", "xml_tool_limit_reached"}:
-                        logger.debug(f"🔧 [NON-STREAMING FINAL] Overriding finish_reason from '{finish_reason}' to 'tool_calls' before yielding finish status")
-                        finish_reason = "tool_calls"
-                
                 finish_content = {"status_type": "finish", "finish_reason": finish_reason}
                 finish_msg_obj = await self.add_message(
                     thread_id=thread_id, type="status", content=finish_content, 
