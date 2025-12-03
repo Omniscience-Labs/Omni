@@ -592,15 +592,85 @@ async def stream_agent_run(
                             for response in new_responses:
                                 response_type = response.get('type')
                                 
+                                # ✅ Check for Claude tool_use blocks in content BEFORE checking completion
+                                # This prevents premature completion when tool calls are present
+                                from core.utils.json_helpers import parse_claude_tool_calls
+                                
+                                # Check if this response contains content with tool_use blocks
+                                model_content = None
+                                if 'content' in response:
+                                    # Content might be a JSON string or already parsed
+                                    content_data = response.get('content')
+                                    if isinstance(content_data, str):
+                                        try:
+                                            content_data = json.loads(content_data)
+                                        except (json.JSONDecodeError, TypeError):
+                                            pass
+                                    
+                                    # Extract content from nested structure if needed
+                                    if isinstance(content_data, dict):
+                                        model_content = content_data.get('content') or content_data
+                                    else:
+                                        model_content = content_data
+                                
+                                # Parse tool calls from content (handles Claude 3.5/4.5 format)
+                                tool_calls = []
+                                if model_content:
+                                    tool_calls = parse_claude_tool_calls(model_content)
+                                
+                                # If tool calls are detected, mark run as executing_tools and yield tool_calls
+                                if tool_calls:
+                                    logger.info(f"🔧 [STREAM] Detected {len(tool_calls)} tool_use block(s) in content - marking as executing_tools")
+                                    
+                                    # Update agent run status to executing_tools
+                                    try:
+                                        await client.table('agent_runs').update({
+                                            'status': 'executing_tools'
+                                        }).eq('id', agent_run_id).execute()
+                                        logger.info(f"✅ Updated agent run {agent_run_id} status to 'executing_tools'")
+                                    except Exception as e:
+                                        logger.error(f"Failed to update agent run status: {e}")
+                                    
+                                    # Yield tool_calls payload
+                                    tool_calls_response = {
+                                        "type": "tool_calls",
+                                        "tool_calls": tool_calls,
+                                        "status": "executing_tools"
+                                    }
+                                    yield f"data: {json.dumps(tool_calls_response)}\n\n"
+                                    
+                                    # Do NOT mark completed - continue to allow tool execution
+                                    continue
+                                
                                 # Log important status updates
                                 if response_type == 'status':
                                     status_val = response.get('status')
                                     status_type = response.get('status_type')
+                                    
+                                    # Check if this status indicates tool calls are present
+                                    # Don't terminate if tool calls exist - auto-continue will handle execution
+                                    has_tool_calls = (
+                                        status_val == 'executing_tools' or 
+                                        status_type == 'executing_tools' or
+                                        response.get('content', {}).get('tool_calls') is not None
+                                    )
+                                    
                                     if status_val in ['executing_tools', 'completed', 'failed', 'stopped', 'finish']:
                                         logger.info(f"📊 [STREAM] Status update for {agent_run_id}: {status_val or status_type}")
+                                    
+                                    # Only terminate on final statuses, NOT when tool calls are present
                                     if status_val in ['completed', 'failed', 'stopped', 'finish']:
-                                        has_yielded_final_status = True
-                                        terminate_stream = True
+                                        # Check finish_reason - don't terminate if tool_calls
+                                        finish_reason = response.get('finish_reason')
+                                        if finish_reason == 'tool_calls':
+                                            logger.info(f"🔄 [STREAM] finish_reason='tool_calls' - NOT terminating, auto-continue will handle")
+                                            # Don't set terminate_stream - let auto-continue handle it
+                                        elif not has_tool_calls:
+                                            # Only terminate if no tool calls present
+                                            has_yielded_final_status = True
+                                            terminate_stream = True
+                                        else:
+                                            logger.info(f"🔄 [STREAM] Tool calls detected - NOT terminating stream")
                                 
                                 # Log tool results
                                 elif response_type == 'tool_result':
