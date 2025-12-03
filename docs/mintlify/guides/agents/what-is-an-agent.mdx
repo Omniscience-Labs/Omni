@@ -1,0 +1,238 @@
+---
+title: What Is an Agent
+description: Understand how Omni agents work using the intern analogy, tasks, integrations, and the marketplace.
+icon: "robot"
+---
+
+## Think of an Agent Like an Intern
+
+An **Agent** in Omni is an autonomous AI worker that can sense, decide, and act in real time.
+
+The easiest way to understand an agent is to think of it like an **intern you are training**:
+you give it instructions, references, files, access, and tools — and it performs the task for you.
+
+<CardGroup cols={3}>
+  <Card title="Instructions" icon="message-circle">
+    The logic, steps, and behavior guidelines you want the agent to follow.
+  </Card>
+  <Card title="References & Files" icon="file-text">
+    The information, documents, and reusable files the agent should consult.
+  </Card>
+  <Card title="Tools & Access" icon="plug">
+    The actions the agent can take and the apps it is allowed to connect to.
+  </Card>
+</CardGroup>
+
+<Tip>
+  If you can write down how you would explain a task to an intern, you are very
+  close to having everything you need to configure an agent.
+</Tip>
+
+---
+
+## Core Building Blocks of an Agent
+
+When you train an intern, you share information, references, and step-by-step instructions.
+Agents work the same way, just with slightly different names.
+
+<CardGroup cols={2}>
+  <Card title="System Prompt" icon="sliders-horizontal">
+    The exact instructions you give the agent: how to think, what to prioritize,
+    and how to format its output. This is your detailed “how to do the job” guide.
+  </Card>
+
+{" "}
+<Card title="Knowledge Bases" icon="book-open">
+  Collections of documents, notes, and references the agent can look up when
+  reasoning about a task.
+</Card>
+
+{" "}
+<Card title="Default Files" icon="folder">
+  Files you expect the agent to reuse frequently, like templates, trackers, or
+  common reference sheets.
+</Card>
+
+  <Card title="Tools & Integrations" icon="wrench">
+    Tools are the actions an agent can take. Integrations are the logins and
+    permissions that let the agent act inside external apps (email, calendar, CRM, etc.).
+  </Card>
+</CardGroup>
+
+<Note>
+  An agent without the right tools and integrations is like an intern without
+  access to your email, files, or software — they can understand what you want
+  but cannot actually complete the task.
+</Note>
+
+---
+
+## Tasks: Letting Agents Run Automatically
+
+When you need something done **often** or on a **recurring schedule**, you use **tasks**.
+
+Tasks let an agent:
+
+- run once at a specific time
+- run on a schedule (daily, weekly, multiple times per day)
+- run when something happens (a **trigger**), like receiving an email
+
+Example triggers include:
+
+- a new email from a specific person
+- a file being added to a folder
+- a calendar event starting
+
+<Tip>
+  Tasks are how you turn an agent from “chat-only” into a background worker that
+  keeps doing things for you automatically.
+</Tip>
+
+---
+
+## Example: “Email Summaries” Agent
+
+Here’s a concrete example straight from the training material: an agent that summarizes Outlook emails for you so you do not have to open your inbox.
+
+<Steps>
+  <Step title="Decide the Logic">
+    First, think about the human steps you would take:
+    - Which inbox or email account should be checked?
+    - Which emails should be included (specific senders, domains, or rules)?
+    - Where should the summary be delivered (email, chat, project)?
+    - How often should the summary be sent?
+  </Step>
+
+{" "}
+<Step title="Create the Agent">
+  Create a new agent, for example: <strong>EMAIL SUMMARIES</strong>. This will
+  be the agent responsible for reading and summarizing your inbox.
+</Step>
+
+{" "}
+<Step title="Connect Outlook via Integrations">
+  Use <strong>Integrations</strong> to connect your Outlook account. This grants
+  the agent permission to read the relevant emails.
+</Step>
+
+{" "}
+<Step title="Write the System Prompt">
+  Update the system prompt with clear instructions, such as:
+  <CodeBlock>
+    {`Create a summary of emails from [email 1], [email 2], [email 3]
+and every email from [company domain]. Send the summary to
+[my email address] once a day.`}
+  </CodeBlock>
+</Step>
+
+  <Step title="Configure the Task">
+    Go to <strong>Tasks</strong>, attach the <strong>EMAIL SUMMARIES</strong> agent, and set:
+    - the schedule (e.g., every weekday at 5pm), and  
+    - the destination for the summary.
+  </Step>
+</Steps>
+
+<Check>
+  Once this is configured, your agent will follow the exact logic you defined —
+  checking Outlook, summarizing the right emails, and sending you a digest on
+  the schedule you chose.
+</Check>
+
+---
+
+## Marketplace: Sharing and Reusing Agents
+
+Sometimes different people in your team need similar capabilities but slightly different outputs.
+This is where the **Marketplace** comes in.
+
+<AccordionGroup>
+  <Accordion title="Publish Your Agent" icon="upload">
+    Person A can publish their agent to the marketplace so others can install and use it.
+  </Accordion>
+
+{" "}
+<Accordion title="Install and Adapt" icon="download">
+  Person B can install that agent, then customize: - the system prompt (tone,
+  format, rules) - integrations (connect their own accounts) - task destinations
+  (where outputs go)
+</Accordion>
+
+  <Accordion title="Endless Variations" icon="infinity">
+    The marketplace lets teams share best-practice agents while still allowing personalization
+    for each workflow or user.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## When Integrations Are Missing
+
+Sometimes the software you want to use is **not yet available** as an integration.
+
+In that case:
+
+- the agent cannot reliably act in that app
+- forcing it to “just try” wastes tokens, credits, and time
+- the right approach is to **request a new integration**
+
+<Warning>
+  Asking an agent to use tools it does not have is like asking a finance intern
+  to run a full media campaign. They may try their best, but they simply do not
+  have the right skills.
+</Warning>
+
+---
+
+## Tips for Getting the Best Results
+
+These guidelines help you save time, credits, and frustration when working with agents.
+
+<Steps>
+  <Step title="Never Share Logins in Chat">
+    Only enter credentials inside the secure integration setup flow.
+    The platform will store authorization so you do not have to keep logging in.
+  </Step>
+
+{" "}
+<Step title="Stop If the Agent Misbehaves">
+  If an agent starts hallucinating or giving obviously wrong answers, end the
+  chat. Do not keep repeating the same request hoping for a different outcome —
+  adjust the configuration or ask the team for help.
+</Step>
+
+{" "}
+<Step title="Avoid Message Spam">
+  Each message uses credits, even if there is no visible output. Try to send one
+  clear, detailed instruction instead of many small fragmented messages.
+</Step>
+
+{" "}
+<Step title="Ask for Help with System Prompts">
+  If you are unsure how to phrase the system prompt, explain your logic and
+  desired behavior in plain language and ask the agent to help you generate a
+  better prompt.
+</Step>
+
+  <Step title="Use Clear Action Words">
+    Be explicit about what you want:
+    - “Summarize…”
+    - “Classify…”
+    - “Create a list of…”
+    - “Send to…”
+    Vague instructions produce vague behavior.
+  </Step>
+</Steps>
+
+---
+
+## Summary
+
+An agent in Omni is:
+
+- an autonomous worker that follows your instructions
+- powered by system prompts, knowledge bases, files, tools, and integrations
+- capable of running on schedules and triggers via tasks
+- shareable and customizable through the marketplace
+
+By combining these pieces the same way you would onboard a new intern, you can design agents
+that reliably automate real workflows across your tools and data.
