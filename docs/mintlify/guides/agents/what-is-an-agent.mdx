@@ -38,26 +38,21 @@ Agents work the same way, just with slightly different names.
 <CardGroup cols={2}>
   <Card title="System Prompt" icon="sliders-horizontal">
     The exact instructions you give the agent: how to think, what to prioritize,
-    and how to format its output. This is your detailed “how to do the job” guide.
+    and how to format its output. This is your detailed “how to do the job”
+    guide.
   </Card>
-
-{" "}
-
-<Card title="Knowledge Bases" icon="book-open">
-  Collections of documents, notes, and references the agent can look up when
-  reasoning about a task.
-</Card>
-
-{" "}
-
-<Card title="Default Files" icon="folder">
-  Files you expect the agent to reuse frequently, like templates, trackers, or
-  common reference sheets.
-</Card>
-
+  <Card title="Knowledge Bases" icon="book-open">
+    Collections of documents, notes, and references the agent can look up when
+    reasoning about a task.
+  </Card>
+  <Card title="Default Files" icon="folder">
+    Files you expect the agent to reuse frequently, like templates, trackers, or
+    common reference sheets.
+  </Card>
   <Card title="Tools & Integrations" icon="wrench">
     Tools are the actions an agent can take. Integrations are the logins and
-    permissions that let the agent act inside external apps (email, calendar, CRM, etc.).
+    permissions that let the agent act inside external apps (email, calendar,
+    CRM, etc.).
   </Card>
 </CardGroup>
 
@@ -98,42 +93,29 @@ Here’s a concrete example straight from the training material: an agent that s
 
 <Steps>
   <Step title="Decide the Logic">
-    First, think about the human steps you would take:
-    - Which inbox or email account should be checked?
-    - Which emails should be included (specific senders, domains, or rules)?
-    - Where should the summary be delivered (email, chat, project)?
-    - How often should the summary be sent?
+    First, think about the human steps you would take: - Which inbox or email
+    account should be checked? - Which emails should be included (specific
+    senders, domains, or rules)? - Where should the summary be delivered (email,
+    chat, project)? - How often should the summary be sent?
   </Step>
-
-{" "}
-
-<Step title="Create the Agent">
-  Create a new agent, for example: **EMAIL SUMMARIES**. This will be the agent
-  responsible for reading and summarizing your inbox.
-</Step>
-
-{" "}
-
-<Step title="Connect Outlook via Integrations">
-  Use **Integrations** to connect your Outlook account. This grants the agent
-  permission to read the relevant emails.
-</Step>
-
-{" "}
-
-<Step title="Write the System Prompt">
-  Update the system prompt with clear instructions, such as:
-  <CodeBlock>
-    {`Create a summary of emails from [email 1], [email 2], [email 3]
-and every email from [company domain]. Send the summary to
-[my email address] once a day.`}
-  </CodeBlock>
-</Step>
-
+  <Step title="Create the Agent">
+    Create a new agent, for example: **EMAIL SUMMARIES**. This will be the agent
+    responsible for reading and summarizing your inbox.
+  </Step>
+  <Step title="Connect Outlook via Integrations">
+    Use **Integrations** to connect your Outlook account. This grants the agent
+    permission to read the relevant emails.
+  </Step>
+  <Step title="Write the System Prompt">
+    Update the system prompt with clear instructions, such as:
+    <CodeBlock>
+      {`Create a summary of emails from [email 1], [email 2], [email 3] and every email from [company domain]. Send the summary to [my email address] once a day.`}
+    </CodeBlock>
+  </Step>
   <Step title="Configure the Task">
-    Go to **Tasks**, attach the **EMAIL SUMMARIES** agent, and set:
-    - the schedule (e.g., every weekday at 5pm), and
-    - the destination for the summary.
+    Go to **Tasks**, attach the **EMAIL SUMMARIES** agent, and set: - the
+    schedule (e.g., every weekday at 5pm), and - the destination for the
+    summary.
   </Step>
 </Steps>
 
@@ -152,20 +134,17 @@ This is where the **Marketplace** comes in.
 
 <AccordionGroup>
   <Accordion title="Publish Your Agent" icon="upload">
-    Person A can publish their agent to the marketplace so others can install and use it.
+    Person A can publish their agent to the marketplace so others can install
+    and use it.
   </Accordion>
-
-{" "}
-
-<Accordion title="Install and Adapt" icon="download">
-  Person B can install that agent, then customize: - the system prompt (tone,
-  format, rules) - integrations (connect their own accounts) - task destinations
-  (where outputs go)
-</Accordion>
-
+  <Accordion title="Install and Adapt" icon="download">
+    Person B can install that agent, then customize: - the system prompt (tone,
+    format, rules) - integrations (connect their own accounts) - task
+    destinations (where outputs go)
+  </Accordion>
   <Accordion title="Endless Variations" icon="infinity">
-    The marketplace lets teams share best-practice agents while still allowing personalization
-    for each workflow or user.
+    The marketplace lets teams share best-practice agents while still allowing
+    personalization for each workflow or user.
   </Accordion>
 </AccordionGroup>
 
@@ -195,40 +174,26 @@ These guidelines help you save time, credits, and frustration when working with 
 
 <Steps>
   <Step title="Never Share Logins in Chat">
-    Only enter credentials inside the secure integration setup flow.
-    The platform will store authorization so you do not have to keep logging in.
+    Only enter credentials inside the secure integration setup flow. The
+    platform will store authorization so you do not have to keep logging in.
   </Step>
-
-{" "}
-
-<Step title="Stop If the Agent Misbehaves">
-  If an agent starts hallucinating or giving obviously wrong answers, end the
-  chat. Do not keep repeating the same request hoping for a different outcome —
-  adjust the configuration or ask the team for help.
-</Step>
-
-{" "}
-
-<Step title="Avoid Message Spam">
-  Each message uses credits, even if there is no visible output. Try to send one
-  clear, detailed instruction instead of many small fragmented messages.
-</Step>
-
-{" "}
-
-<Step title="Ask for Help with System Prompts">
-  If you are unsure how to phrase the system prompt, explain your logic and
-  desired behavior in plain language and ask the agent to help you generate a
-  better prompt.
-</Step>
-
+  <Step title="Stop If the Agent Misbehaves">
+    If an agent starts hallucinating or giving obviously wrong answers, end the
+    chat. Do not keep repeating the same request hoping for a different outcome
+    — adjust the configuration or ask the team for help.
+  </Step>
+  <Step title="Avoid Message Spam">
+    Each message uses credits, even if there is no visible output. Try to send
+    one clear, detailed instruction instead of many small fragmented messages.
+  </Step>
+  <Step title="Ask for Help with System Prompts">
+    If you are unsure how to phrase the system prompt, explain your logic and
+    desired behavior in plain language and ask the agent to help you generate a
+    better prompt.
+  </Step>
   <Step title="Use Clear Action Words">
-    Be explicit about what you want:
-    - “Summarize…”
-    - “Classify…”
-    - “Create a list of…”
-    - “Send to…”
-    Vague instructions produce vague behavior.
+    Be explicit about what you want: - “Summarize…” - “Classify…” - “Create a
+    list of…” - “Send to…” Vague instructions produce vague behavior.
   </Step>
 </Steps>
 
