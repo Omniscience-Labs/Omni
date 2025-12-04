@@ -1,140 +1,120 @@
 ---
-title: What Is an Agent
-description: Understand how Omni agents work using the intern analogy, tasks, integrations, and the marketplace.
-icon: "folder-plus"
+title: Real-Life Agent Examples and OMNI Setup
+description: Understand OMNI Agents through the intern analogy, explore real-life applications, and follow steps to configure your own agent within the OMNI platform.
+icon: "robot"
 ---
 
-## Think of an Agent Like an Intern
+## Think of an Agent Like a Trainee Intern
 
-An **Agent** in Omni is an autonomous AI worker that can sense, decide, and act in real time.
+[cite_start]An **Agent** in OMNI is an autonomous AI worker designed to sense, decide, and act in real-time[cite: 2]. [cite_start]The simplest way to grasp an Agent's function is to liken it to an **intern you are training**[cite: 38].
 
-The easiest way to understand an agent is to think of it like an **intern you are training**:
-you give it instructions, references, files, access, and tools — and it performs the task for you.
+[cite_start]Like an intern, you provide the Agent with everything it needs to perform a task[cite: 39]:
 
 <CardGroup cols={3}>
-  <Card title="Instructions">
-    The logic, steps, and behavior guidelines you want the agent to follow.
+  <Card title="Instructions (System Prompt)" icon="pencil">
+    [cite_start]This is the detailed logic and steps for performing the task,
+    telling the agent how to think and what to prioritize[cite: 40].
   </Card>
-  <Card title="References & Files">
-    The information, documents, and reusable files the agent should consult.
+  <Card title="References (Knowledge Base)" icon="book-open">
+    [cite_start]Collections of information, references, and documents the agent
+    can look up while working[cite: 39, 40].
   </Card>
-  <Card title="Tools & Access">
-    The actions the agent can take and the apps it is allowed to connect to.
+  <Card title="Tools & Access (Integrations)" icon="wrench">
+    [cite_start]These are the steps and actions the agent can perform, including
+    the login permissions required to act inside external applications like
+    email or calendar[cite: 43, 44].
   </Card>
 </CardGroup>
 
 <Tip>
-  If you can write down how you would explain a task to an intern, you are very
-  close to having everything you need to configure an agent.
+  [cite_start]Information and steps are considered the **system prompt**[cite:
+  40]. [cite_start]Files given to reuse often are called **default files**[cite:
+  41].
 </Tip>
 
 ---
 
-## Core Building Blocks of an Agent
+## Real-Life Agent Applications
 
-When you train an intern, you share information, references, and step-by-step instructions.
-Agents work the same way, just with slightly different names.
+OMNI Agents are capable of executing complex, recurring tasks across various domains. By combining the core components, you can automate essential workflows.
 
-<CardGroup cols={2}>
-  <Card title="System Prompt" icon="download">
-    The exact instructions you give the agent: how to think, what to prioritize,
-    and how to format its output. This is your detailed “how to do the job”
-    guide.
-  </Card>
-  <Card title="Knowledge Bases" icon="book-open">
-    Collections of documents, notes, and references the agent can look up when
-    reasoning about a task.
-  </Card>
-  <Card title="Default Files" icon="folder">
-    Files you expect the agent to reuse frequently, like templates, trackers, or
-    common reference sheets.
-  </Card>
-  <Card title="Tools & Integrations" icon="wrench">
-    Tools are the actions an agent can take. Integrations are the logins and
-    permissions that let the agent act inside external apps (email, calendar,
-    CRM, etc.).
-  </Card>
-</CardGroup>
+### 💡 Example: Daily Email Summary Agent
 
-<Note>
-  An agent without the right tools and integrations is like an intern without
-  access to your email, files, or software — they can understand what you want
-  but cannot actually complete the task.
-</Note>
+[cite_start]This is an agent that automates the process of summarizing your daily emails from specific sources without you needing to open your inbox[cite: 63, 161].
+
+| Component         | Configuration                                                                                                                                                                                                          | Purpose                                                                                            |
+| :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------- |
+| **Integrations**  | [cite_start]Connect Outlook or Gmail [cite: 161, 221]                                                                                                                                                                  | [cite_start]Grants the agent permission to read and access your emails[cite: 163].                 |
+| **System Prompt** | [cite_start]Direct the agent to summarize emails from specific senders (e.g., `substack, medium, tldr, and every educative email`) and email the summary to a specified address (`varnika@latent-labs.ai`)[cite: 313]. | [cite_start]Tells the agent _what_ to summarize and _where_ to deliver the output[cite: 164, 165]. |
+| **Task/Trigger**  | [cite_start]Set a **Schedule Trigger** (e.g., daily at 5:00 PM) [cite: 329, 368]                                                                                                                                       | [cite_start]Automates the agent to run at the exact, recurring time you need it[cite: 61, 166].    |
+
+### 🛠️ Example: Workflow from the Marketplace
+
+[cite_start]OMNI offers a Marketplace where users can download pre-built agents created by others[cite: 85, 106]. [cite_start]You can then customize a downloaded agent for your specific needs[cite: 87].
+
+- [cite_start]**Download:** A person (B) can download an agent released by another person (A) from the Marketplace to their library[cite: 85].
+- [cite_start]**Customize:** If you want the final output slightly changed, you can modify the agent's **integrations** or change the **system prompt** to alter the format or final task destination[cite: 86, 87].
 
 ---
 
-## Tasks: Letting Agents Run Automatically
+## Step-by-Step: Creating an Agent in OMNI
 
-When you need something done **often** or on a **recurring schedule**, you use **tasks**.
-
-Tasks let an agent:
-
-- run once at a specific time
-- run on a schedule (daily, weekly, multiple times per day)
-- run when something happens (a **trigger**), like receiving an email
-
-Example triggers include:
-
-- a new email from a specific person
-- a file being added to a folder
-- a calendar event starting
-
-<Tip>
-  Tasks are how you turn an agent from “chat-only” into a background worker that
-  keeps doing things for you automatically.
-</Tip>
-
----
-
-## Example: “Email Summaries” Agent!
-
-Here’s a concrete example straight from the training material: an agent that summarizes Outlook emails for you so you do not have to open your inbox.
+[cite_start]Creating an Agent to automate a task, like the "Email Summaries" example, involves setting up the core building blocks[cite: 167].
 
 <Steps>
-  <Step title="Decide the Logic">
-    First, think about the human steps you would take: - Which inbox or email
-    account should be checked? - Which emails should be included (specific
-    senders, domains, or rules)? - Where should the summary be delivered (email,
-    chat, project)? - How often should the summary be sent?
-  </Step>
-  <Step title="Create the Agent">
-    Create a new agent, for example: **EMAIL SUMMARIES**. This will be the agent
-    responsible for reading and summarizing your inbox.
-  </Step>
-  <Step title="Connect Outlook via Integrations">
-    Use **Integrations** to connect your Outlook account. This grants the agent
-    permission to read the relevant emails.
-  </Step>
-  <Step title="Write the System Prompt">
-    Update the system prompt with clear instructions, such as:
-    <CodeBlock>
-      {`Create a summary of emails from [email 1], [email 2], [email 3] and every email from [company domain]. Send the summary to [my email address] once a day.`}
-    </CodeBlock>
-  </Step>
-  <Step title="Configure the Task">
-    Go to **Tasks**, attach the **EMAIL SUMMARIES** agent, and set: - the
-    schedule (e.g., every weekday at 5pm), and - the destination for the
-    summary.
-  </Step>
+  <Step title="1. Create the New Agent">
+    * [cite_start]Navigate to the **Agents** section and click **New Agent** or **+ Create Agent**[cite: 8, 11, 179].
+    * [cite_start]Give your new agent a name, for example: **EMAIL SUMMARIES**[cite: 168].
+      </Step>
+
+{" "}
+<Step title="2. Connect Integrations (Grant Access)">
+  * [cite_start]In the Agent configuration, go to the **Integrations** tab[cite:
+  55, 214]. * [cite_start]Click **Browse Apps** and connect your account (e.g.,
+  Outlook or Gmail) to give the agent permission to interact with the app[cite:
+  125, 204, 221]. [cite_start]This is the only place you should provide login
+  authorization[cite: 412, 413].
+</Step>
+
+{" "}
+<Step title="3. Configure Tools">
+  * [cite_start]After connecting an app (like Gmail), select the specific
+  **tools** you want the agent to use (e.g., `Modify email labels`, `Create
+  email draft`)[cite: 265, 270, 275, 287]. * [cite_start]A connected app may
+  enable a certain number of tools for your agent (e.g., 13 tools enabled)[cite:
+  285, 297].
+</Step>
+
+{" "}
+<Step title="4. Write the System Prompt (Instructions)">
+  * [cite_start]Go to the **Instructions** tab[cite: 51, 292]. *
+  [cite_start]Edit the system prompt to define the agent's core identity and
+  give it the exact, logical instructions for the task[cite: 308, 310, 311,
+  422]. * [cite_start]**Example Prompt:** `Create a summary of emails from
+  substack, medium, tldr and every educative email and email it to me
+  @varnika@latent-labs.ai`[cite: 307, 313].
+</Step>
+
+  <Step title="5. Set up the Task (Schedule)">
+    * [cite_start]Go to the **Triggers** tab and click **Create Schedule Trigger**[cite: 58, 76, 339].
+    * [cite_start]In the **Create Scheduled Task** flow, set a **Task Name**[cite: 341, 351].
+    * [cite_start]In the **Schedule** step, choose how often the task should run (e.g., **Recurring** or **One-time**) and set the time[cite: 367, 368, 369, 374].
+    * [cite_start]In the **Execute** step, choose the **Execution Method** (e.g., **Send Prompt to Agent**) and provide the final **Agent Instructions** to run the task[cite: 394, 398, 400].
+      </Step>
 </Steps>
 
 <Check>
-  Once this is configured, your agent will follow the exact logic you defined —
-  checking Outlook, summarizing the right emails, and sending you a digest on
-  the schedule you chose.
+  [cite_start]By following these steps, you define the agent's capabilities and
+  its automated schedule, turning it into a background worker[cite: 347, 365].
 </Check>
 
 ---
 
-## Summary
+## Key Tips for Agent Configuration
 
-An agent in Omni is:
+- [cite_start]**Avoid Vague Instructions:** Always provide **exact action words** in your instructions instead of being vague[cite: 422].
+- [cite_start]**Manage Tokens:** Send a singular, well-defined message to the agent, as sending a chain of multiple messages uses up tokens/credits for every input, regardless of the screen showing an output[cite: 417, 419].
+- [cite_start]**Troubleshooting:** If the agent _misbehaves_ (hallucinates) or you are confused, end the chat and do **not** ask the agent to perform the task repeatedly[cite: 414, 415].
+- **Request Integrations:** If the software you need is not available, request a new integration. [cite_start]Do not ask the agent to perform the task without the correct tool, as this wastes tokens and credits[cite: 405, 406, 409].
 
-- an autonomous worker that follows your instructions
-- powered by system prompts, knowledge bases, files, tools, and integrations
-- capable of running on schedules and triggers via tasks
-- shareable and customizable through the marketplace
-
-By combining these pieces the same way you would onboard a new intern, you can design agents
-that reliably automate real workflows across your tools and data.
+---
