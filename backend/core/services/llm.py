@@ -236,7 +236,7 @@ def prepare_params(
 ) -> Dict[str, Any]:
     from core.ai_models import model_manager
     resolved_model_name = model_manager.resolve_model_id(model_name)
-    # logger.debug(f"Model resolution: '{model_name}' -> '{resolved_model_name}'")
+    logger.debug(f"🎯 LiteLLM model resolution: '{model_name}' -> '{resolved_model_name}'")
     
     params = {
         "model": resolved_model_name,

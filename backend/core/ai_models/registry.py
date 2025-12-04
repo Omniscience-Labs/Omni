@@ -30,7 +30,8 @@ class ModelRegistry:
             tier_availability=["free", "paid"],
             priority=100,
             recommended=True,
-            enabled=True
+            enabled=True,
+            provider_model_id="claude-3-5-sonnet-latest"
         ))
         
         self.register(Model(
@@ -52,7 +53,8 @@ class ModelRegistry:
             tier_availability=["free", "paid"],
             priority=95,
             recommended=False,
-            enabled=True
+            enabled=True,
+            provider_model_id="claude-3-5-haiku-latest"
         ))
         
         # self.register(Model(
@@ -294,8 +296,15 @@ class ModelRegistry:
         return [m for m in models if capability in m.capabilities]
     
     def resolve_model_id(self, model_id: str) -> Optional[str]:
+        from core.utils.logger import logger
         model = self.get(model_id)
-        return model.id if model else None
+        if not model:
+            return None
+        # Return provider_model_id if set, otherwise return the registry id
+        resolved = model.provider_model_id if model.provider_model_id else model.id
+        if model.provider_model_id:
+            logger.debug(f"🔄 Model ID resolution: '{model_id}' -> '{resolved}' (using provider_model_id)")
+        return resolved
     
     def get_aliases(self, model_id: str) -> List[str]:
         model = self.get(model_id)

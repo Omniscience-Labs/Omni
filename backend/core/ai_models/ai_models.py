@@ -51,6 +51,7 @@ class Model:
     metadata: Dict[str, Any] = field(default_factory=dict)
     priority: int = 0
     recommended: bool = False
+    provider_model_id: Optional[str] = None  # The actual model ID to send to LiteLLM/provider API
     
     def __post_init__(self):        
         if ModelCapability.CHAT not in self.capabilities:
