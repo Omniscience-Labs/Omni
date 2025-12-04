@@ -54,22 +54,31 @@ export const useModelSelection = () => {
     let models: ModelOption[] = [];
     
     if (!modelsData?.models || isLoading) {
-      // Fallback models when API fails (matching PRODUCTION pattern)
+      // Fallback models when API fails - only Haiku and Sonnet
       models = [
         { 
-          id: 'claude-sonnet-4', 
-          label: 'Omni 4', 
+          id: 'anthropic/claude-haiku-4-5-20251201', 
+          label: 'Omni Quick 4.5', 
+          requiresSubscription: false,
+          priority: 102,
+          recommended: true
+        },
+        {
+          id: 'anthropic/claude-sonnet-4-20250514',
+          label: 'Omni 4',
           requiresSubscription: false,
           priority: 100,
           recommended: true
-        },
+        }
       ];
     } else {
       models = modelsData.models
         .filter(model => {
-          // Hide GPT-5 models entirely
-          const modelName = model.display_name || model.short_name || model.id;
-          return !modelName.toLowerCase().includes('gpt-5');
+          // Only include Haiku and Sonnet models
+          const modelId = (model.short_name || model.id).toLowerCase();
+          const isHaiku = modelId.includes('haiku-4-5') || modelId.includes('haiku-4.5') || modelId.includes('haiku 4.5');
+          const isSonnet = modelId.includes('sonnet-4') || modelId.includes('sonnet 4');
+          return isHaiku || isSonnet;
         })
         .map(model => {
           let label = model.display_name || model.short_name || model.id;
@@ -131,16 +140,21 @@ export const useModelSelection = () => {
 
     // If no model selected or selected model is not accessible, pick default from API data
     if (!selectedModel || !accessibleModels.some(m => m.id === selectedModel)) {
-      const hasActiveSubscription = subscriptionData?.status === 'active' || subscriptionData?.status === 'trialing';
-      const defaultModelId = getDefaultModel(availableModels, hasActiveSubscription);
+      // Default to Haiku (highest priority free model)
+      const haikuModel = availableModels.find(m => 
+        m.id.toLowerCase().includes('haiku-4-5') || 
+        m.id.toLowerCase().includes('haiku-4.5')
+      );
+      
+      const defaultModelId = haikuModel?.id || availableModels[0]?.id || 'anthropic/claude-haiku-4-5-20251201';
       
       // Make sure the default model is accessible
-      const finalModel = accessibleModels.some(m => m.id === defaultModelId) 
+      const finalModel = accessibleModels.some(m => m.id === defaultModelId)
         ? defaultModelId 
         : accessibleModels[0]?.id;
         
       if (finalModel) {
-        console.log('🔧 useModelSelection: Setting API-determined default model:', finalModel);
+        console.log('🔧 useModelSelection: Setting default to Haiku:', finalModel);
         setSelectedModel(finalModel);
       }
     }
