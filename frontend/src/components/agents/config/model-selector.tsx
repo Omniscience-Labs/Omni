@@ -78,32 +78,21 @@ export function AgentModelSelector({
   const enhancedModelOptions = useMemo(() => {
     const modelMap = new Map();
 
-    if (modelsData?.models) {
-      modelsData.models.forEach(model => {
-        const shortName = model.short_name || model.id;
-        const displayName = model.display_name || shortName;
-        
-        modelMap.set(shortName, {
-          id: shortName,
-          label: displayName,
-          requiresSubscription: model.requires_subscription || false,
-          priority: model.priority || 0,
-          recommended: model.recommended || false,
-          top: (model.priority || 0) >= 90,
-          capabilities: model.capabilities || [],
-          contextWindow: model.context_window || 128000,
-          isCustom: false
-        });
+    // Use allModels (transformed data) instead of raw modelsData
+    // This ensures "Omni 4" and "Omni Quick 4.5" display names are shown
+    allModels.forEach(model => {
+      modelMap.set(model.id, {
+        id: model.id,
+        label: model.label,
+        requiresSubscription: model.requiresSubscription || false,
+        priority: model.priority || 0,
+        recommended: model.recommended || false,
+        top: (model.priority || 0) >= 90,
+        capabilities: model.capabilities || [],
+        contextWindow: model.contextWindow || 128000,
+        isCustom: false
       });
-    } else {
-      // Fallback to allModels if API data not available
-      allModels.forEach(model => {
-        modelMap.set(model.id, {
-          ...model,
-          isCustom: false
-        });
-      });
-    }
+    });
 
     if (isLocalMode()) {
       customModels.forEach(model => {
@@ -125,8 +114,13 @@ export function AgentModelSelector({
       });
     }
 
-    return Array.from(modelMap.values());
-  }, [modelsData?.models, allModels, customModels]);
+    const finalOptions = Array.from(modelMap.values());
+    
+    // 🔍 TEMPORARY DEBUG LOG - Remove after verifying
+    console.log('🔍 Model selector receiving:', finalOptions);
+    
+    return finalOptions;
+  }, [allModels, customModels]);
   
   const selectedModelDisplay = useMemo(() => {
     const model = enhancedModelOptions.find(m => m.id === selectedModel);

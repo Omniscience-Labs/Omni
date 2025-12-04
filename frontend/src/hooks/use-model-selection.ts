@@ -80,6 +80,12 @@ export const useModelSelection = () => {
             label = 'Omni 4';
           }
           
+          // Transform Claude Haiku 4.5 to Omni Quick 4.5
+          if (label === 'Claude Haiku 4.5' || label === 'claude-haiku-4.5' || 
+              (model.short_name || model.id) === 'anthropic/claude-haiku-4-5-20251201') {
+            label = 'Omni Quick 4.5';
+          }
+          
           return {
             id: model.short_name || model.id,
             label: label,
@@ -92,12 +98,17 @@ export const useModelSelection = () => {
         });
     }
     
-    return models.sort((a, b) => {
+    const sortedModels = models.sort((a, b) => {
       // Sort by recommended first, then priority, then name
       if (a.recommended !== b.recommended) return a.recommended ? -1 : 1;
       if (a.priority !== b.priority) return b.priority - a.priority;
       return a.label.localeCompare(b.label);
     });
+    
+    // 🔥 TEMPORARY DEBUG LOG - Remove after verifying
+    console.log('🔥 Available models (after transform):', sortedModels);
+    
+    return sortedModels;
   }, [modelsData, isLoading]);
 
   // Get accessible models based on subscription (matching PRODUCTION pattern)
