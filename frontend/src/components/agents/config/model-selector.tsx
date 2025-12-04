@@ -116,8 +116,9 @@ export function AgentModelSelector({
 
     const finalOptions = Array.from(modelMap.values());
     
-    // 🔍 TEMPORARY DEBUG LOG - Remove after verifying
-    console.log('🔍 Model selector receiving:', finalOptions);
+    // 🟢 TEMPORARY DEBUG LOG - Remove after verifying
+    console.log('🟢 AgentModelSelector models:', allModels);
+    console.log('🟢 AgentModelSelector enhanced options:', finalOptions);
     
     return finalOptions;
   }, [allModels, customModels]);
