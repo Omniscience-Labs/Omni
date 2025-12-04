@@ -33,6 +33,28 @@ class ModelRegistry:
             enabled=True
         ))
         
+        self.register(Model(
+            id="anthropic/claude-haiku-4-5-20251201",
+            name="Claude Haiku 4.5",
+            provider=ModelProvider.ANTHROPIC,
+            aliases=["claude-haiku-4.5", "claude-haiku-4-5", "anthropic/claude-haiku-4-5", "Claude Haiku 4.5", "claude-haiku-4-5-20251201"],
+            context_window=1_000_000,
+            capabilities=[
+                ModelCapability.CHAT,
+                ModelCapability.FUNCTION_CALLING,
+                ModelCapability.VISION,
+                ModelCapability.THINKING,
+            ],
+            pricing=ModelPricing(
+                input_cost_per_million_tokens=0.80,
+                output_cost_per_million_tokens=4.00
+            ),
+            tier_availability=["free", "paid"],
+            priority=95,
+            recommended=False,
+            enabled=True
+        ))
+        
         # self.register(Model(
         #     id="anthropic/claude-3-7-sonnet-latest",
         #     name="Claude 3.7 Sonnet",

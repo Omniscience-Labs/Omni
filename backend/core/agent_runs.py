@@ -665,17 +665,13 @@ async def initiate_agent_with_files(
     # Use model from config if not specified in the request
     logger.debug(f"Original model_name from request: {model_name}")
 
-    if model_name is None:
-        model_name = "Claude Sonnet 4"
-        logger.debug(f"Using default model: {model_name}")
-
     from core.ai_models import model_manager
     # Log the model name after alias resolution using new model manager
-    resolved_model = model_manager.resolve_model_id(model_name)
-    logger.debug(f"Resolved model name: {resolved_model}")
-
-    # Update model_name to use the resolved version
-    model_name = resolved_model
+    if model_name:
+        resolved_model = model_manager.resolve_model_id(model_name)
+        logger.debug(f"Resolved model name: {resolved_model}")
+        # Update model_name to use the resolved version
+        model_name = resolved_model
 
     logger.debug(f"Initiating new agent with prompt and {len(files)} files (Instance: {utils.instance_id}), model: {model_name}, enable_thinking: {enable_thinking}")
     client = await utils.db.client
@@ -999,7 +995,9 @@ async def initiate_agent_with_files(
         elif model_name:
             logger.debug(f"Using user-selected model: {effective_model}")
         else:
-            logger.debug(f"Using default model: {effective_model}")
+            # Final fallback only if both request and agent config have no model
+            effective_model = "Claude Sonnet 4"
+            logger.debug(f"No model in request or agent config, using default: {effective_model}")
 
         agent_run = await client.table('agent_runs').insert({
             "thread_id": thread_id, "status": "running",
