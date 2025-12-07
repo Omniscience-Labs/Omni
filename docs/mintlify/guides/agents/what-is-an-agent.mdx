@@ -6,31 +6,30 @@ icon: "robot"
 
 ## Think of an Agent Like a Trainee Intern
 
-[cite_start]An **Agent** in OMNI is an autonomous AI worker designed to **sense, decide, and act in real-time**[cite: 2]. [cite_start]The simplest way to grasp an Agent's function is to liken it to an **intern you are training**[cite: 38].
+An **Agent** in OMNI is an autonomous AI worker designed to **sense, decide, and act in real-time**[cite: 2]. The simplest way to grasp an Agent's function is to liken it to an **intern you are training**[cite: 38].
 
-[cite_start]Like an intern, you provide the Agent with everything it needs to perform a task[cite: 39]:
+Like an intern, you provide the Agent with everything it needs to perform a task[cite: 39]:
 
 <CardGroup cols={3}>
   <Card title="Instructions (System Prompt)" icon="pencil">
     This is the detailed logic and steps for performing the task, telling the
-    agent how to think and what to prioritize. [cite_start]The system prompt
-    contains the information and steps for the agent[cite: 40].
+    agent how to think and what to prioritize. The system prompt contains the
+    information and steps for the agent[cite: 40].
   </Card>
   <Card title="References (Knowledge Base)" icon="book-open">
     Collections of information, references, and documents the agent can look up
-    while working. [cite_start]References are now knowledge bases[cite: 40].
+    while working. References are now knowledge bases[cite: 40].
   </Card>
   <Card title="Tools & Access (Integrations)" icon="wrench">
-    [cite_start]These are the steps and actions the agent can perform [cite:
-    43][cite_start], including the login permissions required to act inside
-    external applications like email or calendar[cite: 44].
+    These are the steps and actions the agent can perform [cite: 43], including
+    the login permissions required to act inside external applications like
+    email or calendar[cite: 44].
   </Card>
 </CardGroup>
 
 <Tip>
-  [cite_start]Files you give the agent to reuse often become a **default
-  file**[cite: 41]. [cite_start]Files you give it to manipulate would either be
-  an **integration**[cite: 42].
+  Files you give the agent to reuse often become a **default file**[cite: 41].
+  Files you give it to manipulate would either be an **integration**[cite: 42].
 </Tip>
 
 ---
@@ -41,85 +40,83 @@ OMNI Agents are capable of executing complex, recurring tasks across various dom
 
 ### 💡 Example: Daily Email Summary Agent
 
-[cite_start]This is an agent that automates the process of summarizing your daily emails from specific sources without you needing to open your inbox[cite: 161].
+This is an agent that automates the process of summarizing your daily emails from specific sources without you needing to open your inbox[cite: 161].
 
-| Component         | Configuration                                                                                                                                                                                                               | Purpose                                                                                            |
-| :---------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------- |
-| **Integrations**  | [cite_start]Connect Outlook or Gmail                                                                                                                                                                                        | [cite_start]Grants the agent permission to read and access your emails[cite: 163, 161].            |
-| **System Prompt** | [cite_start]Direct the agent to summarize emails from specific senders (e.g., `substack, medium, tldr, and every educative email`) and email the summary to a specified address (`varnika@latent-labs.ai`)[cite: 313, 307]. | [cite_start]Tells the agent _what_ to summarize and _where_ to deliver the output[cite: 164, 165]. |
-| **Task/Trigger**  | [cite_start]Set a **Schedule Trigger** (e.g., daily at 5:00 PM)                                                                                                                                                             | [cite_start]Automates the agent to run at the exact, recurring time you need it[cite: 329].        |
+| Component         | Configuration                                                                                                                                                                                                   | Purpose                                                                                |
+| :---------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------- |
+| **Integrations**  | Connect Outlook or Gmail                                                                                                                                                                                        | Grants the agent permission to read and access your emails[cite: 163, 161].            |
+| **System Prompt** | Direct the agent to summarize emails from specific senders (e.g., `substack, medium, tldr, and every educative email`) and email the summary to a specified address (`varnika@latent-labs.ai`)[cite: 313, 307]. | Tells the agent _what_ to summarize and _where_ to deliver the output[cite: 164, 165]. |
+| **Task/Trigger**  | Set a **Schedule Trigger** (e.g., daily at 5:00 PM)                                                                                                                                                             | Automates the agent to run at the exact, recurring time you need it[cite: 329].        |
 
 ### 🛠️ Example: Workflow from the Marketplace
 
-[cite_start]OMNI offers a **Marketplace** where users can download pre-built agents created by others[cite: 85]. [cite_start]You can then customize a downloaded agent for your specific needs[cite: 86, 87].
+OMNI offers a **Marketplace** where users can download pre-built agents created by others[cite: 85]. You can then customize a downloaded agent for your specific needs[cite: 86, 87].
 
-- [cite_start]**Download:** A person (B) who needs to use an agent's skills can download it to their library from the Marketplace[cite: 85].
-- [cite_start]**Customize:** If you want the final output slightly changed, you can change the **integrations**, change the **system prompt** slightly to change the format, or even change the final destination of the task[cite: 86, 87].
+- **Download:** A person (B) who needs to use an agent's skills can download it to their library from the Marketplace[cite: 85].
+- **Customize:** If you want the final output slightly changed, you can change the **integrations**, change the **system prompt** slightly to change the format, or even change the final destination of the task[cite: 86, 87].
 
 ---
 
 ## Step-by-Step: Creating an Agent in OMNI
 
-[cite_start]Creating an Agent to automate a task, like the "Email Summaries" example, involves setting up the core building blocks[cite: 167].
+Creating an Agent to automate a task, like the "Email Summaries" example, involves setting up the core building blocks[cite: 167].
 
 <Steps>
   <Step title="1. Create the New Agent">
-    * [cite_start]Navigate to the **Agents** section on the sidebar and click **New Agent**[cite: 8, 11].
-    * [cite_start]Create a new agent, for example: **EMAIL SUMMARIES**[cite: 168, 191].
+    * Navigate to the **Agents** section on the sidebar and click **New Agent**[cite: 8, 11].
+    * Create a new agent, for example: **EMAIL SUMMARIES**[cite: 168, 191].
     
   </Step>
 
 {" "}
 
 <Step title="2. Connect Integrations (Grant Access)">
-  * [cite_start]In the Agent configuration, go to the **Integrations** tab[cite:
-  214]. * [cite_start]Click **Browse Apps** [cite: 204] [cite_start]and connect
-  your account (e.g., Outlook or Gmail) to it[cite: 221]. * [cite_start]This
-  grants the agent permission to interact with the app[cite: 124].
-  [cite_start]You only provide login authorization during integration set
-  up[cite: 412, 413].
+  * In the Agent configuration, go to the **Integrations** tab[cite: 214]. *
+  Click **Browse Apps** [cite: 204] and connect your account (e.g., Outlook or
+  Gmail) to it[cite: 221]. * This grants the agent permission to interact with
+  the app[cite: 124]. You only provide login authorization during integration
+  set up[cite: 412, 413].
 </Step>
 
 {" "}
 
 <Step title="3. Configure Tools">
-  * [cite_start]After connecting an app (like Gmail), select the specific
-  **tools** you want the agent to use (e.g., `Modify email labels`, `Create
-  email draft`)[cite: 265, 275]. * [cite_start]The selected tools will be added
-  to your agent[cite: 285].
+  * After connecting an app (like Gmail), select the specific **tools** you want
+  the agent to use (e.g., `Modify email labels`, `Create email draft`)[cite:
+  265, 275]. * The selected tools will be added to your agent[cite: 285].
 </Step>
 
 {" "}
 
 <Step title="4. Write the System Prompt (Instructions)">
-  * [cite_start]Go to the **Instructions** tab[cite: 292]. * [cite_start]Edit
-  the system prompt to define the agent's core identity and give it the exact,
-  logical directions for the task[cite: 307, 308]. * [cite_start]**Example
-  Prompt:** `"Create a summary of emails from substack, medium, tldr and every
-  educative email and email it to me @varnika@latent-labs.ai"`[cite: 313].
+  * Go to the **Instructions** tab[cite: 292]. * Edit the system prompt to
+  define the agent's core identity and give it the exact, logical directions for
+  the task[cite: 307, 308]. * **Example Prompt:** `"Create a summary of emails
+  from substack, medium, tldr and every educative email and email it to me
+  @varnika@latent-labs.ai"`[cite: 313].
 </Step>
 
   <Step title="5. Set up the Task (Schedule)">
-    * [cite_start]Go to **Tasks** or the **Triggers** tab [cite: 329, 338] [cite_start]and click **Create Schedule Trigger**[cite: 339].
-    * [cite_start]In the **Task Setup** step, set a **Task Name** and an optional description[cite: 351, 352, 353].
-    * [cite_start]In the **Schedule Configuration** step, choose how often the task should run (**Recurring**, **One-time**, or **Advanced**) and set the time[cite: 365, 366].
-    * [cite_start]In the **Execution Configuration** step, choose the **Execution Method** (**Send Prompt to Agent** is selected by default) and provide the final **Agent Instructions** (e.g., `run the agent and fix my folder`)[cite: 391, 394, 398, 400].
+    * Go to **Tasks** or the **Triggers** tab [cite: 329, 338] and click **Create Schedule Trigger**[cite: 339].
+    * In the **Task Setup** step, set a **Task Name** and an optional description[cite: 351, 352, 353].
+    * In the **Schedule Configuration** step, choose how often the task should run (**Recurring**, **One-time**, or **Advanced**) and set the time[cite: 365, 366].
+    * In the **Execution Configuration** step, choose the **Execution Method** (**Send Prompt to Agent** is selected by default) and provide the final **Agent Instructions** (e.g., `run the agent and fix my folder`)[cite: 391, 394, 398, 400].
     
   </Step>
 </Steps>
 
 <Check>
-  [cite_start]Once this is configured, your agent will follow the exact logic
-  you defined, turning it into a background worker that runs on your chosen
-  schedule[cite: 61, 62, 364].
+  Once this is configured, your agent will follow the exact logic you defined,
+  turning it into a background worker that runs on your chosen schedule[cite:
+  61, 62, 364].
 </Check>
 
 ---
 
 ## Key Tips for Agent Configuration
 
-- [cite_start]**Avoid Vague Instructions:** Provide **exact action words** instead of being vague[cite: 422].
-- **Manage Tokens:** Try to send a **singular message** instead of a chain of multiple messages. [cite_start]Every message you send uses up credits/tokens as input, regardless of the screen showing an output[cite: 417, 419].
-- **Troubleshooting Hallucination:** If your agent misbehaves (what OMNI calls **hallucination**), end the chat. [cite_start]Do **not** ask the agent to perform the task over and over again[cite: 414, 415].
-- [cite_start]**Request New Integrations:** If the software you want to use is not available in Integrations, asking the agent to perform the task regardless will waste tokens and credits[cite: 405, 406]. [cite_start]Instead, ask OMNI to provide an integration[cite: 409].
-- [cite_start]**Generate System Prompt:** If you're confused about the right system prompt, tell the agent your logic, and ask it to help you **generate the SYSTEM PROMPT**[cite: 420].
+- **Avoid Vague Instructions:** Provide **exact action words** instead of being vague[cite: 422].
+- **Manage Tokens:** Try to send a **singular message** instead of a chain of multiple messages. Every message you send uses up credits/tokens as input, regardless of the screen showing an output[cite: 417, 419].
+- **Troubleshooting Hallucination:** If your agent misbehaves (what OMNI calls **hallucination**), end the chat. Do **not** ask the agent to perform the task over and over again[cite: 414, 415].
+- **Request New Integrations:** If the software you want to use is not available in Integrations, asking the agent to perform the task regardless will waste tokens and credits[cite: 405, 406]. Instead, ask OMNI to provide an integration[cite: 409].
+- **Generate System Prompt:** If you're confused about the right system prompt, tell the agent your logic, and ask it to help you **generate the SYSTEM PROMPT**[cite: 420].
