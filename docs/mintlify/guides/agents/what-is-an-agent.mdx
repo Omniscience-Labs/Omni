@@ -61,42 +61,48 @@ OMNI offers a **Marketplace** where users can download pre-built agents created 
 
 Creating an Agent to automate a task, like the **Daily Email Summaries** example, involves setting up a few core building blocks.
 
+![Omni Dashboard showing New Agent option](C:\Users\shata\Omni\docs\mintlify\images\omni_main_page.png "Omni main dashboard where you begin agent creation")
+
 <Steps>
   <Step title="1. Create the New Agent">
-    Navigate to the **Agents** section on the sidebar and click **New Agent**.
 
-    Create a new agent, for example: **EMAIL SUMMARIES**.
+Navigate to the **Agents** section on the sidebar and click **New Agent**.
+
+![New Agent modal - General Tab](docs\mintlify\images\new-agent-config.png "Agent creation modal showing the General setup page")
+
+Create a new agent, for example: **EMAIL SUMMARIES**.
 
   </Step>
 
   <Step title="2. Connect Integrations (Grant Access)">
-    In the Agent configuration, go to the **Integrations** tab.
 
-    Click **Browse Apps** and connect your account (e.g., Outlook or Gmail).
+In the Agent configuration, go to the **Integrations** tab.
 
-    This grants the agent permission to interact with the app. You only provide
-    login authorization during integration setup.
+![Integrations Tab Screenshot](docs\mintlify\images\appbased-trig.png "Where to connect Gmail, Outlook, Slack, etc.")
+
+Click **Browse Apps** and connect your account (e.g., Outlook or Gmail).
+
+This grants the agent permission to interact with the app.
 
   </Step>
 
   <Step title="3. Configure Tools">
-    After connecting an app (like Gmail), select the specific **tools** you want
-    the agent to use, for example:
 
-    - `Modify email labels`
-    - `Create email draft`
+After connecting an app (like Gmail), select the specific **tools** you want
+the agent to use:
 
-    The selected tools will be added to your agent.
+- `Modify email labels`
+- `Create email draft`
 
   </Step>
 
   <Step title="4. Write the System Prompt (Instructions)">
-    Go to the **Instructions** tab.
 
-    Edit the system prompt to define the agent's core identity and give it the
-    exact, logical directions for the task.
+Go to the **Instructions** tab.
 
-    **Example Prompt:**
+Edit the system prompt to define the agent's core identity and task flow.
+
+**Example Prompt:**
 
     ```
     Create a summary of emails from substack, medium, tldr and every
