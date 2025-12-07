@@ -6,7 +6,7 @@ icon: "robot"
 
 ## Think of an Agent Like a Trainee Intern
 
-An **Agent** in OMNI is an autonomous AI worker designed to **sense, decide, and act in real-time**. The simplest way to grasp an Agent's function is to liken it to an **intern you are training**.
+An **Agent** in OMNI is an autonomous AI worker designed to **sense, decide, and act in real time**. The simplest way to grasp an Agent's function is to liken it to an **intern you are training**.
 
 Like an intern, you provide the Agent with everything it needs to perform a task:
 
@@ -53,65 +53,86 @@ This is an agent that automates the process of summarizing your daily emails fro
 OMNI offers a **Marketplace** where users can download pre-built agents created by others. You can then customize a downloaded agent for your specific needs.
 
 - **Download:** A person who needs to use an agent's skills can download it to their library from the Marketplace.
-- **Customize:** If you want the final output slightly changed, you can change the **integrations**, modify the **system prompt** format, or even change the final destination of the task.
+- **Customize:** If you want the final output slightly changed, you can change the **integrations**, tweak the **system prompt** to adjust the format, or even change the final destination of the task.
 
 ---
 
 ## Step-by-Step: Creating an Agent in OMNI
 
-Creating an Agent to automate a task, like the "Email Summaries" example, involves setting up the core building blocks.
+Creating an Agent to automate a task, like the **Daily Email Summaries** example, involves setting up a few core building blocks.
 
 <Steps>
   <Step title="1. Create the New Agent">
-    * Navigate to the **Agents** section on the sidebar and click **New Agent**.
-    * Create a new agent, for example: **EMAIL SUMMARIES**.
+    Navigate to the **Agents** section on the sidebar and click **New Agent**.
+
+    Create a new agent, for example: **EMAIL SUMMARIES**.
+
   </Step>
 
-{" "}
+  <Step title="2. Connect Integrations (Grant Access)">
+    In the Agent configuration, go to the **Integrations** tab.
 
-<Step title="2. Connect Integrations (Grant Access)">
-  * In the Agent configuration, go to the **Integrations** tab. * Click **Browse
-  Apps** and connect your account (e.g., Outlook or Gmail) to it. * This grants
-  the agent permission to interact with the app. You only provide login
-  authorization during integration setup.
-</Step>
+    Click **Browse Apps** and connect your account (e.g., Outlook or Gmail).
 
-{" "}
+    This grants the agent permission to interact with the app. You only provide
+    login authorization during integration setup.
 
-<Step title="3. Configure Tools">
-  * After connecting an app (like Gmail), select the specific **tools** you want
-  the agent to use (e.g., `Modify email labels`, `Create email draft`). * The
-  selected tools will be added to your agent.
-</Step>
+  </Step>
 
-{" "}
+  <Step title="3. Configure Tools">
+    After connecting an app (like Gmail), select the specific **tools** you want
+    the agent to use, for example:
 
-<Step title="4. Write the System Prompt (Instructions)">
-  * Go to the **Instructions** tab. * Edit the system prompt to define the
-  agent's core identity and give it the exact, logical directions for the task.
-  * **Example Prompt:** `"Create a summary of emails from substack, medium, tldr
-  and every educative email and email it to me @varnika@latent-labs.ai"`.
-</Step>
+    - `Modify email labels`
+    - `Create email draft`
+
+    The selected tools will be added to your agent.
+
+  </Step>
+
+  <Step title="4. Write the System Prompt (Instructions)">
+    Go to the **Instructions** tab.
+
+    Edit the system prompt to define the agent's core identity and give it the
+    exact, logical directions for the task.
+
+    **Example Prompt:**
+
+    ```
+    Create a summary of emails from substack, medium, tldr and every
+    educative email and email it to me at varnika@latent-labs.ai
+    ```
+
+  </Step>
 
   <Step title="5. Set up the Task (Schedule)">
-    * Go to **Tasks** or the **Triggers** tab and click **Create Schedule Trigger**.
-    * In the **Task Setup** step, set a **Task Name** and an optional description.
-    * In the **Schedule Configuration** step, choose how often the task should run (**Recurring**, **One-time**, or **Advanced**) and set the time.
-    * In the **Execution Configuration** step, choose the **Execution Method** (**Send Prompt to Agent** is selected by default) and provide the final **Agent Instructions** (e.g., `run the agent and fix my folder`).
+    Go to **Tasks** or the **Triggers** tab and click **Create Schedule Trigger**.
+
+    In the **Task Setup** step, set a **Task Name** and an optional description.
+
+    In the **Schedule Configuration** step, choose how often the task should run
+    (**Recurring**, **One-time**, or **Advanced**) and set the time.
+
+    In the **Execution Configuration** step, choose the **Execution Method**
+    (**Send Prompt to Agent** is selected by default) and provide the final
+    **Agent Instructions**, such as:
+
+    `Run the agent and generate today’s email summary.`
+
   </Step>
 </Steps>
 
 <Check>
   Once this is configured, your agent will follow the exact logic you defined,
-  turning it into a background worker that runs on your chosen schedule.
+  acting like a background worker that runs on your chosen schedule.
 </Check>
 
 ---
 
 ## Key Tips for Agent Configuration
 
-- **Avoid Vague Instructions:** Provide **exact action words** instead of being vague.
-- **Manage Tokens:** Try to send a **singular message** instead of a chain of multiple messages. Every message you send uses up credits/tokens as input.
-- **Troubleshooting Hallucination:** If your agent misbehaves (what OMNI calls **hallucination**), end the chat. Do **not** ask the agent to perform the task repeatedly.
-- **Request New Integrations:** If the software you want is not available in Integrations, asking the agent to perform the task anyway will waste tokens. Instead, request OMNI to add that integration.
-- **Generate System Prompt:** If you're confused about the right system prompt, tell the agent your logic and ask it to help you **generate the SYSTEM PROMPT**.
+- **Avoid vague instructions.** Provide **exact action words** instead of being general.
+- **Manage tokens.** Try to send a **single clear message** instead of a chain of back-and-forth messages. Every message you send uses up credits/tokens as input.
+- **Troubleshooting hallucination.** If your agent misbehaves (what OMNI calls **hallucination**), end the chat and start fresh. Do **not** ask the agent to perform the same task over and over again.
+- **Request new integrations.** If the software you want to use is not available in Integrations, asking the agent to perform the task anyway will waste tokens and credits. Instead, reach out to OMNI to request an integration.
+- **Generate the system prompt.** If you're unsure about the right system prompt, tell the agent your logic and ask it to help you **generate the SYSTEM PROMPT**.
