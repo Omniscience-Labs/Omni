@@ -93,44 +93,54 @@ Creating an Agent to automate a task, like the **Daily Email Summaries** example
 
   </Step>
 
-  <Step title="3. Configure Tools">
-    After connecting an app (like Gmail), select the specific **tools** you want
-    the agent to use:
+    <Step title="3. Configure Tools">
 
-    - `Modify email labels`
-    - `Create email draft`
+After connecting an app (like Gmail or Slack), select the specific **tools** you want
+the agent to use.
 
-  </Step>
+<img
+  src="/images/slack_trigger.png"
+  alt="Slack trigger and profile configuration modal"
+/>
 
-  <Step title="4. Write the System Prompt (Instructions)">
+Common examples include:
+
+- `Modify email labels`
+- `Create email draft`
+- `Send Slack message`
+- `Monitor Slack channel events`
+
+    </Step>
+
+    <Step title="4. Write the System Prompt (Instructions)">
     Go to the **Instructions** tab.
 
-    Edit the system prompt to define the agent's core identity and task flow.
+      Edit the system prompt to define the agent's core identity and task flow.
 
-    **Example Prompt:**
+      **Example Prompt:**
 
-    ```text
-    Create a summary of emails from substack, medium, tldr and every
-    educative email and email it to me at varnika@latent-labs.ai
-    ```
+      ```text
+      Create a summary of emails from substack, medium, tldr and every
+      educative email and email it to me at varnika@latent-labs.ai
+      ```
 
-  </Step>
+    </Step>
 
-  <Step title="5. Set up the Task (Schedule)">
+    <Step title="5. Set up the Task (Schedule)">
     Go to **Tasks** or the **Triggers** tab and click **Create Schedule Trigger**.
 
-    In the **Task Setup** step, set a **Task Name** and an optional description.
+      In the **Task Setup** step, set a **Task Name** and an optional description.
 
-    In the **Schedule Configuration** step, choose how often the task should run
-    (**Recurring**, **One-time**, or **Advanced**) and set the time.
+      In the **Schedule Configuration** step, choose how often the task should run
+      (**Recurring**, **One-time**, or **Advanced**) and set the time.
 
-    In the **Execution Configuration** step, choose the **Execution Method**
-    (**Send Prompt to Agent** is selected by default) and provide the final
-    **Agent Instructions**, such as:
+      In the **Execution Configuration** step, choose the **Execution Method**
+      (**Send Prompt to Agent** is selected by default) and provide the final
+      **Agent Instructions**, such as:
 
-    `Run the agent and generate today’s email summary.`
+      `Run the agent and generate today’s email summary.`
 
-  </Step>
+    </Step>
 </Steps>
 
 <Check>
