@@ -110,38 +110,39 @@ Common examples include:
 - `Send Slack message`
 - `Monitor Slack channel events`
 
-    </Step>
+      </Step>
 
-    <Step title="4. Write the System Prompt (Instructions)">
-    Go to the **Instructions** tab.
+      <Step title="4. Write the System Prompt (Instructions)">
+      Go to the **Instructions** tab.
 
-      Edit the system prompt to define the agent's core identity and task flow.
+        Edit the system prompt to define the agent's core identity and task flow.
 
-      **Example Prompt:**
+        **Example Prompt:**
 
-      ```text
-      Create a summary of emails from substack, medium, tldr and every
-      educative email and email it to me at varnika@latent-labs.ai
-      ```
+        ```text
+        Create a summary of emails from substack, medium, tldr and every
+        educative email and email it to me at varnika@latent-labs.ai
+        ```
 
-    </Step>
+      </Step>
 
-    <Step title="5. Set up the Task (Schedule)">
-    Go to **Tasks** or the **Triggers** tab and click **Create Schedule Trigger**.
+      <Step title="5. Set up the Task (Schedule)">
+      Go to **Tasks** or the **Triggers** tab and click **Create Schedule Trigger**.
 
-      In the **Task Setup** step, set a **Task Name** and an optional description.
+        In the **Task Setup** step, set a **Task Name** and an optional description.
 
-      In the **Schedule Configuration** step, choose how often the task should run
-      (**Recurring**, **One-time**, or **Advanced**) and set the time.
+        In the **Schedule Configuration** step, choose how often the task should run
+        (**Recurring**, **One-time**, or **Advanced**) and set the time.
 
-      In the **Execution Configuration** step, choose the **Execution Method**
-      (**Send Prompt to Agent** is selected by default) and provide the final
-      **Agent Instructions**, such as:
+        In the **Execution Configuration** step, choose the **Execution Method**
+        (**Send Prompt to Agent** is selected by default) and provide the final
+        **Agent Instructions**, such as:
 
-      `Run the agent and generate today’s email summary.`
+        `Run the agent and generate today’s email summary.`
 
-    </Step>
-</Steps>
+      </Step>
+
+  </Steps>
 
 <Check>
   Once this is configured, your agent will follow the exact logic you defined,
