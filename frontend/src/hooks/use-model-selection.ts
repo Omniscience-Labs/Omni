@@ -56,8 +56,8 @@ export const useModelSelection = () => {
     if (!modelsData?.models || isLoading) {
       // Fallback models when API fails - only Haiku and Sonnet
       models = [
-        { 
-          id: 'anthropic/claude-haiku-4-5-20251201', 
+        {
+          id: 'anthropic/claude-haiku-4-5-20251001', 
           label: 'Omni Quick 4.5', 
           requiresSubscription: false,
           priority: 102,
@@ -82,16 +82,26 @@ export const useModelSelection = () => {
         })
         .map(model => {
           let label = model.display_name || model.short_name || model.id;
+          const modelId = (model.short_name || model.id || '').toLowerCase();
+          const displayName = (model.display_name || '').toLowerCase();
           
-          // Transform Claude Sonnet 4 to Omni 4
-          if (label === 'Claude Sonnet 4' || label === 'claude-sonnet-4' || 
-              (model.short_name || model.id) === 'anthropic/claude-sonnet-4-20250514') {
+          // Transform Claude Sonnet 4 to Omni 4 (check all variations)
+          if (label === 'Claude Sonnet 4' || 
+              label === 'claude-sonnet-4' || 
+              displayName === 'claude sonnet 4' ||
+              modelId.includes('claude-sonnet-4') ||
+              modelId === 'anthropic/claude-sonnet-4-20250514') {
             label = 'Omni 4';
           }
           
-          // Transform Claude Haiku 4.5 to Omni Quick 4.5
-          if (label === 'Claude Haiku 4.5' || label === 'claude-haiku-4.5' || 
-              (model.short_name || model.id) === 'anthropic/claude-haiku-4-5-20251201') {
+          // Transform Claude Haiku 4.5 to Omni Quick 4.5 (check all variations)
+          if (label === 'Claude Haiku 4.5' || 
+              label === 'claude-haiku-4.5' ||
+              label === 'claude-haiku-4-5' ||
+              displayName === 'claude haiku 4.5' ||
+              modelId.includes('claude-haiku-4-5') ||
+              modelId.includes('claude-haiku-4.5') ||
+              modelId === 'anthropic/claude-haiku-4-5-20251001') {
             label = 'Omni Quick 4.5';
           }
           

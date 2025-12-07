@@ -35,26 +35,25 @@ class ModelRegistry:
         ))
         
         self.register(Model(
-            id="anthropic/claude-haiku-4-5-20251201",
+            id="anthropic/claude-haiku-4-5-20251001",
             name="Claude Haiku 4.5",
             provider=ModelProvider.ANTHROPIC,
-            aliases=["claude-haiku-4.5", "claude-haiku-4-5", "anthropic/claude-haiku-4-5", "Claude Haiku 4.5", "claude-haiku-4-5-20251201"],
-            context_window=1_000_000,
+            aliases=["claude-haiku-4.5", "claude-haiku-4-5", "anthropic/claude-haiku-4-5", "Claude Haiku 4.5", "claude-haiku-4-5-20251001"],
+            context_window=200_000,
             capabilities=[
                 ModelCapability.CHAT,
                 ModelCapability.FUNCTION_CALLING,
                 ModelCapability.VISION,
-                ModelCapability.THINKING,
             ],
             pricing=ModelPricing(
-                input_cost_per_million_tokens=0.80,
-                output_cost_per_million_tokens=4.00
+                input_cost_per_million_tokens=1.00,
+                output_cost_per_million_tokens=5.00
             ),
             tier_availability=["free", "paid"],
             priority=95,
             recommended=False,
             enabled=True,
-            provider_model_id="claude-3-5-haiku-latest"
+            provider_model_id="claude-haiku-4-5-20251001"
         ))
         
         # self.register(Model(
