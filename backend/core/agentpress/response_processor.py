@@ -797,13 +797,30 @@ class ResponseProcessor:
                             except json.JSONDecodeError: continue
 
                 # Structure content to match established reasoning pattern (same as Claude/Anthropic)
+                # Ensure tool call arguments are JSON stringified for Anthropic
+                tool_calls_for_save = None
+                if complete_native_tool_calls:
+                    tool_calls_for_save = []
+                    for tc in complete_native_tool_calls:
+                        args = tc['function']['arguments']
+                        if not isinstance(args, str):
+                            args = json.dumps(args)
+                        tool_calls_for_save.append({
+                            'id': tc['id'],
+                            'type': tc['type'],
+                            'function': {
+                                'name': tc['function']['name'],
+                                'arguments': args  # JSON string required by Anthropic
+                            }
+                        })
+                
                 if accumulated_thinking:
                     # Follow the EXACT same pattern as other reasoning models
                     content_with_thinking = {
                         "thinking": accumulated_thinking,
                         "content": accumulated_content,
                         "role": "assistant",
-                        "tool_calls": complete_native_tool_calls or None
+                        "tool_calls": tool_calls_for_save
                     }
                     
                     last_assistant_message_object = await self._add_message_with_agent_info(
@@ -814,7 +831,7 @@ class ResponseProcessor:
                     # Standard message structure for non-thinking responses
                     message_data = { # Dict to be saved in 'content'
                         "role": "assistant", "content": accumulated_content,
-                        "tool_calls": complete_native_tool_calls or None
+                        "tool_calls": tool_calls_for_save
                     }
                     
                     last_assistant_message_object = await self._add_message_with_agent_info(
@@ -1257,12 +1274,17 @@ class ResponseProcessor:
                                   }
                                   logger.info(f"[CLAUDE_4X] Adding tool call: {exec_tool_call['function_name']}")
                                   all_tool_data.append({"tool_call": exec_tool_call, "parsing_details": None})
+                                  # Ensure arguments are JSON stringified for Anthropic
+                                  args = tool_call['function']['arguments']
+                                  if not isinstance(args, str):
+                                      args = json.dumps(args)
+                                  
                                   native_tool_calls_for_message.append({
                                       "id": exec_tool_call["id"],
                                       "type": "function",
                                       "function": {
                                           "name": tool_call['function']['name'],
-                                          "arguments": tool_call['function']['arguments']  # Keep as dict
+                                          "arguments": args  # JSON string required by Anthropic
                                       }
                                   })
 
