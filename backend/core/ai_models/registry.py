@@ -30,8 +30,7 @@ class ModelRegistry:
             tier_availability=["free", "paid"],
             priority=100,
             recommended=True,
-            enabled=True,
-            provider_model_id="claude-sonnet-4-20250514"
+            enabled=True
         ))
         
         self.register(Model(
@@ -52,8 +51,7 @@ class ModelRegistry:
             tier_availability=["free", "paid"],
             priority=95,
             recommended=False,
-            enabled=True,
-            provider_model_id="claude-haiku-4-5-20251015"
+            enabled=True
         ))
         
         # self.register(Model(
