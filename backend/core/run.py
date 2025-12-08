@@ -888,7 +888,7 @@ async def run_agent(
     project_id: str,
     stream: bool,
     thread_manager: Optional[ThreadManager] = None,
-    native_max_auto_continues: int = 5  # Reduced from 25 to prevent duplicate tool calls,
+    native_max_auto_continues: int = 5,  # Reduced from 25 to prevent duplicate tool calls
     max_iterations: int = 100,
     model_name: str = "Qwen3 VL 235B Thinking",
     enable_thinking: Optional[bool] = False,
