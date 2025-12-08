@@ -3,6 +3,7 @@ import json
 import traceback
 import uuid
 import os
+import time
 from datetime import datetime, timezone
 from typing import Optional, List, Tuple, Dict
 from fastapi import APIRouter, HTTPException, Depends, Request, Body, File, UploadFile, Form
@@ -556,6 +557,20 @@ async def stream_agent_run(
 
 
             listener_task = asyncio.create_task(listen_messages())
+            
+            # Heartbeat task to keep connection alive (prevents Redis/NGINX/LB from disconnecting)
+            async def send_heartbeats():
+                try:
+                    while not terminate_stream:
+                        await asyncio.sleep(10)  # Send heartbeat every 10 seconds
+                        if not terminate_stream:
+                            await message_queue.put({"type": "heartbeat"})
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    logger.debug(f"Heartbeat task error for {agent_run_id}: {e}")
+            
+            heartbeat_task = asyncio.create_task(send_heartbeats())
 
             # 4. Main loop to process messages from the queue
             while not terminate_stream:
@@ -587,6 +602,11 @@ async def stream_agent_run(
                         yield f"data: {json.dumps({'type': 'status', 'status': control_signal})}\n\n"
                         break
 
+                    elif queue_item["type"] == "heartbeat":
+                        # Send heartbeat ping to keep connection alive
+                        yield f"event: ping\ndata: {json.dumps({'type': 'ping', 'timestamp': time.time()})}\n\n"
+                        continue
+                    
                     elif queue_item["type"] == "error":
                         logger.error(f"Listener error for {agent_run_id}: {queue_item['data']}")
                         terminate_stream = True
@@ -629,6 +649,16 @@ async def stream_agent_run(
                     logger.warning(f"Listener task did not cancel within timeout for {agent_run_id}")
                 except Exception as e:
                     logger.debug(f"listener_task ended with: {e}")
+            
+            if 'heartbeat_task' in locals() and heartbeat_task:
+                heartbeat_task.cancel()
+                try:
+                    await asyncio.wait_for(heartbeat_task, timeout=1.0)
+                except (asyncio.CancelledError, asyncio.TimeoutError):
+                    pass
+                except Exception as e:
+                    logger.debug(f"heartbeat_task ended with: {e}")
+            
             # Wait briefly for any remaining cleanup
             await asyncio.sleep(0.1)
             logger.debug(f"Streaming cleanup complete for agent run: {agent_run_id}")

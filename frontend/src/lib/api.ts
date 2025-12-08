@@ -11,6 +11,9 @@ const nonRunningAgentRuns = new Set<string>();
 const activeStreams = new Map<string, EventSource>();
 // Map to keep track of safety timeouts
 const safetyTimeouts = new Map<string, number>();
+// Map to track reconnect attempts for streams (agent_run_id -> reconnect_count)
+const streamReconnectAttempts = new Map<string, number>();
+const MAX_RECONNECT_ATTEMPTS = 1; // Only attempt ONE reconnect per stream
 
 /**
  * Helper function to safely cleanup EventSource connections
@@ -1147,6 +1150,8 @@ export const streamAgent = (
 
       eventSource.onopen = () => {
         console.log(`[STREAM] EventSource opened for ${agentRunId}`);
+        // Reset reconnect counter on successful connection
+        streamReconnectAttempts.delete(agentRunId);
       };
 
       eventSource.onmessage = (event) => {
@@ -1207,7 +1212,8 @@ export const streamAgent = (
             // Notify about the message
             callbacks.onMessage(rawData);
 
-            // Clean up
+            // Clean up and reset reconnect counter
+            streamReconnectAttempts.delete(agentRunId);
             cleanupEventSource(agentRunId, 'agent run completed');
             callbacks.onClose();
 
@@ -1235,15 +1241,35 @@ export const streamAgent = (
       eventSource.onerror = (event) => {
         console.error(`[STREAM] EventSource error for ${agentRunId}:`, event);
         
+        const reconnectCount = streamReconnectAttempts.get(agentRunId) || 0;
+        
         // Check if the agent is still running
         getAgentStatus(agentRunId)
           .then((status) => {
             if (status.status !== 'running') {
               nonRunningAgentRuns.add(agentRunId);
+              streamReconnectAttempts.delete(agentRunId);
               cleanupEventSource(agentRunId, 'agent not running');
               callbacks.onClose();
+            } else if (reconnectCount < MAX_RECONNECT_ATTEMPTS) {
+              // Agent is still running AND we haven't exceeded reconnect attempts
+              console.log(`[STREAM] Attempting reconnect for ${agentRunId} (attempt ${reconnectCount + 1}/${MAX_RECONNECT_ATTEMPTS})`);
+              streamReconnectAttempts.set(agentRunId, reconnectCount + 1);
+              cleanupEventSource(agentRunId, 'preparing for reconnect');
+              
+              // Reconnect after brief delay (exponential backoff)
+              const reconnectDelay = Math.min(1000 * Math.pow(2, reconnectCount), 5000);
+              setTimeout(() => {
+                console.log(`[STREAM] Reconnecting stream for ${agentRunId}`);
+                setupStream(); // Re-establish the stream
+              }, reconnectDelay);
             } else {
-              // Let the browser handle reconnection for non-fatal errors
+              // Exceeded max reconnect attempts
+              console.warn(`[STREAM] Max reconnect attempts reached for ${agentRunId}`);
+              streamReconnectAttempts.delete(agentRunId);
+              cleanupEventSource(agentRunId, 'max reconnect attempts exceeded');
+              callbacks.onError('Connection lost and reconnection failed');
+              callbacks.onClose();
             }
           })
           .catch((err) => {
@@ -1261,12 +1287,22 @@ export const streamAgent = (
 
             if (isNotFoundErr) {
               nonRunningAgentRuns.add(agentRunId);
+              streamReconnectAttempts.delete(agentRunId);
               cleanupEventSource(agentRunId, 'agent not found');
               callbacks.onClose();
+            } else if (reconnectCount < MAX_RECONNECT_ATTEMPTS) {
+              // Try reconnecting once even if status check failed
+              console.log(`[STREAM] Status check failed, attempting reconnect for ${agentRunId}`);
+              streamReconnectAttempts.set(agentRunId, reconnectCount + 1);
+              cleanupEventSource(agentRunId, 'error recovery reconnect');
+              
+              setTimeout(() => {
+                setupStream();
+              }, 2000);
             } else {
-              // For other errors, still clean up the stream to prevent memory leaks
-              // but don't add to nonRunningAgentRuns as it might be a temporary network issue
+              // For other errors after max retries, clean up
               console.warn(`[STREAM] Cleaning up stream for ${agentRunId} due to persistent error`);
+              streamReconnectAttempts.delete(agentRunId);
               cleanupEventSource(agentRunId, 'persistent error');
               callbacks.onError(errMsg);
               callbacks.onClose();
@@ -1280,6 +1316,7 @@ export const streamAgent = (
 
     // Return a cleanup function
     return () => {
+      streamReconnectAttempts.delete(agentRunId);
       cleanupEventSource(agentRunId, 'manual cleanup');
     };
   } catch (error) {

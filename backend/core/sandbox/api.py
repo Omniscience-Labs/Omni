@@ -1,6 +1,7 @@
 import os
 import asyncio
 import urllib.parse
+import time
 from typing import Optional
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, APIRouter, Form, Depends, Request
@@ -16,6 +17,11 @@ from core.services.supabase import DBConnection
 # Initialize shared resources
 router = APIRouter(tags=["sandbox"])
 db = None
+
+# Server-side throttling for ensure-active endpoint
+# Maps sandbox_id -> last_ensure_active_timestamp
+_ensure_active_throttle_cache = {}
+ENSURE_ACTIVE_THROTTLE_SECONDS = 30  # Minimum 30 seconds between actual sandbox checks
 
 def initialize(_db: DBConnection):
     """Initialize the sandbox API with resources from the main API."""
@@ -436,17 +442,40 @@ async def ensure_project_sandbox_active(
             raise HTTPException(status_code=404, detail="No sandbox found for this project")
             
         sandbox_id = sandbox_info['id']
+        current_time = time.time()
         
-        # Get or start the sandbox
-        logger.debug(f"Ensuring sandbox is active for project {project_id}")
+        # Server-side throttling: check if we recently checked this sandbox
+        last_check_time = _ensure_active_throttle_cache.get(sandbox_id, 0)
+        time_since_last_check = current_time - last_check_time
+        
+        if time_since_last_check < ENSURE_ACTIVE_THROTTLE_SECONDS:
+            # Throttled: return cached response without actually checking sandbox
+            logger.debug(
+                f"Throttled ensure-active for sandbox {sandbox_id}. "
+                f"Last checked {time_since_last_check:.1f}s ago (min: {ENSURE_ACTIVE_THROTTLE_SECONDS}s)"
+            )
+            return {
+                "status": "success", 
+                "sandbox_id": sandbox_id,
+                "message": "Sandbox is active (cached)",
+                "throttled": True,
+                "time_since_last_check": time_since_last_check
+            }
+        
+        # Not throttled: actually check/start the sandbox
+        logger.debug(f"Ensuring sandbox is active for project {project_id} (last check: {time_since_last_check:.1f}s ago)")
         sandbox = await get_or_start_sandbox(sandbox_id)
+        
+        # Update throttle cache
+        _ensure_active_throttle_cache[sandbox_id] = current_time
         
         logger.debug(f"Successfully ensured sandbox {sandbox_id} is active for project {project_id}")
         
         return {
             "status": "success", 
             "sandbox_id": sandbox_id,
-            "message": "Sandbox is active"
+            "message": "Sandbox is active",
+            "throttled": False
         }
     except Exception as e:
         logger.error(f"Error ensuring sandbox is active for project {project_id}: {str(e)}")
