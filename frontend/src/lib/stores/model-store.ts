@@ -35,11 +35,11 @@ export const formatModelName = (name: string): string => {
     return 'Omni 4';
   }
   
-  // Special case for Claude Haiku to display as "Omni Quick 4.1"
-  if (name === 'Claude Haiku 4.1' || name === 'claude-4.1-haiku' || 
-      name === 'anthropic/claude-4.1-haiku' || name === 'Claude Haiku' ||
-      name.toLowerCase().includes('haiku')) {
-    return 'Omni Quick 4.1';
+  // Special case for Claude Haiku to display as "Omni Quick 4.5"
+  if (name === 'Claude Haiku 4.5' || name === 'claude-haiku-4-5' || name === 'claude-haiku-4.5' ||
+      name === 'anthropic/claude-haiku-4-5-20251015' || name === 'claude-haiku-4-5-20251015' ||
+      name === 'Claude Haiku' || name.toLowerCase().includes('haiku')) {
+    return 'Omni Quick 4.5';
   }
   
   return name
