@@ -758,7 +758,7 @@ class AgentRunner:
                         xml_tool_calling=True,
                         native_tool_calling=True,
                         execute_tools=True,
-                        execute_on_stream=True,
+                        execute_on_stream=False,  # Execute tools AFTER streaming completes, not during
                         tool_execution_strategy="parallel",
                         xml_adding_strategy="user_message"
                     ),
