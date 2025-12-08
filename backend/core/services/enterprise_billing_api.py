@@ -251,7 +251,7 @@ async def get_available_models(
             "openai/gpt-4o-mini",
             "anthropic/claude-3-5-sonnet-20241022",
             "anthropic/claude-3-5-haiku-20241022",
-            "anthropic/claude-haiku-4-5-20251015",
+            "claude-haiku-4-5",
             "google/gemini-2.0-flash-exp",
             "google/gemini-1.5-pro",
             "google/gemini-1.5-flash",

@@ -37,8 +37,8 @@ export const formatModelName = (name: string): string => {
   
   // Special case for Claude Haiku to display as "Omni Quick 4.5"
   if (name === 'Claude Haiku 4.5' || name === 'claude-haiku-4-5' || name === 'claude-haiku-4.5' ||
-      name === 'anthropic/claude-haiku-4-5-20251015' || name === 'claude-haiku-4-5-20251015' ||
-      name === 'Claude Haiku' || name.toLowerCase().includes('haiku')) {
+      name === 'anthropic/claude-haiku-4-5' || name === 'Claude Haiku' || 
+      name.toLowerCase().includes('haiku')) {
     return 'Omni Quick 4.5';
   }
   

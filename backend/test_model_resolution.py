@@ -10,9 +10,9 @@ def test_model_resolution():
     """Test that model IDs are resolved correctly"""
     
     test_cases = [
-        ("anthropic/claude-haiku-4-5-20251015", "anthropic/claude-haiku-4-5-20251015"),
+        ("claude-haiku-4-5", "claude-haiku-4-5"),  # Primary internal name
+        ("anthropic/claude-haiku-4-5", "claude-haiku-4-5"),  # Test alias resolution
         ("anthropic/claude-sonnet-4-20250514", "anthropic/claude-sonnet-4-20250514"),
-        ("claude-haiku-4-5", "anthropic/claude-haiku-4-5-20251015"),  # Test alias resolution
         ("claude-sonnet-4", "anthropic/claude-sonnet-4-20250514"),  # Test alias resolution
     ]
     

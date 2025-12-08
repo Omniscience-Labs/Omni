@@ -73,6 +73,12 @@ def setup_provider_router(openai_compatible_api_key: str = None, openai_compatib
     global provider_router
     model_list = [
         {
+            "model_name": "claude-haiku-4-5",  # Claude Haiku 4.5 mapping
+            "litellm_params": {
+                "model": "anthropic/claude-haiku-4-5-20251001",
+            },
+        },
+        {
             "model_name": "openai-compatible/*", # support OpenAI-Compatible LLM provider
             "litellm_params": {
                 "model": "openai/*",
