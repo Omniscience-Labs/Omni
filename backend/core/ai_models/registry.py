@@ -31,7 +31,7 @@ class ModelRegistry:
             priority=100,
             recommended=True,
             enabled=True,
-            provider_model_id="claude-3-5-sonnet-latest"
+            provider_model_id="claude-sonnet-4-20250514"
         ))
         
         self.register(Model(
