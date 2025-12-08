@@ -164,6 +164,58 @@ class ResponseProcessor:
             # Ultimate fallback: convert to string
             return {"raw_response": str(model_response), "serialization_error": str(e)}
 
+    def _extract_claude_tool_calls_from_content(self, content: Any) -> List[Dict[str, Any]]:
+        """
+        Extract Claude 4.x native tool calls from content blocks.
+        
+        Claude 4.x (Sonnet 4, Haiku 4.5) uses:
+        {
+            "type": "tool_use",
+            "id": "toolu_123",
+            "name": "create_document",
+            "input": {"title": "...", "content": "..."}  # Already a dict!
+        }
+        
+        This is different from OpenAI/Claude 3.x which uses:
+        tool_calls[].function.arguments (JSON string)
+        
+        Returns:
+            List of normalized tool calls in OpenAI-compatible format
+        """
+        tool_calls = []
+        
+        if not content:
+            return tool_calls
+        
+        # Handle list of content blocks (Anthropic native format)
+        if isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and block.get('type') == 'tool_use':
+                    tool_calls.append({
+                        'id': block.get('id', f"toolu_{uuid.uuid4().hex[:12]}"),
+                        'type': 'function',
+                        'function': {
+                            'name': block.get('name'),
+                            'arguments': block.get('input', {})  # Already a dict, not JSON string!
+                        }
+                    })
+                    logger.debug(f"🔧 [CLAUDE_4X] Extracted tool call: {block.get('name')} with input: {block.get('input')}")
+        
+        # Handle single content block (dict)
+        elif isinstance(content, dict):
+            if content.get('type') == 'tool_use':
+                tool_calls.append({
+                    'id': content.get('id', f"toolu_{uuid.uuid4().hex[:12]}"),
+                    'type': 'function',
+                    'function': {
+                        'name': content.get('name'),
+                        'arguments': content.get('input', {})
+                    }
+                })
+                logger.debug(f"🔧 [CLAUDE_4X] Extracted tool call: {content.get('name')} with input: {content.get('input')}")
+        
+        return tool_calls
+
     async def _add_message_with_agent_info(
         self,
         thread_id: str,
@@ -364,8 +416,55 @@ class ResponseProcessor:
                     if delta and hasattr(delta, 'content') and delta.content:
                         chunk_content = delta.content
                         # logger.debug(f"Processing chunk_content: type={type(chunk_content)}, value={chunk_content}")
+                        
+                        # CLAUDE 4.X: Check for tool_use blocks in content (before converting to string)
+                        if config.native_tool_calling and isinstance(chunk_content, list):
+                            claude_tool_calls = self._extract_claude_tool_calls_from_content(chunk_content)
+                            if claude_tool_calls:
+                                logger.info(f"🔧 [CLAUDE_4X] Detected {len(claude_tool_calls)} tool calls in streaming content")
+                                # Add to complete_native_tool_calls for later processing
+                                for tc in claude_tool_calls:
+                                    complete_native_tool_calls.append({
+                                        'id': tc['id'],
+                                        'type': tc['type'],
+                                        'function': tc['function']
+                                    })
+                                    
+                                    # If execute_on_stream, add to pending executions
+                                    if config.execute_tools and config.execute_on_stream:
+                                        tool_call_data = {
+                                            "function_name": tc['function']['name'],
+                                            "arguments": tc['function']['arguments'],  # Already a dict!
+                                            "id": tc['id']
+                                        }
+                                        logger.debug(f"🔄 [CLAUDE_4X] Queueing tool for execution: {tool_call_data['function_name']}")
+                                        
+                                        # Execute tool with proper context
+                                        context = ToolExecutionContext(
+                                            tool_call=tool_call_data,
+                                            tool_index=tool_index,
+                                            function_name=tool_call_data['function_name']
+                                        )
+                                        execution_task = asyncio.create_task(self._execute_tool(tool_call_data, thread_id))
+                                        pending_tool_executions.append({
+                                            "task": execution_task, "tool_call": tool_call_data,
+                                            "tool_index": tool_index, "context": context
+                                        })
+                                        tool_index += 1
+                        
+                        # Convert content to string for display (filtering out tool_use blocks for Claude 4.x)
                         if isinstance(chunk_content, list):
-                            chunk_content = ''.join(str(item) for item in chunk_content)
+                            # Extract only text blocks, skip tool_use blocks
+                            text_parts = []
+                            for item in chunk_content:
+                                if isinstance(item, dict):
+                                    if item.get('type') == 'text':
+                                        text_parts.append(str(item.get('text', '')))
+                                    # Skip tool_use blocks - they're handled above
+                                else:
+                                    text_parts.append(str(item))
+                            chunk_content = ''.join(text_parts)
+                        
                         # print(chunk_content, end='', flush=True)
                         # logger.debug(f"About to concatenate chunk_content (type={type(chunk_content)}) to accumulated_content (type={type(accumulated_content)})")
                         accumulated_content += chunk_content
@@ -1125,6 +1224,7 @@ class ResponseProcessor:
                                  finish_reason = "xml_tool_limit_reached"
                              all_tool_data.extend(parsed_xml_data)
 
+                     # Check for OpenAI-style tool_calls (Claude 3.x, GPT, etc.)
                      if config.native_tool_calling and hasattr(response_message, 'tool_calls') and response_message.tool_calls:
                           logger.info(f"[TOOL_DETECTION] Found {len(response_message.tool_calls)} native tool calls in LLM response")
                           for tool_call in response_message.tool_calls:
@@ -1143,6 +1243,28 @@ class ResponseProcessor:
                                          "arguments": tool_call.function.arguments if isinstance(tool_call.function.arguments, str) else to_json_string(tool_call.function.arguments)
                                      }
                                  })
+                     
+                     # CLAUDE 4.X: Check for tool_use blocks in content (Anthropic native format)
+                     if config.native_tool_calling and hasattr(response_message, 'content'):
+                          claude_tool_calls = self._extract_claude_tool_calls_from_content(response_message.content)
+                          if claude_tool_calls:
+                              logger.info(f"[CLAUDE_4X] Found {len(claude_tool_calls)} tool calls in content blocks")
+                              for tool_call in claude_tool_calls:
+                                  exec_tool_call = {
+                                      "function_name": tool_call['function']['name'],
+                                      "arguments": tool_call['function']['arguments'],  # Already a dict!
+                                      "id": tool_call['id']
+                                  }
+                                  logger.info(f"[CLAUDE_4X] Adding tool call: {exec_tool_call['function_name']}")
+                                  all_tool_data.append({"tool_call": exec_tool_call, "parsing_details": None})
+                                  native_tool_calls_for_message.append({
+                                      "id": exec_tool_call["id"],
+                                      "type": "function",
+                                      "function": {
+                                          "name": tool_call['function']['name'],
+                                          "arguments": tool_call['function']['arguments']  # Keep as dict
+                                      }
+                                  })
 
 
             # --- SAVE and YIELD Final Assistant Message ---
