@@ -56,8 +56,8 @@ export const useModelSelection = () => {
     if (!modelsData?.models || isLoading) {
       // Fallback models when API fails - only Haiku and Sonnet
       models = [
-        {
-          id: 'anthropic/claude-haiku-4-5-20251001', 
+        { 
+          id: 'anthropic/claude-haiku-4-5-20251201', 
           label: 'Omni Quick 4.5', 
           requiresSubscription: false,
           priority: 102,
@@ -101,7 +101,7 @@ export const useModelSelection = () => {
               displayName === 'claude haiku 4.5' ||
               modelId.includes('claude-haiku-4-5') ||
               modelId.includes('claude-haiku-4.5') ||
-              modelId === 'anthropic/claude-haiku-4-5-20251001') {
+              modelId === 'anthropic/claude-haiku-4-5-20251201') {
             label = 'Omni Quick 4.5';
           }
           

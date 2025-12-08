@@ -35,10 +35,10 @@ class ModelRegistry:
         ))
         
         self.register(Model(
-            id="anthropic/claude-haiku-4-5-20251001",
+            id="anthropic/claude-haiku-4-5-20251201",
             name="Claude Haiku 4.5",
             provider=ModelProvider.ANTHROPIC,
-            aliases=["claude-haiku-4.5", "claude-haiku-4-5", "anthropic/claude-haiku-4-5", "Claude Haiku 4.5", "claude-haiku-4-5-20251001"],
+            aliases=["claude-haiku-4.5", "claude-haiku-4-5", "anthropic/claude-haiku-4-5", "Claude Haiku 4.5", "claude-haiku-4-5-20251201"],
             context_window=200_000,
             capabilities=[
                 ModelCapability.CHAT,
@@ -53,7 +53,7 @@ class ModelRegistry:
             priority=95,
             recommended=False,
             enabled=True,
-            provider_model_id="claude-haiku-4-5-20251001"
+            provider_model_id="claude-haiku-4-5-20251201"
         ))
         
         # self.register(Model(
