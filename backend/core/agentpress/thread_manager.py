@@ -270,7 +270,7 @@ class ThreadManager:
         llm_max_tokens: Optional[int] = None,
         processor_config: Optional[ProcessorConfig] = None,
         tool_choice: ToolChoice = "auto",
-        native_max_auto_continues: int = 25,
+        native_max_auto_continues: int = 5,  # Reduced from 25 to prevent duplicate tool calls
         max_xml_tool_calls: int = 0,
         enable_thinking: Optional[bool] = False,
         reasoning_effort: Optional[str] = 'low',
