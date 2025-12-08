@@ -226,7 +226,7 @@ IMPORTANT: All content must be wrapped in proper HTML tags. Do not use unsupport
     title="API Documentation", 
     content="<h1>API Overview</h1><p>This document describes our REST API.</p><h2>Authentication</h2><p>Use <code>Bearer token</code> in headers.</p><ul><li>Get token from /auth endpoint</li><li>Include in Authorization header</li></ul>"
     """)
-    async def create_document(self, title: str, content: str, format: str = "html", metadata: Optional[Dict] = None) -> ToolResult:
+    async def create_document(self, title: str = "", content: str = "", format: str = "html", metadata: Optional[Dict] = None, **kwargs) -> ToolResult:
         try:
             await self._ensure_docs_directory()
 

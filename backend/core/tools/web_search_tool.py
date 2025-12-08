@@ -72,8 +72,9 @@ class SandboxWebSearchTool(SandboxToolsBase):
         ''')
     async def web_search(
         self, 
-        query: str,
-        num_results: int = 20
+        query: str = "",
+        num_results: int = 20,
+        **kwargs
     ) -> ToolResult:
         """
         Search the web using the Tavily API to find relevant and up-to-date information.
