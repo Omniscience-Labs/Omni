@@ -27,10 +27,59 @@ class ContextManager:
         self.db = DBConnection()
         self.token_threshold = token_threshold
 
+    def has_tool_use_blocks(self, msg: Dict[str, Any]) -> bool:
+        """Check if a message contains tool_use blocks (Anthropic native tool calling)."""
+        if not isinstance(msg, dict):
+            return False
+        
+        # Check for assistant role with tool_use content blocks
+        if msg.get('role') != 'assistant':
+            return False
+            
+        content = msg.get('content')
+        
+        # Content can be a list of content blocks for Anthropic API
+        if isinstance(content, list):
+            return any(
+                isinstance(block, dict) and block.get('type') == 'tool_use'
+                for block in content
+            )
+        
+        # Check if content is a dict with tool_calls (OpenAI format)
+        if isinstance(content, dict) and 'tool_calls' in content:
+            return True
+            
+        return False
+    
+    def has_tool_result_blocks(self, msg: Dict[str, Any]) -> bool:
+        """Check if a message contains tool_result blocks (Anthropic native tool calling)."""
+        if not isinstance(msg, dict):
+            return False
+        
+        content = msg.get('content')
+        
+        # Check for role='tool' (Anthropic format)
+        if msg.get('role') == 'tool':
+            return True
+        
+        # Content can be a list with tool_result blocks
+        if isinstance(content, list):
+            return any(
+                isinstance(block, dict) and block.get('type') == 'tool_result'
+                for block in content
+            )
+        
+        return False
+    
     def is_tool_result_message(self, msg: Dict[str, Any]) -> bool:
         """Check if a message is a tool result message."""
         if not isinstance(msg, dict) or not ("content" in msg and msg['content']):
             return False
+        
+        # Check for native tool result blocks first
+        if self.has_tool_result_blocks(msg):
+            return True
+            
         content = msg['content']
         if isinstance(content, str) and "ToolResult" in content: 
             return True
@@ -239,6 +288,36 @@ class ContextManager:
 
         return self.middle_out_messages(result)
     
+    def _mark_protected_indices(self, messages: List[Dict[str, Any]]) -> set:
+        """Mark message indices that should not be removed (tool_use and tool_result pairs).
+        
+        Returns a set of indices that are protected from removal.
+        """
+        protected = set()
+        
+        for i, msg in enumerate(messages):
+            # Protect assistant messages with tool_use blocks
+            if self.has_tool_use_blocks(msg):
+                protected.add(i)
+                logger.debug(f"Protected tool_use message at index {i}")
+                
+                # Also protect the next message if it's a tool_result
+                if i + 1 < len(messages) and self.has_tool_result_blocks(messages[i + 1]):
+                    protected.add(i + 1)
+                    logger.debug(f"Protected tool_result message at index {i + 1}")
+            
+            # Protect tool_result messages and their preceding tool_use
+            elif self.has_tool_result_blocks(msg):
+                protected.add(i)
+                logger.debug(f"Protected tool_result message at index {i}")
+                
+                # Look back to protect the assistant message with tool_use
+                if i > 0 and self.has_tool_use_blocks(messages[i - 1]):
+                    protected.add(i - 1)
+                    logger.debug(f"Protected preceding tool_use message at index {i - 1}")
+        
+        return protected
+    
     def compress_messages_by_omitting_messages(
             self, 
             messages: List[Dict[str, Any]], 
@@ -248,6 +327,8 @@ class ContextManager:
             min_messages_to_keep: int = 10
         ) -> List[Dict[str, Any]]:
         """Compress the messages by omitting messages from the middle.
+        
+        Protects tool_use and tool_result message pairs from being separated.
         
         Args:
             messages: List of messages to compress
@@ -273,6 +354,9 @@ class ContextManager:
         system_message = messages[0] if messages and isinstance(messages[0], dict) and messages[0].get('role') == 'system' else None
         conversation_messages = result[1:] if system_message else result
         
+        # Mark protected indices (tool_use/tool_result pairs)
+        protected_indices = self._mark_protected_indices(conversation_messages)
+        
         safety_limit = 500
         current_token_count = initial_token_count
         
@@ -288,15 +372,37 @@ class ContextManager:
                 # Remove from middle, keeping recent and early context
                 middle_start = len(conversation_messages) // 2 - (removal_batch_size // 2)
                 middle_end = middle_start + removal_batch_size
-                conversation_messages = conversation_messages[:middle_start] + conversation_messages[middle_end:]
+                
+                # Build new list, skipping middle but preserving protected messages
+                new_messages = []
+                for i, msg in enumerate(conversation_messages):
+                    # Keep if before middle, after middle, or protected
+                    if i < middle_start or i >= middle_end or i in protected_indices:
+                        new_messages.append(msg)
+                    else:
+                        logger.debug(f"Removing message at index {i} during compression")
+                
+                conversation_messages = new_messages
             else:
-                # Remove from earlier messages, preserving recent context
+                # Remove from earlier messages, preserving recent context and protected messages
                 messages_to_remove = min(removal_batch_size, len(conversation_messages) // 2)
                 if messages_to_remove > 0:
-                    conversation_messages = conversation_messages[messages_to_remove:]
+                    # Only remove non-protected messages from the start
+                    new_messages = []
+                    removed_count = 0
+                    for i, msg in enumerate(conversation_messages):
+                        if removed_count < messages_to_remove and i not in protected_indices:
+                            removed_count += 1
+                            logger.debug(f"Removing early message at index {i}")
+                        else:
+                            new_messages.append(msg)
+                    conversation_messages = new_messages
                 else:
                     # Can't remove any more messages
                     break
+            
+            # Update protected indices for the new message list
+            protected_indices = self._mark_protected_indices(conversation_messages)
 
             # Recalculate token count
             messages_to_count = ([system_message] + conversation_messages) if system_message else conversation_messages
@@ -306,17 +412,35 @@ class ContextManager:
         final_messages = ([system_message] + conversation_messages) if system_message else conversation_messages
         final_token_count = token_counter(model=llm_model, messages=final_messages)
         
-        logger.info(f"Context compression (omit): {initial_token_count} -> {final_token_count} tokens ({len(messages)} -> {len(final_messages)} messages)")
+        logger.info(f"Context compression (omit): {initial_token_count} -> {final_token_count} tokens ({len(messages)} -> {len(final_messages)} messages, {len(protected_indices)} protected)")
             
         return final_messages
     
     def middle_out_messages(self, messages: List[Dict[str, Any]], max_messages: int = 320) -> List[Dict[str, Any]]:
-        """Remove messages from the middle of the list, keeping max_messages total."""
+        """Remove messages from the middle of the list, keeping max_messages total.
+        
+        Protects tool_use/tool_result pairs from being separated.
+        """
         if len(messages) <= max_messages:
             return messages
+        
+        # Mark protected indices
+        protected_indices = self._mark_protected_indices(messages)
         
         # Keep half from the beginning and half from the end
         keep_start = max_messages // 2
         keep_end = max_messages - keep_start
         
-        return messages[:keep_start] + messages[-keep_end:] 
+        # Build result preserving protected messages
+        result = []
+        for i, msg in enumerate(messages):
+            # Keep if in start range, end range, or protected
+            if i < keep_start or i >= len(messages) - keep_end or i in protected_indices:
+                result.append(msg)
+        
+        # If we kept more than max_messages due to protected indices, that's okay
+        # Better to exceed token limit slightly than break tool calling
+        if len(result) > max_messages:
+            logger.warning(f"middle_out_messages: Kept {len(result)} messages (target: {max_messages}) to preserve tool pairs")
+        
+        return result 
