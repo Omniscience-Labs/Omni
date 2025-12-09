@@ -26,7 +26,7 @@ import { ScheduledDowngradeCard } from '@/components/billing/scheduled-downgrade
 import posthog from 'posthog-js';
 import { AnimatedBg } from '@/components/ui/animated-bg';
 import { TierBadge } from '@/components/billing/tier-badge';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { CreditPurchaseModal } from '@/components/billing/credit-purchase';
 import { BorderBeam } from '@/components/ui/border-beam';
 import { useTranslations } from 'next-intl';

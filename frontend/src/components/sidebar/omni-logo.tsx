@@ -4,12 +4,12 @@ import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 
-interface KortixLogoProps {
+interface OmniLogoProps {
   size?: number;
   variant?: 'symbol' | 'logomark';
   className?: string;
 }
-export function KortixLogo({ size = 24, variant = 'symbol', className }: KortixLogoProps) {
+export function OmniLogo({ size = 24, variant = 'symbol', className }: OmniLogoProps) {
   const { theme, systemTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -50,5 +50,3 @@ export function KortixLogo({ size = 24, variant = 'symbol', className }: KortixL
   );
 }
 
-// Export as OmniLogo for clarity
-export const OmniLogo = KortixLogo;

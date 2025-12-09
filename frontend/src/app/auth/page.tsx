@@ -14,7 +14,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useAuthMethodTracking } from '@/stores/auth-tracking';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { ReferralCodeDialog } from '@/components/referrals/referral-code-dialog';
 
 // Lazy load heavy components

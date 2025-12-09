@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { signInWithPassword, signUpWithPassword } from '../actions';
 import { useAuth } from '@/components/AuthProvider';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { cn } from '@/lib/utils';
 
 function PasswordAuthContent() {

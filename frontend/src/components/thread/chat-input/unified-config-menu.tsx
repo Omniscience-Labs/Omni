@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Search, Check, ChevronDown, Plus, Loader2, Plug, Brain, LibraryBig, Zap, Lock, Sparkles, ChevronLeft } from 'lucide-react';
 import { useAgents } from '@/hooks/agents/use-agents';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import type { ModelOption } from '@/hooks/agents';
 import { SpotlightCard } from '@/components/ui/spotlight-card';
 

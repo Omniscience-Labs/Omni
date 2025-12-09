@@ -16,7 +16,7 @@ import type { BaseAgentData } from '@/components/ui/unified-agent-card';
 import type { MarketplaceTemplate } from './installation/types';
 import { MarketplaceAgentPreviewDialog } from './marketplace-agent-preview-dialog';
 import { useRouter } from 'next/navigation';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 

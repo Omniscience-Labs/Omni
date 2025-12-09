@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { AgentAvatar } from '@/components/thread/content/agent-avatar';
 import { useComposioToolkitIcon } from '@/hooks/composio/use-composio';
 

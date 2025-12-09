@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useAgentFromCache } from '@/hooks/agents/use-agents';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { DynamicIcon } from 'lucide-react/dynamic';
 import { cn } from '@/lib/utils';
 import type { Agent } from '@/hooks/agents/utils';

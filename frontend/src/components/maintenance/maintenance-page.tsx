@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { isLocalMode } from '@/lib/config';
 import { AnimatedBg } from '@/components/ui/animated-bg';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 export function MaintenancePage() {
   const [lastChecked, setLastChecked] = useState<Date | null>(null);

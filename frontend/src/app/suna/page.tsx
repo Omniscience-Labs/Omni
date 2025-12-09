@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     title: 'Omni is now Omni',
     description: 'Omni (formerly Omni) - Same powerful open source AI worker, new name.',
     type: 'website',
-    url: 'https://www.kortix.com/suna',
+    url: 'https://www.becomeomni.ai/suna',
     siteName: 'Omni',
     images: [
       {
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     images: ['/banner.png'],
   },
   alternates: {
-    canonical: 'https://www.kortix.com/suna',
+    canonical: 'https://www.becomeomni.ai/suna',
   },
   robots: {
     index: true,
@@ -64,12 +64,12 @@ export default function OmniPage() {
             '@type': 'Organization',
             name: 'Omni',
             alternateName: ['Omni', 'Omni Omni', 'Omni AI'],
-            url: 'https://www.kortix.com',
-            logo: 'https://www.kortix.com/favicon.png',
+            url: 'https://www.becomeomni.ai',
+            logo: 'https://www.becomeomni.ai/favicon.png',
             sameAs: [
-              'https://github.com/kortix-ai',
-              'https://x.com/kortix',
-              'https://linkedin.com/company/kortix',
+              'https://github.com/Omniscience-Labs/Omni',
+              'https://x.com/Omni',
+              'https://linkedin.com/company/omni',
             ],
             description:
               'Omni (formerly known as Omni) is an open source generalist AI worker that helps you accomplish real-world tasks through natural conversation.',
@@ -88,13 +88,13 @@ export default function OmniPage() {
                 '@type': 'ListItem',
                 position: 1,
                 name: 'Home',
-                item: 'https://www.kortix.com',
+                item: 'https://www.becomeomni.ai',
               },
               {
                 '@type': 'ListItem',
                 position: 2,
                 name: 'Omni is now Omni',
-                item: 'https://www.kortix.com/suna',
+                item: 'https://www.becomeomni.ai/suna',
               },
             ],
           }),
@@ -109,7 +109,7 @@ export default function OmniPage() {
               {/* Omni Symbol with grain texture */}
               <div className="relative mb-8 sm:mb-12" style={{ width: '80px', height: '80px' }}>
                 <Image
-                  src="/kortix-symbol.svg"
+                  src="/Logomark.svg"
                   alt="Omni"
                   fill
                   className="object-contain dark:invert"
@@ -124,8 +124,8 @@ export default function OmniPage() {
                     backgroundRepeat: 'repeat',
                     mixBlendMode: 'multiply',
                     opacity: 0.6,
-                    maskImage: 'url(/kortix-symbol.svg)',
-                    WebkitMaskImage: 'url(/kortix-symbol.svg)',
+                    maskImage: 'url(/Logomark.svg)',
+                    WebkitMaskImage: 'url(/Logomark.svg)',
                     maskSize: 'contain',
                     WebkitMaskSize: 'contain',
                     maskRepeat: 'no-repeat',

@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DynamicIcon } from 'lucide-react/dynamic';
 import { Computer } from 'lucide-react';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 interface WorkerType {
     id: string;

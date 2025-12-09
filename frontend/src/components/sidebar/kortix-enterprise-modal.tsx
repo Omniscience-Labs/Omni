@@ -10,7 +10,7 @@ import Image from 'next/image';
 import Cal, { getCalApi } from '@calcom/embed-react';
 import { useTheme } from 'next-themes';
 import { Check, Calendar } from 'lucide-react';
-import { OmniLogo } from './kortix-logo';
+import { OmniLogo } from './omni-logo';
 
 interface EnterpriseModalProps {
   children: React.ReactNode;

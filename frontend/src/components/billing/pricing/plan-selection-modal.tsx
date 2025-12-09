@@ -10,7 +10,7 @@ import {
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PricingSection } from './pricing-section';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { cn } from '@/lib/utils';
 import { usePricingModalStore } from '@/stores/pricing-modal-store';
 

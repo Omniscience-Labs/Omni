@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Check, Search, AlertTriangle, Crown, Cpu, Plus, Edit, Trash, KeyRound, Lock } from 'lucide-react';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { ModelProviderIcon } from '@/lib/model-provider-icons';
 import { Button } from '@/components/ui/button';
 import {

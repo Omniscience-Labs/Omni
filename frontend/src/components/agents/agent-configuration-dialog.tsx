@@ -47,7 +47,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAccountState } from '@/hooks/billing';
 import { usePricingModalStore } from '@/stores/pricing-modal-store';

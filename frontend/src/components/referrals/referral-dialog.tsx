@@ -12,7 +12,7 @@ import { useReferralDialog } from '@/stores/referral-dialog';
 import { ReferralCodeSection } from './referral-code-section';
 import { ReferralStatsCards } from './referral-stats-cards';
 import { ReferralEmailInvitation } from './referral-email-invitation';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { Handshake } from 'lucide-react';
 
 interface ReferralDialogProps {

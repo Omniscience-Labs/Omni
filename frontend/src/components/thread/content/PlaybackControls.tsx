@@ -12,7 +12,7 @@ import { UnifiedMessage } from '@/components/thread/types';
 import { safeJsonParse } from '@/components/thread/utils';
 import Link from 'next/link';
 import { HIDE_STREAMING_XML_TAGS } from '@/components/thread/utils';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 export interface PlaybackControlsProps {
   messages: UnifiedMessage[];

@@ -14,7 +14,7 @@ import { useTheme } from 'next-themes';
 import { useAuth } from '@/components/AuthProvider';
 import { useGitHubStars } from '@/hooks/utils';
 import { useRouter, usePathname } from 'next/navigation';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 

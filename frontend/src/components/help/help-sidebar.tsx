@@ -23,7 +23,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { ThemeToggle } from "../home/theme-toggle"
-import { OmniLogo } from "../sidebar/kortix-logo"
+import { OmniLogo } from "../sidebar/omni-logo"
 
 const helpData = {
   navMain: [

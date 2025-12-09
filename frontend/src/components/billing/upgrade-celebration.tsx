@@ -4,7 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { TierBadge } from './tier-badge';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 interface UpgradeCelebrationProps {
   isOpen: boolean;

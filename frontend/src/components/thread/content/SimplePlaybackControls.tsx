@@ -9,7 +9,7 @@ import {
   PanelRightOpen 
 } from 'lucide-react';
 import Link from 'next/link';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 interface SimplePlaybackControlsProps {
   projectName: string;

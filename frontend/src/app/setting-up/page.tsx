@@ -6,7 +6,7 @@ import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useInitializeAccount } from '@/hooks/account';
 import { createClient } from '@/lib/supabase/client';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 

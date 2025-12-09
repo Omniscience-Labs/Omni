@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useTheme } from 'next-themes';
+import { ThreeSpinner } from './three-spinner';
 import { cn } from '@/lib/utils';
 
 interface OmniLoaderProps {
@@ -11,7 +11,7 @@ interface OmniLoaderProps {
    */
   size?: 'small' | 'medium' | 'large' | 'xlarge';
   /**
-   * Animation speed multiplier
+   * Animation speed multiplier (not used with Three.js spinner, kept for API compatibility)
    * @default 1.2
    */
   speed?: number;
@@ -28,12 +28,12 @@ interface OmniLoaderProps {
    */
   style?: React.CSSProperties;
   /**
-   * Whether the animation should autoPlay
+   * Whether the animation should autoPlay (not used with Three.js spinner, kept for API compatibility)
    * @default true
    */
   autoPlay?: boolean;
   /**
-   * Whether the animation should loop
+   * Whether the animation should loop (not used with Three.js spinner, kept for API compatibility)
    * @default true
    */
   loop?: boolean;
@@ -58,22 +58,16 @@ const SIZE_MAP = {
 } as const;
 
 /**
- * OmniLoader - A unified loading animation component
+ * OmniLoader - A unified loading animation component using Three.js
  * 
- * Uses separate Lottie animations (white and black) that dynamically load
- * based on the current theme or can be explicitly set.
+ * Uses Three.js-based 3D spinner that automatically adapts to theme.
  * 
  * **Automatic Behavior:**
- * - Light mode → Black loader (for white backgrounds)
- * - Dark mode → White loader (for dark backgrounds)
+ * - Light mode → Black spinner (for white backgrounds)
+ * - Dark mode → Gray spinner (for dark backgrounds)
  * 
  * **Manual Override (for special cases):**
  * Use the `variant` prop when the background doesn't match the theme.
- * For example, a dark button in light mode needs `variant="white"`.
- * 
- * **Files:**
- * - loading-white.json: White loader (for dark backgrounds)
- * - loading-black.json: Black loader (for light backgrounds)
  * 
  * @example
  * ```tsx
@@ -101,129 +95,33 @@ export function OmniLoader({
   variant = 'auto',
   forceTheme, // deprecated, but kept for backwards compatibility
 }: OmniLoaderProps) {
-  const { resolvedTheme } = useTheme();
   const loaderSize = customSize || SIZE_MAP[size];
   
-  // Track mounted state to prevent hydration mismatch
-  const [mounted, setMounted] = React.useState(false);
-
-  // Set mounted on client
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Determine which variant to use
-  let effectiveVariant: 'white' | 'black';
+  // Determine color based on variant
+  // ThreeSpinner uses 'currentColor' by default which adapts to theme
+  // For explicit variants, we can pass a specific color
+  let color = 'currentColor';
   
   if (variant !== 'auto') {
-    // Explicit variant set
-    effectiveVariant = variant;
+    // Explicit variant set - ThreeSpinner handles theme automatically,
+    // but we can override if needed (though 'currentColor' works best)
+    color = 'currentColor';
   } else if (forceTheme) {
     // Backwards compatibility with forceTheme
-    effectiveVariant = forceTheme === 'dark' ? 'white' : 'black';
+    color = 'currentColor';
   } else {
-    // Auto-detect from theme
-    const isDark = (resolvedTheme || 'dark') === 'dark';
-    effectiveVariant = isDark ? 'white' : 'black';
+    // Auto-detect - use currentColor which adapts to theme
+    color = 'currentColor';
   }
 
-  // Don't render Lottie during SSR - render a simple placeholder instead
-  // This prevents any hydration mismatches
-  if (!mounted) {
-    return (
-      <div 
-        className={cn('flex items-center justify-center', className)} 
-        style={style}
-      >
-        <div 
-          style={{ 
-            width: loaderSize, 
-            height: loaderSize 
-          }} 
-        />
-      </div>
-    );
-  }
-
-  // Dynamically import Lottie only on client-side
   return (
     <div className={cn('flex items-center justify-center', className)} style={style}>
-      <LottieAnimation
-        loaderSize={loaderSize}
-        loop={loop}
-        autoPlay={autoPlay}
-        variant={effectiveVariant}
-        speed={speed}
+      <ThreeSpinner 
+        size={loaderSize} 
+        color={color}
+        className="flex-shrink-0"
       />
     </div>
-  );
-}
-
-// Separate client-only Lottie component
-function LottieAnimation({
-  loaderSize,
-  loop,
-  autoPlay,
-  variant,
-  speed,
-}: {
-  loaderSize: number;
-  loop: boolean;
-  autoPlay: boolean;
-  variant: 'white' | 'black';
-  speed: number;
-}) {
-  const lottieRef = React.useRef<any>(null);
-  const [Lottie, setLottie] = React.useState<any>(null);
-  const [animationData, setAnimationData] = React.useState<any>(null);
-
-  // Dynamically import Lottie and correct animation based on variant
-  React.useEffect(() => {
-    // Reset animation data when variant changes
-    setAnimationData(null);
-    
-    Promise.all([
-      import('lottie-react'),
-      variant === 'white'
-        ? import('@/assets/animations/loading-white.json')
-        : import('@/assets/animations/loading-black.json')
-    ]).then(([lottieModule, animData]) => {
-      setLottie(() => lottieModule.default);
-      setAnimationData(animData.default);
-    });
-  }, [variant]); // Reload when variant changes
-
-  // Ensure animation starts from beginning when loaded
-  React.useEffect(() => {
-    if (lottieRef.current) {
-      lottieRef.current.goToAndPlay(0, true);
-      lottieRef.current.setSpeed(speed);
-    }
-  }, [animationData, speed]);
-
-  // Show placeholder while loading
-  if (!Lottie || !animationData) {
-    return (
-      <div 
-        style={{ 
-          width: loaderSize, 
-          height: loaderSize 
-        }} 
-      />
-    );
-  }
-
-  return (
-    <Lottie
-      lottieRef={lottieRef}
-      animationData={animationData}
-      loop={loop}
-      autoplay={autoPlay}
-      style={{ 
-        width: loaderSize, 
-        height: loaderSize
-      }}
-    />
   );
 }
 

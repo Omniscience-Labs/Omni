@@ -20,7 +20,7 @@ import {
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { OmniEnterpriseModal } from '@/components/sidebar/kortix-enterprise-modal';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 // Section Header Component
 const SectionHeader = ({ children }: { children: React.ReactNode }) => {

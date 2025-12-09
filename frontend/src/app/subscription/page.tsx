@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { createClient } from '@/lib/supabase/client';
 import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
 import { useMaintenanceNoticeQuery } from '@/hooks/edge-flags';

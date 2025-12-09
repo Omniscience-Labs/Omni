@@ -38,7 +38,7 @@ import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import ColorThief from 'colorthief';
 import { AgentAvatar } from '@/components/thread/content/agent-avatar';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 interface MarketplaceTemplate {
   template_id: string;

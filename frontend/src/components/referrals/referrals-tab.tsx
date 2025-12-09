@@ -5,7 +5,7 @@ import { useReferralCode, useReferralStats } from '@/hooks/referrals/use-referra
 import { useTranslations } from 'next-intl';
 import { ReferralCodeSection } from './referral-code-section';
 import { ReferralStatsCards } from './referral-stats-cards';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { ReferralEmailInvitation } from './referral-email-invitation';
 
 export function ReferralsTab() {

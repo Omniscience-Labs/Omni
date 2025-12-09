@@ -10,7 +10,7 @@ import { NavAgentsView } from '@/components/sidebar/nav-agents-view';
 import { NavGlobalConfig } from '@/components/sidebar/nav-global-config';
 import { NavTriggerRuns } from '@/components/sidebar/nav-trigger-runs';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { siteConfig } from '@/lib/site-config';
 import {
   Sidebar,

@@ -10,7 +10,7 @@ import Script from 'next/script';
 import '@/lib/polyfills';
 import { roobert } from './fonts/roobert';
 import { roobertMono } from './fonts/roobert-mono';
-import { Suspense, lazy } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { I18nProvider } from '@/components/i18n-provider';
 
 // Lazy load non-critical analytics and global components
@@ -74,17 +74,13 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: siteMetadata.title,
     description: siteMetadata.description,
-    creator: '@kortix',
-    site: '@kortix',
+    creator: '@omnisciencelabs',
+    site: '@omnisciencelabs',
     images: ['/banner.png'],
   },
   icons: {
-    icon: [
-      { url: '/favicon.png', sizes: '32x32' },
-      { url: '/favicon-light.png', sizes: '32x32', media: '(prefers-color-scheme: dark)' },
-    ],
-    shortcut: '/favicon.png',
-    apple: [{ url: '/logo_black.png', sizes: '180x180' }],
+    icon: [{ url: '/favicon-omni-ball.png', sizes: 'any' }],
+    shortcut: '/favicon-omni-ball.png',
   },
   manifest: '/manifest.json',
   alternates: {
@@ -121,16 +117,16 @@ export default function RootLayout({
         <meta name="keywords" content="Omni, AI Agent, Agentic AI, Autonomous AI Agent, AI Automation, AI Workflow Automation, AI Assistant, AI Worker, Task Automation" />
         <meta property="og:title" content="Omni: Your Autonomous AI Worker" />
         <meta property="og:description" content="Built for complex tasks, designed for everything. The ultimate AI assistant that handles it all—from simple requests to mega-complex projects." />
-        <meta property="og:image" content="https://kortix.com/banner.png" />
-        <meta property="og:url" content="https://kortix.com" />
+        <meta property="og:image" content="https://www.becomeomni.ai/banner.png" />
+        <meta property="og:url" content="https://www.becomeomni.ai" />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="Omni" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Omni: Your Autonomous AI Worker" />
         <meta name="twitter:description" content="Built for complex tasks, designed for everything. The ultimate AI assistant that handles it all—from simple requests to mega-complex projects." />
-        <meta name="twitter:image" content="https://kortix.com/banner.png" />
-        <meta name="twitter:site" content="@kortix" />
-        <link rel="canonical" href="https://kortix.com" />
+        <meta name="twitter:image" content="https://www.becomeomni.ai/banner.png" />
+        <meta name="twitter:site" content="@Omni" />
+        <link rel="canonical" href="https://www.becomeomni.ai" />
 
         <Script id="facebook-pixel" strategy="lazyOnload">
           {`
@@ -166,13 +162,13 @@ export default function RootLayout({
               name: siteMetadata.name,
               alternateName: ['Omni', 'Omni AI', 'Omni: Your Autonomous AI Worker'],
               url: siteMetadata.url,
-              logo: `${siteMetadata.url}/favicon.png`,
+              logo: `${siteMetadata.url}/favicon-omni-ball.png`,
               description: siteMetadata.description,
               foundingDate: '2024',
               sameAs: [
                 'https://github.com/Omniscience-Labs/Omni',
-                'https://x.com/kortix',
-                'https://linkedin.com/company/kortix',
+                'https://x.com/omnisciencelabs',
+                'https://linkedin.com/company/omniscience-labs',
               ],
               contactPoint: {
                 '@type': 'ContactPoint',
@@ -237,13 +233,13 @@ export default function RootLayout({
           <I18nProvider>
             <AuthProvider>
               <PresenceProvider>
-              <ReactQueryProvider>
-                {children}
-                <Toaster />
-                <Suspense fallback={null}>
-                  <PlanSelectionModal />
-                </Suspense>
-              </ReactQueryProvider>
+                <ReactQueryProvider>
+                  {children}
+                  <Toaster />
+                  <Suspense fallback={null}>
+                    <PlanSelectionModal />
+                  </Suspense>
+                </ReactQueryProvider>
               </PresenceProvider>
             </AuthProvider>
           </I18nProvider>

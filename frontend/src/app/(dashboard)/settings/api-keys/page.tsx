@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Key, Plus, Trash2, Copy, Shield, ExternalLink } from 'lucide-react';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 

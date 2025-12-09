@@ -13,7 +13,7 @@ import {
     safeJsonParse,
     HIDE_STREAMING_XML_TAGS,
 } from '@/components/thread/utils';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { AgentLoader } from './loader';
 import { ShowToolStream } from './ShowToolStream';
 import { ComposioUrlDetector } from './composio-url-detector';

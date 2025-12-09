@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, Suspense, lazy } from 'react';
 import { useTrialStatus, useStartTrial, useAccountState } from '@/hooks/billing';
 import { Skeleton } from '@/components/ui/skeleton';
-import { OmniLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';

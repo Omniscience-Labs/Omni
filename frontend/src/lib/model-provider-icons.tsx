@@ -94,7 +94,7 @@ export function ModelProviderIcon({
   const provider = getModelProvider(modelId);
 
   const iconMap: Record<ModelProvider, string> = {
-    kortix: '/kortix-symbol.svg', // Omni modes use the Omni symbol
+    kortix: '/Logomark.svg', // Omni modes use the Omni logomark
     anthropic: '/images/models/Anthropic.svg',
     openai: '/images/models/OAI.svg',
     google: '/images/models/Gemini.svg',
