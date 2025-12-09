@@ -1,9 +1,59 @@
 'use client';
 
-import React, { createContext, useContext, ReactNode } from 'react';
-import { useSubscription, useCreditBalance } from '@/hooks/react-query/use-billing-v2';
-import { SubscriptionInfo, CreditBalance } from '@/lib/api/billing-v2';
+import React, { createContext, useContext, ReactNode, useMemo } from 'react';
+import { useAccountState } from '@/hooks/billing';
+import { AccountState } from '@/lib/api/billing';
 import { useAuth } from '@/components/AuthProvider';
+
+// Compatible types matching the old API structure
+interface SubscriptionInfo {
+  tier: {
+    name: string;
+    display_name: string;
+    credits?: number;
+  };
+  subscription: {
+    cancel_at?: string | null;
+    cancel_at_period_end?: boolean;
+  } | null;
+}
+
+interface CreditBalance {
+  balance: number;
+  lifetime_used: number;
+  can_purchase_credits: boolean;
+}
+
+// Helper functions to map AccountState to the expected format
+function mapToSubscriptionInfo(accountState: AccountState | undefined): SubscriptionInfo | null {
+  if (!accountState) return null;
+  
+  return {
+    tier: {
+      name: accountState.tier.name,
+      display_name: accountState.tier.display_name,
+      credits: accountState.tier.monthly_credits,
+    },
+    subscription: accountState.subscription.subscription_id ? {
+      cancel_at: accountState.subscription.cancellation_effective_date || null,
+      cancel_at_period_end: accountState.subscription.cancel_at_period_end,
+    } : null,
+  };
+}
+
+function mapToCreditBalance(accountState: AccountState | undefined): CreditBalance | null {
+  if (!accountState) return null;
+  
+  // Calculate lifetime_used: total credits allocated minus current balance
+  // This is an approximation since AccountState doesn't track lifetime_used directly
+  const lifetimeUsed = Math.max(0, (accountState.tier.monthly_credits || 0) - accountState.credits.total);
+  
+  return {
+    balance: accountState.credits.total,
+    lifetime_used: lifetimeUsed,
+    can_purchase_credits: accountState.subscription.can_purchase_credits,
+  };
+}
 
 interface SubscriptionContextType {
   subscriptionData: SubscriptionInfo | null;
@@ -20,31 +70,29 @@ interface SubscriptionProviderProps {
   children: ReactNode;
 }
 
+
 export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const { user } = useAuth();
   const isAuthenticated = !!user;
 
   const { 
-    data: subscriptionData, 
-    isLoading: subscriptionLoading, 
-    error: subscriptionError, 
+    data: accountState, 
+    isLoading, 
+    error, 
     refetch 
-  } = useSubscription(isAuthenticated);
+  } = useAccountState({ enabled: isAuthenticated });
 
-  const {
-    data: creditBalance,
-    isLoading: balanceLoading,
-    error: balanceError,
-    refetch: refetchBalance
-  } = useCreditBalance(isAuthenticated);
+  // Map AccountState to the expected format
+  const subscriptionData = useMemo(() => mapToSubscriptionInfo(accountState), [accountState]);
+  const creditBalance = useMemo(() => mapToCreditBalance(accountState), [accountState]);
 
   const value: SubscriptionContextType = {
-    subscriptionData: subscriptionData || null,
-    creditBalance: creditBalance || null,
-    isLoading: subscriptionLoading || balanceLoading,
-    error: (subscriptionError || balanceError) as Error | null,
+    subscriptionData,
+    creditBalance,
+    isLoading,
+    error: error as Error | null,
     refetch,
-    refetchBalance,
+    refetchBalance: refetch, // Both refetch the same AccountState query
   };
 
   return (
@@ -98,9 +146,7 @@ export function useSharedSubscription() {
 export function useSubscriptionData() {
   const context = useContext(SubscriptionContext);
   const { user } = useAuth();
-  
-  const directSubscription = useSubscription(!!user);
-  const directCreditBalance = useCreditBalance(!!user);
+  const { data: accountState, isLoading, error, refetch } = useAccountState({ enabled: !!user });
   
   if (context) {
     return {
@@ -121,20 +167,20 @@ export function useSubscriptionData() {
     };
   }
   
-  // If no context, use the hooks directly (for use outside provider)
-  const { data, isLoading, error, refetch } = directSubscription;
-  const { data: creditBalance } = directCreditBalance;
+  // If no context, use AccountState directly and map it
+  const subscriptionData = mapToSubscriptionInfo(accountState);
+  const creditBalance = mapToCreditBalance(accountState);
   
   return {
-    data: data ? {
-      ...data,
+    data: subscriptionData ? {
+      ...subscriptionData,
       current_usage: creditBalance?.lifetime_used || 0,
-      cost_limit: data.tier?.credits || 0,
+      cost_limit: subscriptionData.tier?.credits || 0,
       credit_balance: creditBalance?.balance || 0,
       can_purchase_credits: creditBalance?.can_purchase_credits || false,
-      subscription: data.subscription ? {
-        ...data.subscription,
-        cancel_at_period_end: data.subscription.cancel_at ? true : false
+      subscription: subscriptionData.subscription ? {
+        ...subscriptionData.subscription,
+        cancel_at_period_end: subscriptionData.subscription.cancel_at ? true : false
       } : null
     } : null,
     isLoading,
