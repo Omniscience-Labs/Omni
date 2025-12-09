@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import { ImageLoader } from './shared/ImageLoader';
 import { ParsedContent } from '../types';
 import { JsonViewer } from './shared/JsonViewer';
-import { KortixComputerHeader } from '../kortix-computer/KortixComputerHeader';
+import { OmniComputerHeader } from '../kortix-computer/OmniComputerHeader';
 
 interface BrowserHeaderProps {
   isConnected: boolean;
@@ -34,7 +34,7 @@ interface BrowserHeaderProps {
 
 export const BrowserHeader: React.FC<BrowserHeaderProps> = ({ isConnected, onRefresh, viewToggle }) => {
   return (
-    <KortixComputerHeader
+    <OmniComputerHeader
       icon={Globe}
       title="Browser"
       actions={

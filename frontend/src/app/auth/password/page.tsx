@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { signInWithPassword, signUpWithPassword } from '../actions';
 import { useAuth } from '@/components/AuthProvider';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/kortix-logo';
 import { cn } from '@/lib/utils';
 
 function PasswordAuthContent() {
@@ -77,7 +77,7 @@ function PasswordAuthContent() {
             <div className="relative z-10 pt-24 pb-8 max-w-md mx-auto h-full w-full flex flex-col gap-2 items-center justify-center">
               <div className="absolute top-6 left-6 z-10">
                 <Link href="/" className="flex items-center space-x-2">
-                  <KortixLogo size={28} />
+                  <OmniLogo size={28} />
                 </Link>
               </div>
 

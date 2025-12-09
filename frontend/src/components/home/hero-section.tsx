@@ -23,7 +23,7 @@ import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 import { useQuery } from '@tanstack/react-query';
 import { agentKeys } from '@/hooks/agents/keys';
 import { getAgents } from '@/hooks/agents/utils';
-import { useSunaModePersistence } from '@/stores/suna-modes-store';
+import { useOmniModePersistence } from '@/stores/suna-modes-store';
 import { useAgentSelection } from '@/stores/agent-selection-store';
 import { useTranslations } from 'next-intl';
 import { usePricingModalStore } from '@/stores/pricing-modal-store';
@@ -32,8 +32,8 @@ const GoogleSignIn = lazy(() => import('@/components/GoogleSignIn'));
 const AgentRunLimitDialog = lazy(() => 
     import('@/components/thread/agent-run-limit-dialog').then(mod => ({ default: mod.AgentRunLimitDialog }))
 );
-const SunaModesPanel = lazy(() => 
-    import('@/components/dashboard/suna-modes-panel').then(mod => ({ default: mod.SunaModesPanel }))
+const OmniModesPanel = lazy(() => 
+    import('@/components/dashboard/suna-modes-panel').then(mod => ({ default: mod.OmniModesPanel }))
 );
 
 const BlurredDialogOverlay = () => (
@@ -66,7 +66,7 @@ export function HeroSection() {
         setSelectedCharts,
         setSelectedOutputFormat,
         setSelectedTemplate,
-    } = useSunaModePersistence();
+    } = useOmniModePersistence();
     const router = useRouter();
     const { user, isLoading } = useAuth();
     const pricingModalStore = usePricingModalStore();
@@ -107,7 +107,7 @@ export function HeroSection() {
     const selectedAgent = selectedAgentId
         ? agents.find(agent => agent.agent_id === selectedAgentId)
         : null;
-    const isSunaAgent = !user || selectedAgent?.metadata?.is_suna_default || false;
+    const isOmniAgent = !user || selectedAgent?.metadata?.is_suna_default || false;
 
     const [authDialogOpen, setAuthDialogOpen] = useState(false);
 
@@ -348,10 +348,10 @@ export function HeroSection() {
                             </div>
                         </div>
                     </div>
-                    {isSunaAgent && (
+                    {isOmniAgent && (
                         <div className="w-full max-w-3xl mx-auto mt-4 px-4 sm:px-0">
                             <Suspense fallback={<div className="h-24 animate-pulse bg-muted/10 rounded-lg" />}>
-                                <SunaModesPanel
+                                <OmniModesPanel
                                     selectedMode={selectedMode}
                                     onModeSelect={setSelectedMode}
                                     onSelectPrompt={setInputValue}
@@ -382,7 +382,7 @@ export function HeroSection() {
                             </DialogTitle>
                         </div>
                         <DialogDescription className="text-muted-foreground">
-                            Sign in or create an account to talk with Kortix
+                            Sign in or create an account to talk with Omni
                         </DialogDescription>
                     </DialogHeader>
 

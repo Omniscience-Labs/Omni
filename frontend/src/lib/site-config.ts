@@ -16,12 +16,12 @@ export const siteConfig = {
   },
   hero: {
     description:
-      'Kortix – open-source platform to build, manage and train your AI Workforce.',
+      'Omni – open-source platform to build, manage and train your AI Workforce.',
   },
   cloudPricingItems: pricingTiers,
   footerLinks: [
     {
-      title: 'Kortix',
+      title: 'Omni',
       links: [
         { id: 1, title: 'About', url: 'https://www.kortix.com' },
         { id: 3, title: 'Contact', url: 'mailto:hey@kortix.com' },

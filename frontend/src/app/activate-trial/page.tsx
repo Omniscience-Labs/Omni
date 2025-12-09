@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, Suspense, lazy } from 'react';
 import { useTrialStatus, useStartTrial, useAccountState } from '@/hooks/billing';
 import { Skeleton } from '@/components/ui/skeleton';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/kortix-logo';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
@@ -125,8 +125,8 @@ export default function ActivateTrialPage() {
         <CardHeader className="text-center space-y-4">
           <div>
             <CardTitle className="text-2xl font-medium flex items-center justify-center gap-2">
-              <KortixLogo />
-              <span>Welcome to Suna</span>
+              <OmniLogo />
+              <span>Welcome to Omni</span>
             </CardTitle>
             <CardDescription className="mt-2">
               Start your journey with a 7-day free trial

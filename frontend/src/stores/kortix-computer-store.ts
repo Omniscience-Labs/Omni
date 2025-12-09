@@ -26,7 +26,7 @@ function normalizeWorkspacePath(path: string): string {
   return `/workspace/${path.replace(/^\//, '')}`;
 }
 
-interface KortixComputerState {
+interface OmniComputerState {
   // Main view state
   activeView: ViewType;
   
@@ -75,7 +75,7 @@ interface KortixComputerState {
   // Navigate to a specific tool call (clicking tool in ThreadContent)
   navigateToToolCall: (toolIndex: number) => void;
   
-  // Clear pending tool nav after KortixComputer processes it
+  // Clear pending tool nav after OmniComputer processes it
   clearPendingToolNav: () => void;
   
   // Panel control
@@ -113,7 +113,7 @@ const initialState = {
   unsavedFileState: {} as Record<string, boolean>,
 };
 
-export const useKortixComputerStore = create<KortixComputerState>()(
+export const useOmniComputerStore = create<OmniComputerState>()(
   devtools(
     (set, get) => ({
       ...initialState,
@@ -322,37 +322,37 @@ export const useKortixComputerStore = create<KortixComputerState>()(
 );
 
 // Selector hooks for common use cases
-export const useKortixComputerActiveView = () => 
-  useKortixComputerStore((state) => state.activeView);
+export const useOmniComputerActiveView = () => 
+  useOmniComputerStore((state) => state.activeView);
 
 // Individual selectors for files state (stable, primitive values)
-export const useKortixComputerFilesSubView = () =>
-  useKortixComputerStore((state) => state.filesSubView);
+export const useOmniComputerFilesSubView = () =>
+  useOmniComputerStore((state) => state.filesSubView);
 
-export const useKortixComputerCurrentPath = () =>
-  useKortixComputerStore((state) => state.currentPath);
+export const useOmniComputerCurrentPath = () =>
+  useOmniComputerStore((state) => state.currentPath);
 
-export const useKortixComputerSelectedFilePath = () =>
-  useKortixComputerStore((state) => state.selectedFilePath);
+export const useOmniComputerSelectedFilePath = () =>
+  useOmniComputerStore((state) => state.selectedFilePath);
 
-export const useKortixComputerFilePathList = () =>
-  useKortixComputerStore((state) => state.filePathList);
+export const useOmniComputerFilePathList = () =>
+  useOmniComputerStore((state) => state.filePathList);
 
-export const useKortixComputerCurrentFileIndex = () =>
-  useKortixComputerStore((state) => state.currentFileIndex);
+export const useOmniComputerCurrentFileIndex = () =>
+  useOmniComputerStore((state) => state.currentFileIndex);
 
 // Legacy combined selector (for backward compatibility) - use individual selectors in components
-export const useKortixComputerFilesState = () => ({
-  filesSubView: useKortixComputerStore((state) => state.filesSubView),
-  currentPath: useKortixComputerStore((state) => state.currentPath),
-  selectedFilePath: useKortixComputerStore((state) => state.selectedFilePath),
-  filePathList: useKortixComputerStore((state) => state.filePathList),
-  currentFileIndex: useKortixComputerStore((state) => state.currentFileIndex),
+export const useOmniComputerFilesState = () => ({
+  filesSubView: useOmniComputerStore((state) => state.filesSubView),
+  currentPath: useOmniComputerStore((state) => state.currentPath),
+  selectedFilePath: useOmniComputerStore((state) => state.selectedFilePath),
+  filePathList: useOmniComputerStore((state) => state.filePathList),
+  currentFileIndex: useOmniComputerStore((state) => state.currentFileIndex),
 });
 
 // Actions are stable references (functions don't change)
-export const useKortixComputerActions = () =>
-  useKortixComputerStore((state) => ({
+export const useOmniComputerActions = () =>
+  useOmniComputerStore((state) => ({
     setActiveView: state.setActiveView,
     openFile: state.openFile,
     goBackToBrowser: state.goBackToBrowser,
@@ -367,16 +367,16 @@ export const useKortixComputerActions = () =>
   }));
 
 // Individual selectors for pending tool navigation (stable primitives)
-export const useKortixComputerPendingToolNavIndex = () =>
-  useKortixComputerStore((state) => state.pendingToolNavIndex);
+export const useOmniComputerPendingToolNavIndex = () =>
+  useOmniComputerStore((state) => state.pendingToolNavIndex);
 
-export const useKortixComputerClearPendingToolNav = () =>
-  useKortixComputerStore((state) => state.clearPendingToolNav);
+export const useOmniComputerClearPendingToolNav = () =>
+  useOmniComputerStore((state) => state.clearPendingToolNav);
 
 // Side panel state selectors
 export const useIsSidePanelOpen = () =>
-  useKortixComputerStore((state) => state.isSidePanelOpen);
+  useOmniComputerStore((state) => state.isSidePanelOpen);
 
 export const useSetIsSidePanelOpen = () =>
-  useKortixComputerStore((state) => state.setIsSidePanelOpen);
+  useOmniComputerStore((state) => state.setIsSidePanelOpen);
 

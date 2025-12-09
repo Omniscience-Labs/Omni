@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/kortix-logo';
 import { AgentAvatar } from '@/components/thread/content/agent-avatar';
 import { useComposioToolkitIcon } from '@/hooks/composio/use-composio';
 
@@ -130,7 +130,7 @@ const CardAvatar: React.FC<{
   size?: number;
   variant: AgentCardVariant;
 }> = ({ data, size = 48, variant }) => {
-  const isSunaAgent = data.metadata?.is_suna_default === true;
+  const isOmniAgent = data.metadata?.is_suna_default === true;
   
   if (variant === 'showcase') {
     return (
@@ -144,10 +144,10 @@ const CardAvatar: React.FC<{
     );
   }
   
-  if (isSunaAgent) {
+  if (isOmniAgent) {
     return (
       <AgentAvatar
-        isSunaDefault={true}
+        isOmniDefault={true}
         size={size}
         className="border"
       />
@@ -178,14 +178,14 @@ const CardAvatar: React.FC<{
 
 // Badge components
 const MarketplaceBadge: React.FC<{ 
-  isKortixTeam?: boolean; 
+  isOmniTeam?: boolean; 
   isOwner?: boolean;
-}> = ({ isKortixTeam, isOwner }) => (
+}> = ({ isOmniTeam, isOwner }) => (
   <div className="flex gap-1 flex-wrap">
-    {isKortixTeam && (
+    {isOmniTeam && (
       <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-0 dark:bg-blue-950 dark:text-blue-300">
         <CheckCircle className="h-3 w-3 mr-1" />
-        Kortix
+        Omni
       </Badge>
     )}
     {isOwner && (
@@ -213,15 +213,15 @@ const TemplateBadge: React.FC<{ isPublic?: boolean }> = ({ isPublic }) => {
   );
 };
 
-const AgentBadges: React.FC<{ data: BaseAgentData, isSunaAgent: boolean }> = ({ data, isSunaAgent }) => (
+const AgentBadges: React.FC<{ data: BaseAgentData, isOmniAgent: boolean }> = ({ data, isOmniAgent }) => (
   <div className="flex gap-1">
-    {!isSunaAgent && data.current_version && (
+    {!isOmniAgent && data.current_version && (
       <Badge variant="outline" className="text-xs">
         <GitBranch className="h-3 w-3 mr-1" />
         {data.current_version.version_name}
       </Badge>
     )}
-    {!isSunaAgent && data.is_public && (
+    {!isOmniAgent && data.is_public && (
       <Badge variant="default" className="bg-green-100 text-green-700 border-0 dark:bg-green-950 dark:text-green-300 text-xs">
         <Globe className="h-3 w-3 mr-1" />
         Published
@@ -398,7 +398,7 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
     isDeleting = false
   } = state;
   
-  const isSunaAgent = data.metadata?.is_suna_default === true;
+  const isOmniAgent = data.metadata?.is_suna_default === true;
   const isOwner = currentUserId && data.creator_id === currentUserId;
   
   // Handle delete confirmation
@@ -546,11 +546,11 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
     const renderBadge = () => {
       switch (variant) {
         case 'marketplace':
-          return <MarketplaceBadge isKortixTeam={data.is_kortix_team} isOwner={isOwner} />;
+          return <MarketplaceBadge isOmniTeam={data.is_kortix_team} isOwner={isOwner} />;
         case 'template':
           return <TemplateBadge isPublic={data.is_public} />;
         case 'agent':
-          return <AgentBadges data={data} isSunaAgent={isSunaAgent} />;
+          return <AgentBadges data={data} isOmniAgent={isOmniAgent} />;
         default:
           return null;
       }

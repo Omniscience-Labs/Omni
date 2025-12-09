@@ -95,7 +95,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       if (!translations.common || !translations.suna) {
         console.warn(`Missing sections in ${targetLocale}:`, {
           hasCommon: !!translations.common,
-          hasSuna: !!translations.suna,
+          hasOmni: !!translations.suna,
           keys: Object.keys(translations).slice(0, 10)
         });
       }

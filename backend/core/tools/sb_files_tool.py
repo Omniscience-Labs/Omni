@@ -50,7 +50,7 @@ from typing import Optional
 - Build one comprehensive file that contains all related content
 
 **CSS & STYLE GUIDELINES:**
-- **KORTIX BRAND COLORS:** Always use Kortix on-brand black/white color scheme
+- **KORTIX BRAND COLORS:** Always use Omni on-brand black/white color scheme
 - **NO GRADIENTS WHATSOEVER:** Absolutely forbidden - use solid colors only (black, white, or shades of gray)
 - **NO PURPLE COLORS:** Purple is absolutely forbidden in any form - no purple backgrounds, no purple text, no purple accents, no purple anything
 - **NO GENERIC AI/TECH GRADIENTS:** Explicitly forbidden: purple-to-blue gradients, blue-to-purple gradients, any purple/blue/teal gradient combinations, or any other generic "AI tech" gradient schemes

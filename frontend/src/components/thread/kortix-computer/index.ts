@@ -1,5 +1,5 @@
-export { KortixComputer, type ToolCallInput } from './KortixComputer';
+export { OmniComputer, type ToolCallInput } from './OmniComputer';
 export { FileBrowserView } from './FileBrowserView';
 export { FileViewerView } from './FileViewerView';
-export { KortixComputerHeader } from './KortixComputerHeader';
+export { OmniComputerHeader } from './OmniComputerHeader';
 

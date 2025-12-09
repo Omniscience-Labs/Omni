@@ -400,7 +400,7 @@ class AgentLoader:
     
     async def _load_suna_config(self, agent: AgentData, user_id: Optional[str] = None):
         """
-        Load Suna config using static in-memory config + cached user MCPs.
+        Load Omni config using static in-memory config + cached user MCPs.
         
         Static parts (prompt, model, tools) = instant from memory
         User MCPs = check cache first, then DB if miss
@@ -430,7 +430,7 @@ class AgentLoader:
                 agent.configured_mcps = cached_mcps.get('configured_mcps', [])
                 agent.custom_mcps = cached_mcps.get('custom_mcps', [])
                 agent.triggers = cached_mcps.get('triggers', [])
-                logger.debug(f"⚡ Suna config loaded in {(time.time() - t_start)*1000:.1f}ms (MCPs from cache)")
+                logger.debug(f"⚡ Omni config loaded in {(time.time() - t_start)*1000:.1f}ms (MCPs from cache)")
                 return
             
             # Cache miss - fetch from DB
@@ -465,9 +465,9 @@ class AgentLoader:
                     agent.triggers
                 )
                 
-                logger.debug(f"Suna config loaded in {(time.time() - t_start)*1000:.1f}ms (MCPs from DB, now cached)")
+                logger.debug(f"Omni config loaded in {(time.time() - t_start)*1000:.1f}ms (MCPs from DB, now cached)")
             except Exception as e:
-                logger.warning(f"Failed to load MCPs for Suna agent {agent.agent_id}: {e}")
+                logger.warning(f"Failed to load MCPs for Omni agent {agent.agent_id}: {e}")
                 agent.configured_mcps = []
                 agent.custom_mcps = []
                 agent.triggers = []
@@ -475,7 +475,7 @@ class AgentLoader:
             agent.configured_mcps = []
             agent.custom_mcps = []
             agent.triggers = []
-            logger.debug(f"⚡ Suna config loaded in {(time.time() - t_start)*1000:.1f}ms (no MCPs)")
+            logger.debug(f"⚡ Omni config loaded in {(time.time() - t_start)*1000:.1f}ms (no MCPs)")
     
     async def _load_custom_config(self, agent: AgentData, user_id: str):
         """Load custom agent configuration from version."""
@@ -550,11 +550,11 @@ class AgentLoader:
     async def _batch_load_configs(self, agents: list[AgentData]):
         """Batch load configurations for multiple agents."""
         
-        # Get all version IDs for non-Suna agents
+        # Get all version IDs for non-Omni agents
         version_ids = [a.current_version_id for a in agents if a.current_version_id and not a.is_suna_default]
         
         if not version_ids:
-            # Only Suna agents, load their configs
+            # Only Omni agents, load their configs
             for agent in agents:
                 if agent.is_suna_default:
                     await self._load_suna_config(agent, agent.account_id)
@@ -594,7 +594,7 @@ class AgentLoader:
                 
         except Exception as e:
             logger.warning(f"Failed to batch load agent configs: {e}")
-            # Fallback: load Suna configs only
+            # Fallback: load Omni configs only
             for agent in agents:
                 if agent.is_suna_default:
                     await self._load_suna_config(agent, agent.account_id)

@@ -586,7 +586,7 @@ class TriggerTool(AgentBuilderBaseTool):
             if not composio_trigger_id:
                 return self.fail_response("Failed to get Composio trigger id from response")
             
-            # Build Suna trigger config (same as API)
+            # Build Omni trigger config (same as API)
             suna_config: Dict[str, Any] = {
                 "provider_id": "composio",
                 "composio_trigger_id": composio_trigger_id,
@@ -601,7 +601,7 @@ class TriggerTool(AgentBuilderBaseTool):
                 suna_config["trigger_variables"] = variables
                 logger.debug(f"Found variables in event trigger prompt: {variables}")
             
-            # Create Suna trigger
+            # Create Omni trigger
             trigger_svc = get_trigger_service(self.db)
             try:
                 trigger = await trigger_svc.create_trigger(
@@ -612,8 +612,8 @@ class TriggerTool(AgentBuilderBaseTool):
                     description=f"{slug}"
                 )
             except Exception as e:
-                logger.error(f"Failed to create Suna trigger: {e}")
-                return self.fail_response(f"Failed to create Suna trigger: {str(e)}")
+                logger.error(f"Failed to create Omni trigger: {e}")
+                return self.fail_response(f"Failed to create Omni trigger: {str(e)}")
 
             # Sync triggers to version config
             try:

@@ -3,7 +3,7 @@ Account Setup Module
 
 Handles account initialization for new users:
 - Free tier subscription setup
-- Default Suna agent installation
+- Default Omni agent installation
 - Welcome email sending
 
 All initialization happens automatically via database webhook on user signup.

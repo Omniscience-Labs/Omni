@@ -22,15 +22,15 @@ export function InstructionsScreen({ agentId }: InstructionsScreenProps) {
         }
     }, [agent?.system_prompt]);
 
-    const isSunaAgent = agent?.metadata?.is_suna_default || false;
+    const isOmniAgent = agent?.metadata?.is_suna_default || false;
     const restrictions = agent?.metadata?.restrictions || {};
-    const isEditable = (restrictions.system_prompt_editable !== false) && !isSunaAgent;
+    const isEditable = (restrictions.system_prompt_editable !== false) && !isOmniAgent;
 
     const handleSave = async (value: string) => {
         if (!isEditable) {
-            if (isSunaAgent) {
+            if (isOmniAgent) {
                 toast.error("System prompt cannot be edited", {
-                    description: "Suna's system prompt is managed centrally.",
+                    description: "Omni's system prompt is managed centrally.",
                 });
             }
             return;

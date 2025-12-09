@@ -31,7 +31,7 @@ import { useAgentSelection } from '@/stores/agent-selection-store';
 import { useThreadQuery } from '@/hooks/threads/use-threads';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 import { toast } from 'sonner';
-import { useSunaModePersistence } from '@/stores/suna-modes-store';
+import { useOmniModePersistence } from '@/stores/suna-modes-store';
 import { Button } from '../ui/button';
 import { X, ChevronRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -46,8 +46,8 @@ const PlanSelectionModal = lazy(() =>
 const UpgradeCelebration = lazy(() => 
   import('@/components/billing/upgrade-celebration').then(mod => ({ default: mod.UpgradeCelebration }))
 );
-const SunaModesPanel = lazy(() => 
-  import('./suna-modes-panel').then(mod => ({ default: mod.SunaModesPanel }))
+const OmniModesPanel = lazy(() => 
+  import('./suna-modes-panel').then(mod => ({ default: mod.OmniModesPanel }))
 );
 const AgentRunLimitDialog = lazy(() => 
   import('@/components/thread/agent-run-limit-dialog').then(mod => ({ default: mod.AgentRunLimitDialog }))
@@ -86,7 +86,7 @@ export function DashboardContent() {
     setSelectedCharts,
     setSelectedOutputFormat,
     setSelectedTemplate,
-  } = useSunaModePersistence();
+  } = useOmniModePersistence();
   
   const [viewMode, setViewMode] = useState<'super-worker' | 'worker-templates'>('super-worker');
   
@@ -128,11 +128,11 @@ export function DashboardContent() {
     ? agents.find(agent => agent.agent_id === selectedAgentId)
     : null;
   const sunaAgent = agents.find(agent => agent.metadata?.is_suna_default === true);
-  const displayName = selectedAgent?.name || 'Suna';
+  const displayName = selectedAgent?.name || 'Omni';
   const agentAvatar = undefined;
-  // Show Suna modes while loading (assume Suna is default) or when Suna agent is selected
-  const isSunaAgent = isLoadingAgents 
-    ? true // Show Suna modes while loading
+  // Show Omni modes while loading (assume Omni is default) or when Omni agent is selected
+  const isOmniAgent = isLoadingAgents 
+    ? true // Show Omni modes while loading
     : (selectedAgent?.metadata?.is_suna_default || (!selectedAgentId && sunaAgent !== undefined) || false);
 
   const threadQuery = useThreadQuery(initiatedThreadId || '');
@@ -610,7 +610,7 @@ export function DashboardContent() {
                         : "text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    Kortix Super Worker
+                    Omni Super Worker
                   </button>
                   <button
                     onClick={() => {
@@ -712,11 +712,11 @@ export function DashboardContent() {
                   </div>
 
                   {/* Modes Panel - Below chat input, doesn't affect its position */}
-                  {isSunaAgent && (
+                  {isOmniAgent && (
                     <div className="px-4 pb-6 sm:pb-8">
                       <div className="max-w-3xl mx-auto">
                         <Suspense fallback={<div className="h-24 bg-muted/10 rounded-lg animate-pulse" />}>
-                          <SunaModesPanel
+                          <OmniModesPanel
                             selectedMode={selectedMode}
                             onModeSelect={setSelectedMode}
                             onSelectPrompt={setInputValue}

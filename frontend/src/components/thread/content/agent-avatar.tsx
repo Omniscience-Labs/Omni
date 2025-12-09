@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useAgentFromCache } from '@/hooks/agents/use-agents';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/kortix-logo';
 import { DynamicIcon } from 'lucide-react/dynamic';
 import { cn } from '@/lib/utils';
 import type { Agent } from '@/hooks/agents/utils';
@@ -20,7 +20,7 @@ interface AgentAvatarProps {
   iconColor?: string;
   backgroundColor?: string;
   agentName?: string;
-  isSunaDefault?: boolean;
+  isOmniDefault?: boolean;
 
   // Common props
   size?: number;
@@ -31,14 +31,14 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({
   // Agent data props
   agent: propAgent,
   agentId,
-  fallbackName = "Suna",
+  fallbackName = "Omni",
 
   // Direct props
   iconName: propIconName,
   iconColor: propIconColor,
   backgroundColor: propBackgroundColor,
   agentName: propAgentName,
-  isSunaDefault: propIsSunaDefault,
+  isOmniDefault: propIsOmniDefault,
 
   // Common props
   size = 16,
@@ -52,7 +52,7 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({
   const iconName = propIconName ?? agent?.icon_name;
   const iconColor = propIconColor ?? agent?.icon_color ?? '#6B7280';
   const backgroundColor = propBackgroundColor ?? agent?.icon_background ?? '#F3F4F6';
-  const isSuna = propIsSunaDefault ?? agent?.metadata?.is_suna_default;
+  const isOmni = propIsOmniDefault ?? agent?.metadata?.is_suna_default;
 
   // Calculate responsive border radius - proportional to size
   // Use a ratio that prevents full rounding while maintaining nice corners
@@ -69,7 +69,7 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({
     .join(' ');
 
   // Show skeleton when no data is available
-  if (!agent && !propIconName && !propIsSunaDefault && agentId) {
+  if (!agent && !propIconName && !propIsOmniDefault && agentId) {
     return (
       <div
         className={cn("bg-muted animate-pulse", filteredClassName)}
@@ -78,7 +78,7 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({
     );
   }
 
-  if (isSuna) {
+  if (isOmni) {
     return (
       <div
         className={cn(
@@ -87,7 +87,7 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({
         )}
         style={{ width: size, height: size, ...borderRadiusStyle }}
       >
-        <KortixLogo size={size * 0.5} />
+        <OmniLogo size={size * 0.5} />
       </div>
     );
   }
@@ -142,7 +142,7 @@ interface AgentNameProps {
 export const AgentName: React.FC<AgentNameProps> = ({
   agent: propAgent,
   agentId,
-  fallback = "Suna"
+  fallback = "Omni"
 }) => {
   const cachedAgent = useAgentFromCache(!propAgent && agentId ? agentId : undefined);
   const agent = propAgent || cachedAgent;

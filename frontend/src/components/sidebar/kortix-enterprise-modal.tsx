@@ -10,7 +10,7 @@ import Image from 'next/image';
 import Cal, { getCalApi } from '@calcom/embed-react';
 import { useTheme } from 'next-themes';
 import { Check, Calendar } from 'lucide-react';
-import { KortixLogo } from './kortix-logo';
+import { OmniLogo } from './kortix-logo';
 
 interface EnterpriseModalProps {
   children: React.ReactNode;
@@ -18,7 +18,7 @@ interface EnterpriseModalProps {
   onOpenChange?: (open: boolean) => void;
 }
 
-export function KortixEnterpriseModal({
+export function OmniEnterpriseModal({
   children,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange
@@ -64,7 +64,7 @@ export function KortixEnterpriseModal({
           <div className="p-6 lg:p-8 flex flex-col bg-white dark:bg-black relative h-full overflow-y-auto border-r border-gray-200 dark:border-gray-800">
             <div className="relative z-10 flex flex-col h-full">
               <div className="mb-6 flex-shrink-0">
-                <KortixLogo size={30} variant="logomark" />
+                <OmniLogo size={30} variant="logomark" />
               </div>
 
               <div className="mb-6 flex-shrink-0">
@@ -130,4 +130,4 @@ export function KortixEnterpriseModal({
 }
 
 // Export with original name for backwards compatibility
-export const KortixProcessModal = KortixEnterpriseModal;
+export const OmniProcessModal = OmniEnterpriseModal;

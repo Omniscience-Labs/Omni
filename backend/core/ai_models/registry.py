@@ -28,12 +28,12 @@ class ModelRegistry:
     
     # KORTIX BASIC & POWER – Same underlying model, different configs
     def _initialize_models(self):
-        # Kortix Basic - uses HAIKU 4.5 under the hood
+        # Omni Basic - uses HAIKU 4.5 under the hood
         self.register(Model(
             id="kortix/basic",
-            name="Kortix Basic",
+            name="Omni Basic",
             provider=ModelProvider.ANTHROPIC,
-            aliases=["kortix-basic", "Kortix Basic"],
+            aliases=["kortix-basic", "Omni Basic"],
             context_window=200_000,
             capabilities=[
                 ModelCapability.CHAT,
@@ -58,12 +58,12 @@ class ModelRegistry:
             )
         ))
         
-        # Kortix Power - extended context & thinking
+        # Omni Power - extended context & thinking
         self.register(Model(
             id="kortix/power",
-            name="Kortix POWER Mode",
+            name="Omni POWER Mode",
             provider=ModelProvider.ANTHROPIC,
-            aliases=["kortix-power", "Kortix POWER Mode", "Kortix Power"],
+            aliases=["kortix-power", "Omni POWER Mode", "Omni Power"],
             context_window=1_000_000,
             capabilities=[
                 ModelCapability.CHAT,

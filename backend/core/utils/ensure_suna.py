@@ -2,7 +2,7 @@ import asyncio
 from typing import Optional
 from core.utils.logger import logger
 from core.services.supabase import DBConnection
-from core.utils.suna_default_agent_service import SunaDefaultAgentService
+from core.utils.suna_default_agent_service import OmniDefaultAgentService
 
 _installation_cache = set()
 _installation_in_progress = set()
@@ -27,21 +27,21 @@ async def ensure_suna_installed(account_id: str) -> None:
         
         if existing.data:
             _installation_cache.add(account_id)
-            logger.debug(f"Suna already installed for account {account_id}")
+            logger.debug(f"Omni already installed for account {account_id}")
             return
         
-        logger.info(f"Installing Suna agent for account {account_id}")
-        service = SunaDefaultAgentService(db)
+        logger.info(f"Installing Omni agent for account {account_id}")
+        service = OmniDefaultAgentService(db)
         agent_id = await service.install_suna_agent_for_user(account_id, replace_existing=False)
         
         if agent_id:
             _installation_cache.add(account_id)
-            logger.info(f"Successfully installed Suna agent {agent_id} for account {account_id}")
+            logger.info(f"Successfully installed Omni agent {agent_id} for account {account_id}")
         else:
-            logger.warning(f"Failed to install Suna agent for account {account_id}")
+            logger.warning(f"Failed to install Omni agent for account {account_id}")
             
     except Exception as e:
-        logger.error(f"Error ensuring Suna installation for {account_id}: {e}")
+        logger.error(f"Error ensuring Omni installation for {account_id}: {e}")
     finally:
         _installation_in_progress.discard(account_id)
 

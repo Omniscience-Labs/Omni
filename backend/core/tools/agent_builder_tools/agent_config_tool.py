@@ -100,7 +100,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
             metadata = current_agent.get('metadata', {})
             is_suna_default = metadata.get('is_suna_default', False)
             
-            # Enforce Suna restrictions (simplified)
+            # Enforce Omni restrictions (simplified)
             if is_suna_default:
                 restricted_fields = []
                 if name is not None:
@@ -112,8 +112,8 @@ class AgentConfigTool(AgentBuilderBaseTool):
                 
                 if restricted_fields:
                     return self.fail_response(
-                        f"Cannot modify {', '.join(restricted_fields)} for Suna. "
-                        f"Suna's core identity is centrally managed. You can still add MCPs and triggers."
+                        f"Cannot modify {', '.join(restricted_fields)} for Omni. "
+                        f"Omni's core identity is centrally managed. You can still add MCPs and triggers."
                     )
 
             agent_update_fields = {}

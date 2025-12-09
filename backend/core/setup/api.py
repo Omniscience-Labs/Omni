@@ -7,7 +7,7 @@ import concurrent.futures
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt
 from core.utils.logger import logger
 from core.billing.subscriptions import free_tier_service
-from core.utils.suna_default_agent_service import SunaDefaultAgentService
+from core.utils.suna_default_agent_service import OmniDefaultAgentService
 from core.services.supabase import DBConnection
 from core.services.email import email_service
 
@@ -92,13 +92,13 @@ async def initialize_user_account(account_id: str, email: Optional[str] = None, 
                     'error': error_msg
                 }
         
-        logger.info(f"[SETUP] Installing Suna agent for {account_id}")
-        suna_service = SunaDefaultAgentService(db)
+        logger.info(f"[SETUP] Installing Omni agent for {account_id}")
+        suna_service = OmniDefaultAgentService(db)
         agent_id = await suna_service.install_suna_agent_for_user(account_id)
         
 
         if not agent_id:
-            logger.warning(f"[SETUP] Failed to install Suna agent for {account_id}, but continuing")
+            logger.warning(f"[SETUP] Failed to install Omni agent for {account_id}, but continuing")
         
         if user_record:
             raw_user_metadata = user_record.get('raw_user_meta_data', {})
@@ -231,7 +231,7 @@ async def handle_user_created_webhook(
     request to this endpoint using pg_net.
     
     This webhook automatically:
-    1. Initializes account (free tier subscription + Suna agent)
+    1. Initializes account (free tier subscription + Omni agent)
     2. Sends welcome email
     
     All initialization happens automatically on the backend, eliminating

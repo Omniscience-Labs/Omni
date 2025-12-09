@@ -67,7 +67,7 @@ async def _get_agent_run_with_access_check(client, agent_run_id: str, user_id: s
 # ============================================================================
 
 async def _find_shared_suna_agent(client):
-    """Find a shared Suna agent to use as fallback when user has no agents."""
+    """Find a shared Omni agent to use as fallback when user has no agents."""
     from .agent_loader import get_agent_loader
     from core.utils.config import config
     
@@ -79,21 +79,21 @@ async def _find_shared_suna_agent(client):
         if admin_suna and admin_suna.data:
             loader = await get_agent_loader()
             agent_data = await loader.load_agent(admin_suna.data['agent_id'], admin_user_id, load_config=True)
-            logger.info(f"✅ Using system Suna agent from admin user: {agent_data.name} ({agent_data.agent_id})")
+            logger.info(f"✅ Using system Omni agent from admin user: {agent_data.name} ({agent_data.agent_id})")
             return agent_data
         else:
-            logger.warning(f"⚠️ SYSTEM_ADMIN_USER_ID configured but no Suna agent found for user {admin_user_id}")
+            logger.warning(f"⚠️ SYSTEM_ADMIN_USER_ID configured but no Omni agent found for user {admin_user_id}")
     
-    # Fallback: search for any Suna agent
+    # Fallback: search for any Omni agent
     any_suna = await client.table('agents').select('agent_id, account_id').eq('metadata->>is_suna_default', 'true').limit(1).maybe_single().execute()
     
     if any_suna and any_suna.data:
         loader = await get_agent_loader()
         agent_data = await loader.load_agent(any_suna.data['agent_id'], any_suna.data['account_id'], load_config=True)
-        logger.info(f"Using shared Suna agent: {agent_data.name} ({agent_data.agent_id})")
+        logger.info(f"Using shared Omni agent: {agent_data.name} ({agent_data.agent_id})")
         return agent_data
     
-    logger.error("❌ No Suna agent found! Set SYSTEM_ADMIN_USER_ID in .env")
+    logger.error("❌ No Omni agent found! Set SYSTEM_ADMIN_USER_ID in .env")
     return None
 
 
@@ -109,21 +109,21 @@ async def _load_agent_config(client, agent_id: Optional[str], account_id: str, u
     logger.debug(f"[AGENT LOAD] Loading agent: {agent_id or 'default'}")
 
     if agent_id:
-        # OPTIMIZED: For Suna agents, use fast path (static config + cached MCPs)
+        # OPTIMIZED: For Omni agents, use fast path (static config + cached MCPs)
         # This avoids DB queries entirely when cache is warm
         from core.runtime_cache import get_static_suna_config, get_cached_user_mcps
         
         static_config = get_static_suna_config()
         cached_mcps = await get_cached_user_mcps(agent_id)
         
-        # Fast path: If we have static config AND cached MCPs, assume it's Suna
-        # (cached MCPs only exist for Suna agents)
+        # Fast path: If we have static config AND cached MCPs, assume it's Omni
+        # (cached MCPs only exist for Omni agents)
         if static_config and cached_mcps is not None:
             # Fast path: Use static config + cached MCPs (zero DB calls!)
             from core.agent_loader import AgentData
             agent_data = AgentData(
                 agent_id=agent_id,
-                name="Suna",
+                name="Omni",
                 description=None,
                 account_id=account_id,
                 is_default=True,
@@ -148,7 +148,7 @@ async def _load_agent_config(client, agent_id: Optional[str], account_id: str, u
                 config_loaded=True,
                 restrictions=static_config['restrictions']
             )
-            logger.info(f"⚡ [FAST PATH] Suna config from memory + Redis MCPs: {(time.time() - t_start)*1000:.1f}ms (zero DB calls)")
+            logger.info(f"⚡ [FAST PATH] Omni config from memory + Redis MCPs: {(time.time() - t_start)*1000:.1f}ms (zero DB calls)")
         else:
             # Fall back to normal loader (handles cache misses and custom agents)
             t_loader = time.time()
@@ -168,7 +168,7 @@ async def _load_agent_config(client, agent_id: Optional[str], account_id: str, u
             agent_data = await loader.load_agent(default_agent.data['agent_id'], user_id, load_config=True)
             logger.debug(f"Using default agent: {agent_data.name} ({agent_data.agent_id}) version {agent_data.version_name}")
         else:
-            logger.warning(f"[AGENT LOAD] No default agent found for account {account_id}, searching for shared Suna")
+            logger.warning(f"[AGENT LOAD] No default agent found for account {account_id}, searching for shared Omni")
             agent_data = await _find_shared_suna_agent(client)
             
             if not agent_data:

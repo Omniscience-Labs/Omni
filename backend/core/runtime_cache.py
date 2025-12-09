@@ -2,7 +2,7 @@
 Runtime caching layer for latency optimization.
 
 This module provides Redis-based caching for frequently accessed data:
-- Agent configs (Suna static + user MCPs, custom agent configs)
+- Agent configs (Omni static + user MCPs, custom agent configs)
 - Project metadata (sandbox info)
 - Running runs count (concurrent limit checks)
 - Thread count (thread limit checks)
@@ -22,12 +22,12 @@ _SUNA_STATIC_CONFIG: Optional[Dict[str, Any]] = None
 _SUNA_STATIC_LOADED = False
 
 def get_static_suna_config() -> Optional[Dict[str, Any]]:
-    """Get the static Suna config (loaded once at startup)."""
+    """Get the static Omni config (loaded once at startup)."""
     return _SUNA_STATIC_CONFIG
 
 def load_static_suna_config() -> Dict[str, Any]:
     """
-    Load Suna's static config into memory ONCE.
+    Load Omni's static config into memory ONCE.
     This includes: system_prompt, model, agentpress_tools, restrictions.
     
     This is safe to cache in memory because it's Python code - identical across all workers.
@@ -56,7 +56,7 @@ def load_static_suna_config() -> Dict[str, Any]:
     }
     
     _SUNA_STATIC_LOADED = True
-    logger.info(f"✅ Loaded static Suna config into memory (prompt: {len(_SUNA_STATIC_CONFIG['system_prompt'])} chars)")
+    logger.info(f"✅ Loaded static Omni config into memory (prompt: {len(_SUNA_STATIC_CONFIG['system_prompt'])} chars)")
     return _SUNA_STATIC_CONFIG
 
 # ============================================================================
@@ -126,7 +126,7 @@ async def get_cached_agent_config(
     """
     Get agent config from Redis cache.
     
-    For custom agents only - Suna uses get_static_suna_config() + get_cached_user_mcps().
+    For custom agents only - Omni uses get_static_suna_config() + get_cached_user_mcps().
     """
     cache_key = _get_cache_key(agent_id, version_id)
     
@@ -152,7 +152,7 @@ async def set_cached_agent_config(
 ) -> None:
     """Cache full agent config in Redis."""
     if is_suna_default:
-        # For Suna, only cache the MCPs (static config is in memory from Python code)
+        # For Omni, only cache the MCPs (static config is in memory from Python code)
         await set_cached_user_mcps(
             agent_id,
             config.get('configured_mcps', []),
@@ -184,18 +184,18 @@ async def invalidate_agent_config_cache(agent_id: str) -> None:
 
 async def warm_up_suna_config_cache() -> None:
     """
-    Load static Suna config into memory at worker startup.
+    Load static Omni config into memory at worker startup.
     
     This is instant since it just reads from SUNA_CONFIG (Python code).
     No DB calls needed for the static parts.
     """
     t_start = time.time()
     
-    # Load static Suna config (system prompt, model, tools) - instant
+    # Load static Omni config (system prompt, model, tools) - instant
     load_static_suna_config()
     
     elapsed = (time.time() - t_start) * 1000
-    logger.info(f"✅ Suna static config loaded in {elapsed:.1f}ms (zero DB calls)")
+    logger.info(f"✅ Omni static config loaded in {elapsed:.1f}ms (zero DB calls)")
 
 
 # ============================================================================

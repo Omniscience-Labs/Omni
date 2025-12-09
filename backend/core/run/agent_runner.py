@@ -261,11 +261,11 @@ class AgentRunner:
         
         if is_suna_agent:
             suna_start = time.time()
-            logger.debug("Registering Suna-specific tools...")
+            logger.debug("Registering Omni-specific tools...")
             self._register_suna_specific_tools(disabled_tools)
-            logger.debug(f"⏱️ [TIMING] Suna-specific tools: {(time.time() - suna_start) * 1000:.1f}ms")
+            logger.debug(f"⏱️ [TIMING] Omni-specific tools: {(time.time() - suna_start) * 1000:.1f}ms")
         else:
-            logger.debug("Not a Suna agent, skipping Suna-specific tool registration")
+            logger.debug("Not a Omni agent, skipping Omni-specific tool registration")
         
         logger.info(f"⏱️ [TIMING] setup_tools() total: {(time.time() - start) * 1000:.1f}ms")
     

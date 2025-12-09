@@ -29,7 +29,7 @@ def configure_openapi(app: FastAPI) -> None:
             return app.openapi_schema
         
         openapi_schema = get_openapi(
-            title="Kortix API",
+            title="Omni API",
             version="1.0.0",
             description="""
 ## Authentication

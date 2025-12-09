@@ -5,7 +5,7 @@ from .template_service import (
     TemplateCreationRequest,
     TemplateNotFoundError,
     TemplateAccessDeniedError,
-    SunaDefaultAgentTemplateError,
+    OmniDefaultAgentTemplateError,
     get_template_service
 )
 
@@ -43,7 +43,7 @@ __all__ = [
     "TemplateInstallationResult",
     
     "TemplateNotFoundError", "TemplateAccessDeniedError",
-    "SunaDefaultAgentTemplateError", "TemplateInstallationError", 
+    "OmniDefaultAgentTemplateError", "TemplateInstallationError", 
     "InvalidCredentialError",
     
     "validate_template_ownership", "validate_template_access",

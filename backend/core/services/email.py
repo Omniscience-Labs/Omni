@@ -10,7 +10,7 @@ class EmailService:
     def __init__(self):
         self.api_token = os.getenv('MAILTRAP_API_TOKEN')
         self.sender_email = os.getenv('MAILTRAP_SENDER_EMAIL', 'hey@kortix.com')
-        self.sender_name = os.getenv('MAILTRAP_SENDER_NAME', 'Kortix Team')
+        self.sender_name = os.getenv('MAILTRAP_SENDER_NAME', 'Omni Team')
         self.hello_email = 'hello@kortix.com'
         
         if not self.api_token:
@@ -27,7 +27,7 @@ class EmailService:
         if not user_name:
             user_name = user_email.split('@')[0].title()
         
-        subject = "🎉 Welcome to Kortix — Let's Get Started "
+        subject = "🎉 Welcome to Omni — Let's Get Started "
         html_content = self._get_welcome_email_template(user_name)
         text_content = self._get_welcome_email_text(user_name)
         
@@ -60,7 +60,7 @@ class EmailService:
             logger.info(f"Attempting to send referral email from {sender_email_to_use} to {recipient_email}")
             
             mail = mt.Mail(
-                sender=mt.Address(email=sender_email_to_use, name='Kortix'),
+                sender=mt.Address(email=sender_email_to_use, name='Omni'),
                 to=[mt.Address(email=recipient_email, name=recipient_name)],
                 subject=subject,
                 text=text_content,
@@ -120,7 +120,7 @@ class EmailService:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome to Kortix</title>
+  <title>Welcome to Omni</title>
   <style>
     body {{
       font-family: Arial, sans-serif;
@@ -186,12 +186,12 @@ class EmailService:
 <body>
   <div class="container">
     <div class="logo-container">
-      <img src="https://heprlhlltebrxydgtsjs.supabase.co/storage/v1/object/public/image-uploads/loaded_images/Profile%20Picture%20Black.png" alt="Kortix Logo" class="logo">
+      <img src="https://heprlhlltebrxydgtsjs.supabase.co/storage/v1/object/public/image-uploads/loaded_images/Profile%20Picture%20Black.png" alt="Omni Logo" class="logo">
     </div>
 
     <p>Hi {user_name},</p>
 
-    <p><em><strong>Welcome to <a href="https://www.kortix.com/">Kortix.com</a> — we're excited to have you on board!</strong></em></p>
+    <p><em><strong>Welcome to <a href="https://www.kortix.com/">Omni.com</a> — we're excited to have you on board!</strong></em></p>
 
     <p>To get started, we'd like to get to know you better: fill out this short <a href="https://docs.google.com/forms/d/e/1FAIpQLSef1EHuqmIh_iQz-kwhjnzSC3Ml-V_5wIySDpMoMU9W_j24JQ/viewform">form</a>!</p>
 
@@ -200,7 +200,7 @@ class EmailService:
 
     <p>Let us know if you need help getting started or have questions — we're always here, and join our <a href="https://discord.com/invite/RvFhXUdZ9H">Discord community</a>.</p>
 
-    <p>Thanks again, and welcome to the Kortix community!</p>
+    <p>Thanks again, and welcome to the Omni community!</p>
   </div>
 </body>
 </html>"""
@@ -218,11 +218,11 @@ To celebrate your arrival, here's a 15% discount for your first month:
 
 Let us know if you need help getting started or have questions — we're always here, and join our Discord community: https://discord.com/invite/RvFhXUdZ9H
 
-Thanks again, and welcome to the Kortix community!
+Thanks again, and welcome to the Omni community!
 
 ---
-© 2025 Kortix. All rights reserved.
-You received this email because you signed up for a Kortix account."""
+© 2025 Omni. All rights reserved.
+You received this email because you signed up for a Omni account."""
     
     def _get_referral_email_template(self, recipient_name: str, sender_name: str, referral_url: str) -> str:
         content = f"""<table cellpadding="0" cellspacing="0" border="0" style="padding:30px 15px; font-family:Inter, Arial, sans-serif; color:#000000;">
@@ -232,7 +232,7 @@ You received this email because you signed up for a Kortix account."""
         Hi <strong>{recipient_name}</strong>,  👋
       </p>
       <p style="margin:0 0 20px 0; font-size:15px; line-height:1.6;">
-        <strong>{sender_name}</strong> has invited you to join Kortix using a personal referral code.
+        <strong>{sender_name}</strong> has invited you to join Omni using a personal referral code.
         When you sign up using this link, both you and {sender_name} will receive 100 in non-expiring credits 🎁
       </p>
       <p style="margin:0 0 10px 0; font-weight:600;">
@@ -266,21 +266,21 @@ You received this email because you signed up for a Kortix account."""
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kortix</title>
+  <title>Omni</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #fafafa; color: #1a1a1a;">
   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 520px; margin: 0 auto; padding: 40px 20px;">
     <tr>
       <td>
         <div style="text-align: center; margin-bottom: 40px;">
-          <img src="https://kortix.com/Logomark.svg" alt="Kortix" style="height: 24px; width: auto; display: inline-block;" />
+          <img src="https://kortix.com/Logomark.svg" alt="Omni" style="height: 24px; width: auto; display: inline-block;" />
         </div>
         <div style="background-color: #ffffff; border-radius: 16px; padding: 40px 32px;">
           {content}
         </div>
         <div style="text-align: center; margin-top: 32px;">
           <p style="font-size: 12px; color: #999; margin: 0;">
-            &copy; Kortix AI Corp. All rights reserved.
+            &copy; Omni AI Corp. All rights reserved.
           </p>
         </div>
       </td>
@@ -292,7 +292,7 @@ You received this email because you signed up for a Kortix account."""
     def _get_referral_email_text(self, recipient_name: str, sender_name: str, referral_url: str) -> str:
         return f"""Hi {recipient_name},
 
-{sender_name} has invited you to join Kortix using a personal referral code.
+{sender_name} has invited you to join Omni using a personal referral code.
 
 When you sign up using this link, both you and {sender_name} will receive 100 in non-expiring credits 🎁
 
@@ -302,6 +302,6 @@ What You Both Get:
 Claim your invite: {referral_url}
 
 ---
-© Kortix AI Corp. All rights reserved."""
+© Omni AI Corp. All rights reserved."""
 
 email_service = EmailService() 

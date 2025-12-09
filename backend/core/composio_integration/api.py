@@ -848,7 +848,7 @@ async def create_composio_trigger(req: CreateComposioTriggerRequest, current_use
         if req.agent_prompt:
             suna_config["agent_prompt"] = req.agent_prompt
 
-        # Create Suna trigger
+        # Create Omni trigger
         trigger_service = get_trigger_service(db)
         trigger = await trigger_service.create_trigger(
             agent_id=req.agent_id,

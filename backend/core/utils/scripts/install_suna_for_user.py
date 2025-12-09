@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Suna Agent Installation Script for Individual Users
+Omni Agent Installation Script for Individual Users
 
-Simple script to install Suna agents for users by email address or account ID.
+Simple script to install Omni agents for users by email address or account ID.
 
 Usage:
-    # Install Suna for a user by email
+    # Install Omni for a user by email
     python install_suna_for_user.py user@example.com
     
-    # Install Suna for a user by account ID
+    # Install Omni for a user by account ID
     python install_suna_for_user.py abc123-def456-ghi789
     
     # Install with replacement (if agent already exists)
@@ -33,15 +33,15 @@ from typing import Optional, Dict, Any
 backend_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(backend_dir))
 
-from core.utils.suna_default_agent_service import SunaDefaultAgentService
+from core.utils.suna_default_agent_service import OmniDefaultAgentService
 from core.services.supabase import DBConnection
 from core.utils.logger import logger
 
 
-class SunaUserInstaller:
+class OmniUserInstaller:
     def __init__(self):
         self.db = DBConnection()
-        self.service = SunaDefaultAgentService(self.db)
+        self.service = OmniDefaultAgentService(self.db)
     
     async def initialize(self):
         await self.db.initialize()
@@ -121,22 +121,22 @@ class SunaUserInstaller:
         account_id = account['id']
         print(f"✅ Found account: {account['name']} ({account_id})")
         
-        print(f"🚀 Installing Suna agent...")
+        print(f"🚀 Installing Omni agent...")
         agent_id = await self.service.install_suna_agent_for_user(
             account_id, 
             replace_existing=replace
         )
         
         if agent_id:
-            print(f"✅ Successfully installed Suna agent!")
+            print(f"✅ Successfully installed Omni agent!")
             print(f"   🤖 Agent ID: {agent_id}")
             print(f"   👤 User: {email}")
             print(f"   📦 Account: {account_id}")
         else:
-            print(f"❌ Failed to install Suna agent for {email}")
+            print(f"❌ Failed to install Omni agent for {email}")
     
     async def install_for_account_id(self, account_id: str, replace: bool = False):
-        print(f"🚀 Installing Suna agent for account: {account_id}")
+        print(f"🚀 Installing Omni agent for account: {account_id}")
         
         try:
             agent_id = await self.service.install_suna_agent_for_user(
@@ -145,11 +145,11 @@ class SunaUserInstaller:
             )
             
             if agent_id:
-                print(f"✅ Successfully installed Suna agent!")
+                print(f"✅ Successfully installed Omni agent!")
                 print(f"   🤖 Agent ID: {agent_id}")
                 print(f"   📦 Account: {account_id}")
             else:
-                print(f"❌ Failed to install Suna agent for account {account_id}")
+                print(f"❌ Failed to install Omni agent for account {account_id}")
         
         except Exception as e:
             print(f"❌ Error: {str(e)}")
@@ -159,20 +159,20 @@ class SunaUserInstaller:
 
 async def main():
     parser = argparse.ArgumentParser(
-        description="Install Suna agent for a user by email or account ID",
+        description="Install Omni agent for a user by email or account ID",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__
     )
     
     parser.add_argument('identifier', help='Email address or account ID (UUID) of the user')
     parser.add_argument('--replace', action='store_true', 
-                       help='Replace existing Suna agent if present')
+                       help='Replace existing Omni agent if present')
     parser.add_argument('--account-id', action='store_true',
                        help='Treat identifier as account ID instead of email')
     
     args = parser.parse_args()
     
-    installer = SunaUserInstaller()
+    installer = OmniUserInstaller()
     
     try:
         await installer.initialize()

@@ -98,7 +98,7 @@ async def initialize():
         from core.runtime_cache import warm_up_suna_config_cache
         await warm_up_suna_config_cache()
     except Exception as e:
-        logger.warning(f"Failed to pre-cache Suna configs (non-fatal): {e}")
+        logger.warning(f"Failed to pre-cache Omni configs (non-fatal): {e}")
     
     if not _STATIC_CORE_PROMPT:
         try:
@@ -184,7 +184,7 @@ async def load_agent_config(agent_id: Optional[str], account_id: Optional[str]) 
                 'custom_mcps': cached_mcps.get('custom_mcps', []),
                 'triggers': cached_mcps.get('triggers', []),
             }
-            logger.info(f"⏱️ [TIMING] ⚡ Suna config from memory + Redis MCPs: {(time.time() - t) * 1000:.1f}ms")
+            logger.info(f"⏱️ [TIMING] ⚡ Omni config from memory + Redis MCPs: {(time.time() - t) * 1000:.1f}ms")
         else:
             cached_config = await get_cached_agent_config(agent_id)
             

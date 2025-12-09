@@ -29,7 +29,7 @@ import { getPdfUrl } from '@/components/thread/tool-views/utils/presentation-uti
 import { useTranslations } from 'next-intl';
 import { PromptExamples } from '@/components/shared/prompt-examples';
 
-interface SunaModesPanelProps {
+interface OmniModesPanelProps {
   selectedMode: string | null;
   onModeSelect: (mode: string | null) => void;
   onSelectPrompt: (prompt: string) => void;
@@ -1095,7 +1095,7 @@ const ChartIcon = ({ type, className }: { type: string; className?: string }) =>
   }
 };
 
-export function SunaModesPanel({ 
+export function OmniModesPanel({ 
   selectedMode, 
   onModeSelect, 
   onSelectPrompt, 
@@ -1106,7 +1106,7 @@ export function SunaModesPanel({
   onOutputFormatChange,
   selectedTemplate: controlledSelectedTemplate,
   onTemplateChange
-}: SunaModesPanelProps) {
+}: OmniModesPanelProps) {
   const t = useTranslations('suna');
   const currentMode = selectedMode ? modes.find((m) => m.id === selectedMode) : null;
   const promptCount = isMobile ? 2 : 4;

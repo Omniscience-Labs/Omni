@@ -39,10 +39,10 @@ import {
 } from '@/components/ui/drawer';
 import { useDocumentModalStore } from '@/stores/use-document-modal-store';
 import { 
-  useKortixComputerStore, 
+  useOmniComputerStore, 
   ViewType,
-  useKortixComputerPendingToolNavIndex,
-  useKortixComputerClearPendingToolNav,
+  useOmniComputerPendingToolNavIndex,
+  useOmniComputerClearPendingToolNav,
 } from '@/stores/kortix-computer-store';
 import { FileBrowserView } from './FileBrowserView';
 import { FileViewerView } from './FileViewerView';
@@ -65,7 +65,7 @@ export interface ToolCallInput {
   messages?: ApiMessageType[];
 }
 
-interface KortixComputerProps {
+interface OmniComputerProps {
   isOpen: boolean;
   onClose: () => void;
   toolCalls: ToolCallInput[];
@@ -236,7 +236,7 @@ const PanelHeader = memo(function PanelHeader({
   onViewChange,
   showFilesTab = true,
 }: PanelHeaderProps) {
-  const title = "Kortix Computer";
+  const title = "Omni Computer";
 
   if (variant === 'drawer') {
     return (
@@ -500,7 +500,7 @@ interface LoadingStateProps {
 }
 
 const LoadingState = memo(function LoadingState({ agentName, onClose, isMobile }: LoadingStateProps) {
-  const { activeView, setActiveView } = useKortixComputerStore();
+  const { activeView, setActiveView } = useOmniComputerStore();
   
   if (isMobile) {
     return (
@@ -560,7 +560,7 @@ LoadingState.displayName = 'LoadingState';
 // Main Component
 // ============================================================================
 
-export const KortixComputer = memo(function KortixComputer({
+export const OmniComputer = memo(function OmniComputer({
   isOpen,
   onClose,
   toolCalls,
@@ -578,7 +578,7 @@ export const KortixComputer = memo(function KortixComputer({
   streamingText,
   sandboxId,
   projectId,
-}: KortixComputerProps) {
+}: OmniComputerProps) {
   const t = useTranslations('thread');
   const [dots, setDots] = useState('');
   const [internalIndex, setInternalIndex] = useState(0);
@@ -591,17 +591,17 @@ export const KortixComputer = memo(function KortixComputer({
   const { isOpen: isDocumentModalOpen } = useDocumentModalStore();
   const sandbox = project?.sandbox;
 
-  // Kortix Computer Store
+  // Omni Computer Store
   const { 
     activeView, 
     filesSubView, 
     selectedFilePath,
     setActiveView,
-  } = useKortixComputerStore();
+  } = useOmniComputerStore();
   
   // Pending tool navigation from store (triggered by clicking tool in ThreadContent)
-  const pendingToolNavIndex = useKortixComputerPendingToolNavIndex();
-  const clearPendingToolNav = useKortixComputerClearPendingToolNav();
+  const pendingToolNavIndex = useOmniComputerPendingToolNavIndex();
+  const clearPendingToolNav = useOmniComputerClearPendingToolNav();
 
   const currentViewRef = useRef(activeView);
 

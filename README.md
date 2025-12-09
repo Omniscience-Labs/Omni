@@ -1,15 +1,15 @@
 <div align="center">
 
-# Kortix
+# Omni
 
 **The complete platform for creating autonomous AI agents that work for you**
 
 Build, manage, and train sophisticated AI agents for any use case. Create powerful agents that act autonomously on your behalf.
 
 [![Discord Follow](https://dcbadge.limes.pink/api/server/Py6pCBUUPw?style=flat)](https://discord.gg/RvFhXUdZ9H)
-[![Twitter Follow](https://img.shields.io/twitter/follow/kortix)](https://x.com/korti)
-[![GitHub Repo stars](https://img.shields.io/github/stars/kortix-ai/suna)](https://github.com/kortix-ai/suna)
-[![Issues](https://img.shields.io/github/issues/kortix-ai/suna)](https://github.com/kortix-ai/suna/labels/bug)
+[![Twitter Follow](https://img.shields.io/twitter/follow/omnilabs)](https://x.com/omnilabs)
+[![GitHub Repo stars](https://img.shields.io/github/stars/Omniscience-Labs/Omni)](https://github.com/Omniscience-Labs/Omni)
+[![Issues](https://img.shields.io/github/issues/Omniscience-Labs/Omni)](https://github.com/Omniscience-Labs/Omni/labels/bug)
 
 <!-- Keep these links. Translations will automatically update with the README. -->
 [Deutsch](https://www.readme-i18n.com/kortix-ai/suna?lang=de) | 
@@ -21,19 +21,19 @@ Build, manage, and train sophisticated AI agents for any use case. Create powerf
 [Русский](https://www.readme-i18n.com/kortix-ai/suna?lang=ru) | 
 [中文](https://www.readme-i18n.com/kortix-ai/suna?lang=zh)
 
-![Kortix Screenshot](frontend/public/banner.png)
+![Omni Screenshot](frontend/public/banner.png)
 </div>
 
 
 
 
-## 🌟 What Makes Kortix Special
+## 🌟 What Makes Omni Special
 
-### 🤖 Includes Suna – Flagship Generalist AI Worker
-Meet Suna, our showcase agent that demonstrates the full power of the Kortix platform. Through natural conversation, Suna handles research, data analysis, browser automation, file management, and complex workflows – showing you what's possible when you build with Kortix.
+### 🤖 Powerful AI Worker Platform
+Omni is a sophisticated platform that demonstrates the full power of autonomous AI agents. Through natural conversation, Omni handles research, data analysis, browser automation, file management, and complex workflows – providing you with a complete AI worker solution.
 
-### 🔧 Build Custom Suna-Type Agents
-Create your own specialized agents tailored to specific domains, workflows, or business needs. Whether you need agents for customer service, data processing, content creation, or industry-specific tasks, Kortix provides the infrastructure and tools to build, deploy, and scale them.
+### 🔧 Build Custom AI Agents
+Create your own specialized agents tailored to specific domains, workflows, or business needs. Whether you need agents for customer service, data processing, content creation, or industry-specific tasks, Omni provides the infrastructure and tools to build, deploy, and scale them.
 
 ### 🚀 Complete Platform Capabilities
 - **Browser Automation**: Navigate websites, extract data, fill forms, automate web workflows

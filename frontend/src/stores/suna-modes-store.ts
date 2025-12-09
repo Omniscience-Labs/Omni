@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface SunaModesState {
+interface OmniModesState {
   selectedMode: string | null;
   selectedCharts: string[];
   selectedOutputFormat: string | null;
@@ -13,7 +13,7 @@ interface SunaModesState {
   setSelectedTemplate: (template: string | null) => void;
 }
 
-export const useSunaModesStore = create<SunaModesState>()(
+export const useOmniModesStore = create<OmniModesState>()(
   persist(
     (set, get) => ({
       selectedMode: null,
@@ -58,8 +58,8 @@ export const useSunaModesStore = create<SunaModesState>()(
 );
 
 // Convenience hook for backward compatibility
-export function useSunaModePersistence() {
-  const store = useSunaModesStore();
+export function useOmniModePersistence() {
+  const store = useOmniModesStore();
   
   return {
     selectedMode: store.selectedMode,

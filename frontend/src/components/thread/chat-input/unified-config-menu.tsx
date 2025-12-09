@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Search, Check, ChevronDown, Plus, Loader2, Plug, Brain, LibraryBig, Zap, Lock, Sparkles, ChevronLeft } from 'lucide-react';
 import { useAgents } from '@/hooks/agents/use-agents';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/kortix-logo';
 import type { ModelOption } from '@/hooks/agents';
 import { SpotlightCard } from '@/components/ui/spotlight-card';
 
@@ -38,14 +38,14 @@ import { useAccountState, accountStateSelectors } from '@/hooks/billing';
 import { isLocalMode } from '@/lib/config';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
-// Helper to render model labels with special styling for Kortix modes
+// Helper to render model labels with special styling for Omni modes
 const ModelLabel = ({ label, className }: { label: string; className?: string }) => {
-    if (label === 'Kortix POWER Mode') {
+    if (label === 'Omni POWER Mode') {
         return (
             <span className={cn("flex items-center gap-2 flex-wrap", className)}>
-                <span className="font-medium">Kortix</span>
+                <span className="font-medium">Omni</span>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 dark:bg-primary/15 rounded-full flex-shrink-0">
-                    <KortixLogo size={12} variant="symbol" />
+                    <OmniLogo size={12} variant="symbol" />
                     <span className="text-[11px] font-semibold tracking-wide uppercase text-primary whitespace-nowrap">
                         Power
                     </span>
@@ -53,10 +53,10 @@ const ModelLabel = ({ label, className }: { label: string; className?: string })
             </span>
         );
     }
-    if (label === 'Kortix Basic') {
+    if (label === 'Omni Basic') {
         return (
             <span className={cn("flex items-center gap-2 flex-wrap", className)}>
-                <span className="font-medium">Kortix</span>
+                <span className="font-medium">Omni</span>
                 <span className="text-xs font-medium text-muted-foreground px-1.5 py-0.5 bg-muted/50 rounded-md flex-shrink-0 whitespace-nowrap">
                     Basic
                 </span>
@@ -156,9 +156,9 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
         return agents.find(a => a.metadata?.is_suna_default === true);
     }, [agents]);
     
-    const placeholderSunaAgent = useMemo(() => ({
+    const placeholderOmniAgent = useMemo(() => ({
         agent_id: undefined,
-        name: 'Suna',
+        name: 'Omni',
         metadata: { is_suna_default: true }
     }), []);
 
@@ -226,7 +226,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
 
     const renderAgentIcon = useCallback((agent: any, size: number = 32) => {
         if (!agent && (isLoading || sunaAgent)) {
-            return <AgentAvatar isSunaDefault={true} agentName="Suna" size={size} className="flex-shrink-0 !border-0" />;
+            return <AgentAvatar isOmniDefault={true} agentName="Omni" size={size} className="flex-shrink-0 !border-0" />;
         }
         return <AgentAvatar agent={agent} agentId={agent?.agent_id} size={size} className="flex-shrink-0 !border-0" />;
     }, [isLoading, sunaAgent]);
@@ -375,8 +375,8 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
     ), [isFreeTier, openPricingModal]);
 
     const ModeToggle = useCallback(({ compact = false }: { compact?: boolean }) => {
-        const basicModel = modelOptions.find(m => m.id === 'kortix/basic' || m.label === 'Kortix Basic');
-        const powerModel = modelOptions.find(m => m.id === 'kortix/power' || m.label === 'Kortix POWER Mode');
+        const basicModel = modelOptions.find(m => m.id === 'kortix/basic' || m.label === 'Omni Basic');
+        const powerModel = modelOptions.find(m => m.id === 'kortix/power' || m.label === 'Omni POWER Mode');
         
         const canAccessPower = powerModel ? canAccessModel(powerModel.id) : false;
         const isPowerSelected = powerModel && selectedModel === powerModel.id;
@@ -418,7 +418,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
                                 setIsOpen(false);
                                 usePricingModalStore.getState().openPricingModal({ 
                                     isAlert: true, 
-                                    alertTitle: 'Upgrade to access Kortix Power mode'
+                                    alertTitle: 'Upgrade to access Omni Power mode'
                                 });
                             }
                         }
@@ -433,7 +433,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
                                 : "text-muted-foreground/50"
                     )}
                 >
-                    <KortixLogo size={compact ? 10 : 12} variant="symbol" />
+                    <OmniLogo size={compact ? 10 : 12} variant="symbol" />
                     <span className={cn(
                         "font-medium",
                         compact ? "text-xs" : "text-sm",
@@ -559,10 +559,10 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
                                 className="w-full flex items-center gap-3 p-3 rounded-2xl border border-border bg-card hover:bg-muted/50 active:bg-muted/70 transition-colors"
                             >
                                 <div className="flex items-center justify-center w-10 h-10 bg-card border-[1.5px] border-border flex-shrink-0" style={{ borderRadius: '10.4px' }}>
-                                    {renderAgentIcon(isLoading && !displayAgent ? placeholderSunaAgent : displayAgent, 40)}
+                                    {renderAgentIcon(isLoading && !displayAgent ? placeholderOmniAgent : displayAgent, 40)}
                                 </div>
                                 <span className="flex-1 truncate text-base font-medium text-left min-w-0">
-                                    {displayAgent?.name || 'Suna'}
+                                    {displayAgent?.name || 'Omni'}
                                 </span>
                                 <ChevronDown className="h-5 w-5 text-muted-foreground rotate-[-90deg] flex-shrink-0" />
                             </button>
@@ -586,7 +586,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
                 )}
             </div>
         );
-    }, [mobileSection, searchQuery, onAgentSelect, displayAgent, isLoading, placeholderSunaAgent, renderAgentIcon, selectedAgentId, AgentsList, CreateWorkerButton, ModeToggle, WorkerSettingsButtons]);
+    }, [mobileSection, searchQuery, onAgentSelect, displayAgent, isLoading, placeholderOmniAgent, renderAgentIcon, selectedAgentId, AgentsList, CreateWorkerButton, ModeToggle, WorkerSettingsButtons]);
 
     // Trigger button
     const TriggerButton = (
@@ -599,15 +599,15 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
         >
             {onAgentSelect ? (
                 <div className="flex items-center gap-2 min-w-0 max-w-[180px]">
-                    {renderAgentIcon(isLoading && !displayAgent ? placeholderSunaAgent : displayAgent, 24)}
+                    {renderAgentIcon(isLoading && !displayAgent ? placeholderOmniAgent : displayAgent, 24)}
                     <span className="truncate text-sm font-medium">
-                        {displayAgent?.name || 'Suna'}
+                        {displayAgent?.name || 'Omni'}
                     </span>
                     <ChevronDown size={12} className="opacity-60 flex-shrink-0" />
                 </div>
             ) : (
                 <div className="flex items-center gap-1.5">
-                    <KortixLogo size={20} />
+                    <OmniLogo size={20} />
                     <ChevronDown size={12} className="opacity-60" />
                 </div>
             )}
@@ -657,9 +657,9 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
                                             <DropdownMenuSub>
                                                 <DropdownMenuSubTrigger className="flex items-center gap-3 text-sm cursor-pointer px-1 py-1 hover:bg-transparent focus:bg-transparent data-[state=open]:bg-transparent w-full">
                                                     <div className="flex items-center justify-center w-8 h-8 bg-card border-[1.5px] border-border flex-shrink-0" style={{ borderRadius: '10.4px' }}>
-                                                        {renderAgentIcon(isLoading && !displayAgent ? placeholderSunaAgent : displayAgent)}
+                                                        {renderAgentIcon(isLoading && !displayAgent ? placeholderOmniAgent : displayAgent)}
                                                     </div>
-                                                    <span className="flex-1 truncate font-medium text-left">{displayAgent?.name || 'Suna'}</span>
+                                                    <span className="flex-1 truncate font-medium text-left">{displayAgent?.name || 'Omni'}</span>
                                                 </DropdownMenuSubTrigger>
                                                 <DropdownMenuPortal>
                                                     <DropdownMenuSubContent className="w-[320px] px-0 py-3 border-[1.5px] border-border rounded-2xl max-h-[500px] overflow-hidden" sideOffset={8}>
@@ -754,9 +754,9 @@ const GuestMenu: React.FC<UnifiedConfigMenuProps> = memo(function GuestMenu() {
                     >
                         <div className="flex items-center gap-2 min-w-0 max-w-[180px]">
                             <div className="flex-shrink-0">
-                                <KortixLogo size={20} />
+                                <OmniLogo size={20} />
                             </div>
-                            <span className="truncate text-sm font-medium">Suna</span>
+                            <span className="truncate text-sm font-medium">Omni</span>
                             <ChevronDown size={12} className="opacity-60 flex-shrink-0" />
                         </div>
                     </Button>

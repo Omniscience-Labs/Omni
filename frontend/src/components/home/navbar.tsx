@@ -14,7 +14,7 @@ import { useTheme } from 'next-themes';
 import { useAuth } from '@/components/AuthProvider';
 import { useGitHubStars } from '@/hooks/utils';
 import { useRouter, usePathname } from 'next/navigation';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/kortix-logo';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 
@@ -143,7 +143,7 @@ export function Navbar({ tabs }: NavbarProps = {}) {
             {/* Left Section - Logo */}
             <div className="flex items-center justify-start flex-shrink-0 w-auto md:w-[200px]">
               <Link href="/" className="flex items-center gap-3">
-                <KortixLogo size={18} variant='logomark' />
+                <OmniLogo size={18} variant='logomark' />
               </Link>
             </div>
             {/* 
@@ -224,7 +224,7 @@ export function Navbar({ tabs }: NavbarProps = {}) {
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                   <Link href="/" className="flex items-center gap-3" onClick={() => setIsDrawerOpen(false)}>
-                    <KortixLogo size={20} variant='logomark' />
+                    <OmniLogo size={20} variant='logomark' />
                   </Link>
                   <button
                     onClick={toggleDrawer}

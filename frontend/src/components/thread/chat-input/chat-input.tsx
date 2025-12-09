@@ -19,7 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { X, Image as ImageIcon, Presentation, BarChart3, FileText, Search, Users, Code2, Sparkles, Brain as BrainIcon, MessageSquare, CornerDownLeft, Plug, Lock } from 'lucide-react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { OmniLoader } from '@/components/ui/kortix-loader';
 import { VoiceRecorder } from './voice-recorder';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -392,21 +392,21 @@ const ModeButton = memo(function ModeButton({
   );
 });
 
-// Suna agent modes switcher - isolated from typing state
-interface SunaAgentModeSwitcherProps {
+// Omni agent modes switcher - isolated from typing state
+interface OmniAgentModeSwitcherProps {
   enabled: boolean;
-  isSunaAgent: boolean;
+  isOmniAgent: boolean;
   sunaAgentModes: 'adaptive' | 'autonomous' | 'chat';
   onModeChange: (mode: 'adaptive' | 'autonomous' | 'chat') => void;
 }
 
-const SunaAgentModeSwitcher = memo(function SunaAgentModeSwitcher({
+const OmniAgentModeSwitcher = memo(function OmniAgentModeSwitcher({
   enabled,
-  isSunaAgent,
+  isOmniAgent,
   sunaAgentModes,
   onModeChange,
-}: SunaAgentModeSwitcherProps) {
-  if (!enabled || !(isStagingMode() || isLocalMode()) || !isSunaAgent) return null;
+}: OmniAgentModeSwitcherProps) {
+  if (!enabled || !(isStagingMode() || isLocalMode()) || !isOmniAgent) return null;
 
   return (
     <div className="flex items-center gap-1 p-0.5 bg-muted/50 rounded-lg">
@@ -533,7 +533,7 @@ const SubmitButton = memo(function SubmitButton({
             disabled={isDisabled}
           >
             {((loading || isUploading) && !isAgentRunning) ? (
-              <KortixLoader size="small" customSize={20} variant={buttonLoaderVariant} />
+              <OmniLoader size="small" customSize={20} variant={buttonLoaderVariant} />
             ) : showAddToQueue ? (
               <MessageSquare className="h-4 w-4" />
             ) : isAgentRunning ? (
@@ -706,9 +706,9 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
     const [agentConfigDialog, setAgentConfigDialog] = useState<{ open: boolean; tab: 'instructions' | 'knowledge' | 'triggers' | 'tools' | 'integrations' }>({ open: false, tab: 'instructions' });
     const [mounted, setMounted] = useState(false);
     const [animatedPlaceholder, setAnimatedPlaceholder] = useState('');
-    const [isModeDismissing, setIsModeDismissing] = useState(false);    // Suna Agent Modes feature flag
+    const [isModeDismissing, setIsModeDismissing] = useState(false);    // Omni Agent Modes feature flag
     const ENABLE_SUNA_AGENT_MODES = false;
-    const [sunaAgentModes, setSunaAgentModes] = useState<'adaptive' | 'autonomous' | 'chat'>('adaptive');
+    const [sunaAgentModes, setOmniAgentModes] = useState<'adaptive' | 'autonomous' | 'chat'>('adaptive');
 
     const {
       selectedModel,
@@ -837,12 +837,12 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
     const { data: agentsResponse, isLoading: isLoadingAgents } = useAgents({}, { enabled: isLoggedIn });
     const agents = agentsResponse?.agents || [];
 
-    // Check if selected agent is Suna based on agent data
-    // While loading, default to Suna (assume Suna is the default agent)
+    // Check if selected agent is Omni based on agent data
+    // While loading, default to Omni (assume Omni is the default agent)
     const selectedAgent = agents.find(agent => agent.agent_id === selectedAgentId);
     const sunaAgent = agents.find(agent => agent.metadata?.is_suna_default === true);
-    const isSunaAgent = isLoadingAgents 
-        ? true // Show Suna modes while loading
+    const isOmniAgent = isLoadingAgents 
+        ? true // Show Omni modes while loading
         : (selectedAgent?.metadata?.is_suna_default || (!selectedAgentId && sunaAgent !== undefined) || false);
 
     const { initializeFromAgents } = useAgentSelection();
@@ -1232,11 +1232,11 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
           onOpenPlanModal={handleOpenPlanModal}
         />
 
-        <SunaAgentModeSwitcher
+        <OmniAgentModeSwitcher
           enabled={ENABLE_SUNA_AGENT_MODES}
-          isSunaAgent={isSunaAgent}
+          isOmniAgent={isOmniAgent}
           sunaAgentModes={sunaAgentModes}
-          onModeChange={setSunaAgentModes}
+          onModeChange={setOmniAgentModes}
         />
 
         {onModeDeselect && (
@@ -1247,7 +1247,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
           />
         )}
       </div>
-    ), [hideAttachments, loading, disabled, isAgentRunning, isUploading, sandboxId, projectId, messages, isLoggedIn, isFreeTier, quickIntegrations, integrationIcons, handleOpenRegistry, handleOpenPlanModal, isSunaAgent, sunaAgentModes, onModeDeselect, selectedMode, isModeDismissing, handleModeDeselect]);
+    ), [hideAttachments, loading, disabled, isAgentRunning, isUploading, sandboxId, projectId, messages, isLoggedIn, isFreeTier, quickIntegrations, integrationIcons, handleOpenRegistry, handleOpenPlanModal, isOmniAgent, sunaAgentModes, onModeDeselect, selectedMode, isModeDismissing, handleModeDeselect]);
 
     const rightControls = useMemo(() => (
       <div className='flex items-center gap-2 flex-shrink-0'>
@@ -1423,7 +1423,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
                     {(isUploading && pendingFiles.length > 0) && (
                       <div className="absolute inset-0 bg-background/50 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">
                         <div className="flex items-center gap-2 bg-background/90 px-3 py-2 rounded-lg border border-border">
-                          <KortixLoader size="small" customSize={16} variant="auto" />
+                          <OmniLoader size="small" customSize={16} variant="auto" />
                           <span className="text-sm">Uploading {pendingFiles.length} file{pendingFiles.length !== 1 ? 's' : ''}...</span>
                         </div>
                       </div>
@@ -1431,7 +1431,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
                     {isSendingFiles && !isUploading && (
                       <div className="absolute inset-0 bg-background/50 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">
                         <div className="flex items-center gap-2 bg-background/90 px-3 py-2 rounded-lg border border-border">
-                          <KortixLoader size="small" customSize={16} variant="auto" />
+                          <OmniLoader size="small" customSize={16} variant="auto" />
                           <span className="text-sm">Sending {uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''}...</span>
                         </div>
                       </div>

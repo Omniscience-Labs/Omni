@@ -240,7 +240,7 @@ export function SiteHeader({
                 </Button>
               </TooltipTrigger>
               <TooltipContent side={isMobile ? "bottom" : "bottom"}>
-                <p>{isSidePanelOpen ? 'Close' : 'Open'} Kortix Computer (CMD+I)</p>
+                <p>{isSidePanelOpen ? 'Close' : 'Open'} Omni Computer (CMD+I)</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

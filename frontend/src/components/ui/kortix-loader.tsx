@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 
-interface KortixLoaderProps {
+interface OmniLoaderProps {
   /**
    * Size preset for the loader
    * @default 'medium'
@@ -58,7 +58,7 @@ const SIZE_MAP = {
 } as const;
 
 /**
- * KortixLoader - A unified loading animation component
+ * OmniLoader - A unified loading animation component
  * 
  * Uses separate Lottie animations (white and black) that dynamically load
  * based on the current theme or can be explicitly set.
@@ -78,19 +78,19 @@ const SIZE_MAP = {
  * @example
  * ```tsx
  * // Auto-themed (default)
- * <KortixLoader />
+ * <OmniLoader />
  * 
  * // Always white (for dark backgrounds in any theme)
- * <KortixLoader variant="white" />
+ * <OmniLoader variant="white" />
  * 
  * // Always black (for light backgrounds in any theme)
- * <KortixLoader variant="black" />
+ * <OmniLoader variant="black" />
  * 
  * // Custom size
- * <KortixLoader size="large" />
+ * <OmniLoader size="large" />
  * ```
  */
-export function KortixLoader({
+export function OmniLoader({
   size = 'medium',
   speed = 1.2,
   customSize,
@@ -100,7 +100,7 @@ export function KortixLoader({
   loop = true,
   variant = 'auto',
   forceTheme, // deprecated, but kept for backwards compatibility
-}: KortixLoaderProps) {
+}: OmniLoaderProps) {
   const { resolvedTheme } = useTheme();
   const loaderSize = customSize || SIZE_MAP[size];
   

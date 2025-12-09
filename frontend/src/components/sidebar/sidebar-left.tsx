@@ -10,7 +10,7 @@ import { NavAgentsView } from '@/components/sidebar/nav-agents-view';
 import { NavGlobalConfig } from '@/components/sidebar/nav-global-config';
 import { NavTriggerRuns } from '@/components/sidebar/nav-trigger-runs';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/kortix-logo';
 import { siteConfig } from '@/lib/site-config';
 import {
   Sidebar,
@@ -226,7 +226,7 @@ export function SidebarLeft({
           <div className="flex h-[32px] items-center justify-center">
             <div className="relative flex items-center justify-center w-fit group/logo">
               <Link href="/dashboard" onClick={() => isMobile && setOpenMobile(false)}>
-                <KortixLogo size={20} className="flex-shrink-0 opacity-100 group-hover/logo:opacity-0 transition-opacity" />
+                <OmniLogo size={20} className="flex-shrink-0 opacity-100 group-hover/logo:opacity-0 transition-opacity" />
               </Link>
               <Button
                 variant="ghost"
@@ -243,7 +243,7 @@ export function SidebarLeft({
           <div className={cn("flex h-[32px] items-center justify-between min-w-[200px]")}>
             <div className="pl-2 relative flex items-center justify-center w-fit">
               <Link href="/dashboard" onClick={() => isMobile && setOpenMobile(false)}>
-                <KortixLogo size={20} className="flex-shrink-0 transition-transform duration-700 ease-in-out hover:rotate-180" />
+                <OmniLogo size={20} className="flex-shrink-0 transition-transform duration-700 ease-in-out hover:rotate-180" />
               </Link>
             </div>
             <div className="flex items-center gap-1">
@@ -430,11 +430,11 @@ export function SidebarLeft({
               <p className="text-xs text-muted-foreground mb-4">
                 Request custom AI Workers implementation
               </p>
-              <KortixProcessModal>
+              <OmniProcessModal>
                 <Button size="sm" className="w-full text-xs h-8">
                   Learn More
                 </Button>
-              </KortixProcessModal>
+              </OmniProcessModal>
             </div>
           </div>
         )

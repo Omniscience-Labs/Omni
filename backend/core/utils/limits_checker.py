@@ -169,7 +169,7 @@ async def check_agent_count_limit(client, account_id: str) -> Dict[str, Any]:
                 non_suna_agents.append(agent)
                 
         current_count = len(non_suna_agents)
-        logger.debug(f"Account {account_id} has {current_count} custom agents (excluding Suna defaults)")
+        logger.debug(f"Account {account_id} has {current_count} custom agents (excluding Omni defaults)")
         
         try:
             from core.billing import subscription_service
