@@ -2,7 +2,7 @@
  * Site metadata configuration - SIMPLE AND WORKING
  */
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kortix.com';
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.becomeomni.ai';
 
 export const siteMetadata = {
   name: 'Omni',

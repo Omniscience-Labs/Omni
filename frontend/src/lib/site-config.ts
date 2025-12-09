@@ -23,9 +23,9 @@ export const siteConfig = {
     {
       title: 'Omni',
       links: [
-        { id: 1, title: 'About', url: 'https://www.kortix.com' },
-        { id: 3, title: 'Contact', url: 'mailto:hey@kortix.com' },
-        { id: 4, title: 'Careers', url: 'https://www.kortix.com/careers' },
+        { id: 1, title: 'About', url: 'https://www.becomeomni.ai' },
+        { id: 3, title: 'Contact', url: 'mailto:hey@becomeomni.ai' },
+        { id: 4, title: 'Careers', url: 'https://www.becomeomni.ai/careers' },
       ],
     },
     {
@@ -34,10 +34,10 @@ export const siteConfig = {
         {
           id: 5,
           title: 'Documentation',
-          url: 'https://github.com/kortix-ai/suna',
+          url: 'https://github.com/Omniscience-Labs/Omni',
         },
         { id: 7, title: 'Discord', url: 'https://discord.gg/Py6pCBUUPw' },
-        { id: 8, title: 'GitHub', url: 'https://github.com/kortix-ai/suna' },
+        { id: 8, title: 'GitHub', url: 'https://github.com/Omniscience-Labs/Omni' },
       ],
     },
     {
@@ -46,17 +46,17 @@ export const siteConfig = {
         {
           id: 9,
           title: 'Privacy Policy',
-          url: 'https://www.kortix.com/legal?tab=privacy',
+          url: 'https://www.becomeomni.ai/legal?tab=privacy',
         },
         {
           id: 10,
           title: 'Terms of Service',
-          url: 'https://www.kortix.com/legal?tab=terms',
+          url: 'https://www.becomeomni.ai/legal?tab=terms',
         },
         {
           id: 11,
           title: 'License',
-          url: 'https://github.com/kortix-ai/suna/blob/main/LICENSE',
+          url: 'https://github.com/Omniscience-Labs/Omni/blob/main/LICENSE',
         },
       ],
     },

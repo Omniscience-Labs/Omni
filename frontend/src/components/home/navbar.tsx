@@ -69,7 +69,7 @@ export function Navbar({ tabs }: NavbarProps = {}) {
   const { theme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const { user } = useAuth();
-  const { formattedStars, loading: starsLoading } = useGitHubStars('kortix-ai', 'suna');
+  const { formattedStars, loading: starsLoading } = useGitHubStars('Omniscience-Labs', 'Omni');
   const router = useRouter();
   const pathname = usePathname();
   const t = useTranslations('common');
@@ -157,7 +157,7 @@ export function Navbar({ tabs }: NavbarProps = {}) {
                 <div className="flex items-center space-x-3">
                   <LocaleSwitcher variant="compact" />
                   <Link
-                    href="https://github.com/kortix-ai/suna"
+                    href="https://github.com/Omniscience-Labs/Omni"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 h-7 px-2.5 text-xs font-medium rounded-full bg-transparent text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/30 transition-all duration-200"
@@ -312,7 +312,7 @@ export function Navbar({ tabs }: NavbarProps = {}) {
                   <div className="flex items-center gap-2">
                     {/* GitHub Stars Link */}
                     <Link
-                      href="https://github.com/kortix-ai/suna"
+                      href="https://github.com/Omniscience-Labs/Omni"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1.5 h-9 px-3 text-xs font-medium rounded-lg bg-accent/50 hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 flex-1 min-w-0"
