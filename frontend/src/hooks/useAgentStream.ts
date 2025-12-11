@@ -424,19 +424,33 @@ export function useAgentStream(
         case 'status':
           switch (parsedContent.status_type) {
             case 'tool_started':
-              setToolCall({
-                role: 'assistant',
-                status_type: 'tool_started',
-                name: parsedContent.function_name,
-                arguments: parsedContent.arguments,
-                xml_tag_name: parsedContent.xml_tag_name,
-                tool_index: parsedContent.tool_index,
-              });
+              // Create a UnifiedMessage with tool call data in metadata
+              const toolStartedMessage: UnifiedMessage = {
+                message_id: `tool-started-${Date.now()}`,
+                thread_id: '',
+                type: 'assistant',
+                is_llm_message: true,
+                content: JSON.stringify({ role: 'assistant', content: '' }),
+                metadata: JSON.stringify({
+                  stream_status: 'tool_started',
+                  tool_calls: [{
+                    function_name: parsedContent.function_name,
+                    arguments: parsedContent.arguments,
+                    xml_tag_name: parsedContent.xml_tag_name,
+                    tool_index: parsedContent.tool_index,
+                  }]
+                }),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              };
+              setToolCall(toolStartedMessage);
               break;
             case 'tool_completed':
             case 'tool_failed':
             case 'tool_error':
-              if (toolCall?.tool_index === parsedContent.tool_index) {
+              // Clear the streaming tool call when any tool completes/fails/errors
+              // For now, just clear it - the matching logic would need to extract tool_index from metadata
+              if (toolCall) {
                 setToolCall(null);
               }
               break;
