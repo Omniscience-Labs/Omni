@@ -546,7 +546,10 @@ class ThreadManager:
                             elif chunk.get('type') == 'status':
                                 try:
                                     content = json.loads(chunk.get('content', '{}'))
+                                    # Skip finish chunks that trigger auto-continue
                                     if content.get('finish_reason') == 'length':
+                                        continue
+                                    if content.get('tools_executed') == True and content.get('status_type') == 'finish':
                                         continue
                                 except (json.JSONDecodeError, TypeError):
                                     pass
