@@ -23,14 +23,6 @@ import { ToolCallInput } from '@/components/thread/tool-call-side-panel';
 import { useShareThreadData } from './_hooks/useShareThreadData';
 import { ShareThreadLayout } from './_components/ShareThreadLayout';
 
-interface StreamingToolCall {
-  id?: string;
-  name?: string;
-  arguments?: string;
-  index?: number;
-  xml_tag_name?: string;
-}
-
 export default function ShareThreadPage({
   params,
 }: {
@@ -154,95 +146,209 @@ export default function ShareThreadPage({
 
   // Handle streaming tool calls
   const handleStreamingToolCall = useCallback(
-    (toolCall: StreamingToolCall | null) => {
+    (toolCall: UnifiedMessage | null) => {
       if (!toolCall) return;
 
-      // Normalize the tool name like the project thread page does
-      const rawToolName = toolCall.name || toolCall.xml_tag_name || 'Unknown Tool';
-      const toolName = rawToolName.replace(/_/g, '-').toLowerCase();
+      // Extract tool calls from UnifiedMessage metadata.tool_calls
+      const metadata = safeJsonParse<ParsedMetadata>(toolCall.metadata, {});
+      const toolCallsFromMetadata = metadata.tool_calls || [];
 
-      // If user explicitly closed the panel, don't reopen it for streaming calls
-      if (userClosedPanelRef.current) return;
+      if (toolCallsFromMetadata.length === 0) {
+        // Fallback: Check if this is an old format status message
+        // This handles the case where useAgentStream sets toolCall from status messages
+        const parsedContent = safeJsonParse<{ 
+          status_type?: string;
+          function_name?: string;
+          arguments?: string;
+          xml_tag_name?: string;
+          tool_index?: number;
+        }>(toolCall.content, {});
+        
+        if (parsedContent.status_type === 'tool_started' && parsedContent.function_name) {
+          // Handle old format - convert to new format
+          const rawToolName = parsedContent.function_name || parsedContent.xml_tag_name || 'Unknown Tool';
+          const toolName = rawToolName.replace(/_/g, '-').toLowerCase();
+          const toolArguments = parsedContent.arguments || '';
 
-      // Create a properly formatted tool call input for the streaming tool
-      // that matches the format of historical tool calls
-      const toolArguments = toolCall.arguments || '';
+          if (userClosedPanelRef.current) return;
 
-      // Format the arguments in a way that matches the expected XML format for each tool
-      // This ensures the specialized tool views render correctly
-      let formattedContent = toolArguments;
-      
-      if (
-        toolName.includes('command') &&
-        !toolArguments.includes('<execute-command>')
-      ) {
-        formattedContent = `<execute-command>${toolArguments}</execute-command>`;
-      } else if (
-        toolName.includes('file') ||
-        toolName === 'create-file' ||
-        toolName === 'delete-file' ||
-        toolName === 'full-file-rewrite' ||
-        toolName === 'edit-file'
-      ) {
-        // For file operations, check if toolArguments contains a file path
-        // If it's just a raw file path, format it properly
-        const fileOpTags = ['create-file', 'delete-file', 'full-file-rewrite', 'edit-file'];
-        const matchingTag = fileOpTags.find((tag) => toolName === tag);
-        if (matchingTag) {
-          // Check if arguments already have the proper XML format
-          if (!toolArguments.includes(`<${matchingTag}>`) && !toolArguments.includes('file_path=') && !toolArguments.includes('target_file=')) {
-            // If toolArguments looks like a raw file path, format it properly
-            const filePath = toolArguments.trim();
-            if (filePath && !filePath.startsWith('<')) {
-              if (matchingTag === 'edit-file') {
-                formattedContent = `<${matchingTag} target_file="${filePath}">`;
+          let formattedContent = toolArguments;
+          
+          if (
+            toolName.includes('command') &&
+            !toolArguments.includes('<execute-command>')
+          ) {
+            formattedContent = `<execute-command>${toolArguments}</execute-command>`;
+          } else if (
+            toolName.includes('file') ||
+            toolName === 'create-file' ||
+            toolName === 'delete-file' ||
+            toolName === 'full-file-rewrite' ||
+            toolName === 'edit-file'
+          ) {
+            const fileOpTags = ['create-file', 'delete-file', 'full-file-rewrite', 'edit-file'];
+            const matchingTag = fileOpTags.find((tag) => toolName === tag);
+            if (matchingTag) {
+              if (!toolArguments.includes(`<${matchingTag}>`) && !toolArguments.includes('file_path=') && !toolArguments.includes('target_file=')) {
+                const filePath = toolArguments.trim();
+                if (filePath && !filePath.startsWith('<')) {
+                  if (matchingTag === 'edit-file') {
+                    formattedContent = `<${matchingTag} target_file="${filePath}">`;
+                  } else {
+                    formattedContent = `<${matchingTag} file_path="${filePath}">`;
+                  }
+                } else {
+                  formattedContent = `<${matchingTag}>${toolArguments}</${matchingTag}>`;
+                }
               } else {
-              formattedContent = `<${matchingTag} file_path="${filePath}">`;
+                formattedContent = toolArguments;
               }
-            } else {
-              formattedContent = `<${matchingTag}>${toolArguments}</${matchingTag}>`;
             }
-          } else {
-            formattedContent = toolArguments;
           }
+
+          const newToolCall: ToolCallInput = {
+            assistantCall: {
+              name: toolName,
+              content: formattedContent,
+              timestamp: new Date().toISOString(),
+            },
+            toolResult: {
+              content: 'STREAMING',
+              isSuccess: true,
+              timestamp: new Date().toISOString(),
+            },
+          };
+
+          setToolCalls((prev) => {
+            if (prev.length > 0 && prev[0].assistantCall.name === toolName) {
+              return [
+                {
+                  ...prev[0],
+                  assistantCall: {
+                    ...prev[0].assistantCall,
+                    content: formattedContent,
+                  },
+                },
+              ];
+            }
+            return [newToolCall];
+          });
+
+          setCurrentToolIndex(0);
+          setIsSidePanelOpen(true);
         }
+        return;
       }
 
-      const newToolCall: ToolCallInput = {
-        assistantCall: {
-          name: toolName,  // Use normalized tool name
-          content: formattedContent,
-          timestamp: new Date().toISOString(),
-        },
-        // For streaming tool calls, provide empty content that indicates streaming
-        toolResult: {
-          content: 'STREAMING',
-          isSuccess: true,
-          timestamp: new Date().toISOString(),
-        },
-      };
-
-      // Update the tool calls state to reflect the streaming tool
-      setToolCalls((prev) => {
-        // If the same tool is already being streamed, update it instead of adding a new one
-        if (prev.length > 0 && prev[0].assistantCall.name === toolName) {
-          return [
-            {
-              ...prev[0],
-              assistantCall: {
-                ...prev[0].assistantCall,
-                content: formattedContent,
-              },
-            },
-          ];
-        }
-        return [newToolCall];
+      // Filter out ask and complete tools
+      const filteredToolCalls = toolCallsFromMetadata.filter((tc) => {
+        const toolName = (tc.function_name || '').replace(/_/g, '-').toLowerCase();
+        return toolName !== 'ask' && toolName !== 'complete';
       });
 
-      setCurrentToolIndex(0);
+      if (filteredToolCalls.length === 0) return;
+
+      if (userClosedPanelRef.current) return;
+
+      // Process each tool call from metadata
+      setToolCalls((prev) => {
+        let updated = [...prev];
+        
+        // Update or add each tool call from metadata
+        filteredToolCalls.forEach((metadataToolCall) => {
+          const rawToolName = metadataToolCall.function_name || 'Unknown Tool';
+          const toolName = rawToolName.replace(/_/g, '-').toLowerCase();
+          
+          // Get arguments - can be string or object
+          let toolArguments = '';
+          if (metadataToolCall.arguments) {
+            if (typeof metadataToolCall.arguments === 'string') {
+              toolArguments = metadataToolCall.arguments;
+            } else if (typeof metadataToolCall.arguments === 'object') {
+              toolArguments = JSON.stringify(metadataToolCall.arguments);
+            }
+          }
+
+          // Format the arguments to match expected XML format
+          let formattedContent = toolArguments;
+          
+          if (
+            toolName.includes('command') &&
+            !toolArguments.includes('<execute-command>')
+          ) {
+            formattedContent = `<execute-command>${toolArguments}</execute-command>`;
+          } else if (
+            toolName.includes('file') ||
+            toolName === 'create-file' ||
+            toolName === 'delete-file' ||
+            toolName === 'full-file-rewrite' ||
+            toolName === 'edit-file'
+          ) {
+            const fileOpTags = ['create-file', 'delete-file', 'full-file-rewrite', 'edit-file'];
+            const matchingTag = fileOpTags.find((tag) => toolName === tag);
+            if (matchingTag) {
+              if (!toolArguments.includes(`<${matchingTag}>`) && !toolArguments.includes('file_path=') && !toolArguments.includes('target_file=')) {
+                const filePath = toolArguments.trim();
+                if (filePath && !filePath.startsWith('<')) {
+                  if (matchingTag === 'edit-file') {
+                    formattedContent = `<${matchingTag} target_file="${filePath}">`;
+                  } else {
+                    formattedContent = `<${matchingTag} file_path="${filePath}">`;
+                  }
+                } else {
+                  formattedContent = `<${matchingTag}>${toolArguments}</${matchingTag}>`;
+                }
+              } else {
+                formattedContent = toolArguments;
+              }
+            }
+          }
+
+          const newToolCall: ToolCallInput = {
+            assistantCall: {
+              name: toolName,
+              content: formattedContent,
+              timestamp: new Date().toISOString(),
+            },
+            toolResult: {
+              content: 'STREAMING',
+              isSuccess: true,
+              timestamp: new Date().toISOString(),
+            },
+          };
+
+          // Check if we're updating an existing streaming tool or adding a new one
+          const existingStreamingIndex = updated.findIndex(
+            tc => tc.toolResult?.content === 'STREAMING' && tc.assistantCall.name === toolName
+          );
+
+          if (existingStreamingIndex !== -1) {
+            // Update existing streaming tool
+            updated[existingStreamingIndex] = {
+              ...updated[existingStreamingIndex],
+              assistantCall: {
+                ...updated[existingStreamingIndex].assistantCall,
+                content: formattedContent,
+              },
+            };
+          } else {
+            // Add new streaming tool
+            updated.push(newToolCall);
+          }
+        });
+
+        return updated;
+      });
+
+      // If agent is running and user hasn't manually navigated, show the latest tool
+      setCurrentToolIndex(prev => {
+        const newLength = toolCalls.length + filteredToolCalls.length;
+        return newLength - 1;
+      });
+      
       setIsSidePanelOpen(true);
     },
-    [],
+    [toolCalls.length],
   );
 
   const {

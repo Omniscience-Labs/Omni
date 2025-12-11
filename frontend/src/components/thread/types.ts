@@ -39,11 +39,18 @@ export interface ParsedContent {
 
 // Helper type for parsed metadata
 export interface ParsedMetadata {
-  stream_status?: 'chunk' | 'complete';
+  stream_status?: 'chunk' | 'complete' | 'tool_call_chunk';
   thread_run_id?: string;
   tool_index?: number;
   assistant_message_id?: string; // Link tool results/statuses back
   linked_tool_result_message_id?: string; // Link status to tool result
+  // Tool calls from streaming metadata
+  tool_calls?: Array<{
+    tool_call_id: string;
+    function_name: string;
+    arguments: Record<string, any> | string; // Can be string (partial JSON during streaming) or object (complete)
+    source: 'native' | 'xml';
+  }>;
   parsing_details?: any;
   [key: string]: any; // Allow other properties
 }
