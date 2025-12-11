@@ -597,8 +597,16 @@ class ThreadManager:
         elif chunk.get('type') == 'status':
             try:
                 content = json.loads(chunk.get('content', '{}'))
+                # Check for finish_reason == 'length' (truncated output)
                 if content.get('finish_reason') == 'length':
                     logger.debug(f"Auto-continuing for length limit ({auto_continue_state['count'] + 1}/{native_max_auto_continues})")
+                    auto_continue_state['active'] = True
+                    auto_continue_state['count'] += 1
+                    return True
+                # Check for tools_executed flag (XML tool calling with finish_reason 'stop')
+                # This is critical for Sonnet 4 which uses XML tool calling
+                if content.get('tools_executed') == True and content.get('status_type') == 'finish':
+                    logger.debug(f"Auto-continuing for tools_executed ({auto_continue_state['count'] + 1}/{native_max_auto_continues})")
                     auto_continue_state['active'] = True
                     auto_continue_state['count'] += 1
                     return True

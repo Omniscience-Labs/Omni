@@ -786,7 +786,15 @@ class ResponseProcessor:
                 logger.debug(f"Stream finished with reason: xml_tool_limit_reached after {xml_tool_call_count} XML tool calls")
                 self.trace.event(name="stream_finished_with_reason_xml_tool_limit_reached_after_xml_tool_calls", level="DEFAULT", status_message=(f"Stream finished with reason: xml_tool_limit_reached after {xml_tool_call_count} XML tool calls"))
 
-            should_auto_continue = (can_auto_continue and finish_reason == 'length')
+
+            # Auto-continue if:
+            # 1. can_auto_continue is True
+            # 2. finish_reason is 'length' (truncated) OR tools were executed (XML or native)
+            # 3. agent should not terminate (ask/complete not executed)
+            has_executed_tools = xml_tool_call_count > 0 or len(complete_native_tool_calls) > 0
+            should_auto_continue = (can_auto_continue and 
+                                   (finish_reason == 'length' or has_executed_tools) and 
+                                   not agent_should_terminate)
 
             if accumulated_content and not should_auto_continue:
                 # ... (Truncate accumulated_content logic) ...
@@ -1009,6 +1017,11 @@ class ResponseProcessor:
             # --- Final Finish Status ---
             if finish_reason and finish_reason != "xml_tool_limit_reached":
                 finish_content = {"status_type": "finish", "finish_reason": finish_reason}
+                # Add tools_executed flag when tools were executed and agent should not terminate
+                # This is critical for thread_manager to trigger auto-continue
+                if has_executed_tools and not agent_should_terminate:
+                    finish_content["tools_executed"] = True
+                    logger.info(f"🔄 AUTO-CONTINUE: Tools executed (xml={xml_tool_call_count}, native={len(complete_native_tool_calls)}), setting tools_executed=True")
                 finish_msg_obj = await self.add_message(
                     thread_id=thread_id, type="status", content=finish_content, 
                     is_llm_message=False, metadata={"thread_run_id": thread_run_id}
