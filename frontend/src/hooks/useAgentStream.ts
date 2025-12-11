@@ -39,7 +39,7 @@ interface ApiMessageType {
 export interface UseAgentStreamResult {
   status: string;
   textContent: string;
-  toolCall: ParsedContent | null;
+  toolCall: UnifiedMessage | null;
   error: string | null;
   agentRunId: string | null; // Expose the currently managed agentRunId
   startStreaming: (runId: string) => void;
@@ -89,35 +89,35 @@ export function useAgentStream(
   const [textContent, setTextContent] = useState<
     { content: string; sequence?: number }[]
   >([]);
-  
+
   // Add throttled state updates for smoother streaming
   const throttleRef = useRef<NodeJS.Timeout | null>(null);
   const pendingContentRef = useRef<{ content: string; sequence?: number }[]>([]);
-  
+
   // Throttled content update function for smoother streaming
   const flushPendingContent = useCallback(() => {
     if (pendingContentRef.current.length > 0) {
       const newContent = [...pendingContentRef.current];
       pendingContentRef.current = [];
-      
+
       React.startTransition(() => {
         setTextContent((prev) => [...prev, ...newContent]);
       });
     }
   }, []);
-  
+
   const addContentThrottled = useCallback((content: { content: string; sequence?: number }) => {
     pendingContentRef.current.push(content);
-    
+
     // Clear existing throttle
     if (throttleRef.current) {
       clearTimeout(throttleRef.current);
     }
-    
-          // Set new throttle for smooth updates (16ms ≈ 60fps)
+
+    // Set new throttle for smooth updates (16ms ≈ 60fps)
     throttleRef.current = setTimeout(flushPendingContent, 16);
   }, [flushPendingContent]);
-  const [toolCall, setToolCall] = useState<ParsedContent | null>(null);
+  const [toolCall, setToolCall] = useState<UnifiedMessage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [agentRunId, setAgentRunId] = useState<string | null>(null);
 
@@ -130,7 +130,7 @@ export function useAgentStream(
   const orderedTextContent = useMemo(() => {
     // Use a more efficient approach for streaming performance
     if (textContent.length === 0) return '';
-    
+
     // Sort once and concatenate efficiently
     const sorted = textContent.slice().sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
     let result = '';
@@ -259,7 +259,7 @@ export function useAgentStream(
       setAgentRunId(null);
       currentRunIdRef.current = null;
 
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         queryKey: fileQueryKeys.all,
       });
 
@@ -293,13 +293,13 @@ export function useAgentStream(
         // Invalidate versioning queries for agent config page
         queryClient.invalidateQueries({ queryKey: ['versions', 'list', agentId] });
         // Invalidate current version details if available
-        queryClient.invalidateQueries({ 
-          queryKey: ['versions', 'detail'], 
+        queryClient.invalidateQueries({
+          queryKey: ['versions', 'detail'],
           predicate: (query) => {
             return query.queryKey.includes(agentId);
           }
         });
-        
+
         console.log(`[useAgentStream] Invalidated agent queries for refetch instead of page reload - Agent ID: ${agentId}`);
       }
 
@@ -309,7 +309,7 @@ export function useAgentStream(
           finalStatus === 'stopped' ||
           finalStatus === 'agent_not_running')
       ) {
-        getAgentStatus(runId).catch((err) => {});
+        getAgentStatus(runId).catch((err) => { });
       }
     },
     [agentRunId, updateStatus, agentId, queryClient],
@@ -386,7 +386,15 @@ export function useAgentStream(
 
       switch (message.type) {
         case 'assistant':
-          if (
+          if (parsedMetadata.stream_status === 'tool_call_chunk') {
+            // Handle native tool call chunks - extract from metadata.tool_calls
+            const toolCalls = parsedMetadata.tool_calls || [];
+            if (toolCalls.length > 0) {
+              React.startTransition(() => {
+                setToolCall(message);
+              });
+            }
+          } else if (
             parsedMetadata.stream_status === 'chunk' &&
             parsedContent.content
           ) {
@@ -399,7 +407,7 @@ export function useAgentStream(
           } else if (parsedMetadata.stream_status === 'complete') {
             // Flush any pending content before completing
             flushPendingContent();
-            
+
             setTextContent([]);
             setToolCall(null);
             if (message.message_id) callbacks.onMessage(message);
@@ -611,7 +619,7 @@ export function useAgentStream(
         clearTimeout(throttleRef.current);
         throttleRef.current = null;
       }
-      
+
       // Flush any remaining pending content
       flushPendingContent();
 
@@ -645,15 +653,15 @@ export function useAgentStream(
           console.info(
             `[useAgentStream] Stream not started for ${runId}: Agent run ${runId} is not running (status: ${agentStatus.status})`,
           );
-          
+
           // DON'T clean up the previous stream if this new one can't start
           // Just finalize with the appropriate status but keep previous stream if it was working
           const final =
             agentStatus.status === 'completed' ||
-            agentStatus.status === 'stopped'
+              agentStatus.status === 'stopped'
               ? mapAgentStatus(agentStatus.status)
               : 'agent_not_running';
-          
+
           // Only finalize if we don't have a working previous stream
           if (!previousRunId || previousRunId === runId) {
             finalizeStream(final, runId);
@@ -750,7 +758,7 @@ export function useAgentStream(
           console.info(
             `[useAgentStream] Stream not started for ${runId}: ${errorMessage}`,
           );
-          
+
           // Similar logic - don't finalize if we have a working previous stream
           if (!previousRunId || previousRunId === runId) {
             finalizeStream('agent_not_running', runId);
@@ -762,7 +770,7 @@ export function useAgentStream(
             `[useAgentStream] Error initiating stream for ${runId}: ${errorMessage}`,
           );
           setError(errorMessage);
-          
+
           // For unexpected errors, still preserve previous stream if possible
           if (!previousRunId || previousRunId === runId) {
             finalizeStream('error', runId);

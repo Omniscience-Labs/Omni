@@ -521,31 +521,10 @@ class ResponseProcessor:
                                         break # Stop processing more XML chunks in this delta
 
                     # --- Process Native Tool Call Chunks ---
+                    native_tool_calls_updated = False
                     if config.native_tool_calling and delta and hasattr(delta, 'tool_calls') and delta.tool_calls:
                         logger.debug(f"🔧 [NATIVE_TOOLS] Detected {len(delta.tool_calls)} tool call chunks")
                         for tool_call_chunk in delta.tool_calls:
-                            # Yield Native Tool Call Chunk (transient status, not saved)
-                            # ... (safe extraction logic for tool_call_data_chunk) ...
-                            tool_call_data_chunk = {} # Placeholder for extracted data
-                            if hasattr(tool_call_chunk, 'model_dump'): tool_call_data_chunk = tool_call_chunk.model_dump()
-                            else: # Manual extraction...
-                                if hasattr(tool_call_chunk, 'id'): tool_call_data_chunk['id'] = tool_call_chunk.id
-                                if hasattr(tool_call_chunk, 'index'): tool_call_data_chunk['index'] = tool_call_chunk.index
-                                if hasattr(tool_call_chunk, 'type'): tool_call_data_chunk['type'] = tool_call_chunk.type
-                                if hasattr(tool_call_chunk, 'function'):
-                                    tool_call_data_chunk['function'] = {}
-                                    if hasattr(tool_call_chunk.function, 'name'): tool_call_data_chunk['function']['name'] = tool_call_chunk.function.name
-                                    if hasattr(tool_call_chunk.function, 'arguments'): tool_call_data_chunk['function']['arguments'] = tool_call_chunk.function.arguments if isinstance(tool_call_chunk.function.arguments, str) else to_json_string(tool_call_chunk.function.arguments)
-
-
-                            now_tool_chunk = datetime.now(timezone.utc).isoformat()
-                            yield {
-                                "message_id": None, "thread_id": thread_id, "type": "status", "is_llm_message": True,
-                                "content": to_json_string({"role": "assistant", "status_type": "tool_call_chunk", "tool_call_chunk": tool_call_data_chunk}),
-                                "metadata": to_json_string({"thread_run_id": thread_run_id}),
-                                "created_at": now_tool_chunk, "updated_at": now_tool_chunk
-                            }
-
                             # --- Buffer and Execute Complete Native Tool Calls ---
                             if not hasattr(tool_call_chunk, 'function'): continue
                             idx = tool_call_chunk.index if hasattr(tool_call_chunk, 'index') else 0
@@ -554,12 +533,15 @@ class ResponseProcessor:
                             if idx not in tool_calls_buffer:
                                 tool_calls_buffer[idx] = {
                                     'id': None,
+                                    'type': 'function',
                                     'function': {'name': None, 'arguments': ''}
                                 }
                             
                             # Update buffer with incoming chunk data
                             if hasattr(tool_call_chunk, 'id') and tool_call_chunk.id:
                                 tool_calls_buffer[idx]['id'] = tool_call_chunk.id
+                            if hasattr(tool_call_chunk, 'type') and tool_call_chunk.type:
+                                tool_calls_buffer[idx]['type'] = tool_call_chunk.type
                             
                             if hasattr(tool_call_chunk, 'function'):
                                 if hasattr(tool_call_chunk.function, 'name') and tool_call_chunk.function.name:
@@ -567,6 +549,8 @@ class ResponseProcessor:
                                 if hasattr(tool_call_chunk.function, 'arguments') and tool_call_chunk.function.arguments:
                                     # Accumulate arguments as they stream in
                                     tool_calls_buffer[idx]['function']['arguments'] += tool_call_chunk.function.arguments
+                            
+                            native_tool_calls_updated = True
                             
                             # Check if tool call is complete and ready for execution
                             has_complete_tool_call = False
@@ -606,6 +590,35 @@ class ResponseProcessor:
                                     "tool_index": tool_index, "context": context
                                 })
                                 tool_index += 1
+
+                        # --- Yield Unified Streaming Chunk (combines all native tool calls from buffer) ---
+                        if native_tool_calls_updated and tool_calls_buffer:
+                            # Build unified tool calls list from buffer for streaming
+                            unified_tool_calls = []
+                            for buf_idx in sorted(tool_calls_buffer.keys()):
+                                buf_tc = tool_calls_buffer[buf_idx]
+                                unified_tool_calls.append({
+                                    "tool_call_id": buf_tc.get('id'),
+                                    "function_name": buf_tc.get('function', {}).get('name'),
+                                    "arguments": buf_tc.get('function', {}).get('arguments'),
+                                    "source": "native"
+                                })
+                            
+                            # Yield single unified streaming chunk
+                            now_tool_chunk = datetime.now(timezone.utc).isoformat()
+                            assistant_metadata = {
+                                "thread_run_id": thread_run_id,
+                                "stream_status": "tool_call_chunk",
+                                "tool_calls": unified_tool_calls
+                            }
+                            yield {
+                                "sequence": __sequence,
+                                "message_id": None, "thread_id": thread_id, "type": "assistant", "is_llm_message": True,
+                                "content": to_json_string({"role": "assistant", "content": ""}),
+                                "metadata": to_json_string(assistant_metadata),
+                                "created_at": now_tool_chunk, "updated_at": now_tool_chunk
+                            }
+                            __sequence += 1
 
                 if finish_reason == "xml_tool_limit_reached":
                     self.trace.event(name="xml_tool_call_limit_reached_continuing_for_usage", level="DEFAULT", status_message=(f"XML tool call limit reached, continuing to collect usage data"))

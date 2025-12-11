@@ -54,21 +54,21 @@ export function renderAttachments(attachments: string[], fileViewerHandler?: (fi
 
 // Render Markdown content while preserving XML tags that should be displayed as tool calls
 function preprocessTextOnlyTools(content: string): string {
-    
+
     // Handle new function calls format for text-only tools - extract text parameter content
     // Complete XML format
     content = content.replace(/<function_calls>\s*<invoke name="ask">\s*<parameter name="text">([\s\S]*?)<\/parameter>[\s\S]*?<\/invoke>\s*<\/function_calls>/gi, '$1');
     content = content.replace(/<function_calls>\s*<invoke name="complete">\s*<parameter name="text">([\s\S]*?)<\/parameter>[\s\S]*?<\/invoke>\s*<\/function_calls>/gi, '$1');
     content = content.replace(/<function_calls>\s*<invoke name="present_presentation">[\s\S]*?<parameter name="text">([\s\S]*?)<\/parameter>[\s\S]*?<\/invoke>\s*<\/function_calls>/gi, '$1');
-    
+
     // Handle streaming/partial XML for message tools - extract text parameter content even if incomplete
     content = content.replace(/<function_calls>\s*<invoke name="ask">\s*<parameter name="text">([\s\S]*?)$/gi, '$1');
     content = content.replace(/<function_calls>\s*<invoke name="complete">\s*<parameter name="text">([\s\S]*?)$/gi, '$1');
     content = content.replace(/<function_calls>\s*<invoke name="present_presentation">[\s\S]*?<parameter name="text">([\s\S]*?)$/gi, '$1');
-    
+
     // Also handle old format for backward compatibility
     content = content.replace(/<ask[^>]*>([\s\S]*?)<\/ask>/gi, '$1');
-    content = content.replace(/<complete[^>]*>([\s\S]*?)<\/complete>/gi, '$1');  
+    content = content.replace(/<complete[^>]*>([\s\S]*?)<\/complete>/gi, '$1');
     content = content.replace(/<present_presentation[^>]*>([\s\S]*?)<\/present_presentation>/gi, '$1');
     return content;
 }
@@ -84,7 +84,7 @@ export function renderMarkdownContent(
 ) {
     // Preprocess content to convert text-only tools to natural text
     content = preprocessTextOnlyTools(content);
-    
+
     // If in debug mode, just display raw content in a pre tag
     if (debugMode) {
         return (
@@ -135,7 +135,7 @@ export function renderMarkdownContent(
                             {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
                         </div>
                     );
-                    
+
                     // Also render standalone attachments outside the message
                     const standaloneAttachments = renderStandaloneAttachments(attachmentArray, fileViewerHandler, sandboxId, project);
                     if (standaloneAttachments) {
@@ -161,7 +161,7 @@ export function renderMarkdownContent(
                             {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
                         </div>
                     );
-                    
+
                     // Also render standalone attachments outside the message
                     const standaloneAttachments = renderStandaloneAttachments(attachmentArray, fileViewerHandler, sandboxId, project);
                     if (standaloneAttachments) {
@@ -264,7 +264,7 @@ export function renderMarkdownContent(
                     {renderAttachments(attachments, fileViewerHandler, sandboxId, project)}
                 </div>
             );
-            
+
             // Also render standalone attachments outside the message
             const standaloneAttachments = renderStandaloneAttachments(attachments, fileViewerHandler, sandboxId, project);
             if (standaloneAttachments) {
@@ -292,7 +292,7 @@ export function renderMarkdownContent(
                     {renderAttachments(attachments, fileViewerHandler, sandboxId, project)}
                 </div>
             );
-            
+
             // Also render standalone attachments outside the message
             const standaloneAttachments = renderStandaloneAttachments(attachments, fileViewerHandler, sandboxId, project);
             if (standaloneAttachments) {
@@ -676,13 +676,13 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 // Use merged groups instead of original grouped messages
                                 const finalGroupedMessages = mergedGroups;
 
-                                
+
                                 // Helper function to add streaming content to groups
                                 const appendStreamingContent = (content: string, isPlayback: boolean = false) => {
                                     const messageId = isPlayback ? 'playbackStreamingText' : 'streamingTextContent';
                                     const metadata = isPlayback ? 'playbackStreamingText' : 'streamingTextContent';
                                     const keySuffix = isPlayback ? 'playback-streaming' : 'streaming';
-                                    
+
                                     const lastGroup = finalGroupedMessages.at(-1);
                                     if (!lastGroup || lastGroup.type === 'user') {
                                         // Create new assistant group for streaming content
@@ -724,6 +724,21 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 // Handle streaming content - only add to existing group or create new one if needed
                                 if (streamingTextContent) {
                                     appendStreamingContent(streamingTextContent, false);
+                                }
+
+                                // Handle streaming tool call (e.g., ask/complete) - ensure there's a group to render in
+                                // This is needed because native tool calls have no text content, only metadata
+                                if (streamingToolCall && !streamingTextContent) {
+                                    const lastGroup = finalGroupedMessages.at(-1);
+                                    if (!lastGroup || lastGroup.type === 'user') {
+                                        // Create new empty assistant group so streaming tool call can render
+                                        assistantGroupCounter++;
+                                        finalGroupedMessages.push({
+                                            type: 'assistant_group',
+                                            messages: [],
+                                            key: `assistant-group-${assistantGroupCounter}-streaming-tool`
+                                        });
+                                    }
                                 }
 
                                 // Handle playback mode streaming text
@@ -775,7 +790,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             <div key={group.key} className="space-y-3">
                                                 {/* All file attachments rendered outside message bubble */}
                                                 {renderStandaloneAttachments(attachments as string[], handleOpenFileViewer, sandboxId, project, true)}
-                                                
+
                                                 <div className="flex justify-end relative">
                                                     <div className="group flex max-w-[85%] rounded-3xl rounded-br-lg bg-card border px-4 py-3 break-words overflow-hidden relative">
                                                         <div className="space-y-3 min-w-0 flex-1">
@@ -797,7 +812,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         // Get agent_id from the first assistant message in this group
                                         const firstAssistantMsg = group.messages.find(m => m.type === 'assistant');
                                         const groupAgentId = firstAssistantMsg?.agent_id;
-                                        
+
                                         return (
                                             <div key={group.key} ref={groupIndex === groupedMessages.length - 1 ? latestMessageRef : null}>
                                                 <div className="flex flex-col gap-2">
@@ -872,7 +887,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                         // Handle thinking content using established pattern (same as other reasoning models)
                                                                         let thinkingContent = null;
                                                                         let mainContent = parsedContent.content;
-                                                                        
+
                                                                         // Check for thinking using the same pattern as podcast tool and other reasoning models
                                                                         if (typeof parsedContent === 'object' && parsedContent.thinking && parsedContent.content) {
                                                                             thinkingContent = parsedContent.thinking;
@@ -938,7 +953,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                                                         // Preprocess content first to remove text-only tool tags
                                                                         const textToRender = preprocessTextOnlyTools(streamingTextContent || '');
-                                                                        
+
                                                                         let detectedTag: string | null = null;
                                                                         let tagStartIndex = -1;
                                                                         if (textToRender) {
@@ -962,11 +977,11 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                         }
                                                                         const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
                                                                         const showCursor =
-                                                                          (streamHookStatus ===
-                                                                            'streaming' ||
-                                                                            streamHookStatus ===
-                                                                              'connecting') &&
-                                                                          !detectedTag;
+                                                                            (streamHookStatus ===
+                                                                                'streaming' ||
+                                                                                streamHookStatus ===
+                                                                                'connecting') &&
+                                                                            !detectedTag;
 
                                                                         // Show minimal processing indicator when agent is active but no streaming text after preprocessing
                                                                         if (!textToRender && (streamHookStatus === 'streaming' || streamHookStatus === 'connecting')) {
@@ -981,8 +996,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                                                         return (
                                                                             <>
-                                                                                <StreamingText 
-                                                                                    content={textBeforeTag} 
+                                                                                <StreamingText
+                                                                                    content={textBeforeTag}
                                                                                     className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere"
                                                                                 />
 
@@ -1007,7 +1022,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                     {(() => {
                                                                         // Preprocess content first to remove text-only tool tags
                                                                         const textToRender = preprocessTextOnlyTools(streamingText || '');
-                                                                        
+
                                                                         let detectedTag: string | null = null;
                                                                         let tagStartIndex = -1;
                                                                         if (textToRender) {
@@ -1044,8 +1059,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                     </pre>
                                                                                 ) : (
                                                                                     <>
-                                                                                        <StreamingText 
-                                                                                            content={textBeforeTag} 
+                                                                                        <StreamingText
+                                                                                            content={textBeforeTag}
                                                                                             className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere"
                                                                                         />
 
