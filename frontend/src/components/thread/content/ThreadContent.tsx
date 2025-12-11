@@ -341,7 +341,7 @@ export function renderMarkdownContent(
 export interface ThreadContentProps {
     messages: UnifiedMessage[];
     streamingTextContent?: string;
-    streamingToolCall?: any;
+    streamingToolCall?: UnifiedMessage | null;
     agentStatus: 'idle' | 'running' | 'connecting' | 'error';
     handleToolClick: (assistantMessageId: string | null, toolName: string) => void;
     handleOpenFileViewer: (filePath?: string, filePathList?: string[]) => void;
