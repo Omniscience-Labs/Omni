@@ -58,8 +58,18 @@ export default function AdminPage() {
     enabled: !!adminCheck?.isAdmin
   });
   
+  // Get credit transactions
+  const { data: transactions, isLoading: transactionsLoading } = useQuery({
+    queryKey: ['enterprise-credit-transactions'],
+    queryFn: async () => {
+      const response = await apiClient.request('/enterprise/credit-transactions?items_per_page=100');
+      return response.data;
+    },
+    enabled: !!adminCheck?.isAdmin
+  });
+  
   // Loading states
-  if (adminLoading || statusLoading || usersLoading || globalDefaultsLoading) {
+  if (adminLoading || statusLoading || usersLoading || globalDefaultsLoading || transactionsLoading) {
     return (
       <div className="container mx-auto max-w-7xl px-4 py-8">
         <div className="flex items-center justify-center min-h-[400px]">
@@ -185,6 +195,58 @@ export default function AdminPage() {
           )}
         </CardContent>
       </Card>
+      
+      {/* Credit Transactions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Credit Transactions</CardTitle>
+          <CardDescription>All credit loads and negations</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {transactions?.transactions && transactions.transactions.length > 0 ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-5 gap-4 text-sm font-medium text-muted-foreground border-b pb-2">
+                <div>Date</div>
+                <div>Type</div>
+                <div className="text-right">Amount</div>
+                <div>Description</div>
+                <div>Performed By</div>
+              </div>
+              {transactions.transactions.map((tx: any) => (
+                <div key={tx.id} className="grid grid-cols-5 gap-4 items-center py-2 hover:bg-muted/50 rounded-lg px-2">
+                  <div className="text-sm">
+                    {new Date(tx.created_at).toLocaleString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </div>
+                  <div>
+                    <Badge variant={tx.type === 'negate' ? 'destructive' : 'default'}>
+                      {tx.type === 'negate' ? 'Negate' : 'Load'}
+                    </Badge>
+                  </div>
+                  <div className={`text-right font-medium ${tx.type === 'negate' ? 'text-red-600' : 'text-green-600'}`}>
+                    {tx.type === 'negate' ? '-' : '+'}${Math.abs(tx.amount).toFixed(2)}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {tx.description || '—'}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {tx.performed_by_email || 'Unknown'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              No transactions found
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -291,6 +353,7 @@ function LoadCreditsButton() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['enterprise-status'] });
       queryClient.invalidateQueries({ queryKey: ['enterprise-users'] });
+      queryClient.invalidateQueries({ queryKey: ['enterprise-credit-transactions'] });
       toast.success(`Loaded $${amount} credits successfully!`);
       setOpen(false);
       setAmount(0);
@@ -373,6 +436,7 @@ function NegateCreditsButton() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['enterprise-status'] });
       queryClient.invalidateQueries({ queryKey: ['enterprise-users'] });
+      queryClient.invalidateQueries({ queryKey: ['enterprise-credit-transactions'] });
       toast.success(`Successfully negated $${amount.toFixed(2)} credits`);
       setOpen(false);
       setAmount(0);
