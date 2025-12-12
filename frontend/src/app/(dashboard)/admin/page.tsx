@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { DollarSign, Users, Activity, CreditCard, Loader2, AlertCircle, Plus, Settings, ExternalLink } from 'lucide-react';
+import { DollarSign, Users, Activity, CreditCard, Loader2, AlertCircle, Plus, Settings, ExternalLink, Minus } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import {
@@ -95,7 +95,12 @@ export default function AdminPage() {
           <h1 className="text-3xl font-bold">Enterprise Admin</h1>
           <p className="text-muted-foreground">Manage enterprise billing and user limits</p>
         </div>
-        {adminCheck?.isOmniAdmin && <LoadCreditsButton />}
+        {adminCheck?.isOmniAdmin && (
+          <div className="flex gap-2">
+            <LoadCreditsButton />
+            <NegateCreditsButton />
+          </div>
+        )}
       </div>
       
       {/* Global Defaults */}
@@ -105,12 +110,18 @@ export default function AdminPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Credit Balance</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-sm font-medium">
+              {status?.credit_balance < 0 ? 'Enterprise Balance (Overdraft)' : 'Credit Balance'}
+            </CardTitle>
+            <DollarSign className={`h-4 w-4 ${status?.credit_balance < 0 ? 'text-red-600' : 'text-green-600'}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${status?.credit_balance?.toFixed(2) || '0.00'}</div>
-            <p className="text-xs text-muted-foreground">Available credits</p>
+            <div className={`text-2xl font-bold ${status?.credit_balance < 0 ? 'text-red-600' : ''}`}>
+              ${status?.credit_balance?.toFixed(2) || '0.00'}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {status?.credit_balance < 0 ? 'Overdraft (accounting only)' : 'Available credits'}
+            </p>
           </CardContent>
         </Card>
         
@@ -337,6 +348,93 @@ function LoadCreditsButton() {
               </>
             ) : (
               `Load $${amount.toFixed(2)}`
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NegateCreditsButton() {
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState(0);
+  const [description, setDescription] = useState('');
+  const queryClient = useQueryClient();
+  
+  const negateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiClient.request('/enterprise/negate-credits', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['enterprise-status'] });
+      queryClient.invalidateQueries({ queryKey: ['enterprise-users'] });
+      toast.success(`Successfully negated $${amount.toFixed(2)} credits`);
+      setOpen(false);
+      setAmount(0);
+      setDescription('');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to negate credits');
+    }
+  });
+  
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="destructive">
+          <Minus className="h-4 w-4 mr-2" />
+          Negate Credits
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Negate / Adjust Credits</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="negate-amount">Amount ($)</Label>
+            <Input
+              id="negate-amount"
+              type="number"
+              min="0"
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+              placeholder="1000.00"
+              required
+            />
+            <p className="text-sm text-muted-foreground mt-1">
+              This will subtract credits from the enterprise account (can go negative)
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="negate-description">Description (Required)</Label>
+            <Input
+              id="negate-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Reason for credit adjustment"
+              required
+            />
+          </div>
+          <Button 
+            onClick={() => negateMutation.mutate({ amount, description })}
+            disabled={amount <= 0 || !description.trim() || negateMutation.isPending}
+            variant="destructive"
+            className="w-full"
+          >
+            {negateMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Negating...
+              </>
+            ) : (
+              `Negate $${amount.toFixed(2)}`
             )}
           </Button>
         </div>

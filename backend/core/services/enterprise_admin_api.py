@@ -28,6 +28,10 @@ class LoadCreditsRequest(BaseModel):
     amount: float
     description: Optional[str] = None
 
+class NegateCreditsRequest(BaseModel):
+    amount: float
+    description: str  # Required for negate operations
+
 class SetUserLimitRequest(BaseModel):
     account_id: str
     monthly_limit: float
@@ -217,6 +221,40 @@ async def load_credits(
             
     except Exception as e:
         logger.error(f"Error loading credits: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/negate-credits")
+async def negate_credits(
+    request: NegateCreditsRequest,
+    admin_user_id: str = Depends(verify_omni_admin)
+):
+    """Negate/adjust credits from the enterprise account (allows negative balance)."""
+    try:
+        if request.amount <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be greater than 0")
+        
+        if not request.description or not request.description.strip():
+            raise HTTPException(status_code=400, detail="Description is required")
+        
+        result = await enterprise_billing.negate_credits(
+            amount=request.amount,
+            description=request.description,
+            performed_by=admin_user_id
+        )
+        
+        if result['success']:
+            return {
+                "success": True,
+                "new_balance": result['new_balance'],
+                "amount_negated": result['amount_negated']
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.get('error', 'Failed to negate credits'))
+            
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error negating credits: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/users")
