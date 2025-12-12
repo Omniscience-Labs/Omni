@@ -564,6 +564,30 @@ async def get_credit_transactions(
         logger.error(f"Error getting credit transactions: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.delete("/credit-transactions/{transaction_id}")
+async def cancel_credit_transaction(
+    transaction_id: str,
+    admin_user_id: str = Depends(verify_omni_admin)
+):
+    """Cancel/delete a credit transaction and reverse its effects (OMNI admin only)."""
+    try:
+        result = await enterprise_billing.cancel_transaction(transaction_id)
+        
+        if result['success']:
+            return {
+                "success": True,
+                "new_balance": result['new_balance'],
+                "message": result.get('message', 'Transaction cancelled successfully')
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.get('error', 'Failed to cancel transaction'))
+            
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error cancelling transaction: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/debug")
 async def debug_enterprise_api():
     """Debug endpoint to test enterprise API is working."""

@@ -319,6 +319,46 @@ class SimplifiedEnterpriseBillingService:
             logger.error(f"Error negating enterprise credits: {e}")
             raise
     
+    async def cancel_transaction(
+        self,
+        transaction_id: str
+    ) -> Dict[str, Any]:
+        """Cancel/delete a credit transaction and reverse its effects."""
+        if not config.ENTERPRISE_MODE:
+            raise ValueError("Enterprise mode not enabled")
+        
+        try:
+            db = DBConnection()
+            client = await db.client
+            
+            # Call the database function
+            result = await client.rpc('cancel_enterprise_credit_transaction', {
+                'p_transaction_id': transaction_id
+            }).execute()
+            
+            if result and hasattr(result, 'data') and result.data and len(result.data) > 0:
+                response = result.data[0]
+                
+                if not response.get('success'):
+                    raise ValueError(response.get('message', 'Failed to cancel transaction'))
+                
+                logger.info(
+                    f"Cancelled enterprise credit transaction {transaction_id}",
+                    transaction_id=transaction_id,
+                    new_balance=response['new_balance']
+                )
+                return {
+                    'success': True,
+                    'new_balance': response['new_balance'],
+                    'message': response.get('message', 'Transaction cancelled successfully')
+                }
+            
+            return {'success': False, 'error': 'Failed to cancel transaction'}
+            
+        except Exception as e:
+            logger.error(f"Error cancelling transaction: {e}")
+            raise
+    
     async def get_global_setting(self, setting_key: str) -> Optional[Dict[str, Any]]:
         """Get a global enterprise setting."""
         if not config.ENTERPRISE_MODE:
