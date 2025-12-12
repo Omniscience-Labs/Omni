@@ -28,6 +28,10 @@ class LoadCreditsRequest(BaseModel):
     amount: float
     description: Optional[str] = None
 
+class NegateCreditsRequest(BaseModel):
+    amount: float
+    description: str  # Required for negate operations
+
 class SetUserLimitRequest(BaseModel):
     account_id: str
     monthly_limit: float
@@ -217,6 +221,40 @@ async def load_credits(
             
     except Exception as e:
         logger.error(f"Error loading credits: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/negate-credits")
+async def negate_credits(
+    request: NegateCreditsRequest,
+    admin_user_id: str = Depends(verify_omni_admin)
+):
+    """Negate/adjust credits from the enterprise account (allows negative balance)."""
+    try:
+        if request.amount <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be greater than 0")
+        
+        if not request.description or not request.description.strip():
+            raise HTTPException(status_code=400, detail="Description is required")
+        
+        result = await enterprise_billing.negate_credits(
+            amount=request.amount,
+            description=request.description,
+            performed_by=admin_user_id
+        )
+        
+        if result['success']:
+            return {
+                "success": True,
+                "new_balance": result['new_balance'],
+                "amount_negated": result['amount_negated']
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.get('error', 'Failed to negate credits'))
+            
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error negating credits: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/users")
@@ -466,6 +504,64 @@ async def reset_user_to_default(
         
     except Exception as e:
         logger.error(f"Error resetting user to default: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/credit-transactions")
+async def get_credit_transactions(
+    page: int = Query(default=0, ge=0),
+    items_per_page: int = Query(default=50, ge=1, le=500),
+    admin_user_id: str = Depends(verify_simple_admin)
+):
+    """Get all enterprise credit load/negate transactions."""
+    try:
+        db = DBConnection()
+        client = await db.client
+        
+        # Get credit transactions with pagination
+        result = await client.table('enterprise_credit_loads')\
+            .select('*')\
+            .order('created_at', desc=True)\
+            .range(page * items_per_page, (page + 1) * items_per_page - 1)\
+            .execute()
+        
+        transactions = []
+        if result.data:
+            for tx in result.data:
+                # Get admin email who performed the transaction
+                admin_email = 'Unknown'
+                if tx.get('performed_by'):
+                    try:
+                        user_info = await client.auth.admin.get_user_by_id(tx['performed_by'])
+                        admin_email = user_info.user.email if user_info and user_info.user else 'Unknown'
+                    except Exception:
+                        pass
+                
+                transactions.append({
+                    'id': tx['id'],
+                    'amount': float(tx['amount']),
+                    'type': tx.get('type', 'load'),  # 'load' or 'negate'
+                    'description': tx.get('description'),
+                    'performed_by': tx.get('performed_by'),
+                    'performed_by_email': admin_email,
+                    'created_at': tx['created_at']
+                })
+        
+        # Get total count
+        count_result = await client.table('enterprise_credit_loads')\
+            .select('*', count='exact')\
+            .execute()
+        
+        total_count = count_result.count if hasattr(count_result, 'count') else len(transactions)
+        
+        return {
+            "transactions": transactions,
+            "total": total_count,
+            "page": page,
+            "items_per_page": items_per_page
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting credit transactions: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/debug")
