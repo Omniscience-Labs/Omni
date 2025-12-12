@@ -157,16 +157,10 @@ export default function AdminPage() {
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Loaded</CardTitle>
-            <CreditCard className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${status?.total_loaded?.toFixed(2) || '0.00'}</div>
-            <p className="text-xs text-muted-foreground">All time</p>
-          </CardContent>
-        </Card>
+        <CreditTransactionsDialog 
+          totalLoaded={status?.total_loaded || 0}
+          transactions={transactions?.transactions || []}
+        />
       </div>
       
       {/* Users Table */}
@@ -196,57 +190,6 @@ export default function AdminPage() {
         </CardContent>
       </Card>
       
-      {/* Credit Transactions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Credit Transactions</CardTitle>
-          <CardDescription>All credit loads and negations</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {transactions?.transactions && transactions.transactions.length > 0 ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-5 gap-4 text-sm font-medium text-muted-foreground border-b pb-2">
-                <div>Date</div>
-                <div>Type</div>
-                <div className="text-right">Amount</div>
-                <div>Description</div>
-                <div>Performed By</div>
-              </div>
-              {transactions.transactions.map((tx: any) => (
-                <div key={tx.id} className="grid grid-cols-5 gap-4 items-center py-2 hover:bg-muted/50 rounded-lg px-2">
-                  <div className="text-sm">
-                    {new Date(tx.created_at).toLocaleString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </div>
-                  <div>
-                    <Badge variant={tx.type === 'negate' ? 'destructive' : 'default'}>
-                      {tx.type === 'negate' ? 'Negate' : 'Load'}
-                    </Badge>
-                  </div>
-                  <div className={`text-right font-medium ${tx.type === 'negate' ? 'text-red-600' : 'text-green-600'}`}>
-                    {tx.type === 'negate' ? '-' : '+'}${Math.abs(tx.amount).toFixed(2)}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {tx.description || '—'}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {tx.performed_by_email || 'Unknown'}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              No transactions found
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
@@ -578,6 +521,83 @@ function SetLimitButton({ user }: { user: any }) {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CreditTransactionsDialog({ totalLoaded, transactions }: { totalLoaded: number; transactions: any[] }) {
+  const [open, setOpen] = useState(false);
+  
+  return (
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Card className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Loaded</CardTitle>
+              <CreditCard className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">${totalLoaded.toFixed(2)}</div>
+              <p className="text-xs text-muted-foreground">Click to view transactions</p>
+            </CardContent>
+          </Card>
+        </DialogTrigger>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Credit Transactions</DialogTitle>
+            <CardDescription>
+              Total Loaded: <span className="font-semibold">${totalLoaded.toFixed(2)}</span>
+            </CardDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            {transactions && transactions.length > 0 ? (
+              <>
+                <div className="grid grid-cols-5 gap-4 text-sm font-medium text-muted-foreground border-b pb-2">
+                  <div>Date</div>
+                  <div>Type</div>
+                  <div className="text-right">Amount</div>
+                  <div>Description</div>
+                  <div>Performed By</div>
+                </div>
+                <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+                  {transactions.map((tx: any) => (
+                    <div key={tx.id} className="grid grid-cols-5 gap-4 items-center py-2 hover:bg-muted/50 rounded-lg px-2">
+                      <div className="text-sm">
+                        {new Date(tx.created_at).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </div>
+                      <div>
+                        <Badge variant={tx.type === 'negate' ? 'destructive' : 'default'}>
+                          {tx.type === 'negate' ? 'Negate' : 'Load'}
+                        </Badge>
+                      </div>
+                      <div className={`text-right font-medium ${tx.type === 'negate' ? 'text-red-600' : 'text-green-600'}`}>
+                        {tx.type === 'negate' ? '-' : '+'}${Math.abs(tx.amount).toFixed(2)}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {tx.description || '—'}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {tx.performed_by_email || 'Unknown'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No transactions found
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
