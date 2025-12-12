@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { DollarSign, Users, Activity, CreditCard, Loader2, AlertCircle, Plus, Settings, ExternalLink, Minus } from 'lucide-react';
+import { DollarSign, Users, Activity, CreditCard, Loader2, AlertCircle, Plus, Settings, ExternalLink, Minus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import {
@@ -160,6 +160,7 @@ export default function AdminPage() {
         <CreditTransactionsDialog 
           totalLoaded={status?.total_loaded || 0}
           transactions={transactions?.transactions || []}
+          isOmniAdmin={adminCheck?.isOmniAdmin || false}
         />
       </div>
       
@@ -524,8 +525,32 @@ function SetLimitButton({ user }: { user: any }) {
   );
 }
 
-function CreditTransactionsDialog({ totalLoaded, transactions }: { totalLoaded: number; transactions: any[] }) {
+function CreditTransactionsDialog({ totalLoaded, transactions, isOmniAdmin }: { totalLoaded: number; transactions: any[]; isOmniAdmin: boolean }) {
   const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
+  
+  const cancelMutation = useMutation({
+    mutationFn: async (transactionId: string) => {
+      const response = await apiClient.request(`/enterprise/credit-transactions/${transactionId}`, {
+        method: 'DELETE'
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['enterprise-credit-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['enterprise-status'] });
+      toast.success('Transaction cancelled successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to cancel transaction');
+    }
+  });
+  
+  const handleCancel = (tx: any) => {
+    if (confirm(`Are you sure you want to cancel this ${tx.type === 'negate' ? 'negation' : 'load'} of $${tx.amount.toFixed(2)}? This will reverse the transaction.`)) {
+      cancelMutation.mutate(tx.id);
+    }
+  };
   
   return (
     <>
@@ -542,7 +567,7 @@ function CreditTransactionsDialog({ totalLoaded, transactions }: { totalLoaded: 
             </CardContent>
           </Card>
         </DialogTrigger>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Credit Transactions</DialogTitle>
             <CardDescription>
@@ -552,16 +577,17 @@ function CreditTransactionsDialog({ totalLoaded, transactions }: { totalLoaded: 
           <div className="space-y-4 mt-4">
             {transactions && transactions.length > 0 ? (
               <>
-                <div className="grid grid-cols-5 gap-4 text-sm font-medium text-muted-foreground border-b pb-2">
+                <div className={`grid gap-4 text-sm font-medium text-muted-foreground border-b pb-2 ${isOmniAdmin ? 'grid-cols-6' : 'grid-cols-5'}`}>
                   <div>Date</div>
                   <div>Type</div>
                   <div className="text-right">Amount</div>
                   <div>Description</div>
                   <div>Performed By</div>
+                  {isOmniAdmin && <div className="text-right">Actions</div>}
                 </div>
                 <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                   {transactions.map((tx: any) => (
-                    <div key={tx.id} className="grid grid-cols-5 gap-4 items-center py-2 hover:bg-muted/50 rounded-lg px-2">
+                    <div key={tx.id} className={`grid gap-4 items-center py-2 hover:bg-muted/50 rounded-lg px-2 ${isOmniAdmin ? 'grid-cols-6' : 'grid-cols-5'}`}>
                       <div className="text-sm">
                         {new Date(tx.created_at).toLocaleString('en-US', {
                           month: 'short',
@@ -585,6 +611,23 @@ function CreditTransactionsDialog({ totalLoaded, transactions }: { totalLoaded: 
                       <div className="text-sm text-muted-foreground">
                         {tx.performed_by_email || 'Unknown'}
                       </div>
+                      {isOmniAdmin && (
+                        <div className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCancel(tx)}
+                            disabled={cancelMutation.isPending}
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            {cancelMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <X className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
