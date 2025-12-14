@@ -133,19 +133,6 @@
           "ai-tools/windsurf",
           "ai-tools/apollo-lead-generation"
         ]
-      },
-      {
-        "group": "🔧 Secret Stuff for Devs",
-        "pages": [
-          "development",
-          "essentials/markdown",
-          "essentials/code",
-          "essentials/images",
-          "essentials/settings",
-          "essentials/navigation",
-          "essentials/reusable-snippets",
-          "api-reference/introduction"
-        ]
       }
     ]
   },
