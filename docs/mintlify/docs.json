@@ -50,9 +50,7 @@
           "guides/agents/what-is-an-agent",
           "guides/agents/overview",
           "guides/agents/creating-agents",
-          "guides/agents/configuring-agents",
-          "guides/agents/marketplace",
-          "guides/agents/chat-interface"
+          "guides/agents/configuring-agents"
         ]
       },
       {
