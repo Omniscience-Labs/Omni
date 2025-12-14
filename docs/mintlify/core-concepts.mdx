@@ -10,13 +10,13 @@ Omni is built around a few key concepts that work together to create powerful, a
 
 ## The Sandbox Environment
 
-Every agent operates in a secure, isolated **sandbox** - a containerized environment where code executes and files are managed.
+Every agent operates in a secure, isolated **sandbox** — a containerized environment where code executes and files are managed.
 
 <Info>
-  **Chat Workspaces**: Each chat you create has its own isolated workspace -
-  think of it as giving the agent its own computer for that conversation. Files
-  created in one chat are separate from other chats. This keeps work organized
-  and prevents conflicts.
+  <strong>Chat Workspaces:</strong> Each chat you create has its own isolated
+  workspace — think of it as giving the agent its own computer for that
+  conversation. Files created in one chat are separate from other chats. This
+  keeps work organized and prevents conflicts.
 </Info>
 
 ### What's Inside the Sandbox?
@@ -24,17 +24,9 @@ Every agent operates in a secure, isolated **sandbox** - a containerized environ
 <AccordionGroup>
   <Accordion title="File System" icon="folder-tree">
     A complete file system where agents can create, edit, and organize files. All files for a chat live in that chat's workspace.
-    
-    Access files through the **Files panel** on the right side of the chat interface. Download files to your computer or share them with others.
-    
-    {/* 
-      📸 MEDIA PLACEHOLDER: File Browser Interface
-      - Screenshot of the file browser showing directory structure
-      - Display various file types (code, documents, images)
-      - Show file operations menu
-      - Include search/filter options
-      - Size: 1400x900px
-    */}
+
+    Access files through the <strong>Files panel</strong> on the right side of the chat interface. Download files to your computer or share them with others.
+
   </Accordion>
 
 {" "}
@@ -42,28 +34,13 @@ Every agent operates in a secure, isolated **sandbox** - a containerized environ
 <Accordion title="Code Execution" icon="code">
   Agents can run Python, Node.js, and shell commands safely within the sandbox.
   Perfect for data processing and automation.
-  {/* 
-      🎥 VIDEO PLACEHOLDER: Code Execution Demo (20-30 seconds)
-      - Show agent writing Python script
-      - Display script execution with output
-      - Show generated files or visualizations
-      - Include terminal output
-    */}
 </Accordion>
 
 {" "}
 
 <Accordion title="Browser Access" icon="browser">
-  {/* #TODO: Verify browser automation - mentioned in docs but not demonstrated in demo transcript */}
-  A headless Chromium browser for web automation, scraping, and testing. Agents can
-  navigate websites just like you do.
-  {/* 
-      🎥 VIDEO PLACEHOLDER: Browser Automation (30-40 seconds)
-      - Show browser opening a website
-      - Display form filling or data extraction
-      - Include visual confirmation screenshots
-      - Show extracted data being saved
-    */}
+  A headless Chromium browser for web automation, scraping, and testing. Agents
+  can navigate websites just like you do.
 </Accordion>
 
   <Accordion title="Internet Access" icon="globe">
@@ -83,18 +60,7 @@ Every agent operates in a secure, isolated **sandbox** - a containerized environ
 
 ## Knowledge Base
 
-The **Knowledge Base** is your agent's long-term memory - a collection of documents, files, and data that agents can reference.
-
-{/\*
-📸 MEDIA PLACEHOLDER: Knowledge Base Main View
-
-- Screenshot of knowledge base page
-- Show folder organization (tree structure on left)
-- Display file grid/list in center
-- Include upload area at top
-- Show search bar with semantic search hint
-- Size: 2000x1200px
-  \*/}
+The <strong>Knowledge Base</strong> is your agent's long-term memory — a collection of documents, files, and data that agents can reference.
 
 ### How It Works
 
@@ -104,7 +70,7 @@ The **Knowledge Base** is your agent's long-term memory - a collection of docume
     CSV, text files, code, and more.
   </Step>
   <Step title="Organize with Folders">
-    Create a folder structure that makes sense for your team - by project,
+    Create a folder structure that makes sense for your team — by project,
     department, or topic.
   </Step>
   <Step title="Semantic Search">
@@ -117,17 +83,6 @@ The **Knowledge Base** is your agent's long-term memory - a collection of docume
   </Step>
 </Steps>
 
-{/\*
-🎥 VIDEO PLACEHOLDER: Knowledge Base in Action (45-60 seconds)
-
-- Show user uploading documents
-- Display folder organization
-- Show agent being asked a question
-- Agent searching knowledge base (visual indicator)
-- Agent responding with sourced information
-- Include file references in response
-  \*/}
-
 <Tip>
   Upload your company's documentation, reports, and resources to give agents
   deep context about your business.
@@ -137,11 +92,11 @@ The **Knowledge Base** is your agent's long-term memory - a collection of docume
 
 ## Tools & Integrations
 
-**Tools** are the capabilities your agents have - from web search to file editing. **Integrations** connect agents to external services.
+<strong>Tools</strong> are the capabilities your agents have — from web search to
+file editing.
+<strong>Integrations</strong> connect agents to external services.
 
 ### Built-in Tools
-
-Every agent can be configured with these core capabilities:
 
 <CardGroup cols={3}>
   <Card title="Web Search" icon="magnifying-glass">
@@ -164,33 +119,13 @@ Every agent can be configured with these core capabilities:
   </Card>
 </CardGroup>
 
-{/\*
-📸 MEDIA PLACEHOLDER: Tool Configuration Panel
-
-- Screenshot of agent settings showing tools
-- Display toggle switches for each tool
-- Show tool categories organized
-- Include helpful descriptions
-- Size: 1400x1000px
-  \*/}
-
 ### External Integrations
-
-Connect agents to your existing tools:
 
 <Tabs>
   <Tab title="Communication">
-    - **Gmail**: Read, send, and manage emails
-    - **Slack**: Send messages, read channels, manage notifications
+    - **Gmail**: Read, send, and manage emails  
+    - **Slack**: Send messages, read channels, manage notifications  
     - **Microsoft Teams**: Post updates and respond to messages
-    
-    {/* 
-      📸 MEDIA PLACEHOLDER: Communication Integrations
-      - Screenshots showing Gmail, Slack, Teams integration cards
-      - Display connection status and available actions
-      - Show example use cases for each
-      - Size: 1600x800px
-    */}
   </Tab>
 
 {" "}
@@ -198,27 +133,12 @@ Connect agents to your existing tools:
 <Tab title="Productivity">
   - **Google Calendar**: Schedule meetings and check availability - **Notion**:
   Create and update pages - **Google Drive**: Access and manage documents
-  {/* 
-      📸 MEDIA PLACEHOLDER: Productivity Integrations
-      - Screenshots of Calendar, Notion, Drive cards
-      - Show sync status and capabilities
-      - Include permission indicators
-      - Size: 1600x800px
-    */}
 </Tab>
 
   <Tab title="Development">
-    - **GitHub**: Manage repos, issues, and pull requests
-    - **Linear**: Create and update issues
+    - **GitHub**: Manage repos, issues, and pull requests  
+    - **Linear**: Create and update issues  
     - **Jira**: Track tickets and project progress
-    
-    {/* 
-      📸 MEDIA PLACEHOLDER: Development Integrations
-      - Screenshots of GitHub, Linear, Jira cards
-      - Display repository/project connections
-      - Show example automation scenarios
-      - Size: 1600x800px
-    */}
   </Tab>
 </Tabs>
 
@@ -231,7 +151,8 @@ Connect agents to your existing tools:
 
 ## Agents
 
-**Agents** are autonomous AI workers configured with specific capabilities, knowledge, and integrations. Each agent can have its own personality, tools, and purpose.
+<strong>Agents</strong> are autonomous AI workers configured with specific capabilities,
+knowledge, and integrations.
 
 <CardGroup cols={2}>
   <Card title="Custom Configuration" icon="sliders">
@@ -253,39 +174,25 @@ Connect agents to your existing tools:
 </CardGroup>
 
 <Info>
-  **How Agents Work**: When you give an agent a complex task, it automatically
-  breaks it down into smaller steps (e.g., "Creating tasks: 1. Research and
-  image collection 2. Content creation 3. Communication"). This planning is done
-  by the AI's own reasoning, not pre-programmed steps.
+  When you give an agent a complex task, it automatically breaks it into smaller
+  steps using its own reasoning — not pre-programmed rules.
 </Info>
-
-{/\*
-📸 MEDIA PLACEHOLDER: Agent Card Examples
-
-- Screenshot showing 3-4 diverse agent cards
-- Display different icons, colors, and names
-- Show agent capabilities listed underneath
-- Include "Chat" and "Configure" buttons
-- Size: 1600x600px
-  \*/}
 
 ### Agent Types
 
 <Tabs>
   <Tab title="General Purpose">
-    Versatile agents that can handle a wide variety of tasks. Perfect for teams
-    that need flexibility. **Best for**: Ad-hoc requests, exploratory work,
-    general assistance
+    Versatile agents that handle a wide variety of tasks.
+    <strong>Best for:</strong> Ad-hoc requests, exploratory work, general assistance
   </Tab>
   <Tab title="Specialized">
-    Agents configured for specific domains like research, content creation, or
-    data analysis. **Best for**: Recurring workflows, domain expertise,
-    consistent output
+    Agents configured for specific domains.
+    <strong>Best for:</strong> Recurring workflows, domain expertise, consistent
+    output
   </Tab>
   <Tab title="Integrated">
-    Agents connected to external services like Gmail, Slack, or GitHub for
-    cross-platform automation. **Best for**: Automation, notifications, data
-    synchronization
+    Agents connected to external services.
+    <strong>Best for:</strong> Automation, notifications, synchronization
   </Tab>
 </Tabs>
 
@@ -293,172 +200,39 @@ Connect agents to your existing tools:
 
 ## Projects & Threads
 
-**Projects** organize your work, and **Threads** are individual conversations within a project.
+<strong>Projects</strong> organize your work.
+<strong>Threads</strong> are individual conversations within a project.
 
 ### Projects
 
-Think of projects as workspaces for related tasks:
-
-- **Marketing Campaign** - All agents and threads related to a campaign
-- **Q4 Research** - Research tasks and findings for the quarter
-- **Customer Onboarding** - Automated workflows for new customers
-
-{/\*
-📸 MEDIA PLACEHOLDER: Projects View
-
-- Screenshot of projects list/grid
-- Show 4-6 project cards with names, descriptions, dates
-- Include project icons and member avatars
-- Display thread count and activity indicators
-- Size: 1800x1000px
-  \*/}
+- Marketing Campaign
+- Q4 Research
+- Customer Onboarding
 
 ### Threads
 
-Each thread is a conversation with an agent where you can:
+Each thread lets you:
 
 - Assign tasks and track progress
-- View all files and outputs
-- See tool usage and execution history
+- View files and outputs
+- Inspect tool usage
 - Continue conversations over time
 
-{/\*
-📸 MEDIA PLACEHOLDER: Thread Sidebar
-
-- Screenshot of thread history sidebar
-- Show chronological list of threads with titles
-- Include timestamps and agent avatars
-- Display "New Thread" button prominently
-- Highlight active thread
-- Size: 400x1000px (tall, narrow sidebar view)
-  \*/}
-
 <Info>
-  **Pro Tip**: Create separate threads for different tasks within a project to
-  keep conversations organized and context-focused.
+  Create separate threads for different tasks to keep context clean and focused.
 </Info>
 
 ---
 
 ## Workflows & Triggers
 
-**Workflows** are reusable sequences of steps, and **Triggers** automatically start agents on a schedule or event.
-
 ### Workflows
 
-Pre-built sequences of instructions that agents follow:
-
-```
+```text
 Daily Report Workflow:
-1. Check Gmail for messages from yesterday
-2. Pull data from Google Sheets
-3. Analyze trends and create visualizations
-4. Generate summary report
-5. Send via Slack to #reports channel
+1. Check Gmail
+2. Pull data from Sheets
+3. Analyze trends
+4. Generate report
+5. Send via Slack
 ```
-
-{/\*
-📸 MEDIA PLACEHOLDER: Workflow Builder
-
-- Screenshot of workflow creation interface
-- Show step-by-step visual builder
-- Display variable inputs ({{date}}, {{recipient}}, etc.)
-- Include test/save buttons
-- Size: 1800x1000px
-  \*/}
-
-### Triggers
-
-Automate agent execution:
-
-<CardGroup cols={2}>
-  <Card title="Scheduled Triggers" icon="clock">
-    Run agents daily, weekly, or on custom schedules (9 AM every weekday, first
-    of month, etc.)
-  </Card>
-  <Card title="Event Triggers" icon="bolt">
-    Start agents when specific events occur (new email arrives, form submitted,
-    etc.)
-  </Card>
-</CardGroup>
-
-{/\*
-🎥 VIDEO PLACEHOLDER: Workflow Execution (45 seconds)
-
-- Show scheduled trigger activating
-- Display workflow steps executing in sequence
-- Show real-time progress through steps
-- Include notification when complete
-- Display final deliverable
-  \*/}
-
----
-
-## Putting It All Together
-
-Here's how these concepts work together in a real scenario:
-
-<Steps>
-  <Step title="Setup">
-    Create a **Research Agent** with web search and file tools enabled
-  </Step>
-  <Step title="Add Knowledge">
-    Upload company docs to the **Knowledge Base**
-  </Step>
-  <Step title="Connect Services">
-    Link **Gmail** and **Slack** integrations
-  </Step>
-  <Step title="Create Workflow">
-    Build a "Weekly Competitor Analysis" **Workflow**
-  </Step>
-  <Step title="Schedule">Set a **Trigger** to run every Monday at 9 AM</Step>
-  <Step title="Automate">
-    Agent automatically researches competitors, references your knowledge base,
-    and sends results to Slack
-  </Step>
-</Steps>
-
-{/\*
-📸 MEDIA PLACEHOLDER: End-to-End Example
-
-- Infographic showing complete workflow
-- Visual representation of all components working together
-- Include icons and arrows showing data flow
-- Use engaging design with Omni branding
-- Size: 2000x1200px
-  \*/}
-
----
-
-## Next Steps
-
-<CardGroup cols={2}>
-  <Card
-    title="Create Your First Agent"
-    icon="robot"
-    href="/guides/agents/creating-agents"
-  >
-    Detailed guide on building and configuring agents
-  </Card>
-  <Card
-    title="Upload Knowledge"
-    icon="book"
-    href="/guides/knowledge/uploading-files"
-  >
-    Learn how to build your agent's knowledge base
-  </Card>
-  <Card
-    title="Connect Integrations"
-    icon="plug"
-    href="/guides/integrations/connecting-services"
-  >
-    Link your tools and services
-  </Card>
-  <Card
-    title="Browse Use Cases"
-    icon="lightbulb"
-    href="/use-cases/research-analysis"
-  >
-    See Omni in action with real examples
-  </Card>
-</CardGroup>
