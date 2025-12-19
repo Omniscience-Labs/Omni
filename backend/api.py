@@ -226,20 +226,36 @@ async def log_requests_middleware(request: Request, call_next):
         raise
 
 # Define allowed origins based on environment
-allowed_origins = ["https://www.kortix.com", "https://kortix.com", "https://www.suna.so", "https://suna.so"]
+allowed_origins = [
+    "https://www.suna.so", 
+    "https://suna.so", 
+    "https://operator.becomeomni.net", 
+    "https://operator.becomeomni.com", 
+    "https://coldchain.becomeomni.ai", 
+    "https://sundar-dev.operator.becomeomni.net",
+    "https://varnica.operator.becomeomni.net",
+    "https://varnica.operator.becomeomni.net/auth",
+    "https://mssc.becomeomni.net", 
+    "https://mssc.becomeomni.ai",
+    "https://coppermoon.becomeomni.ai",
+    "https://huston.becomeomni.ai",
+    "https://huston.staging.becomeomni.net",
+    "https://huston.staging.becomeomni.net/auth", 
+    "https://becomeomni.com", 
+    "https://bih.becomeomni.net"
+]
 allow_origin_regex = None
 
 # Add staging-specific origins
 if config.ENV_MODE == EnvMode.LOCAL:
     allowed_origins.append("http://localhost:3000")
-    allowed_origins.append("http://127.0.0.1:3000")
 
 # Add staging-specific origins
 if config.ENV_MODE == EnvMode.STAGING:
     allowed_origins.append("https://staging.suna.so")
-    allowed_origins.append("http://localhost:3000")
-    # Allow Vercel preview deployments for both legacy and new project names
-    allow_origin_regex = r"https://(suna|kortixcom)-.*-prjcts\.vercel\.app"
+    allowed_origins.append("https://huston.staging.becomeomni.net")
+    allowed_origins.append("https://huston.staging.becomeomni.net/auth")
+    allow_origin_regex = r"https://suna-.*-prjcts\.vercel\.app"
 
 app.add_middleware(
     CORSMiddleware,
