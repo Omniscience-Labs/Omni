@@ -8,7 +8,6 @@ import { redirect } from 'next/navigation';
 export async function signIn(prevState: any, formData: FormData) {
   const email = formData.get('email') as string;
   const returnUrl = formData.get('returnUrl') as string | undefined;
-  const origin = formData.get('origin') as string;
   const acceptedTerms = formData.get('acceptedTerms') === 'true';
 
   if (!email || !email.includes('@')) {
@@ -20,7 +19,8 @@ export async function signIn(prevState: any, formData: FormData) {
   // Use magic link (passwordless) authentication
   // Pass terms acceptance as query parameter so callback can save it
   const termsParam = acceptedTerms ? `&terms_accepted=true` : '';
-  const emailRedirectTo = `${origin}/auth/callback?returnUrl=${encodeURIComponent(returnUrl || '/dashboard')}${termsParam}`;
+  const siteUrl = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
+  const emailRedirectTo = `${siteUrl}/auth/callback?returnUrl=${encodeURIComponent(returnUrl || '/dashboard')}${termsParam}`;
 
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
@@ -43,7 +43,6 @@ export async function signIn(prevState: any, formData: FormData) {
 }
 
 export async function signUp(prevState: any, formData: FormData) {
-  const origin = formData.get('origin') as string;
   const email = formData.get('email') as string;
   const returnUrl = formData.get('returnUrl') as string | undefined;
   const acceptedTerms = formData.get('acceptedTerms') === 'true';
@@ -62,7 +61,8 @@ export async function signUp(prevState: any, formData: FormData) {
   // Use magic link (passwordless) authentication - auto-creates account
   // Pass terms acceptance as query parameter so callback can save it
   const termsParam = acceptedTerms ? `&terms_accepted=true` : '';
-  const emailRedirectTo = `${origin}/auth/callback?returnUrl=${encodeURIComponent(returnUrl || '/dashboard')}${termsParam}`;
+  const siteUrl = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
+  const emailRedirectTo = `${siteUrl}/auth/callback?returnUrl=${encodeURIComponent(returnUrl || '/dashboard')}${termsParam}`;
 
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
@@ -89,7 +89,6 @@ export async function signUp(prevState: any, formData: FormData) {
 
 export async function forgotPassword(prevState: any, formData: FormData) {
   const email = formData.get('email') as string;
-  const origin = formData.get('origin') as string;
 
   if (!email || !email.includes('@')) {
     return { message: 'Please enter a valid email address' };
@@ -97,8 +96,9 @@ export async function forgotPassword(prevState: any, formData: FormData) {
 
   const supabase = await createClient();
 
+  const siteUrl = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${origin}/auth/reset-password`,
+    redirectTo: `${siteUrl}/auth/reset-password`,
   });
 
   if (error) {
@@ -142,7 +142,6 @@ export async function resetPassword(prevState: any, formData: FormData) {
 export async function resendMagicLink(prevState: any, formData: FormData) {
   const email = formData.get('email') as string;
   const returnUrl = formData.get('returnUrl') as string | undefined;
-  const origin = formData.get('origin') as string;
   const acceptedTerms = formData.get('acceptedTerms') === 'true';
 
   if (!email || !email.includes('@')) {
@@ -154,7 +153,8 @@ export async function resendMagicLink(prevState: any, formData: FormData) {
   // Use magic link (passwordless) authentication
   // Pass terms acceptance as query parameter so callback can save it
   const termsParam = acceptedTerms ? `&terms_accepted=true` : '';
-  const emailRedirectTo = `${origin}/auth/callback?returnUrl=${encodeURIComponent(returnUrl || '/dashboard')}${termsParam}`;
+  const siteUrl = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
+  const emailRedirectTo = `${siteUrl}/auth/callback?returnUrl=${encodeURIComponent(returnUrl || '/dashboard')}${termsParam}`;
 
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),

@@ -94,7 +94,6 @@ function LoginContent() {
 
     const finalReturnUrl = returnUrl || '/dashboard';
     formData.append('returnUrl', finalReturnUrl);
-    formData.append('origin', window.location.origin);
     formData.append('acceptedTerms', acceptedTerms.toString());
 
     const result = await signUp(prevState, formData);
@@ -187,7 +186,6 @@ function LoginContent() {
     const finalReturnUrl = returnUrl || '/dashboard';
     formData.append('email', email);
     formData.append('returnUrl', finalReturnUrl);
-    formData.append('origin', window.location.origin);
     // If email is already known from expired link, assume terms were already accepted
     formData.append('acceptedTerms', 'true');
 
