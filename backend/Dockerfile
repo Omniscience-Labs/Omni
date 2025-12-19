@@ -14,7 +14,7 @@ RUN apk add --no-cache curl git \
 # Install Python dependencies
 COPY pyproject.toml uv.lock ./
 ENV UV_LINK_MODE=copy
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked -v || (echo "UV sync failed, showing files:" && ls -la && echo "--- pyproject.toml content ---" && cat pyproject.toml && exit 1)
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --quiet
 
 # Copy application code
 COPY . .
