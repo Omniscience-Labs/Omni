@@ -12,9 +12,13 @@ RUN apk add --no-cache curl git \
     python3-dev
 
 # Install Python dependencies
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml ./
 ENV UV_LINK_MODE=copy
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --quiet
+RUN --mount=type=cache,target=/root/.cache/uv uv sync
+
+# Ensure the uv-managed virtualenv is used by default for all commands
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Copy application code
 COPY . .
