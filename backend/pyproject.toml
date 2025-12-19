@@ -100,7 +100,8 @@ repository = "https://github.com/kortix-ai/suna"
 package = false
 
 [tool.setuptools]
-packages = ["core"]
+packages = []
+py-modules = []
 
 [dependency-groups]
 dev = [
