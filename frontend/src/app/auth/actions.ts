@@ -23,6 +23,8 @@ export async function signIn(prevState: any, formData: FormData) {
   const siteUrl = origin || process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
   const emailRedirectTo = `${siteUrl}/auth/callback?returnUrl=${encodeURIComponent(returnUrl || '/dashboard')}${termsParam}`;
 
+  console.log('🔑 Magic link request:', { email, siteUrl, emailRedirectTo });
+
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
     options: {
@@ -32,9 +34,12 @@ export async function signIn(prevState: any, formData: FormData) {
   });
 
   if (error) {
+    console.error('❌ Magic link error:', error);
     return { message: error.message || 'Could not send magic link' };
   }
 
+  console.log('✅ Magic link sent successfully');
+  
   // Return success message - user needs to check email
   return { 
     success: true, 
@@ -66,6 +71,8 @@ export async function signUp(prevState: any, formData: FormData) {
   const siteUrl = origin || process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
   const emailRedirectTo = `${siteUrl}/auth/callback?returnUrl=${encodeURIComponent(returnUrl || '/dashboard')}${termsParam}`;
 
+  console.log('🔑 Magic link signup request:', { email, siteUrl, emailRedirectTo, referralCode });
+
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
     options: {
@@ -78,8 +85,11 @@ export async function signUp(prevState: any, formData: FormData) {
   });
 
   if (error) {
+    console.error('❌ Magic link signup error:', error);
     return { message: error.message || 'Could not send magic link' };
   }
+
+  console.log('✅ Magic link sent successfully');
 
   // Return success message - user needs to check email
     return {
