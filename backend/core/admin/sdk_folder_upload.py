@@ -51,13 +51,22 @@ async def upload_sdk_folder(
     
     # Normalize filename to lowercase for comparison (case-insensitive)
     filename_lower = file.filename.lower()
-    is_tar_gz = filename_lower.endswith('.tar.gz') or filename_lower.endswith('.tgz')
-    is_zip = filename_lower.endswith('.zip')
+    is_tar_gz = filename_lower.endswith('.tar.gz') or filename_lower.endswith('.tgz') or filename_lower.endswith('.gz')
+    is_zip = filename_lower.endswith('.zip') or filename_lower.endswith('.zipx')
+    
+    # Also check content type as fallback
+    content_type = file.content_type or ""
+    if not (is_tar_gz or is_zip):
+        # Check content type as fallback
+        if 'zip' in content_type.lower():
+            is_zip = True
+        elif 'gzip' in content_type.lower() or 'x-tar' in content_type.lower():
+            is_tar_gz = True
     
     if not (is_tar_gz or is_zip):
         raise HTTPException(
             status_code=400, 
-            detail=f"File must be a .tar.gz, .tgz, or .zip archive. Received: {file.filename}"
+            detail=f"File must be a .tar.gz, .tgz, .gz, .zip, or .zipx archive. Received: {file.filename} (Content-Type: {content_type})"
         )
     
     # Extract to /workspace/omni_inbound_mcp_sdk/
@@ -83,11 +92,74 @@ async def upload_sdk_folder(
                 
                 # Extract archive to temporary location first
                 if is_tar_gz:
-                    with tarfile.open(tmp_path, 'r:gz') as tar:
-                        tar.extractall(path=temp_extract_path)
+                    # Try different tar compression formats
+                    tar_opened = False
+                    for mode in ['r:gz', 'r:bz2', 'r:xz', 'r']:
+                        try:
+                            with tarfile.open(tmp_path, mode) as tar:
+                                tar.extractall(path=temp_extract_path)
+                            tar_opened = True
+                            logger.info(f"Successfully extracted tar archive with mode: {mode}")
+                            break
+                        except (tarfile.TarError, OSError) as e:
+                            logger.debug(f"Failed to extract with mode {mode}: {e}")
+                            continue
+                    
+                    if not tar_opened:
+                        raise tarfile.TarError("Could not extract tar archive with any supported compression format")
                 else:  # zip
-                    with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
-                        zip_ref.extractall(path=temp_extract_path)
+                    # Try different zip extraction methods
+                    zip_opened = False
+                    extraction_error = None
+                    
+                    # Method 1: Standard zipfile extraction
+                    try:
+                        with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
+                            # Test if zip is valid
+                            zip_ref.testzip()
+                            zip_ref.extractall(path=temp_extract_path)
+                        zip_opened = True
+                        logger.info("Successfully extracted zip archive using standard method")
+                    except zipfile.BadZipFile as e:
+                        extraction_error = str(e)
+                        logger.warning(f"Standard zip extraction failed: {e}")
+                    
+                    # Method 2: Try with allowZip64=True (for large files)
+                    if not zip_opened:
+                        try:
+                            with zipfile.ZipFile(tmp_path, 'r', allowZip64=True) as zip_ref:
+                                zip_ref.testzip()
+                                zip_ref.extractall(path=temp_extract_path)
+                            zip_opened = True
+                            logger.info("Successfully extracted zip archive using Zip64 method")
+                        except zipfile.BadZipFile as e:
+                            extraction_error = str(e)
+                            logger.warning(f"Zip64 extraction failed: {e}")
+                    
+                    # Method 3: Try reading as bytes and checking magic numbers
+                    if not zip_opened:
+                        try:
+                            with open(tmp_path, 'rb') as f:
+                                magic = f.read(4)
+                                # Check for ZIP magic numbers: PK\x03\x04 or PK\x05\x06 (empty zip) or PK\x07\x08 (spanned)
+                                if magic[:2] == b'PK':
+                                    # It's a zip file, try one more time with different options
+                                    with zipfile.ZipFile(tmp_path, 'r', allowZip64=True) as zip_ref:
+                                        # Don't test, just try to extract
+                                        zip_ref.extractall(path=temp_extract_path)
+                                    zip_opened = True
+                                    logger.info("Successfully extracted zip archive after magic number check")
+                                else:
+                                    raise zipfile.BadZipFile(f"File does not appear to be a valid zip archive. Magic bytes: {magic.hex()}")
+                        except Exception as e:
+                            extraction_error = str(e)
+                            logger.error(f"All zip extraction methods failed: {e}")
+                    
+                    if not zip_opened:
+                        error_msg = f"Could not extract zip archive. File may be corrupted or in an unsupported format."
+                        if extraction_error:
+                            error_msg += f" Error: {extraction_error}"
+                        raise zipfile.BadZipFile(error_msg)
                 
                 # Find the root folder (could be omni_inbound_mcp_sdk or just the contents)
                 extracted_items = list(temp_extract_path.iterdir())
@@ -188,11 +260,21 @@ async def upload_sdk_folder(
                 os.unlink(tmp_path)
                 
     except (tarfile.TarError, zipfile.BadZipFile) as e:
-        logger.error(f"Failed to extract archive: {e}")
-        raise HTTPException(status_code=400, detail=f"Invalid archive: {str(e)}")
+        logger.error(f"Failed to extract archive: {e}", exc_info=True)
+        error_detail = f"Invalid or corrupted archive file: {str(e)}"
+        error_detail += f"\n\nTroubleshooting tips:"
+        error_detail += f"\n1. Verify the file is not corrupted - try opening it locally first"
+        error_detail += f"\n2. Ensure the file is a valid .zip, .tar.gz, or .tgz archive"
+        error_detail += f"\n3. Try recreating the archive with standard compression"
+        error_detail += f"\n4. Check file size - very large files may need to be split"
+        error_detail += f"\n5. For zip files, ensure they're not password-protected"
+        raise HTTPException(status_code=400, detail=error_detail)
     except Exception as e:
         logger.error(f"Error uploading SDK folder: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to upload and extract SDK folder: {str(e)}")
+        error_detail = f"Failed to upload and extract SDK folder: {str(e)}"
+        error_detail += f"\n\nFile: {file.filename}"
+        error_detail += f"\nSize: {len(content) if 'content' in locals() else 'unknown'} bytes"
+        raise HTTPException(status_code=500, detail=error_detail)
 
 
 @router.get("/{user_id}/status")
