@@ -208,6 +208,66 @@ class ToolManager:
             self.thread_manager.add_tool(BrowserTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
             # logger.debug("Registered browser_tool")
     
+    async def _register_cold_chain_tools(self, disabled_tools: List[str]):
+        """Register Cold Chain Enterprise workspace-scoped tools."""
+        try:
+            from core.services.supabase import DBConnection
+            
+            # Get account_id from thread_id
+            db = DBConnection()
+            client = await db.client
+            thread_result = await client.table('threads').select('account_id').eq('thread_id', self.thread_id).limit(1).execute()
+            
+            if not thread_result.data:
+                logger.debug(f"Thread {self.thread_id} not found, skipping cold chain tools")
+                return
+            
+            account_id = thread_result.data[0]['account_id']
+            if not account_id:
+                logger.debug(f"Thread {self.thread_id} has no account_id, skipping cold chain tools")
+                return
+            
+            # Get workspace slug
+            client = await db.client
+            result = await client.schema("basejump").table("accounts").select("slug").eq("id", account_id).single().execute()
+            
+            if not result.data:
+                logger.debug(f"Account {account_id} not found, skipping cold chain tools")
+                return
+            
+            workspace_slug = result.data.get("slug", "")
+            
+            # Register for cold-chain-enterprise (production) and varnica.dev (staging) workspaces
+            allowed_workspaces = ["cold-chain-enterprise", "varnica.dev"]
+            if workspace_slug not in allowed_workspaces:
+                logger.debug(f"Workspace slug '{workspace_slug}' is not in {allowed_workspaces}, skipping cold chain tools")
+                return
+            
+            # Register tools
+            if 'setup_inbound_order_credentials_tool' not in disabled_tools:
+                from core.tools.setup_inbound_order_credentials_tool import SetupInboundOrderCredentialsTool
+                self.thread_manager.add_tool(
+                    SetupInboundOrderCredentialsTool,
+                    project_id=self.project_id,
+                    thread_id=self.thread_id,
+                    thread_manager=self.thread_manager
+                )
+                logger.debug(f"Registered setup_inbound_order_credentials_tool for {workspace_slug}")
+            
+            if 'inbound_order_tool' not in disabled_tools:
+                from core.tools.inbound_order_tool import InboundOrderTool
+                self.thread_manager.add_tool(
+                    InboundOrderTool,
+                    project_id=self.project_id,
+                    thread_id=self.thread_id,
+                    thread_manager=self.thread_manager
+                )
+                logger.debug(f"Registered inbound_order_tool for {workspace_slug}")
+                
+        except Exception as e:
+            logger.warning(f"Failed to register cold chain tools: {e}")
+            # Don't fail tool registration if workspace check fails
+    
 
 class MCPManager:
     def __init__(self, thread_manager: ThreadManager, account_id: str):
@@ -596,6 +656,9 @@ class AgentRunner:
         disabled_tools = self._get_disabled_tools_from_config()
         
         tool_manager.register_all_tools(agent_id=agent_id, disabled_tools=disabled_tools)
+        
+        # Register workspace-scoped tools (e.g., Cold Chain Enterprise)
+        await tool_manager._register_cold_chain_tools(disabled_tools)
         
         # Register LlamaCloud knowledge search tool (default Suna agent)
         await self._register_llamacloud_knowledge_tool()
