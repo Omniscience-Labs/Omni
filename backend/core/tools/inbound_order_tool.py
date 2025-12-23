@@ -229,6 +229,7 @@ class InboundOrderTool(SandboxToolsBase):
                     "api_key": nova_act_api_key,
                     "browser_profile_path": browser_profile_path,
                     "arcadia_link": arcadia_link,
+                    "headless": False,  # Run browser in visible mode so user can see automation
                 }
                 
                 sdk_client = InboundOrderClient(**sdk_kwargs)
@@ -342,14 +343,19 @@ class InboundOrderTool(SandboxToolsBase):
             
             os.environ['NOVA_ACT_API_KEY'] = nova_act_api_key
             
+            # Ensure DISPLAY is set for visible browser (if running in container/server environment)
+            if 'DISPLAY' not in os.environ:
+                log.debug("DISPLAY not set, browser may not be visible in headless server environment")
+            
             try:
                 from inbound_mcp.sdk import InboundOrderClient
                 
-                # Initialize SDK client
+                # Initialize SDK client with visible browser
                 sdk_client = InboundOrderClient(
                     api_key=nova_act_api_key,
                     browser_profile_path=browser_profile_path,
                     arcadia_link=arcadia_link,
+                    headless=False,  # Run browser in visible mode so user can see automation
                 )
                 
                 setup_result = await sdk_client.setup_credentials()
