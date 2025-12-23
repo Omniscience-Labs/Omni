@@ -157,24 +157,32 @@ export function WorkspaceCredentialsManager({ workspaceSlug, accountId }: Worksp
               </div>
 
               <div>
-                <Label htmlFor="erp-url">ERP Login URL</Label>
-                <Input
-                  id="erp-url"
-                  type="url"
-                  placeholder={novaActCredential?.config_keys?.includes('erp_url') ? 'Configured' : 'https://erp.coldchain.com/login'}
-                  value={erpUrl}
-                  onChange={(e) => setErpUrl(e.target.value)}
+                <Label htmlFor="gmail-profile">Gmail Profile Cached Data *</Label>
+                <textarea
+                  id="gmail-profile"
+                  rows={6}
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-2"
+                  placeholder="Paste Gmail OAuth token JSON or cached authentication data here..."
+                  value={gmailProfileData}
+                  onChange={(e) => setGmailProfileData(e.target.value)}
                   disabled={storeCredentialMutation.isPending}
-                  className="mt-2"
                 />
+                {hasGmailProfile && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <CheckCircle2 className="h-3 w-3 text-green-600" />
+                    <p className="text-xs text-muted-foreground">
+                      Gmail profile data is configured
+                    </p>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground mt-1">
-                  URL for ERP login page (used during browser profile setup)
+                  Required for Arcadia login. Paste your Gmail OAuth token JSON or cached authentication data. This will be used by the SDK to authenticate with Arcadia.
                 </p>
               </div>
 
               <Button
                 onClick={handleSaveCredentials}
-                disabled={!apiKey.trim() || storeCredentialMutation.isPending}
+                disabled={!apiKey.trim() || !gmailProfileData.trim() || storeCredentialMutation.isPending}
                 className="w-full"
               >
                 {storeCredentialMutation.isPending ? (
