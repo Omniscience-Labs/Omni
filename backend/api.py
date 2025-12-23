@@ -105,6 +105,21 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Custom handler for FastAPI validation errors to provide better error messages."""
+    logger.error(f"FastAPI validation error for {request.url.path}: {exc.errors()}", 
+                errors=exc.errors(),
+                method=request.method,
+                path=request.url.path)
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": exc.errors(),
+            "message": "Validation error: " + str(exc.errors())
+        }
+    )
+
 @app.middleware("http")
 async def log_requests_middleware(request: Request, call_next):
     structlog.contextvars.clear_contextvars()
