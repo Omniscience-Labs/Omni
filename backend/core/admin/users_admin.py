@@ -9,6 +9,7 @@ from core.utils.pagination import PaginationService, PaginationParams, Paginated
 from collections import defaultdict
 from core.utils.config import config
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt
+from core.credentials.credential_service import get_credential_service
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 
@@ -723,6 +724,40 @@ async def adjust_user_credits(
     except Exception as e:
         logger.error(f"Failed to adjust credits: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to adjust user credits")
+
+class AdminStoreCredentialRequest(BaseModel):
+    mcp_qualified_name: str
+    display_name: str
+    config: Dict[str, Any]
+
+@router.post("/{user_id}/credentials")
+async def admin_store_user_credential(
+    user_id: str,
+    request: AdminStoreCredentialRequest,
+    admin: dict = Depends(require_any_admin)
+):
+    """Admin endpoint to store credentials for a specific user."""
+    try:
+        db = DBConnection()
+        cred_service = get_credential_service(db)
+        
+        credential_id = await cred_service.store_credential(
+            account_id=user_id,
+            mcp_qualified_name=request.mcp_qualified_name,
+            display_name=request.display_name,
+            config=request.config
+        )
+        
+        logger.info(f"Admin {admin['user_id']} stored credential {request.mcp_qualified_name} for user {user_id}")
+        
+        return {
+            "success": True,
+            "credential_id": credential_id,
+            "message": f"Credential stored successfully for user {user_id}"
+        }
+    except Exception as e:
+        logger.error(f"Failed to store credential for user {user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to store credential: {str(e)}")
 
 @router.get("/{user_id}/usage-logs")
 async def get_user_usage_logs(

@@ -8,8 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, CheckCircle2, Loader2, Package } from 'lucide-react';
 import { toast } from 'sonner';
-import { useStoreCredential, useUserCredentials, useDeleteCredential } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
+import { useUserCredentials, useDeleteCredential } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { useCurrentAccount } from '@/hooks/use-current-account';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
 
 interface UserColdChainCredentialsProps {
   userId: string;
@@ -26,10 +28,24 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
   const effectiveWorkspaceSlug = workspaceSlug || currentAccount?.slug;
   const allowedWorkspaces = ['cold-chain-enterprise', 'operator'];
   const isAllowedWorkspace = effectiveWorkspaceSlug && allowedWorkspaces.includes(effectiveWorkspaceSlug);
+  const queryClient = useQueryClient();
 
   const { data: credentials, isLoading } = useUserCredentials();
-  const storeCredential = useStoreCredential();
   const deleteCredential = useDeleteCredential();
+  
+  // Admin mutation to store credentials for a specific user
+  const storeCredential = useMutation({
+    mutationFn: async (data: { mcp_qualified_name: string; display_name: string; config: Record<string, any> }) => {
+      const response = await apiClient.request(`/admin/users/${userId}/credentials`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['secure-mcp', 'credentials'] });
+    },
+  });
 
   // Find the Cold Chain credential for this user
   const coldChainCredential = credentials?.find(
@@ -71,7 +87,6 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
       }
 
       await storeCredential.mutateAsync({
-        account_id: userId, // Use user_id for per-user storage
         mcp_qualified_name: 'nova_act.inbound_orders',
         display_name: 'Nova ACT Inbound Orders',
         config,
@@ -85,14 +100,14 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
   };
 
   const handleDelete = async () => {
-    if (!coldChainCredential?.id) return;
+    if (!coldChainCredential?.credential_id) return;
 
     if (!confirm('Are you sure you want to delete these credentials? This will remove all Cold Chain automation settings for this user.')) {
       return;
     }
 
     try {
-      await deleteCredential.mutateAsync(coldChainCredential.id);
+      await deleteCredential.mutateAsync(coldChainCredential.credential_id);
       toast.success('Credentials deleted successfully');
       setApiKey('');
       setArcadiaLink('');
