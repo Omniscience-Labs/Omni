@@ -652,11 +652,16 @@ function CreditTransactionsDialog({ totalLoaded, transactions, isOmniAdmin }: { 
 function WorkspaceCredentialsSection() {
   const currentAccount = useCurrentAccount();
   const workspaceSlug = currentAccount?.slug;
-  // varnica.dev, varnica, and operator are all the same workspace (varnica.operator.becomeomni.net)
-  // Using 'operator' as the workspace slug for staging
-  const allowedWorkspaces = ['cold-chain-enterprise', 'operator'];
+  // Allow Cold Chain automation for enterprise workspaces in all environments
+  // In staging/local, workspace slugs might be different (e.g., 'varnica', 'varnica.dev')
+  const allowedWorkspaces = ['cold-chain-enterprise', 'operator', 'varnica', 'varnica.dev'];
+  // Also allow in local/staging environments for testing
+  const isAllowed = workspaceSlug && (
+    allowedWorkspaces.includes(workspaceSlug) ||
+    (process.env.NEXT_PUBLIC_ENV_MODE === 'LOCAL' || process.env.NEXT_PUBLIC_ENV_MODE === 'STAGING')
+  );
   
-  if (!workspaceSlug || !allowedWorkspaces.includes(workspaceSlug) || !currentAccount?.account_id) {
+  if (!isAllowed || !currentAccount?.account_id) {
     return null;
   }
   

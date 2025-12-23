@@ -238,9 +238,13 @@ class ToolManager:
             workspace_slug = result.data.get("slug", "")
             
             # Register for cold-chain-enterprise (production) and operator (staging - varnica.operator.becomeomni.net)
-            allowed_workspaces = ["cold-chain-enterprise", "operator"]
-            if workspace_slug not in allowed_workspaces:
-                logger.debug(f"Workspace slug '{workspace_slug}' is not in {allowed_workspaces}, skipping cold chain tools")
+            # Also allow in local/staging environments for testing
+            allowed_workspaces = ["cold-chain-enterprise", "operator", "varnica", "varnica.dev"]
+            from core.utils.config import config
+            is_local_or_staging = getattr(config, 'ENV_MODE', None) in ['local', 'staging']
+            
+            if workspace_slug not in allowed_workspaces and not is_local_or_staging:
+                logger.debug(f"Workspace slug '{workspace_slug}' is not in {allowed_workspaces} and not in local/staging, skipping cold chain tools")
                 return
             
             # Register unified tool

@@ -29,10 +29,14 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
   
   // Workspace-scoped tools that need credentials configuration
   const workspaceScopedTools = ['inbound_order_tool'];
-  // varnica.dev, varnica, and operator are all the same workspace (varnica.operator.becomeomni.net)
-  // Using 'operator' as the workspace slug for staging
-  const allowedWorkspaces = ['cold-chain-enterprise', 'operator'];
-  const isWorkspaceScoped = currentAccount?.slug && allowedWorkspaces.includes(currentAccount.slug);
+  // Allow Cold Chain automation for enterprise workspaces in all environments
+  // In staging/local, workspace slugs might be different (e.g., 'varnica', 'varnica.dev')
+  const allowedWorkspaces = ['cold-chain-enterprise', 'operator', 'varnica', 'varnica.dev'];
+  // Also allow in local/staging environments for testing
+  const isWorkspaceScoped = currentAccount?.slug && (
+    allowedWorkspaces.includes(currentAccount.slug) ||
+    (process.env.NEXT_PUBLIC_ENV_MODE === 'LOCAL' || process.env.NEXT_PUBLIC_ENV_MODE === 'STAGING')
+  );
   
   // Debug: Log workspace info (remove in production)
   if (process.env.NODE_ENV === 'development') {
