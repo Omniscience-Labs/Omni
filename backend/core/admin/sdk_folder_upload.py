@@ -46,13 +46,9 @@ async def upload_sdk_folder(
         file: zip or tar.gz archive file containing the complete folder structure
         admin: Admin user (from require_any_admin)
     """
-    # Log request details for debugging
-    content_type_header = request.headers.get('content-type', 'unknown')
-    logger.info(f"Received upload request", user_id=user_id, content_type_header=content_type_header, has_file=file is not None)
-    
     # Validate file was provided
     if file is None:
-        logger.error("File parameter is None", user_id=user_id, content_type_header=content_type_header)
+        logger.error("File parameter is None", user_id=user_id)
         raise HTTPException(status_code=422, detail="File is required")
     
     if not file.filename:
