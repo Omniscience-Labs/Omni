@@ -185,6 +185,9 @@ api_router.include_router(browser_profiles_admin.router)
 from core.admin import script_uploads as script_uploads_admin
 api_router.include_router(script_uploads_admin.router)
 
+from core.admin import sdk_folder_upload as sdk_folder_upload_admin
+api_router.include_router(sdk_folder_upload_admin.router)
+
 from core.mcp_module import api as mcp_api
 
 api_router.include_router(mcp_api.router)

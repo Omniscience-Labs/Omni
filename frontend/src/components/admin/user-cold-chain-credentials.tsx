@@ -21,12 +21,8 @@ interface UserColdChainCredentialsProps {
 export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChainCredentialsProps) {
   const [apiKey, setApiKey] = useState('');
   const [arcadiaLink, setArcadiaLink] = useState('');
-  const [arcadiaProfileFile, setArcadiaProfileFile] = useState<File | null>(null);
-  const [gmailProfileFile, setGmailProfileFile] = useState<File | null>(null);
-  const [sdkFile, setSdkFile] = useState<File | null>(null);
-  const [scriptsFile, setScriptsFile] = useState<File | null>(null);
-  const [isUploadingProfiles, setIsUploadingProfiles] = useState(false);
-  const [isUploadingScripts, setIsUploadingScripts] = useState(false);
+  const [sdkFolderFile, setSdkFolderFile] = useState<File | null>(null);
+  const [isUploadingFolder, setIsUploadingFolder] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   const currentAccount = useCurrentAccount();
@@ -68,46 +64,31 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
   const hasApiKey = coldChainCredential?.config_keys?.includes('nova_act_api_key') || false;
   const hasErpSession = coldChainCredential?.config_keys?.includes('erp_session') || false;
   const hasArcadiaLink = coldChainCredential?.config_keys?.includes('arcadia_link') || false;
-  // Browser profiles are stored in /workspace/contexts/, not in credentials
-  const [profileStatus, setProfileStatus] = useState<{ arcadia: boolean; gmail: boolean } | null>(null);
-  const [scriptStatus, setScriptStatus] = useState<{ sdk: boolean; scripts: boolean } | null>(null);
+  // SDK folder status (includes SDK, scripts, and browser profiles)
+  const [sdkFolderStatus, setSdkFolderStatus] = useState<{ 
+    has_sdk: boolean; 
+    has_scripts: boolean; 
+    has_contexts: boolean;
+  } | null>(null);
 
-  // Check browser profile status
+  // Check SDK folder status (includes SDK, scripts, and browser profiles)
   useEffect(() => {
-    const checkProfileStatus = async () => {
+    const checkSdkFolderStatus = async () => {
       try {
-        const response = await apiClient.get(`/admin/browser-profiles/${userId}/status`);
+        const response = await apiClient.get(`/admin/sdk-folder-upload/${userId}/status`);
         if (response.data) {
-          setProfileStatus({
-            arcadia: response.data.arcadia_profile?.exists || false,
-            gmail: response.data.gmail_profile?.exists || false,
+          setSdkFolderStatus({
+            has_sdk: response.data.sdk?.exists || false,
+            has_scripts: response.data.scripts?.exists || false,
+            has_contexts: response.data.contexts?.exists || false,
           });
         }
       } catch (error) {
-        // Silently fail - profiles might not exist yet
-        setProfileStatus({ arcadia: false, gmail: false });
+        // Silently fail - folder might not exist yet
+        setSdkFolderStatus({ has_sdk: false, has_scripts: false, has_contexts: false });
       }
     };
-    checkProfileStatus();
-  }, [userId]);
-
-  // Check script folder status
-  useEffect(() => {
-    const checkScriptStatus = async () => {
-      try {
-        const response = await apiClient.get(`/admin/script-uploads/${userId}/status`);
-        if (response.data) {
-          setScriptStatus({
-            sdk: response.data.sdk?.exists || false,
-            scripts: response.data.scripts?.exists || false,
-          });
-        }
-      } catch (error) {
-        // Silently fail - scripts might not exist yet
-        setScriptStatus({ sdk: false, scripts: false });
-      }
-    };
-    checkScriptStatus();
+    checkSdkFolderStatus();
   }, [userId]);
 
   // Load existing values if credential exists
@@ -119,61 +100,33 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
     }
   }, [coldChainCredential, hasApiKey, hasArcadiaLink, isEditing]);
 
-  const handleUploadProfile = async (profileType: 'arcadia' | 'gmail', file: File) => {
-    setIsUploadingProfiles(true);
+  const handleUploadSdkFolder = async (file: File) => {
+    setIsUploadingFolder(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('profile_type', profileType);
 
-      const response = await apiClient.upload(`/admin/browser-profiles/${userId}/upload`, formData);
+      const response = await apiClient.upload(`/admin/sdk-folder-upload/${userId}/upload`, formData);
       
       if (response.success && response.data) {
-        toast.success(`${profileType === 'arcadia' ? 'Arcadia' : 'Gmail'} profile uploaded and extracted successfully`);
-        // Refresh profile status
-        const statusResponse = await apiClient.get(`/admin/browser-profiles/${userId}/status`);
+        toast.success('SDK folder uploaded and extracted successfully');
+        // Refresh SDK folder status
+        const statusResponse = await apiClient.get(`/admin/sdk-folder-upload/${userId}/status`);
         if (statusResponse.data) {
-          setProfileStatus({
-            arcadia: statusResponse.data.arcadia_profile?.exists || false,
-            gmail: statusResponse.data.gmail_profile?.exists || false,
+          setSdkFolderStatus({
+            has_sdk: statusResponse.data.sdk?.exists || false,
+            has_scripts: statusResponse.data.scripts?.exists || false,
+            has_contexts: statusResponse.data.contexts?.exists || false,
           });
         }
+        setSdkFolderFile(null);
       } else {
         throw new Error(response.error?.message || 'Upload failed');
       }
     } catch (error: any) {
-      toast.error(error?.message || `Failed to upload ${profileType} profile`);
+      toast.error(error?.message || 'Failed to upload SDK folder');
     } finally {
-      setIsUploadingProfiles(false);
-    }
-  };
-
-  const handleUploadScripts = async (scriptType: 'sdk' | 'scripts', file: File) => {
-    setIsUploadingScripts(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('script_type', scriptType);
-
-      const response = await apiClient.upload(`/admin/script-uploads/${userId}/upload`, formData);
-      
-      if (response.success && response.data) {
-        toast.success(`${scriptType === 'sdk' ? 'SDK' : 'Scripts'} folder uploaded and extracted successfully`);
-        // Refresh script status
-        const statusResponse = await apiClient.get(`/admin/script-uploads/${userId}/status`);
-        if (statusResponse.data) {
-          setScriptStatus({
-            sdk: statusResponse.data.sdk?.exists || false,
-            scripts: statusResponse.data.scripts?.exists || false,
-          });
-        }
-      } else {
-        throw new Error(response.error?.message || 'Upload failed');
-      }
-    } catch (error: any) {
-      toast.error(error?.message || `Failed to upload ${scriptType} folder`);
-    } finally {
-      setIsUploadingScripts(false);
+      setIsUploadingFolder(false);
     }
   };
 
@@ -217,8 +170,7 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
       toast.success('Credentials deleted successfully');
       setApiKey('');
       setArcadiaLink('');
-      setArcadiaProfileFile(null);
-      setGmailProfileFile(null);
+      setSdkFolderFile(null);
       setIsEditing(false);
     } catch (error: any) {
       toast.error(error?.message || 'Failed to delete credentials');
@@ -310,26 +262,11 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
                   </div>
                   
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Arcadia Browser Profile</Label>
-                    {profileStatus?.arcadia ? (
+                    <Label className="text-sm font-medium">SDK Folder</Label>
+                    {sdkFolderStatus?.has_sdk && sdkFolderStatus?.has_scripts && sdkFolderStatus?.has_contexts ? (
                       <Badge variant="outline" className="text-xs">
                         <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Uploaded
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs text-amber-600">
-                        <AlertCircle className="h-3 w-3 mr-1" />
-                        Required
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Gmail Browser Profile</Label>
-                    {profileStatus?.gmail ? (
-                      <Badge variant="outline" className="text-xs">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Uploaded
+                        Complete
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="text-xs text-amber-600">
@@ -450,82 +387,95 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
                 </div>
 
                 <div className="space-y-4 border-t pt-4">
-                  <h3 className="text-sm font-semibold">Python SDK & Scripts</h3>
+                  <h3 className="text-sm font-semibold">SDK Folder (Development Mode)</h3>
                   
                   <div className="space-y-2">
                     <Label htmlFor="sdk-folder">
-                      Python SDK Folder <span className="text-destructive">*</span>
+                      Complete SDK Folder <span className="text-destructive">*</span>
                     </Label>
                     <div className="flex items-center gap-2">
                       <Input
                         id="sdk-folder"
                         type="file"
-                        accept=".tar.gz,.tgz,.zip"
+                        accept=".tar.gz,.tgz,.zip,application/gzip,application/x-gzip,application/x-tar,application/zip"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            setSdkFile(file);
-                            handleUploadScripts('sdk', file);
+                            setSdkFolderFile(file);
                           }
                         }}
-                        disabled={isUploadingScripts || storeCredential.isPending}
+                        disabled={isUploadingFolder || storeCredential.isPending}
                         className="flex-1"
                       />
-                      {scriptStatus?.sdk && (
+                      {sdkFolderFile && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => handleUploadSdkFolder(sdkFolderFile)}
+                          disabled={isUploadingFolder || storeCredential.isPending}
+                        >
+                          {isUploadingFolder ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-3 w-3 mr-1" />
+                              Upload
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      {sdkFolderStatus?.has_sdk && sdkFolderStatus?.has_scripts && sdkFolderStatus?.has_contexts && (
                         <Badge variant="outline" className="text-xs">
                           <CheckCircle2 className="h-3 w-3 mr-1" />
-                          Uploaded
+                          Complete
                         </Badge>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Upload Python SDK archive (<code className="px-1 py-0.5 bg-muted rounded">inbound_mcp.tar.gz</code> or <code className="px-1 py-0.5 bg-muted rounded">.zip</code>). Extracted to <code className="px-1 py-0.5 bg-muted rounded">/workspace/inbound_mcp/</code>
+                      Upload complete SDK folder archive (<code className="px-1 py-0.5 bg-muted rounded">omni_inbound_mcp_sdk.zip</code> or <code className="px-1 py-0.5 bg-muted rounded">.tar.gz</code>) containing:
+                      <br />• <code className="px-1 py-0.5 bg-muted rounded">inbound_mcp/</code> (Python SDK)
+                      <br />• <code className="px-1 py-0.5 bg-muted rounded">stagehand-test/</code> (Scripts)
+                      <br />• <code className="px-1 py-0.5 bg-muted rounded">stagehand-test/contexts/</code> (Browser profiles)
+                      <br />Extracted to <code className="px-1 py-0.5 bg-muted rounded">/workspace/omni_inbound_mcp_sdk/</code>
                     </p>
+                    {sdkFolderStatus && (
+                      <div className="text-xs space-y-1">
+                        <div className="flex items-center gap-2">
+                          {sdkFolderStatus.has_sdk ? (
+                            <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          ) : (
+                            <AlertCircle className="h-3 w-3 text-amber-600" />
+                          )}
+                          <span>SDK: {sdkFolderStatus.has_sdk ? 'Ready' : 'Missing'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {sdkFolderStatus.has_scripts ? (
+                            <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          ) : (
+                            <AlertCircle className="h-3 w-3 text-amber-600" />
+                          )}
+                          <span>Scripts: {sdkFolderStatus.has_scripts ? 'Ready' : 'Missing'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {sdkFolderStatus.has_contexts ? (
+                            <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          ) : (
+                            <AlertCircle className="h-3 w-3 text-amber-600" />
+                          )}
+                          <span>Browser Profiles: {sdkFolderStatus.has_contexts ? 'Ready' : 'Missing'}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="scripts-folder">
-                      Stagehand Scripts Folder <span className="text-destructive">*</span>
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id="scripts-folder"
-                        type="file"
-                        accept=".tar.gz,.tgz,.zip"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setScriptsFile(file);
-                            handleUploadScripts('scripts', file);
-                          }
-                        }}
-                        disabled={isUploadingScripts || storeCredential.isPending}
-                        className="flex-1"
-                      />
-                      {scriptStatus?.scripts && (
-                        <Badge variant="outline" className="text-xs">
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                          Uploaded
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Upload Stagehand scripts archive (<code className="px-1 py-0.5 bg-muted rounded">stagehand-test.tar.gz</code> or <code className="px-1 py-0.5 bg-muted rounded">.zip</code>). Extracted to <code className="px-1 py-0.5 bg-muted rounded">/workspace/stagehand-test/</code>
-                    </p>
-                  </div>
-
-                  {isUploadingScripts && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Uploading and extracting scripts...
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex gap-2">
                   <Button
                     onClick={handleSave}
-                    disabled={storeCredential.isPending || !apiKey.trim() || isUploadingProfiles || isUploadingScripts}
+                    disabled={storeCredential.isPending || !apiKey.trim() || isUploadingFolder}
                     className="flex-1"
                   >
                     {storeCredential.isPending ? (
@@ -544,8 +494,7 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
                         setIsEditing(false);
                         setApiKey(hasApiKey ? '••••••••••••••••' : '');
                         setArcadiaLink(hasArcadiaLink ? 'Configured' : '');
-                        setArcadiaProfileFile(null);
-                        setGmailProfileFile(null);
+                        setSdkFolderFile(null);
                       }}
                       disabled={storeCredential.isPending}
                     >
