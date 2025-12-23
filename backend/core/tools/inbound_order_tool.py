@@ -14,6 +14,7 @@ Credentials and browser profiles are PER-USER (not shared across workspace).
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
 import os
+import shutil
 
 from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
 from core.agentpress.thread_manager import ThreadManager
@@ -100,6 +101,10 @@ class InboundOrderTool(SandboxToolsBase):
                     "erp_url": {
                         "type": "string",
                         "description": "Optional: ERP login URL (only used for 'setup' action)"
+                    },
+                    "browser_data_source": {
+                        "type": "string",
+                        "description": "Optional: Path to existing browser data folder to copy history from (e.g., '/path/to/Chrome/User Data/Default')"
                     }
                 },
                 "required": ["action"]
@@ -131,7 +136,7 @@ class InboundOrderTool(SandboxToolsBase):
             log.warning("Failed to get user_id from context", error=str(e))
             return None
 
-    async def cold_chain_inbound_orders(self, action: str, erp_url: Optional[str] = None) -> ToolResult:
+    async def cold_chain_inbound_orders(self, action: str, erp_url: Optional[str] = None, browser_data_source: Optional[str] = None) -> ToolResult:
         """
         Unified Cold Chain Enterprise tool for setup and order processing.
         
@@ -174,7 +179,7 @@ class InboundOrderTool(SandboxToolsBase):
             
             # Handle setup action separately
             if action == "setup":
-                return await self._handle_setup(user_id, account_id, erp_url)
+                return await self._handle_setup(user_id, account_id, erp_url, browser_data_source)
             
             # For processing actions, retrieve and validate credentials using user_id (not account_id)
             cred_service = get_credential_service(db)
@@ -248,7 +253,7 @@ class InboundOrderTool(SandboxToolsBase):
             log.error("Cold chain tool failed", user_id=user_id if 'user_id' in locals() else None, account_id=account_id if 'account_id' in locals() else None, thread_id=self.thread_id, action=action if 'action' in locals() else None, error=str(e), exc_info=True)
             return self.fail_response(f"Processing failed: {str(e)}")
     
-    async def _handle_setup(self, user_id: str, account_id: str, erp_url: Optional[str] = None) -> ToolResult:
+    async def _handle_setup(self, user_id: str, account_id: str, erp_url: Optional[str] = None, browser_data_source: Optional[str] = None) -> ToolResult:
         """Handle credential setup action (admin-only)."""
         try:
             log.info("Starting credential setup", user_id=user_id, account_id=account_id, thread_id=self.thread_id)
@@ -272,6 +277,39 @@ class InboundOrderTool(SandboxToolsBase):
             browser_profile_path = f"/app/data/browser_profiles/{user_id}/"
             os.makedirs(browser_profile_path, exist_ok=True)
             
+            # Ensure browser history directory exists (Chrome stores history in Default/History)
+            history_dir = os.path.join(browser_profile_path, "Default")
+            os.makedirs(history_dir, exist_ok=True)
+            
+            # Copy browser history from source if provided
+            if browser_data_source:
+                try:
+                    source_history_path = os.path.join(browser_data_source, "History")
+                    source_history_journal = os.path.join(browser_data_source, "History-journal")
+                    dest_history_path = os.path.join(history_dir, "History")
+                    dest_history_journal = os.path.join(history_dir, "History-journal")
+                    
+                    if os.path.exists(source_history_path):
+                        shutil.copy2(source_history_path, dest_history_path)
+                        log.info("Copied browser history", source=source_history_path, dest=dest_history_path)
+                    
+                    if os.path.exists(source_history_journal):
+                        shutil.copy2(source_history_journal, dest_history_journal)
+                        log.info("Copied browser history journal", source=source_history_journal, dest=dest_history_journal)
+                    
+                    # Also copy other important browser data files
+                    browser_data_files = ["Cookies", "Login Data", "Preferences", "Web Data"]
+                    for filename in browser_data_files:
+                        source_file = os.path.join(browser_data_source, filename)
+                        dest_file = os.path.join(history_dir, filename)
+                        if os.path.exists(source_file):
+                            shutil.copy2(source_file, dest_file)
+                            log.info("Copied browser data file", file=filename)
+                    
+                except Exception as e:
+                    log.warning("Failed to copy browser history from source", source=browser_data_source, error=str(e))
+                    # Don't fail setup if history copy fails - continue with fresh profile
+            
             try:
                 from nova_act.inbound_orders import InboundOrderClient
                 
@@ -288,6 +326,15 @@ class InboundOrderTool(SandboxToolsBase):
                     return self.fail_response(f"SDK setup failed: {setup_result.get('error', 'Unknown error')}")
                 
                 log.info("SDK setup completed", user_id=user_id, account_id=account_id)
+                
+                # After SDK setup, ensure browser history is preserved
+                # Chrome will have created/updated history during authentication
+                # The history is now saved in browser_profile_path/Default/History
+                history_file = os.path.join(history_dir, "History")
+                if os.path.exists(history_file):
+                    log.info("Browser history saved", history_path=history_file, user_id=user_id)
+                else:
+                    log.warning("Browser history file not found after setup", history_path=history_file)
                 
             except ImportError:
                 log.error("SDK not available", user_id=user_id, account_id=account_id)
