@@ -52,10 +52,10 @@ async def upload_sdk_folder(
         raise HTTPException(status_code=422, detail="File is required")
     
     if not file.filename:
-        logger.error("File has no filename", user_id=user_id, content_type=file.content_type, size=file.size if hasattr(file, 'size') else 'unknown')
+        logger.error("File has no filename", user_id=user_id, content_type=getattr(file, 'content_type', 'unknown'), size=getattr(file, 'size', 'unknown'))
         raise HTTPException(status_code=400, detail="Filename is required")
     
-    logger.debug(f"Received file upload", user_id=user_id, filename=file.filename, content_type=file.content_type, size=file.size if hasattr(file, 'size') else 'unknown')
+    logger.info(f"Received file upload", user_id=user_id, filename=file.filename, content_type=getattr(file, 'content_type', 'unknown'), size=getattr(file, 'size', 'unknown'))
     
     # Normalize filename to lowercase for comparison (case-insensitive)
     filename_lower = file.filename.lower()
