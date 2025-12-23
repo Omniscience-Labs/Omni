@@ -291,35 +291,6 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
                     )}
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Python SDK</Label>
-                    {scriptStatus?.sdk ? (
-                      <Badge variant="outline" className="text-xs">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Uploaded
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs text-amber-600">
-                        <AlertCircle className="h-3 w-3 mr-1" />
-                        Required
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Stagehand Scripts</Label>
-                    {scriptStatus?.scripts ? (
-                      <Badge variant="outline" className="text-xs">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Uploaded
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs text-amber-600">
-                        <AlertCircle className="h-3 w-3 mr-1" />
-                        Required
-                      </Badge>
-                    )}
-                  </div>
                 </div>
 
                 <div className="flex gap-2">
