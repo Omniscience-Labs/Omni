@@ -303,6 +303,64 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
                     )}
                   </div>
                   
+                  {/* Current Credentials Display */}
+                  <div className="mt-4 pt-4 border-t">
+                    <Label className="text-sm font-semibold mb-2 block">📋 Current Credentials Being Used</Label>
+                    <div className="space-y-2 text-xs font-mono bg-muted/50 p-3 rounded border">
+                      <div className="grid grid-cols-[140px_1fr] gap-2">
+                        <span className="text-muted-foreground">Storage Table:</span>
+                        <div>
+                          <code className="text-xs">user_mcp_credential_profiles</code>
+                          <br />
+                          <span className="text-muted-foreground text-[10px]">(fallback: user_mcp_credentials)</span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] gap-2">
+                        <span className="text-muted-foreground">MCP Name:</span>
+                        <code className="text-xs">nova_act.inbound_orders</code>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] gap-2">
+                        <span className="text-muted-foreground">User ID:</span>
+                        <code className="text-xs break-all">{userId}</code>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] gap-2">
+                        <span className="text-muted-foreground">Profile ID:</span>
+                        <code className="text-xs break-all">{coldChainCredential?.credential_id || 'N/A'}</code>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] gap-2">
+                        <span className="text-muted-foreground">API Key:</span>
+                        <code className="text-xs">
+                          {hasApiKey ? '•••••••••••••••• (configured)' : 'Not set'}
+                        </code>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] gap-2">
+                        <span className="text-muted-foreground">Arcadia Link:</span>
+                        <code className="text-xs break-all">
+                          {hasArcadiaLink ? 'Configured' : 'Not set'}
+                        </code>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] gap-2">
+                        <span className="text-muted-foreground">Browser Profile:</span>
+                        <code className="text-xs break-all">
+                          {hasErpSession ? '/app/data/browser_profiles/{user_id}/' : 'Not authenticated'}
+                        </code>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] gap-2">
+                        <span className="text-muted-foreground">SDK Path:</span>
+                        <code className="text-xs break-all">/workspace/omni_inbound_mcp_sdk/inbound_mcp</code>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] gap-2">
+                        <span className="text-muted-foreground">Scripts Path:</span>
+                        <code className="text-xs break-all">/workspace/omni_inbound_mcp_sdk/stagehand-test</code>
+                      </div>
+                      <div className="mt-2 pt-2 border-t">
+                        <div className="text-[10px] text-muted-foreground">
+                          <strong>How it works:</strong> The tool retrieves credentials using <code>ProfileService.get_default_profile(user_id, "nova_act.inbound_orders")</code> from the database table above. Credentials are encrypted at rest and decrypted when accessed by the tool.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
                 </div>
 
                 <div className="flex gap-2">
