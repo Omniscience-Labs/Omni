@@ -162,6 +162,7 @@ async def get_user_credentials(
             profile_service = get_profile_service(db)
             profiles = await profile_service.get_all_user_profiles(user_id)
             # Convert profiles to credential-like objects for compatibility
+            # Filter out profiles that failed to decrypt (empty config means decryption failed)
             from types import SimpleNamespace
             credentials = [
                 SimpleNamespace(
@@ -174,6 +175,7 @@ async def get_user_credentials(
                     updated_at=profile.updated_at
                 )
                 for profile in profiles
+                if profile.config  # Skip profiles that failed to decrypt (empty config)
             ]
         except Exception as e:
             logger.debug(f"ProfileService failed, trying CredentialService: {e}")
