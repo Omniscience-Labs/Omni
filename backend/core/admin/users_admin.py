@@ -746,16 +746,46 @@ async def admin_store_user_credential(
         # Use "default" as profile name for Cold Chain credentials
         profile_name = "default"
         
-        profile_id = await profile_service.store_profile(
-            account_id=user_id,
-            mcp_qualified_name=request.mcp_qualified_name,
-            profile_name=profile_name,
-            display_name=request.display_name,
-            config=request.config,
-            is_default=True  # Set as default profile for this MCP
+        # Check if profile already exists
+        existing_profiles = await profile_service.get_profiles(user_id, request.mcp_qualified_name)
+        existing_profile = next(
+            (p for p in existing_profiles if p.profile_name == profile_name),
+            None
         )
         
-        logger.info(f"Admin {admin['user_id']} stored credential profile {request.mcp_qualified_name} for user {user_id}")
+        if existing_profile:
+            # Update existing profile
+            from core.credentials.profile_service import EncryptionService
+            encryption = EncryptionService()
+            encrypted_config, config_hash = encryption.encrypt_config(request.config)
+            encoded_config = base64.b64encode(encrypted_config).decode('utf-8')
+            
+            client = await db.client
+            result = await client.table('user_mcp_credential_profiles').update({
+                'display_name': request.display_name,
+                'encrypted_config': encoded_config,
+                'config_hash': config_hash,
+                'is_active': True,
+                'is_default': True,
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }).eq('profile_id', existing_profile.profile_id).execute()
+            
+            if result.data:
+                profile_id = existing_profile.profile_id
+                logger.info(f"Admin {admin['user_id']} updated credential profile {request.mcp_qualified_name} for user {user_id}")
+            else:
+                raise HTTPException(status_code=500, detail="Failed to update existing profile")
+        else:
+            # Insert new profile
+            profile_id = await profile_service.store_profile(
+                account_id=user_id,
+                mcp_qualified_name=request.mcp_qualified_name,
+                profile_name=profile_name,
+                display_name=request.display_name,
+                config=request.config,
+                is_default=True  # Set as default profile for this MCP
+            )
+            logger.info(f"Admin {admin['user_id']} stored credential profile {request.mcp_qualified_name} for user {user_id}")
         
         return {
             "success": True,
@@ -763,6 +793,8 @@ async def admin_store_user_credential(
             "profile_id": profile_id,
             "message": f"Credential stored successfully for user {user_id}"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to store credential for user {user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to store credential: {str(e)}")
