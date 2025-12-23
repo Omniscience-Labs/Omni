@@ -57,9 +57,20 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
   });
 
   // Find the Cold Chain credential for this user
+  // Note: credentials are stored per-user, so we match by mcp_qualified_name only
+  // The account_id field might not match userId in all cases
   const coldChainCredential = credentials?.find(
-    (c: any) => c.mcp_qualified_name === 'nova_act.inbound_orders' && c.account_id === userId
+    (c: any) => c.mcp_qualified_name === 'nova_act.inbound_orders'
   );
+  
+  // Debug logging
+  useEffect(() => {
+    if (credentials) {
+      console.log('All credentials:', credentials);
+      console.log('Cold Chain credential found:', coldChainCredential);
+      console.log('Looking for mcp_qualified_name:', 'nova_act.inbound_orders');
+    }
+  }, [credentials, coldChainCredential]);
 
   const hasApiKey = coldChainCredential?.config_keys?.includes('nova_act_api_key') || false;
   const hasErpSession = coldChainCredential?.config_keys?.includes('erp_session') || false;

@@ -171,28 +171,39 @@ async def upload_sdk_folder(
                 
                 # Find the root folder (could be omni_inbound_mcp_sdk or just the contents)
                 extracted_items = list(temp_extract_path.iterdir())
-                logger.info(f"Extracted items: {[item.name for item in extracted_items]}")
+                # Filter out __MACOSX and other hidden/system folders
+                extracted_items = [item for item in extracted_items if not item.name.startswith('__') and not item.name.startswith('.')]
+                logger.info(f"Extracted items (filtered): {[item.name for item in extracted_items]}")
                 
                 if len(extracted_items) == 1 and extracted_items[0].is_dir():
                     # Archive contains a single root folder
                     root_folder = extracted_items[0]
                     logger.info(f"Found single root folder: {root_folder.name}")
-                    # Check if it's the expected structure
+                    # Check if it's the expected structure (has inbound_mcp and stagehand-test inside)
                     if (root_folder / "inbound_mcp").exists() and (root_folder / "stagehand-test").exists():
-                        logger.info(f"Root folder has expected structure, moving to {base_extract_path}")
-                        # Move the entire folder to workspace
-                        final_path = base_extract_path / root_folder.name
-                        if final_path.exists():
-                            logger.info(f"Removing existing {final_path}")
-                            shutil.rmtree(final_path)
-                        logger.info(f"Moving {root_folder} to {final_path}")
-                        shutil.move(str(root_folder), str(final_path))
-                        extract_path = final_path
+                        logger.info(f"Root folder '{root_folder.name}' has expected structure, moving CONTENTS to {base_extract_path}")
+                        # Move the CONTENTS of the folder to workspace (not the folder itself)
+                        extract_path = base_extract_path
+                        for item in root_folder.iterdir():
+                            # Skip hidden/system folders
+                            if item.name.startswith('__') or item.name.startswith('.'):
+                                continue
+                            dest = extract_path / item.name
+                            logger.info(f"Moving {item.name} to {dest}")
+                            if dest.exists():
+                                if dest.is_dir():
+                                    shutil.rmtree(dest)
+                                else:
+                                    dest.unlink()
+                            shutil.move(str(item), str(dest))
                     else:
                         # Root folder doesn't match expected structure, move contents
                         logger.info(f"Root folder doesn't match expected structure, moving contents to {base_extract_path}")
                         extract_path = base_extract_path
                         for item in root_folder.iterdir():
+                            # Skip hidden/system folders
+                            if item.name.startswith('__') or item.name.startswith('.'):
+                                continue
                             dest = extract_path / item.name
                             logger.info(f"Moving {item.name} to {dest}")
                             if dest.exists():
