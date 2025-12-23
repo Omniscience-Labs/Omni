@@ -156,8 +156,34 @@ async def get_user_credentials(
     user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
     try:
-        credential_service = get_credential_service(db)
-        credentials = await credential_service.get_user_credentials(user_id)
+        # Try ProfileService first (uses user_mcp_credential_profiles), fallback to CredentialService
+        credentials = []
+        try:
+            profile_service = get_profile_service(db)
+            profiles = await profile_service.get_all_user_profiles(user_id)
+            # Convert profiles to credential-like objects for compatibility
+            from types import SimpleNamespace
+            credentials = [
+                SimpleNamespace(
+                    credential_id=profile.profile_id,
+                    mcp_qualified_name=profile.mcp_qualified_name,
+                    display_name=profile.display_name,
+                    config=profile.config,
+                    is_active=profile.is_active,
+                    created_at=profile.created_at,
+                    updated_at=profile.updated_at
+                )
+                for profile in profiles
+            ]
+        except Exception as e:
+            logger.debug(f"ProfileService failed, trying CredentialService: {e}")
+            # Fallback to CredentialService
+            try:
+                credential_service = get_credential_service(db)
+                credentials = await credential_service.get_user_credentials(user_id)
+            except Exception as cred_error:
+                logger.warning(f"Both ProfileService and CredentialService failed: {cred_error}")
+                raise
         
         return [
             CredentialResponse(

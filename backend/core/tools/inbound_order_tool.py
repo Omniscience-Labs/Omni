@@ -181,8 +181,26 @@ class InboundOrderTool(SandboxToolsBase):
                 return await self._handle_setup(user_id, account_id, browser_data_source)
             
             # For processing actions, retrieve and validate credentials using user_id (not account_id)
-            cred_service = get_credential_service(db)
-            credential = await cred_service.get_credential(user_id, "nova_act.inbound_orders")
+            # Try ProfileService first (uses user_mcp_credential_profiles), fallback to CredentialService
+            credential = None
+            try:
+                profile_service = get_profile_service(db)
+                profile = await profile_service.get_default_profile(user_id, "nova_act.inbound_orders")
+                if profile:
+                    # Convert profile to credential-like object for compatibility
+                    from types import SimpleNamespace
+                    credential = SimpleNamespace(
+                        config=profile.config,
+                        credential_id=profile.profile_id
+                    )
+            except Exception as e:
+                log.debug(f"ProfileService failed, trying CredentialService: {e}")
+                # Fallback to CredentialService
+                try:
+                    cred_service = get_credential_service(db)
+                    credential = await cred_service.get_credential(user_id, "nova_act.inbound_orders")
+                except Exception as cred_error:
+                    log.warning(f"Both ProfileService and CredentialService failed: {cred_error}")
             
             if not credential:
                 log.warning("Credentials not found", user_id=user_id, account_id=account_id)
@@ -269,9 +287,26 @@ class InboundOrderTool(SandboxToolsBase):
             log.info("Starting credential setup", user_id=user_id, account_id=account_id, thread_id=self.thread_id)
             
             db = DBConnection()
-            cred_service = get_credential_service(db)
-            # Use user_id for user-specific credentials
-            existing_credential = await cred_service.get_credential(user_id, "nova_act.inbound_orders")
+            # Try ProfileService first (uses user_mcp_credential_profiles), fallback to CredentialService
+            existing_credential = None
+            try:
+                profile_service = get_profile_service(db)
+                profile = await profile_service.get_default_profile(user_id, "nova_act.inbound_orders")
+                if profile:
+                    # Convert profile to credential-like object for compatibility
+                    from types import SimpleNamespace
+                    existing_credential = SimpleNamespace(
+                        config=profile.config,
+                        credential_id=profile.profile_id
+                    )
+            except Exception as e:
+                log.debug(f"ProfileService failed, trying CredentialService: {e}")
+                # Fallback to CredentialService
+                try:
+                    cred_service = get_credential_service(db)
+                    existing_credential = await cred_service.get_credential(user_id, "nova_act.inbound_orders")
+                except Exception as cred_error:
+                    log.warning(f"Both ProfileService and CredentialService failed: {cred_error}")
             
             if not existing_credential:
                 return self.fail_response("Credentials not found. Please configure Nova ACT API key via admin panel or tool settings first.")
