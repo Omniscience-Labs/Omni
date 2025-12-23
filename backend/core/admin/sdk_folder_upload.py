@@ -15,28 +15,11 @@ import zipfile
 import tempfile
 import shutil
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, RequestValidationError
-from fastapi.exceptions import RequestValidationError as FastAPIRequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from core.utils.logger import logger
 from core.admin.users_admin import require_any_admin
 
 router = APIRouter(prefix="/admin/sdk-folder-upload", tags=["admin-sdk-folder-upload"])
-
-
-@router.exception_handler(FastAPIRequestValidationError)
-async def validation_exception_handler(request, exc: FastAPIRequestValidationError):
-    """Custom handler for FastAPI validation errors to provide better error messages."""
-    logger.error(f"FastAPI validation error for {request.url.path}: {exc.errors()}", 
-                errors=exc.errors(), 
-                body=exc.body if hasattr(exc, 'body') else None)
-    return JSONResponse(
-        status_code=422,
-        content={
-            "detail": exc.errors(),
-            "message": "Validation error: " + str(exc.errors())
-        }
-    )
 
 
 @router.post("/{user_id}/upload")
