@@ -151,6 +151,8 @@ class InboundOrderTool(SandboxToolsBase):
             nova_act_api_key = credential.config.get("nova_act_api_key")
             erp_session = credential.config.get("erp_session", {})
             browser_profile_path = erp_session.get("browser_profile_path")
+            arcadia_link = credential.config.get("arcadia_link")
+            erp_url = credential.config.get("erp_url")
             
             if not nova_act_api_key:
                 return self.fail_response("Nova ACT API key not found in credentials.")
@@ -163,10 +165,19 @@ class InboundOrderTool(SandboxToolsBase):
             try:
                 from nova_act.inbound_orders import InboundOrderClient
                 
-                sdk_client = InboundOrderClient(
-                    api_key=nova_act_api_key,
-                    browser_profile_path=browser_profile_path
-                )
+                # Build SDK client initialization with available config
+                sdk_kwargs = {
+                    "api_key": nova_act_api_key,
+                    "browser_profile_path": browser_profile_path,
+                }
+                
+                # Add optional parameters if available
+                if erp_url:
+                    sdk_kwargs["erp_url"] = erp_url
+                if arcadia_link:
+                    sdk_kwargs["arcadia_link"] = arcadia_link
+                
+                sdk_client = InboundOrderClient(**sdk_kwargs)
                 
                 # Execute requested action
                 # SDK must NOT re-login if profile exists

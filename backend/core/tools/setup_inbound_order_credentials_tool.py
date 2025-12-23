@@ -6,7 +6,7 @@ Launches SDK setup flow which handles browser automation via Stagehand.
 """
 import os
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
 from core.agentpress.thread_manager import ThreadManager
@@ -73,20 +73,20 @@ class SetupInboundOrderCredentialsTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "setup_inbound_order_credentials",
-            "description": "Admin-only: Setup ERP credentials for Cold Chain Enterprise. Launches browser for Google SSO authentication. Persists browser profile for workspace reuse.",
+            "description": "Admin-only: Setup ERP credentials for Cold Chain Enterprise. Launches browser for Google SSO authentication. Persists browser profile for workspace reuse. Note: API key and other config should be set via admin panel first.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "nova_act_api_key": {
+                    "erp_url": {
                         "type": "string",
-                        "description": "Nova ACT API key for SDK authentication"
+                        "description": "Optional: ERP login URL. If not provided, uses URL from stored credentials."
                     }
                 },
-                "required": ["nova_act_api_key"]
+                "required": []
             }
         }
     })
-    async def setup_inbound_order_credentials(self, nova_act_api_key: str) -> ToolResult:
+    async def setup_inbound_order_credentials(self, erp_url: Optional[str] = None) -> ToolResult:
         """
         Setup ERP credentials for Cold Chain Enterprise workspace.
         
@@ -115,6 +115,22 @@ class SetupInboundOrderCredentialsTool(SandboxToolsBase):
             if not await self._verify_workspace_access(account_id):
                 return self.fail_response("Access denied. This tool is only available for cold-chain-enterprise or varnica.dev workspace.")
             
+            # Retrieve existing credentials to get API key and config
+            cred_service = get_credential_service(db)
+            existing_credential = await cred_service.get_credential(account_id, "nova_act.inbound_orders")
+            
+            if not existing_credential:
+                return self.fail_response("Credentials not found. Please configure Nova ACT API key and other settings via the admin panel first.")
+            
+            # Extract credentials from stored config
+            nova_act_api_key = existing_credential.config.get("nova_act_api_key")
+            if not nova_act_api_key:
+                return self.fail_response("Nova ACT API key not found in credentials. Please configure it via the admin panel first.")
+            
+            # Use provided erp_url or get from stored credentials
+            stored_erp_url = existing_credential.config.get("erp_url")
+            final_erp_url = erp_url or stored_erp_url or "https://erp.coldchain.com/login"
+            
             # Prepare browser profile path
             browser_profile_path = f"/app/data/browser_profiles/{account_id}/"
             
@@ -133,7 +149,8 @@ class SetupInboundOrderCredentialsTool(SandboxToolsBase):
                 # SDK will handle launching browser and authentication
                 sdk_client = InboundOrderClient(
                     api_key=nova_act_api_key,
-                    browser_profile_path=browser_profile_path
+                    browser_profile_path=browser_profile_path,
+                    erp_url=final_erp_url
                 )
                 
                 # Trigger SDK setup flow
@@ -160,22 +177,21 @@ class SetupInboundOrderCredentialsTool(SandboxToolsBase):
             # Calculate session expiration (e.g., 30 days from now)
             expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
             
-            # Store encrypted credentials via CredentialService
-            cred_service = get_credential_service(db)
-            
-            config_data = {
-                "nova_act_api_key": nova_act_api_key,  # Will be encrypted by CredentialService
-                "erp_session": {
-                    "browser_profile_path": browser_profile_path,
-                    "expires_at": expires_at
-                }
+            # Update credentials with browser profile info (preserve existing config)
+            existing_config = existing_credential.config.copy()
+            existing_config["erp_session"] = {
+                "browser_profile_path": browser_profile_path,
+                "expires_at": expires_at
             }
+            # Update erp_url if provided
+            if erp_url:
+                existing_config["erp_url"] = erp_url
             
             credential_id = await cred_service.store_credential(
                 account_id=account_id,
                 mcp_qualified_name="nova_act.inbound_orders",
                 display_name="Nova ACT Inbound Orders",
-                config=config_data
+                config=existing_config
             )
             
             log.info(

@@ -22,6 +22,8 @@ import { Badge } from '@/components/ui/badge';
 import { useAdminCheck } from '@/hooks/use-admin-check';
 import { AdminUserDetailsDialog } from '@/components/admin/admin-user-details-dialog';
 import type { UserSummary } from '@/hooks/react-query/admin/use-admin-users';
+import { WorkspaceCredentialsManager } from '@/components/admin/workspace-credentials-manager';
+import { useCurrentAccount } from '@/hooks/use-current-account';
 // UsageLogs component was removed by upstream
 
 export default function AdminPage() {
@@ -115,6 +117,9 @@ export default function AdminPage() {
       
       {/* Global Defaults */}
       <GlobalDefaultsCard globalDefaults={globalDefaults} />
+      
+      {/* Workspace Credentials - Only show for cold-chain-enterprise or varnica.dev */}
+      <WorkspaceCredentialsSection />
       
       {/* Enterprise Status */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -641,6 +646,23 @@ function CreditTransactionsDialog({ totalLoaded, transactions, isOmniAdmin }: { 
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function WorkspaceCredentialsSection() {
+  const currentAccount = useCurrentAccount();
+  const workspaceSlug = currentAccount?.slug;
+  const allowedWorkspaces = ['cold-chain-enterprise', 'varnica.dev'];
+  
+  if (!workspaceSlug || !allowedWorkspaces.includes(workspaceSlug) || !currentAccount?.account_id) {
+    return null;
+  }
+  
+  return (
+    <WorkspaceCredentialsManager 
+      workspaceSlug={workspaceSlug}
+      accountId={currentAccount.account_id}
+    />
   );
 }
 
