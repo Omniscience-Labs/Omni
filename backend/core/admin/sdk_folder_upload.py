@@ -171,23 +171,30 @@ async def upload_sdk_folder(
                 
                 # Find the root folder (could be omni_inbound_mcp_sdk or just the contents)
                 extracted_items = list(temp_extract_path.iterdir())
+                logger.info(f"Extracted items: {[item.name for item in extracted_items]}")
                 
                 if len(extracted_items) == 1 and extracted_items[0].is_dir():
                     # Archive contains a single root folder
                     root_folder = extracted_items[0]
+                    logger.info(f"Found single root folder: {root_folder.name}")
                     # Check if it's the expected structure
                     if (root_folder / "inbound_mcp").exists() and (root_folder / "stagehand-test").exists():
+                        logger.info(f"Root folder has expected structure, moving to {base_extract_path}")
                         # Move the entire folder to workspace
                         final_path = base_extract_path / root_folder.name
                         if final_path.exists():
+                            logger.info(f"Removing existing {final_path}")
                             shutil.rmtree(final_path)
+                        logger.info(f"Moving {root_folder} to {final_path}")
                         shutil.move(str(root_folder), str(final_path))
                         extract_path = final_path
                     else:
                         # Root folder doesn't match expected structure, move contents
+                        logger.info(f"Root folder doesn't match expected structure, moving contents to {base_extract_path}")
                         extract_path = base_extract_path
                         for item in root_folder.iterdir():
                             dest = extract_path / item.name
+                            logger.info(f"Moving {item.name} to {dest}")
                             if dest.exists():
                                 if dest.is_dir():
                                     shutil.rmtree(dest)
@@ -199,12 +206,15 @@ async def upload_sdk_folder(
                     # Check if inbound_mcp and stagehand-test are at root level
                     has_inbound_mcp = any(item.name == "inbound_mcp" and item.is_dir() for item in extracted_items)
                     has_stagehand_test = any(item.name == "stagehand-test" and item.is_dir() for item in extracted_items)
+                    logger.info(f"Multiple items at root - has_inbound_mcp: {has_inbound_mcp}, has_stagehand_test: {has_stagehand_test}")
                     
                     if has_inbound_mcp and has_stagehand_test:
                         # Move items directly to workspace
+                        logger.info(f"Moving items directly to {base_extract_path}")
                         extract_path = base_extract_path
                         for item in extracted_items:
                             dest = extract_path / item.name
+                            logger.info(f"Moving {item.name} to {dest}")
                             if dest.exists():
                                 if dest.is_dir():
                                     shutil.rmtree(dest)
@@ -213,9 +223,11 @@ async def upload_sdk_folder(
                             shutil.move(str(item), str(dest))
                     else:
                         # Unexpected structure, extract everything to workspace
+                        logger.warning(f"Unexpected archive structure, extracting all items to {base_extract_path}")
                         extract_path = base_extract_path
                         for item in extracted_items:
                             dest = extract_path / item.name
+                            logger.info(f"Moving {item.name} to {dest}")
                             if dest.exists():
                                 if dest.is_dir():
                                     shutil.rmtree(dest)
@@ -223,14 +235,42 @@ async def upload_sdk_folder(
                                     dest.unlink()
                             shutil.move(str(item), str(dest))
                 
+                logger.info(f"Final extract_path: {extract_path}")
+                logger.info(f"Contents of extract_path: {list(extract_path.iterdir()) if extract_path.exists() else 'DOES NOT EXIST'}")
+                
                 # Verify extraction - check for expected structure
-                inbound_mcp_path = extract_path / "inbound_mcp"
-                stagehand_test_path = extract_path / "stagehand-test"
+                # Handle case where extract_path might be the root folder (omni_inbound_mcp_sdk)
+                # or the base path itself
+                if extract_path.name == "omni_inbound_mcp_sdk":
+                    # extract_path is already the full path
+                    inbound_mcp_path = extract_path / "inbound_mcp"
+                    stagehand_test_path = extract_path / "stagehand-test"
+                else:
+                    # extract_path is base_extract_path, check if omni_inbound_mcp_sdk exists
+                    omni_sdk_path = base_extract_path / "omni_inbound_mcp_sdk"
+                    if omni_sdk_path.exists():
+                        inbound_mcp_path = omni_sdk_path / "inbound_mcp"
+                        stagehand_test_path = omni_sdk_path / "stagehand-test"
+                        extract_path = omni_sdk_path
+                    else:
+                        inbound_mcp_path = extract_path / "inbound_mcp"
+                        stagehand_test_path = extract_path / "stagehand-test"
+                
                 contexts_path = stagehand_test_path / "contexts" if stagehand_test_path.exists() else None
+                
+                logger.info(f"Checking paths - inbound_mcp: {inbound_mcp_path.exists()}, stagehand-test: {stagehand_test_path.exists()}, contexts: {contexts_path.exists() if contexts_path else False}")
                 
                 has_sdk = inbound_mcp_path.exists() and any(inbound_mcp_path.rglob("__init__.py"))
                 has_scripts = stagehand_test_path.exists() and any(stagehand_test_path.rglob("*.py"))
                 has_contexts = contexts_path.exists() if contexts_path else False
+                
+                # Log detailed structure for debugging
+                if inbound_mcp_path.exists():
+                    logger.info(f"inbound_mcp contents: {list(inbound_mcp_path.iterdir())[:10]}")
+                if stagehand_test_path.exists():
+                    logger.info(f"stagehand-test contents: {list(stagehand_test_path.iterdir())[:10]}")
+                if contexts_path and contexts_path.exists():
+                    logger.info(f"contexts contents: {list(contexts_path.iterdir())}")
                 
                 logger.info(
                     f"SDK folder extracted",

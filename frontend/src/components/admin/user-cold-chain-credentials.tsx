@@ -303,6 +303,63 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
                     )}
                   </div>
                   
+                  {/* Saved Configuration History */}
+                  {coldChainCredential && (
+                    <div className="mt-4 pt-4 border-t">
+                      <Label className="text-sm font-semibold mb-2 block">💾 Saved Configuration History</Label>
+                      <div className="space-y-2 text-xs bg-muted/30 p-3 rounded border">
+                        <div className="grid grid-cols-[140px_1fr] gap-2">
+                          <span className="text-muted-foreground">Profile ID:</span>
+                          <code className="text-xs break-all">{coldChainCredential.credential_id}</code>
+                        </div>
+                        {coldChainCredential.created_at && (
+                          <div className="grid grid-cols-[140px_1fr] gap-2">
+                            <span className="text-muted-foreground">Created:</span>
+                            <div>
+                              <code className="text-xs">
+                                {new Date(coldChainCredential.created_at).toLocaleString()}
+                              </code>
+                              <span className="text-muted-foreground ml-2">
+                                ({new Date(coldChainCredential.created_at).toLocaleDateString()})
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {coldChainCredential.updated_at && (
+                          <div className="grid grid-cols-[140px_1fr] gap-2">
+                            <span className="text-muted-foreground">Last Updated:</span>
+                            <div>
+                              <code className="text-xs">
+                                {new Date(coldChainCredential.updated_at).toLocaleString()}
+                              </code>
+                              <span className="text-muted-foreground ml-2">
+                                ({new Date(coldChainCredential.updated_at).toLocaleDateString()})
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {coldChainCredential.created_at && coldChainCredential.updated_at && (
+                          <div className="grid grid-cols-[140px_1fr] gap-2">
+                            <span className="text-muted-foreground">Age:</span>
+                            <code className="text-xs">
+                              {Math.floor((new Date(coldChainCredential.updated_at).getTime() - new Date(coldChainCredential.created_at).getTime()) / (1000 * 60 * 60 * 24))} days old
+                            </code>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-[140px_1fr] gap-2 mt-2 pt-2 border-t">
+                          <span className="text-muted-foreground">Configured Fields:</span>
+                          <div className="flex flex-wrap gap-1">
+                            {coldChainCredential.config_keys?.map((key: string) => (
+                              <Badge key={key} variant="outline" className="text-[10px]">
+                                {key}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Current Credentials Display */}
                   <div className="mt-4 pt-4 border-t">
                     <Label className="text-sm font-semibold mb-2 block">📋 Current Credentials Being Used</Label>
