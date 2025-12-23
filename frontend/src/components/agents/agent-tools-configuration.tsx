@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { WorkspaceCredentialsDialog } from '@/components/admin/workspace-credentials-dialog';
 import { useCurrentAccount } from '@/hooks/use-current-account';
 import { useUserCredentials } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
+import { apiClient } from '@/lib/api-client';
 
 interface AgentToolsConfigurationProps {
   tools: Record<string, boolean | { enabled: boolean; description: string }>;
@@ -24,8 +25,32 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
   const [expandedToolSettings, setExpandedToolSettings] = useState<string | null>(null);
+  const [hasUploadedBrowserProfiles, setHasUploadedBrowserProfiles] = useState<boolean>(false);
   const currentAccount = useCurrentAccount();
   const { data: credentials } = useUserCredentials();
+  
+  // Check for uploaded browser profiles in SDK folder
+  useEffect(() => {
+    const checkUploadedProfiles = async () => {
+      if (!currentAccount?.account_id) return;
+      
+      try {
+        const response = await apiClient.get(`/admin/sdk-folder-upload/${currentAccount.account_id}/status`);
+        if (response.data?.contexts) {
+          const hasArcadia = response.data.contexts.has_arcadia_profile || false;
+          setHasUploadedBrowserProfiles(hasArcadia);
+        }
+      } catch (error) {
+        // Silently fail - profiles might not be uploaded yet
+        setHasUploadedBrowserProfiles(false);
+      }
+    };
+    
+    checkUploadedProfiles();
+    // Refresh every 30 seconds
+    const interval = setInterval(checkUploadedProfiles, 30000);
+    return () => clearInterval(interval);
+  }, [currentAccount?.account_id]);
   
   // Workspace-scoped tools that need credentials configuration
   const workspaceScopedTools = ['inbound_order_tool'];
@@ -57,6 +82,8 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
   );
   const hasApiKey = novaActCredential?.config_keys?.includes('nova_act_api_key') || false;
   const hasErpSession = novaActCredential?.config_keys?.includes('erp_session') || false;
+  // Browser profile is available if either erp_session exists OR uploaded profiles exist
+  const hasBrowserProfile = hasErpSession || hasUploadedBrowserProfiles;
 
   const isToolEnabled = (tool: boolean | { enabled: boolean; description: string } | undefined): boolean => {
     if (tool === undefined) return false;
@@ -222,9 +249,18 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
                               ⚠️ Nova ACT API key required. Click "Open Settings" to configure.
                             </div>
                           )}
-                          {hasApiKey && !hasErpSession && (
+                          {hasApiKey && !hasBrowserProfile && (
                             <div className="text-sm text-blue-600 bg-blue-50 dark:bg-blue-950/20 p-2 rounded">
-                              ℹ️ Browser profile not configured. Use the "setup" action in an agent conversation after saving credentials.
+                              ℹ️ Browser profile not configured. Either:
+                              <ul className="list-disc list-inside mt-1 space-y-0.5">
+                                <li>Upload browser profiles in the SDK folder (arcadia_profile/Default/), OR</li>
+                                <li>Use the "setup" action in an agent conversation after saving credentials.</li>
+                              </ul>
+                            </div>
+                          )}
+                          {hasApiKey && hasBrowserProfile && !hasErpSession && hasUploadedBrowserProfiles && (
+                            <div className="text-sm text-green-600 bg-green-50 dark:bg-green-950/20 p-2 rounded">
+                              ✅ Using uploaded browser profiles. No setup action needed.
                             </div>
                           )}
                           <Button

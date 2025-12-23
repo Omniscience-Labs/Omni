@@ -206,11 +206,20 @@ class InboundOrderTool(SandboxToolsBase):
                 log.warning("Credentials not found", user_id=user_id, account_id=account_id)
                 return self.fail_response("ERP credentials not found. Please configure credentials via admin panel or tool settings, then run 'setup' action.")
             
-            # Validate ERP session (skip for setup)
-            is_valid, error_msg = await self._validate_erp_session(credential)
-            if not is_valid:
-                log.warning("Session validation failed", user_id=user_id, account_id=account_id, error=error_msg)
-                return self.fail_response(f"{error_msg} Run 'setup' action to re-authenticate.")
+            # Validate ERP session (skip for setup and if using uploaded profiles)
+            # Check if uploaded browser profiles exist first
+            scripts_path = Path("/workspace/omni_inbound_mcp_sdk/stagehand-test")
+            contexts_path = scripts_path / "contexts"
+            arcadia_profile_path = contexts_path / "arcadia_profile"
+            arcadia_default_path = arcadia_profile_path / "Default" if arcadia_profile_path.exists() else None
+            has_uploaded_profile = arcadia_default_path and arcadia_default_path.exists() and any(arcadia_default_path.iterdir())
+            
+            # Only validate ERP session if not using uploaded profiles
+            if not has_uploaded_profile:
+                is_valid, error_msg = await self._validate_erp_session(credential)
+                if not is_valid:
+                    log.warning("Session validation failed", user_id=user_id, account_id=account_id, error=error_msg)
+                    return self.fail_response(f"{error_msg} Run 'setup' action to re-authenticate.")
             
             # Extract credentials from config
             nova_act_api_key = credential.config.get("nova_act_api_key")
@@ -224,12 +233,28 @@ class InboundOrderTool(SandboxToolsBase):
             if not arcadia_link:
                 return self.fail_response("Arcadia link not found in credentials. Please configure it via admin panel.")
             
-            if not browser_profile_path:
-                return self.fail_response("Browser profile path not found. Run 'setup' action first.")
-            
             # Set SDK path and environment variables
             sdk_path = "/workspace/omni_inbound_mcp_sdk/inbound_mcp"
             scripts_path = "/workspace/omni_inbound_mcp_sdk/stagehand-test"
+            contexts_path = scripts_path / "contexts"
+            
+            # If browser_profile_path is not in credentials, check for uploaded browser profiles
+            if not browser_profile_path:
+                # Check for uploaded browser profiles in SDK folder
+                arcadia_profile_path = contexts_path / "arcadia_profile"
+                arcadia_default_path = arcadia_profile_path / "Default" if arcadia_profile_path.exists() else None
+                
+                if arcadia_default_path and arcadia_default_path.exists() and any(arcadia_default_path.iterdir()):
+                    # Use uploaded browser profile
+                    browser_profile_path = str(arcadia_profile_path)
+                    log.info("Using uploaded browser profile", profile_path=browser_profile_path, user_id=user_id)
+                else:
+                    # No browser profile found - user needs to run setup or upload profiles
+                    return self.fail_response(
+                        "Browser profile not found. Either:\n"
+                        "1. Upload browser profiles in the SDK folder (arcadia_profile/Default/), OR\n"
+                        "2. Run 'setup' action to create a new browser profile."
+                    )
             
             # Add SDK to Python path
             import sys
