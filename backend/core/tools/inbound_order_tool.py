@@ -13,8 +13,10 @@ Credentials and browser profiles are PER-USER (not shared across workspace).
 """
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
+from pathlib import Path
 import os
 import shutil
+import sys
 
 from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
 from core.agentpress.thread_manager import ThreadManager
