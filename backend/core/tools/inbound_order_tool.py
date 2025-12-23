@@ -3,6 +3,9 @@ Inbound Order Tool
 
 Workspace-scoped tool for Cold Chain Enterprise to run inbound ERP automations.
 Uses SDK client initialized with stored credentials and browser profile.
+
+This tool is only registered for workspaces: cold-chain-enterprise and varnica.dev
+Credentials are stored encrypted via CredentialService and never exposed in logs.
 """
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
