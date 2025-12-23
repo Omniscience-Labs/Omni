@@ -277,15 +277,24 @@ class InboundOrderTool(SandboxToolsBase):
             if not nova_act_api_key:
                 return self.fail_response("Nova ACT API key not found. Please configure it via admin panel or tool settings first.")
             
-            # Get Gmail profile data for Arcadia authentication
-            gmail_profile_data = existing_credential.config.get("gmail_profile_data")
-            if not gmail_profile_data:
-                return self.fail_response("Gmail profile data not found. Please configure it via admin panel or tool settings first.")
-            
             # Arcadia URL is required for login
             arcadia_link = existing_credential.config.get("arcadia_link")
             if not arcadia_link:
                 return self.fail_response("Arcadia link not found. Please configure it via admin panel or tool settings first.")
+            
+            # Verify SDK folder exists
+            sdk_path = Path("/workspace/omni_inbound_mcp_sdk/inbound_mcp")
+            scripts_path = Path("/workspace/omni_inbound_mcp_sdk/stagehand-test")
+            contexts_path = scripts_path / "contexts"
+            
+            if not sdk_path.exists():
+                return self.fail_response(f"SDK folder not found at {sdk_path}. Please upload SDK folder via admin panel.")
+            
+            if not scripts_path.exists():
+                return self.fail_response(f"Scripts folder not found at {scripts_path}. Please upload SDK folder via admin panel.")
+            
+            if not contexts_path.exists():
+                return self.fail_response(f"Browser profiles folder not found at {contexts_path}. Please upload SDK folder with browser profiles via admin panel.")
             
             # Browser profile path is per-user, not per-workspace
             browser_profile_path = f"/app/data/browser_profiles/{user_id}/"
@@ -324,15 +333,21 @@ class InboundOrderTool(SandboxToolsBase):
                     log.warning("Failed to copy browser history from source", source=browser_data_source, error=str(e))
                     # Don't fail setup if history copy fails - continue with fresh profile
             
+            # Set SDK path and environment variables
+            sdk_path_str = str(sdk_path)
+            if sdk_path_str not in sys.path:
+                sys.path.insert(0, sdk_path_str)
+            
+            os.environ['NOVA_ACT_API_KEY'] = nova_act_api_key
+            
             try:
-                from nova_act.inbound_orders import InboundOrderClient
+                from inbound_mcp.sdk import InboundOrderClient
                 
-                # Initialize SDK with Gmail profile data and Arcadia link for authentication
+                # Initialize SDK client
                 sdk_client = InboundOrderClient(
                     api_key=nova_act_api_key,
                     browser_profile_path=browser_profile_path,
                     arcadia_link=arcadia_link,
-                    gmail_profile_data=gmail_profile_data
                 )
                 
                 setup_result = await sdk_client.setup_credentials()
