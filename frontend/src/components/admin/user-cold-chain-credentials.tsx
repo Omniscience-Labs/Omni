@@ -71,24 +71,33 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
     has_contexts: boolean;
   } | null>(null);
 
-  // Check SDK folder status (includes SDK, scripts, and browser profiles)
-  useEffect(() => {
-    const checkSdkFolderStatus = async () => {
-      try {
-        const response = await apiClient.get(`/admin/sdk-folder-upload/${userId}/status`);
-        if (response.data) {
-          setSdkFolderStatus({
-            has_sdk: response.data.sdk?.exists || false,
-            has_scripts: response.data.scripts?.exists || false,
-            has_contexts: response.data.contexts?.exists || false,
-          });
-        }
-      } catch (error) {
-        // Silently fail - folder might not exist yet
+  // Function to refresh SDK folder status
+  const refreshSdkFolderStatus = async () => {
+    try {
+      const response = await apiClient.get(`/admin/sdk-folder-upload/${userId}/status`);
+      if (response.data) {
+        const status = {
+          has_sdk: response.data.sdk?.exists || false,
+          has_scripts: response.data.scripts?.exists || false,
+          has_contexts: response.data.contexts?.exists || false,
+        };
+        setSdkFolderStatus(status);
+        console.log('SDK folder status refreshed:', status, response.data);
+        return status;
+      } else {
         setSdkFolderStatus({ has_sdk: false, has_scripts: false, has_contexts: false });
+        return null;
       }
-    };
-    checkSdkFolderStatus();
+    } catch (error) {
+      console.warn('Failed to check SDK folder status:', error);
+      setSdkFolderStatus({ has_sdk: false, has_scripts: false, has_contexts: false });
+      return null;
+    }
+  };
+
+  // Check SDK folder status on mount and when userId changes
+  useEffect(() => {
+    refreshSdkFolderStatus();
   }, [userId]);
 
   // Load existing values if credential exists
@@ -122,15 +131,8 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
         // Also refresh status from endpoint to ensure consistency
         try {
           // Small delay to ensure files are fully written
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const statusResponse = await apiClient.get(`/admin/sdk-folder-upload/${userId}/status`);
-          if (statusResponse.data) {
-            setSdkFolderStatus({
-              has_sdk: statusResponse.data.sdk?.exists || false,
-              has_scripts: statusResponse.data.scripts?.exists || false,
-              has_contexts: statusResponse.data.contexts?.exists || false,
-            });
-          }
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          await refreshSdkFolderStatus();
         } catch (statusError) {
           // If status check fails, use upload response data
           console.warn('Status check failed, using upload response:', statusError);
