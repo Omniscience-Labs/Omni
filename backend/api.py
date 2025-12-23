@@ -179,6 +179,12 @@ api_router.include_router(api_keys_api.router)
 api_router.include_router(billing_admin_router)
 api_router.include_router(users_admin.router)
 
+from core.admin import browser_profiles as browser_profiles_admin
+api_router.include_router(browser_profiles_admin.router)
+
+from core.admin import script_uploads as script_uploads_admin
+api_router.include_router(script_uploads_admin.router)
+
 from core.mcp_module import api as mcp_api
 
 api_router.include_router(mcp_api.router)

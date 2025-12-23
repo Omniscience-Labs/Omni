@@ -98,10 +98,6 @@ class InboundOrderTool(SandboxToolsBase):
                         "description": "Action to perform: 'setup' (admin-only, one-time browser auth), 'orders' (get orders), 'extraction' (extract data), or 'pipeline' (full automation)",
                         "enum": ["setup", "orders", "extraction", "pipeline"]
                     },
-                    "erp_url": {
-                        "type": "string",
-                        "description": "Optional: ERP login URL (only used for 'setup' action)"
-                    },
                     "browser_data_source": {
                         "type": "string",
                         "description": "Optional: Path to existing browser data folder to copy history from (e.g., '/path/to/Chrome/User Data/Default')"
@@ -136,7 +132,7 @@ class InboundOrderTool(SandboxToolsBase):
             log.warning("Failed to get user_id from context", error=str(e))
             return None
 
-    async def cold_chain_inbound_orders(self, action: str, erp_url: Optional[str] = None, browser_data_source: Optional[str] = None) -> ToolResult:
+    async def cold_chain_inbound_orders(self, action: str, browser_data_source: Optional[str] = None) -> ToolResult:
         """
         Unified Cold Chain Enterprise tool for setup and order processing.
         
@@ -179,7 +175,7 @@ class InboundOrderTool(SandboxToolsBase):
             
             # Handle setup action separately
             if action == "setup":
-                return await self._handle_setup(user_id, account_id, erp_url, browser_data_source)
+                return await self._handle_setup(user_id, account_id, browser_data_source)
             
             # For processing actions, retrieve and validate credentials using user_id (not account_id)
             cred_service = get_credential_service(db)
@@ -200,10 +196,16 @@ class InboundOrderTool(SandboxToolsBase):
             erp_session = credential.config.get("erp_session", {})
             browser_profile_path = erp_session.get("browser_profile_path")
             arcadia_link = credential.config.get("arcadia_link")
-            stored_erp_url = credential.config.get("erp_url")
+            gmail_profile_data = credential.config.get("gmail_profile_data")
             
             if not nova_act_api_key:
                 return self.fail_response("Nova ACT API key not found in credentials.")
+            
+            if not gmail_profile_data:
+                return self.fail_response("Gmail profile data not found in credentials. Please configure it via admin panel.")
+            
+            if not arcadia_link:
+                return self.fail_response("Arcadia link not found in credentials. Please configure it via admin panel.")
             
             if not browser_profile_path:
                 return self.fail_response("Browser profile path not found. Run 'setup' action first.")
@@ -215,12 +217,9 @@ class InboundOrderTool(SandboxToolsBase):
                 sdk_kwargs = {
                     "api_key": nova_act_api_key,
                     "browser_profile_path": browser_profile_path,
+                    "arcadia_link": arcadia_link,
+                    "gmail_profile_data": gmail_profile_data,
                 }
-                
-                if stored_erp_url:
-                    sdk_kwargs["erp_url"] = stored_erp_url
-                if arcadia_link:
-                    sdk_kwargs["arcadia_link"] = arcadia_link
                 
                 sdk_client = InboundOrderClient(**sdk_kwargs)
                 
@@ -253,7 +252,7 @@ class InboundOrderTool(SandboxToolsBase):
             log.error("Cold chain tool failed", user_id=user_id if 'user_id' in locals() else None, account_id=account_id if 'account_id' in locals() else None, thread_id=self.thread_id, action=action if 'action' in locals() else None, error=str(e), exc_info=True)
             return self.fail_response(f"Processing failed: {str(e)}")
     
-    async def _handle_setup(self, user_id: str, account_id: str, erp_url: Optional[str] = None, browser_data_source: Optional[str] = None) -> ToolResult:
+    async def _handle_setup(self, user_id: str, account_id: str, browser_data_source: Optional[str] = None) -> ToolResult:
         """Handle credential setup action (admin-only)."""
         try:
             log.info("Starting credential setup", user_id=user_id, account_id=account_id, thread_id=self.thread_id)
@@ -270,8 +269,15 @@ class InboundOrderTool(SandboxToolsBase):
             if not nova_act_api_key:
                 return self.fail_response("Nova ACT API key not found. Please configure it via admin panel or tool settings first.")
             
-            stored_erp_url = existing_credential.config.get("erp_url")
-            final_erp_url = erp_url or stored_erp_url or "https://erp.coldchain.com/login"
+            # Get Gmail profile data for Arcadia authentication
+            gmail_profile_data = existing_credential.config.get("gmail_profile_data")
+            if not gmail_profile_data:
+                return self.fail_response("Gmail profile data not found. Please configure it via admin panel or tool settings first.")
+            
+            # Arcadia URL is required for login
+            arcadia_link = existing_credential.config.get("arcadia_link")
+            if not arcadia_link:
+                return self.fail_response("Arcadia link not found. Please configure it via admin panel or tool settings first.")
             
             # Browser profile path is per-user, not per-workspace
             browser_profile_path = f"/app/data/browser_profiles/{user_id}/"
@@ -313,10 +319,12 @@ class InboundOrderTool(SandboxToolsBase):
             try:
                 from nova_act.inbound_orders import InboundOrderClient
                 
+                # Initialize SDK with Gmail profile data and Arcadia link for authentication
                 sdk_client = InboundOrderClient(
                     api_key=nova_act_api_key,
                     browser_profile_path=browser_profile_path,
-                    erp_url=final_erp_url
+                    arcadia_link=arcadia_link,
+                    gmail_profile_data=gmail_profile_data
                 )
                 
                 setup_result = await sdk_client.setup_credentials()
@@ -350,8 +358,6 @@ class InboundOrderTool(SandboxToolsBase):
                 "browser_profile_path": browser_profile_path,
                 "expires_at": expires_at
             }
-            if erp_url:
-                existing_config["erp_url"] = erp_url
             
             # Store credentials using user_id (not account_id) for user-specific storage
             credential_id = await cred_service.store_credential(
