@@ -24,9 +24,8 @@ router = APIRouter(prefix="/admin/sdk-folder-upload", tags=["admin-sdk-folder-up
 
 @router.post("/{user_id}/upload")
 async def upload_sdk_folder(
-    request: Request,
     user_id: str,
-    file: UploadFile = File(..., description="SDK folder archive file (zip or tar.gz)"),
+    file: UploadFile = File(...),
     admin: dict = Depends(require_any_admin)
 ):
     """
