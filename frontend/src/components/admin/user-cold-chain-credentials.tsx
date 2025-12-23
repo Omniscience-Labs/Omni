@@ -28,14 +28,13 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
   const effectiveWorkspaceSlug = workspaceSlug || currentAccount?.slug;
   // Allow Cold Chain automation for enterprise workspaces in all environments (local, staging, production)
   // In staging/local, workspace slugs might be different (e.g., 'varnica', 'varnica.dev')
-  // Also allow if in local/staging mode for any enterprise workspace
+  // Also allow if in local/staging mode for any workspace (for testing)
   const allowedWorkspaces = ['cold-chain-enterprise', 'operator', 'varnica', 'varnica.dev'];
   // Use same logic as agent-tools-configuration.tsx for consistency
   const isLocalOrStaging = process.env.NEXT_PUBLIC_ENV_MODE === 'LOCAL' || process.env.NEXT_PUBLIC_ENV_MODE === 'STAGING';
-  const isAllowedWorkspace = effectiveWorkspaceSlug && (
-    allowedWorkspaces.includes(effectiveWorkspaceSlug) ||
-    // In local/staging environments, allow any workspace (for testing)
-    isLocalOrStaging
+  // Allow if workspace is in allowed list OR if in local/staging (same as tool visibility check)
+  const isAllowedWorkspace = isLocalOrStaging || (
+    effectiveWorkspaceSlug && allowedWorkspaces.includes(effectiveWorkspaceSlug)
   );
   const queryClient = useQueryClient();
 
