@@ -40,11 +40,17 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
       workspaceSlug: currentAccount?.slug,
       isWorkspaceScoped,
       allowedWorkspaces,
-      accountId: currentAccount?.account_id
+      accountId: currentAccount?.account_id,
+      credentialsCount: credentials?.length || 0
     });
   }
   
-  const novaActCredential = credentials?.find((c: any) => c.mcp_qualified_name === 'nova_act.inbound_orders');
+  // Find credentials for current user (per-user credentials)
+  // Note: credentials are stored with account_id = user_id
+  const novaActCredential = credentials?.find((c: any) => 
+    c.mcp_qualified_name === 'nova_act.inbound_orders' && 
+    c.account_id === currentAccount?.account_id
+  );
   const hasApiKey = novaActCredential?.config_keys?.includes('nova_act_api_key') || false;
   const hasErpSession = novaActCredential?.config_keys?.includes('erp_session') || false;
 
@@ -113,11 +119,23 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
           {getFilteredTools().map(([toolName, toolInfo]) => {
             const toolEnabled = isToolEnabled(tools[toolName]);
             const isWorkspaceTool = workspaceScopedTools.includes(toolName);
+            // Settings should show if: workspace is scoped, tool is workspace-scoped, and tool is enabled
             const showSettings = isWorkspaceScoped && isWorkspaceTool && toolEnabled;
             const isExpanded = expandedToolSettings === toolName;
             
             // Show a hint if tool is disabled but should have settings
             const shouldShowSettingsHint = isWorkspaceScoped && isWorkspaceTool && !toolEnabled;
+            
+            // Debug logging for settings visibility
+            if (process.env.NODE_ENV === 'development' && isWorkspaceTool) {
+              console.log(`[AgentToolsConfig] Tool: ${toolName}`, {
+                toolEnabled,
+                isWorkspaceScoped,
+                isWorkspaceTool,
+                showSettings,
+                workspaceSlug: currentAccount?.slug
+              });
+            }
             
             return (
               <div key={toolName}>
@@ -155,8 +173,8 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
                 )}
                 
                 {/* Settings section that appears below when tool is enabled */}
-                {showSettings && (
-                  <Card className="mt-2 border-l-4 border-l-blue-500">
+                {showSettings ? (
+                  <Card className="mt-2 border-l-4 border-l-blue-500 animate-in slide-in-from-top-2 duration-200">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
@@ -218,7 +236,7 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
                       )}
                     </CardContent>
                   </Card>
-                )}
+                ) : null}
               </div>
             );
           })}
