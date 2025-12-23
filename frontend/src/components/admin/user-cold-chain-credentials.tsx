@@ -109,16 +109,45 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
       const response = await apiClient.upload(`/admin/sdk-folder-upload/${userId}/upload`, formData);
       
       if (response.success && response.data) {
-        toast.success('SDK folder uploaded and extracted successfully');
-        // Refresh SDK folder status
-        const statusResponse = await apiClient.get(`/admin/sdk-folder-upload/${userId}/status`);
-        if (statusResponse.data) {
-          setSdkFolderStatus({
-            has_sdk: statusResponse.data.sdk?.exists || false,
-            has_scripts: statusResponse.data.scripts?.exists || false,
-            has_contexts: statusResponse.data.contexts?.exists || false,
-          });
+        // Use status from upload response directly
+        const uploadData = response.data;
+        const newStatus = {
+          has_sdk: uploadData.has_sdk || false,
+          has_scripts: uploadData.has_scripts || false,
+          has_contexts: uploadData.has_contexts || false,
+        };
+        
+        setSdkFolderStatus(newStatus);
+        
+        // Also refresh status from endpoint to ensure consistency
+        try {
+          // Small delay to ensure files are fully written
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const statusResponse = await apiClient.get(`/admin/sdk-folder-upload/${userId}/status`);
+          if (statusResponse.data) {
+            setSdkFolderStatus({
+              has_sdk: statusResponse.data.sdk?.exists || false,
+              has_scripts: statusResponse.data.scripts?.exists || false,
+              has_contexts: statusResponse.data.contexts?.exists || false,
+            });
+          }
+        } catch (statusError) {
+          // If status check fails, use upload response data
+          console.warn('Status check failed, using upload response:', statusError);
         }
+        
+        // Show success message with details
+        const statusParts = [];
+        if (newStatus.has_sdk) statusParts.push('SDK');
+        if (newStatus.has_scripts) statusParts.push('Scripts');
+        if (newStatus.has_contexts) statusParts.push('Browser Profiles');
+        
+        if (statusParts.length === 3) {
+          toast.success('SDK folder uploaded and extracted successfully');
+        } else {
+          toast.warning(`SDK folder uploaded. Detected: ${statusParts.join(', ') || 'none'}. Check logs for details.`);
+        }
+        
         setSdkFolderFile(null);
       } else {
         throw new Error(response.error?.message || 'Upload failed');
