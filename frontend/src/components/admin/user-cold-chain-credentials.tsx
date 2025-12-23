@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, CheckCircle2, Loader2, Package, Upload } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2, Package, Upload, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserCredentials, useDeleteCredential } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { useCurrentAccount } from '@/hooks/use-current-account';
@@ -568,7 +568,23 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
                       <br />• <code className="px-1 py-0.5 bg-muted rounded">stagehand-test/contexts/</code> (Browser profiles)
                       <br />Extracted to <code className="px-1 py-0.5 bg-muted rounded">/workspace/omni_inbound_mcp_sdk/</code>
                     </p>
-                    {sdkFolderStatus && (
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-xs font-medium">Upload Status:</Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={async () => {
+                          toast.info('Refreshing status...');
+                          await refreshSdkFolderStatus();
+                          toast.success('Status refreshed');
+                        }}
+                      >
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Refresh
+                      </Button>
+                    </div>
+                    {sdkFolderStatus ? (
                       <div className="text-xs space-y-1">
                         <div className="flex items-center gap-2">
                           {sdkFolderStatus.has_sdk ? (
@@ -594,6 +610,10 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
                           )}
                           <span>Browser Profiles: {sdkFolderStatus.has_contexts ? 'Ready' : 'Missing'}</span>
                         </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">
+                        Status: Not checked yet. Click Refresh to check.
                       </div>
                     )}
                   </div>
