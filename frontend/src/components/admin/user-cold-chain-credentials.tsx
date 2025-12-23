@@ -207,7 +207,16 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
 
       toast.success('Cold Chain credentials saved successfully');
       setIsEditing(false);
+      setApiKey('');
+      setArcadiaLink('');
+      
+      // Force refresh of credentials list - double invalidation to ensure update
+      queryClient.invalidateQueries({ queryKey: ['secure-mcp', 'credentials'] });
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['secure-mcp', 'credentials'] });
+      }, 500);
     } catch (error: any) {
+      console.error('Failed to save credentials:', error);
       toast.error(error?.message || 'Failed to save credentials');
     }
   };
