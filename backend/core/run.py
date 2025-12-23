@@ -237,8 +237,8 @@ class ToolManager:
             
             workspace_slug = result.data.get("slug", "")
             
-            # Register for cold-chain-enterprise (production) and varnica.dev (staging) workspaces
-            allowed_workspaces = ["cold-chain-enterprise", "varnica.dev"]
+            # Register for cold-chain-enterprise (production) and varnica.dev/varnica (staging) workspaces
+            allowed_workspaces = ["cold-chain-enterprise", "varnica.dev", "varnica"]
             if workspace_slug not in allowed_workspaces:
                 logger.debug(f"Workspace slug '{workspace_slug}' is not in {allowed_workspaces}, skipping cold chain tools")
                 return

@@ -652,7 +652,7 @@ function CreditTransactionsDialog({ totalLoaded, transactions, isOmniAdmin }: { 
 function WorkspaceCredentialsSection() {
   const currentAccount = useCurrentAccount();
   const workspaceSlug = currentAccount?.slug;
-  const allowedWorkspaces = ['cold-chain-enterprise', 'varnica.dev'];
+  const allowedWorkspaces = ['cold-chain-enterprise', 'varnica.dev', 'varnica'];
   
   if (!workspaceSlug || !allowedWorkspaces.includes(workspaceSlug) || !currentAccount?.account_id) {
     return null;

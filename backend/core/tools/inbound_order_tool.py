@@ -131,7 +131,7 @@ class InboundOrderTool(SandboxToolsBase):
             
             # Verify workspace slug
             workspace_slug = await self._get_workspace_slug(account_id)
-            allowed_workspaces = ["cold-chain-enterprise", "varnica.dev"]
+            allowed_workspaces = ["cold-chain-enterprise", "varnica.dev", "varnica"]
             if workspace_slug not in allowed_workspaces:
                 log.warning("Workspace mismatch", account_id=account_id, slug=workspace_slug, allowed=allowed_workspaces)
                 return self.fail_response("This tool is only available for cold-chain-enterprise or varnica.dev workspace.")

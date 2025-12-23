@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search } from 'lucide-react';
+import { Search, Settings } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { AGENTPRESS_TOOL_DEFINITIONS, getToolDisplayName } from './tools';
 import { toast } from 'sonner';
+import { WorkspaceCredentialsDialog } from '@/components/admin/workspace-credentials-dialog';
+import { useCurrentAccount } from '@/hooks/use-current-account';
 
 interface AgentToolsConfigurationProps {
   tools: Record<string, boolean | { enabled: boolean; description: string }>;
@@ -16,6 +19,13 @@ interface AgentToolsConfigurationProps {
 
 export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false, isSunaAgent = false, isLoading = false }: AgentToolsConfigurationProps) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
+  const currentAccount = useCurrentAccount();
+  
+  // Workspace-scoped tools that need credentials configuration
+  const workspaceScopedTools = ['setup_inbound_order_credentials_tool', 'inbound_order_tool'];
+  const allowedWorkspaces = ['cold-chain-enterprise', 'varnica.dev', 'varnica'];
+  const isWorkspaceScoped = currentAccount?.slug && allowedWorkspaces.includes(currentAccount.slug);
 
   const isToolEnabled = (tool: boolean | { enabled: boolean; description: string } | undefined): boolean => {
     if (tool === undefined) return false;
@@ -98,7 +108,18 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
                 </div>
               </div>
               
-              <div className="flex justify-end items-center">
+              <div className="flex justify-end items-center gap-2">
+                {isWorkspaceScoped && workspaceScopedTools.includes(toolName) && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCredentialsDialogOpen(true)}
+                    title="Configure credentials"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                )}
                 <Switch
                   checked={isToolEnabled(tools[toolName])}
                   onCheckedChange={(checked) => handleToolToggle(toolName, checked)}
@@ -123,6 +144,15 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
           )}
         </div>
       </ScrollArea>
+      
+      {/* Credentials Dialog */}
+      {isWorkspaceScoped && currentAccount?.account_id && (
+        <WorkspaceCredentialsDialog
+          open={credentialsDialogOpen}
+          onOpenChange={setCredentialsDialogOpen}
+          accountId={currentAccount.account_id}
+        />
+      )}
     </div>
   );
 }; 
