@@ -24,9 +24,10 @@ router = APIRouter(prefix="/admin/sdk-folder-upload", tags=["admin-sdk-folder-up
 
 @router.post("/{user_id}/upload")
 async def upload_sdk_folder(
+    request: Request,
     user_id: str,
-    admin: dict = Depends(require_any_admin),
-    file: UploadFile = File(..., description="SDK folder archive file (zip or tar.gz)")
+    file: UploadFile = File(..., description="SDK folder archive file (zip or tar.gz)"),
+    admin: dict = Depends(require_any_admin)
 ):
     """
     Upload and extract complete SDK folder archive (zip or tar.gz) for a user.
@@ -46,16 +47,20 @@ async def upload_sdk_folder(
         file: zip or tar.gz archive file containing the complete folder structure
         admin: Admin user (from require_any_admin)
     """
+    # Log request details for debugging
+    content_type_header = request.headers.get('content-type', 'unknown')
+    logger.info(f"Received upload request", user_id=user_id, content_type_header=content_type_header, has_file=file is not None)
+    
     # Validate file was provided
     if file is None:
-        logger.error("File parameter is None", user_id=user_id)
+        logger.error("File parameter is None", user_id=user_id, content_type_header=content_type_header)
         raise HTTPException(status_code=422, detail="File is required")
     
     if not file.filename:
         logger.error("File has no filename", user_id=user_id, content_type=getattr(file, 'content_type', 'unknown'), size=getattr(file, 'size', 'unknown'))
         raise HTTPException(status_code=400, detail="Filename is required")
     
-    logger.info(f"Received file upload", user_id=user_id, filename=file.filename, content_type=getattr(file, 'content_type', 'unknown'), size=getattr(file, 'size', 'unknown'))
+    logger.info(f"Processing file upload", user_id=user_id, filename=file.filename, content_type=getattr(file, 'content_type', 'unknown'), size=getattr(file, 'size', 'unknown'))
     
     # Normalize filename to lowercase for comparison (case-insensitive)
     filename_lower = file.filename.lower()
