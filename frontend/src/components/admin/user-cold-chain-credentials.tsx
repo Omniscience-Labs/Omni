@@ -12,7 +12,6 @@ import { useUserCredentials, useDeleteCredential } from '@/hooks/react-query/sec
 import { useCurrentAccount } from '@/hooks/use-current-account';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import { config } from '@/lib/config';
 
 interface UserColdChainCredentialsProps {
   userId: string;
@@ -31,10 +30,12 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
   // In staging/local, workspace slugs might be different (e.g., 'varnica', 'varnica.dev')
   // Also allow if in local/staging mode for any enterprise workspace
   const allowedWorkspaces = ['cold-chain-enterprise', 'operator', 'varnica', 'varnica.dev'];
+  // Use same logic as agent-tools-configuration.tsx for consistency
+  const isLocalOrStaging = process.env.NEXT_PUBLIC_ENV_MODE === 'LOCAL' || process.env.NEXT_PUBLIC_ENV_MODE === 'STAGING';
   const isAllowedWorkspace = effectiveWorkspaceSlug && (
     allowedWorkspaces.includes(effectiveWorkspaceSlug) ||
     // In local/staging environments, allow any workspace (for testing)
-    (config.IS_LOCAL || config.IS_STAGING)
+    isLocalOrStaging
   );
   const queryClient = useQueryClient();
 
@@ -132,7 +133,7 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
         <CardContent className="pt-6">
           <div className="text-center text-sm text-muted-foreground">
             Cold Chain automation is available for enterprise workspaces. 
-            {config.IS_LOCAL || config.IS_STAGING ? (
+            {isLocalOrStaging ? (
               <span className="block mt-1 text-xs">Available in local/staging for testing.</span>
             ) : (
               <span className="block mt-1">Current workspace: <code className="px-1 py-0.5 bg-muted rounded">{effectiveWorkspaceSlug || 'unknown'}</code></span>
