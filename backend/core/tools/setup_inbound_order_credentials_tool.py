@@ -58,8 +58,8 @@ class SetupInboundOrderCredentialsTool(SandboxToolsBase):
             # Get workspace slug
             workspace_slug = await self._get_workspace_slug(account_id)
             
-            # Allow both production (cold-chain-enterprise) and staging (varnica.dev/varnica) workspaces
-            allowed_workspaces = ["cold-chain-enterprise", "varnica.dev", "varnica"]
+            # Allow both production (cold-chain-enterprise) and operator (staging - varnica.operator.becomeomni.net)
+            allowed_workspaces = ["cold-chain-enterprise", "operator"]
             if workspace_slug not in allowed_workspaces:
                 log.warning("Workspace mismatch", account_id=account_id, slug=workspace_slug, allowed=allowed_workspaces)
                 return False

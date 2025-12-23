@@ -10,18 +10,18 @@ This guide explains how the Cold Chain Enterprise automation works, where to con
 
 1. **Workspace-Scoped Tools**: The inbound order tools are only registered for specific workspaces:
    - `cold-chain-enterprise` (production)
-   - `varnica.dev` (staging)
-   - `varnica` (staging alternative)
+   - `operator` (staging - varnica.operator.becomeomni.net)
 
 2. **Credential Storage**: Uses the existing `user_mcp_credentials` database table via `CredentialService`
    - **No migrations needed** - uses existing infrastructure
    - Credentials are encrypted using Fernet encryption
    - Stored with `mcp_qualified_name = "nova_act.inbound_orders"`
+   - **Per-user**: Each user's credentials are stored separately (not shared across workspace)
 
 3. **Browser Profile Persistence**: Authenticated browser profiles are stored at:
-   - `/app/data/browser_profiles/{account_id}/`
+   - `/app/data/browser_profiles/{user_id}/`
    - Survives server restarts
-   - Shared across all users in the workspace
+   - **Per-user**: Each user has their own browser profile (not shared across workspace)
 
 4. **SDK Integration**: The backend calls the `nova_act.inbound_orders` Python SDK which:
    - Handles browser automation via Stagehand (Node.js)
@@ -40,7 +40,7 @@ This guide explains how the Cold Chain Enterprise automation works, where to con
    - **ERP Login URL** (optional)
 4. Click **"Save All Credentials"**
 
-**Note**: This section only appears for workspaces: `cold-chain-enterprise`, `varnica.dev`, or `varnica`
+**Note**: This section only appears for workspaces: `cold-chain-enterprise` (production) or `operator` (staging)
 
 ### Option 2: Tool Configuration UI (NEW)
 

@@ -652,7 +652,9 @@ function CreditTransactionsDialog({ totalLoaded, transactions, isOmniAdmin }: { 
 function WorkspaceCredentialsSection() {
   const currentAccount = useCurrentAccount();
   const workspaceSlug = currentAccount?.slug;
-  const allowedWorkspaces = ['cold-chain-enterprise', 'varnica.dev', 'varnica'];
+  // varnica.dev, varnica, and operator are all the same workspace (varnica.operator.becomeomni.net)
+  // Using 'operator' as the workspace slug for staging
+  const allowedWorkspaces = ['cold-chain-enterprise', 'operator'];
   
   if (!workspaceSlug || !allowedWorkspaces.includes(workspaceSlug) || !currentAccount?.account_id) {
     return null;

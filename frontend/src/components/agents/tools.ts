@@ -33,9 +33,8 @@ export const AGENTPRESS_TOOL_DEFINITIONS: Record<string, { enabled: boolean; des
     'workflow_tool': { enabled: true, description: 'Create and manage automated workflows and task sequences', icon: '🔄', color: 'bg-emerald-100 dark:bg-emerald-800/50' },
     'trigger_tool': { enabled: true, description: 'Set up event triggers and scheduled automation', icon: '⏰', color: 'bg-amber-100 dark:bg-amber-800/50' },
     
-    // Cold Chain Enterprise workspace-scoped tools
-    'setup_inbound_order_credentials_tool': { enabled: true, description: 'One-time setup for ERP browser profile authentication (Admin only)', icon: '🔧', color: 'bg-blue-100 dark:bg-blue-800/50' },
-    'inbound_order_tool': { enabled: true, description: 'Process inbound orders from Cold Chain ERP with automated extraction and pipeline', icon: '📦', color: 'bg-blue-100 dark:bg-blue-800/50' },
+    // Cold Chain Enterprise workspace-scoped tool
+    'inbound_order_tool': { enabled: true, description: 'Unified Cold Chain Enterprise tool: setup credentials (admin-only) and process inbound orders from ERP', icon: '📦', color: 'bg-blue-100 dark:bg-blue-800/50' },
 };
 
 export const DEFAULT_AGENTPRESS_TOOLS: Record<string, boolean> = Object.entries(AGENTPRESS_TOOL_DEFINITIONS).reduce((acc, [key, value]) => {
@@ -76,9 +75,8 @@ export const getToolDisplayName = (toolName: string): string => {
       'workflow_tool': 'Workflow Management',
       'trigger_tool': 'Trigger Management',
       
-      // Cold Chain Enterprise tools
-      'setup_inbound_order_credentials_tool': 'Setup Inbound Order Credentials',
-      'inbound_order_tool': 'Inbound Order Processor',
+      // Cold Chain Enterprise tool
+      'inbound_order_tool': 'Cold Chain Inbound Orders',
     };
     
     return displayNames[toolName] || toolName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());

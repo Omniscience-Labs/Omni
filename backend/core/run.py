@@ -237,23 +237,13 @@ class ToolManager:
             
             workspace_slug = result.data.get("slug", "")
             
-            # Register for cold-chain-enterprise (production) and varnica.dev/varnica (staging) workspaces
-            allowed_workspaces = ["cold-chain-enterprise", "varnica.dev", "varnica"]
+            # Register for cold-chain-enterprise (production) and operator (staging - varnica.operator.becomeomni.net)
+            allowed_workspaces = ["cold-chain-enterprise", "operator"]
             if workspace_slug not in allowed_workspaces:
                 logger.debug(f"Workspace slug '{workspace_slug}' is not in {allowed_workspaces}, skipping cold chain tools")
                 return
             
-            # Register tools
-            if 'setup_inbound_order_credentials_tool' not in disabled_tools:
-                from core.tools.setup_inbound_order_credentials_tool import SetupInboundOrderCredentialsTool
-                self.thread_manager.add_tool(
-                    SetupInboundOrderCredentialsTool,
-                    project_id=self.project_id,
-                    thread_id=self.thread_id,
-                    thread_manager=self.thread_manager
-                )
-                logger.debug(f"Registered setup_inbound_order_credentials_tool for {workspace_slug}")
-            
+            # Register unified tool
             if 'inbound_order_tool' not in disabled_tools:
                 from core.tools.inbound_order_tool import InboundOrderTool
                 self.thread_manager.add_tool(
