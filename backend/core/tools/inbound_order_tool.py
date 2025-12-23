@@ -20,7 +20,8 @@ from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
 from core.agentpress.thread_manager import ThreadManager
 from core.sandbox.tool_base import SandboxToolsBase
 from core.utils.logger import logger, structlog
-from core.credentials.credential_service import get_credential_service, CredentialService, MCPCredential
+from core.credentials.credential_service import get_credential_service
+from core.credentials.profile_service import get_profile_service, CredentialService, MCPCredential
 from core.services.supabase import DBConnection
 
 log = structlog.get_logger()
@@ -196,13 +197,9 @@ class InboundOrderTool(SandboxToolsBase):
             erp_session = credential.config.get("erp_session", {})
             browser_profile_path = erp_session.get("browser_profile_path")
             arcadia_link = credential.config.get("arcadia_link")
-            gmail_profile_data = credential.config.get("gmail_profile_data")
             
             if not nova_act_api_key:
                 return self.fail_response("Nova ACT API key not found in credentials.")
-            
-            if not gmail_profile_data:
-                return self.fail_response("Gmail profile data not found in credentials. Please configure it via admin panel.")
             
             if not arcadia_link:
                 return self.fail_response("Arcadia link not found in credentials. Please configure it via admin panel.")
@@ -210,15 +207,26 @@ class InboundOrderTool(SandboxToolsBase):
             if not browser_profile_path:
                 return self.fail_response("Browser profile path not found. Run 'setup' action first.")
             
+            # Set SDK path and environment variables
+            sdk_path = "/workspace/omni_inbound_mcp_sdk/inbound_mcp"
+            scripts_path = "/workspace/omni_inbound_mcp_sdk/stagehand-test"
+            
+            # Add SDK to Python path
+            import sys
+            if sdk_path not in sys.path:
+                sys.path.insert(0, sdk_path)
+            
+            # Set environment variable for API key
+            os.environ['NOVA_ACT_API_KEY'] = nova_act_api_key
+            
             # Initialize SDK client and execute action
             try:
-                from nova_act.inbound_orders import InboundOrderClient
+                from inbound_mcp.sdk import InboundOrderClient
                 
                 sdk_kwargs = {
                     "api_key": nova_act_api_key,
                     "browser_profile_path": browser_profile_path,
                     "arcadia_link": arcadia_link,
-                    "gmail_profile_data": gmail_profile_data,
                 }
                 
                 sdk_client = InboundOrderClient(**sdk_kwargs)
