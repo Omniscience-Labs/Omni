@@ -269,11 +269,21 @@ async def upload_sdk_folder(
                 
                 contexts_path = stagehand_test_path / "contexts" if stagehand_test_path.exists() else None
                 
-                logger.info(f"Checking paths - inbound_mcp: {inbound_mcp_path.exists()}, stagehand-test: {stagehand_test_path.exists()}, contexts: {contexts_path.exists() if contexts_path else False}")
+                # Check for browser profiles - they should have Default subfolder with actual data
+                has_contexts = False
+                if contexts_path and contexts_path.exists():
+                    arcadia_profile = contexts_path / "arcadia_profile"
+                    gmail_profile = contexts_path / "gmail_profile"
+                    # Check if profiles exist AND have Default subfolder with files
+                    arcadia_has_default = (arcadia_profile / "Default").exists() if arcadia_profile.exists() else False
+                    gmail_has_default = (gmail_profile / "Default").exists() if gmail_profile.exists() else False
+                    has_contexts = arcadia_has_default or gmail_has_default
+                    logger.info(f"Browser profiles check - arcadia: {arcadia_profile.exists()} (Default: {arcadia_has_default}), gmail: {gmail_profile.exists()} (Default: {gmail_has_default})")
+                
+                logger.info(f"Checking paths - inbound_mcp: {inbound_mcp_path.exists()}, stagehand-test: {stagehand_test_path.exists()}, contexts: {has_contexts}")
                 
                 has_sdk = inbound_mcp_path.exists() and any(inbound_mcp_path.rglob("__init__.py"))
                 has_scripts = stagehand_test_path.exists() and any(stagehand_test_path.rglob("*.py"))
-                has_contexts = contexts_path.exists() if contexts_path else False
                 
                 # Log detailed structure for debugging
                 if inbound_mcp_path.exists():
@@ -282,6 +292,15 @@ async def upload_sdk_folder(
                     logger.info(f"stagehand-test contents: {list(stagehand_test_path.iterdir())[:10]}")
                 if contexts_path and contexts_path.exists():
                     logger.info(f"contexts contents: {list(contexts_path.iterdir())}")
+                    # Log Default subfolder status
+                    arcadia_profile = contexts_path / "arcadia_profile"
+                    gmail_profile = contexts_path / "gmail_profile"
+                    if arcadia_profile.exists():
+                        arcadia_default = arcadia_profile / "Default"
+                        logger.info(f"arcadia_profile/Default exists: {arcadia_default.exists()}, has files: {any(arcadia_default.iterdir()) if arcadia_default.exists() else False}")
+                    if gmail_profile.exists():
+                        gmail_default = gmail_profile / "Default"
+                        logger.info(f"gmail_profile/Default exists: {gmail_default.exists()}, has files: {any(gmail_default.iterdir()) if gmail_default.exists() else False}")
                 
                 logger.info(
                     f"SDK folder extracted",
@@ -379,12 +398,22 @@ async def get_sdk_folder_status(
         elif folder_type == "contexts":
             arcadia_profile = path / "arcadia_profile"
             gmail_profile = path / "gmail_profile"
+            # Check for Default subfolder which contains actual Chrome profile data
+            arcadia_default = arcadia_profile / "Default" if arcadia_profile.exists() else None
+            gmail_default = gmail_profile / "Default" if gmail_profile.exists() else None
+            
+            # Profile is considered valid if it exists AND has Default subfolder with files
+            has_arcadia = arcadia_profile.exists() and arcadia_default and arcadia_default.exists() and any(arcadia_default.iterdir())
+            has_gmail = gmail_profile.exists() and gmail_default and gmail_default.exists() and any(gmail_default.iterdir())
+            
             return {
                 "exists": True,
-                "has_arcadia_profile": arcadia_profile.exists(),
-                "has_gmail_profile": gmail_profile.exists(),
+                "has_arcadia_profile": has_arcadia,
+                "has_gmail_profile": has_gmail,
                 "arcadia_profile_path": str(arcadia_profile) if arcadia_profile.exists() else None,
                 "gmail_profile_path": str(gmail_profile) if gmail_profile.exists() else None,
+                "arcadia_default_path": str(arcadia_default) if arcadia_default and arcadia_default.exists() else None,
+                "gmail_default_path": str(gmail_default) if gmail_default and gmail_default.exists() else None,
                 "path": str(path)
             }
         else:
