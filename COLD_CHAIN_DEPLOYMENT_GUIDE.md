@@ -9,7 +9,7 @@ This guide explains what you need to configure after deploying the inbound order
 
 ### 1. **Admin Panel Configuration** (Frontend)
 
-**Location:** `/admin` page (only visible for `cold-chain-enterprise` and `varnica.dev` workspaces)
+**Location:** `/admin` page (only visible for `cold-chain-enterprise` and `operator` workspaces)
 
 **What to Add:**
 
@@ -37,13 +37,14 @@ This guide explains what you need to configure after deploying the inbound order
 
 **After saving credentials in admin panel:**
 
-1. Open an agent conversation (in `cold-chain-enterprise` or `varnica.dev` workspace)
-2. Use the **"Setup Inbound Order Credentials"** tool
+1. Open an agent conversation (in `cold-chain-enterprise` or `operator` workspace)
+2. Use the **"Cold Chain Inbound Orders"** tool with action `setup`
 3. The tool will:
    - Launch a headed browser
    - Navigate to ERP login page
    - Allow you to complete Google SSO authentication
-   - Save the authenticated browser profile to `/app/data/browser_profiles/{account_id}/`
+   - Save the authenticated browser profile to `/app/data/browser_profiles/{user_id}/`
+   - **Note:** Each user has their own browser profile (not shared)
 
 **Note:** The tool now reads API key and config from stored credentials (no need to pass API key manually)
 
@@ -54,12 +55,12 @@ This guide explains what you need to configure after deploying the inbound order
 **No backend code changes needed** - everything is handled automatically:
 
 - Credentials are stored encrypted via `CredentialService`
-- Browser profiles persist at `/app/data/browser_profiles/{account_id}/`
+- Browser profiles persist at `/app/data/browser_profiles/{user_id}/` (per-user)
 - SDK initialization uses stored credentials
+- **Important:** Credentials are PER-USER (each user must configure their own)
 
 **Files that handle this:**
-- `backend/core/tools/setup_inbound_order_credentials_tool.py` - Reads from stored credentials
-- `backend/core/tools/inbound_order_tool.py` - Uses stored credentials + Arcadia link + ERP URL
+- `backend/core/tools/inbound_order_tool.py` - Unified tool (setup + processing) using user-specific credentials
 
 ---
 
@@ -103,7 +104,7 @@ This guide explains what you need to configure after deploying the inbound order
   "arcadia_link": "https://arcadia.example.com/user/profile",
   "erp_url": "https://erp.coldchain.com/login",
   "erp_session": {
-    "browser_profile_path": "/app/data/browser_profiles/{account_id}/",
+    "browser_profile_path": "/app/data/browser_profiles/{user_id}/",
     "expires_at": "2024-02-15T12:00:00Z"
   }
 }
@@ -129,18 +130,18 @@ This guide explains what you need to configure after deploying the inbound order
 ## 🔍 Verification Steps
 
 1. **Check Admin Panel:**
-   - Navigate to `/admin` in `cold-chain-enterprise` or `varnica.dev` workspace
+   - Navigate to `/admin` in `cold-chain-enterprise` or `operator` workspace
    - Verify "Workspace Credentials" card appears
    - Check that API key shows as "configured" after saving
 
 2. **Test Setup Tool:**
    - Open agent conversation
-   - Call "Setup Inbound Order Credentials" tool
+   - Use "Cold Chain Inbound Orders" tool with action `setup`
    - Verify browser launches and you can complete SSO
    - Check that browser profile status shows "Configured" in admin panel
 
 3. **Test Inbound Order Tool:**
-   - Call "process_inbound_orders" with action: "orders", "extraction", or "pipeline"
+   - Use "Cold Chain Inbound Orders" tool with actions: `orders`, `extraction`, or `pipeline`
    - Verify SDK initializes correctly
    - Check logs for successful execution
 
@@ -158,7 +159,7 @@ pip install nova-act-inbound-orders
 ```
 
 ### Issue: "Browser profile not configured"
-**Solution:** Run the "Setup Inbound Order Credentials" tool to create the browser profile
+**Solution:** Run the "Cold Chain Inbound Orders" tool with action `setup` to create the browser profile
 
 ### Issue: "ERP session expired"
 **Solution:** Re-run the setup tool to refresh the browser profile
@@ -172,13 +173,12 @@ pip install nova-act-inbound-orders
 - Admin Page: `frontend/src/app/(dashboard)/admin/page.tsx`
 
 ### Backend:
-- Setup Tool: `backend/core/tools/setup_inbound_order_credentials_tool.py`
-- Inbound Order Tool: `backend/core/tools/inbound_order_tool.py`
+- Unified Tool: `backend/core/tools/inbound_order_tool.py` (handles setup + processing)
 - Tool Registration: `backend/core/run.py`
 
 ### Database:
-- Credentials Table: `user_mcp_credentials`
-- Browser Profiles: `/app/data/browser_profiles/{account_id}/`
+- Credentials Table: `user_mcp_credentials` (per-user storage)
+- Browser Profiles: `/app/data/browser_profiles/{user_id}/` (per-user)
 
 ---
 
@@ -186,14 +186,16 @@ pip install nova-act-inbound-orders
 
 **After deployment, you only need to:**
 
-1. **Go to Admin Panel** (`/admin` in `cold-chain-enterprise` or `varnica.dev`)
+1. **Go to Admin Panel** (`/admin` in `cold-chain-enterprise` or `operator`)
 2. **Enter:**
    - Nova ACT API Key (required)
    - Arcadia Link (optional - user profile)
    - ERP Login URL (optional)
 3. **Click "Save All Credentials"**
-4. **Run Setup Tool** in an agent conversation to create browser profile
+4. **Run Setup** - Use "Cold Chain Inbound Orders" tool with action `setup` in an agent conversation
 5. **Done!** Tools are ready to use
+
+**Note:** Each user must configure their own credentials (not shared across workspace)
 
 All other configuration is handled automatically by the system.
 
