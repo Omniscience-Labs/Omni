@@ -41,11 +41,16 @@ async def upload_script_folder(
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is required")
     
-    is_tar_gz = file.filename.endswith('.tar.gz') or file.filename.endswith('.tgz')
-    is_zip = file.filename.endswith('.zip')
+    # Normalize filename to lowercase for comparison (case-insensitive)
+    filename_lower = file.filename.lower()
+    is_tar_gz = filename_lower.endswith('.tar.gz') or filename_lower.endswith('.tgz')
+    is_zip = filename_lower.endswith('.zip')
     
     if not (is_tar_gz or is_zip):
-        raise HTTPException(status_code=400, detail="File must be a .tar.gz, .tgz, or .zip archive")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"File must be a .tar.gz, .tgz, or .zip archive. Received: {file.filename}"
+        )
     
     # Determine extract path based on script type
     if script_type == "sdk":

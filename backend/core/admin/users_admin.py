@@ -10,6 +10,7 @@ from collections import defaultdict
 from core.utils.config import config
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt
 from core.credentials.credential_service import get_credential_service
+from core.credentials.profile_service import get_profile_service
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 
@@ -739,20 +740,27 @@ async def admin_store_user_credential(
     """Admin endpoint to store credentials for a specific user."""
     try:
         db = DBConnection()
-        cred_service = get_credential_service(db)
         
-        credential_id = await cred_service.store_credential(
+        # Use ProfileService which uses user_mcp_credential_profiles table
+        profile_service = get_profile_service(db)
+        # Use "default" as profile name for Cold Chain credentials
+        profile_name = "default"
+        
+        profile_id = await profile_service.store_profile(
             account_id=user_id,
             mcp_qualified_name=request.mcp_qualified_name,
+            profile_name=profile_name,
             display_name=request.display_name,
-            config=request.config
+            config=request.config,
+            is_default=True  # Set as default profile for this MCP
         )
         
-        logger.info(f"Admin {admin['user_id']} stored credential {request.mcp_qualified_name} for user {user_id}")
+        logger.info(f"Admin {admin['user_id']} stored credential profile {request.mcp_qualified_name} for user {user_id}")
         
         return {
             "success": True,
-            "credential_id": credential_id,
+            "credential_id": profile_id,
+            "profile_id": profile_id,
             "message": f"Credential stored successfully for user {user_id}"
         }
     except Exception as e:

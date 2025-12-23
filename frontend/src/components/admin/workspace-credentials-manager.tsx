@@ -335,7 +335,7 @@ export function WorkspaceCredentialsManager({ workspaceSlug, accountId }: Worksp
                     <Input
                       id="sdk-folder"
                       type="file"
-                      accept=".tar.gz,.tgz,.zip"
+                      accept=".tar.gz,.tgz,.zip,application/gzip,application/x-gzip,application/x-tar,application/zip"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
@@ -364,7 +364,7 @@ export function WorkspaceCredentialsManager({ workspaceSlug, accountId }: Worksp
                     <Input
                       id="scripts-folder"
                       type="file"
-                      accept=".tar.gz,.tgz,.zip"
+                      accept=".tar.gz,.tgz,.zip,application/gzip,application/x-gzip,application/x-tar,application/zip"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
