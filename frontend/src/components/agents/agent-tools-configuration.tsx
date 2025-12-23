@@ -34,6 +34,16 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
   const allowedWorkspaces = ['cold-chain-enterprise', 'operator'];
   const isWorkspaceScoped = currentAccount?.slug && allowedWorkspaces.includes(currentAccount.slug);
   
+  // Debug: Log workspace info (remove in production)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[AgentToolsConfig] Workspace check:', {
+      workspaceSlug: currentAccount?.slug,
+      isWorkspaceScoped,
+      allowedWorkspaces,
+      accountId: currentAccount?.account_id
+    });
+  }
+  
   const novaActCredential = credentials?.find((c: any) => c.mcp_qualified_name === 'nova_act.inbound_orders');
   const hasApiKey = novaActCredential?.config_keys?.includes('nova_act_api_key') || false;
   const hasErpSession = novaActCredential?.config_keys?.includes('erp_session') || false;
@@ -102,8 +112,12 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
         <div className="space-y-3">
           {getFilteredTools().map(([toolName, toolInfo]) => {
             const toolEnabled = isToolEnabled(tools[toolName]);
-            const showSettings = isWorkspaceScoped && workspaceScopedTools.includes(toolName) && toolEnabled;
+            const isWorkspaceTool = workspaceScopedTools.includes(toolName);
+            const showSettings = isWorkspaceScoped && isWorkspaceTool && toolEnabled;
             const isExpanded = expandedToolSettings === toolName;
+            
+            // Show a hint if tool is disabled but should have settings
+            const shouldShowSettingsHint = isWorkspaceScoped && isWorkspaceTool && !toolEnabled;
             
             return (
               <div key={toolName}>
@@ -132,6 +146,13 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
                     />
                   </div>
                 </div>
+                
+                {/* Hint to enable tool for settings */}
+                {shouldShowSettingsHint && (
+                  <div className="mt-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-l-blue-500">
+                    💡 Enable this tool to configure credentials and browser profile settings
+                  </div>
+                )}
                 
                 {/* Settings section that appears below when tool is enabled */}
                 {showSettings && (
