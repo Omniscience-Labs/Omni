@@ -22,7 +22,7 @@ export function WorkspaceCredentialsManager({ workspaceSlug, accountId }: Worksp
   const queryClient = useQueryClient();
   const [apiKey, setApiKey] = useState('');
   const [arcadiaLink, setArcadiaLink] = useState('');
-  const [erpUrl, setErpUrl] = useState('');
+  const [gmailProfileData, setGmailProfileData] = useState('');
   const [setupDialogOpen, setSetupDialogOpen] = useState(false);
   
   const { data: credentials, isLoading } = useUserCredentials();
@@ -30,6 +30,7 @@ export function WorkspaceCredentialsManager({ workspaceSlug, accountId }: Worksp
   const novaActCredential = credentials?.find((c: any) => c.mcp_qualified_name === 'nova_act.inbound_orders');
   const hasApiKey = novaActCredential?.config_keys?.includes('nova_act_api_key') || false;
   const hasErpSession = novaActCredential?.config_keys?.includes('erp_session') || false;
+  const hasGmailProfile = novaActCredential?.config_keys?.includes('gmail_profile_data') || false;
   
   const storeCredentialMutation = useStoreCredential();
   const deleteCredentialMutation = useDeleteCredential();
@@ -40,18 +41,20 @@ export function WorkspaceCredentialsManager({ workspaceSlug, accountId }: Worksp
       return;
     }
 
+    if (!gmailProfileData.trim()) {
+      toast.error('Gmail profile data is required for Arcadia authentication');
+      return;
+    }
+
     // Build config object with all fields
     const config: Record<string, any> = {
       nova_act_api_key: apiKey,
+      gmail_profile_data: gmailProfileData.trim(),
     };
 
     // Add optional fields if provided
     if (arcadiaLink.trim()) {
       config.arcadia_link = arcadiaLink.trim();
-    }
-
-    if (erpUrl.trim()) {
-      config.erp_url = erpUrl.trim();
     }
 
     try {
@@ -64,7 +67,7 @@ export function WorkspaceCredentialsManager({ workspaceSlug, accountId }: Worksp
       toast.success('Credentials saved successfully');
       setApiKey('');
       setArcadiaLink('');
-      setErpUrl('');
+      setGmailProfileData('');
       queryClient.invalidateQueries({ queryKey: ['secure-mcp', 'credentials'] });
     } catch (error: any) {
       toast.error(error.message || 'Failed to save credentials');

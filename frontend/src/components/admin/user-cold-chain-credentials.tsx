@@ -21,7 +21,7 @@ interface UserColdChainCredentialsProps {
 export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChainCredentialsProps) {
   const [apiKey, setApiKey] = useState('');
   const [arcadiaLink, setArcadiaLink] = useState('');
-  const [erpUrl, setErpUrl] = useState('');
+  const [gmailProfileData, setGmailProfileData] = useState('');
   const [isEditing, setIsEditing] = useState(false);
 
   const currentAccount = useCurrentAccount();
@@ -63,7 +63,7 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
   const hasApiKey = coldChainCredential?.config_keys?.includes('nova_act_api_key') || false;
   const hasErpSession = coldChainCredential?.config_keys?.includes('erp_session') || false;
   const hasArcadiaLink = coldChainCredential?.config_keys?.includes('arcadia_link') || false;
-  const hasErpUrl = coldChainCredential?.config_keys?.includes('erp_url') || false;
+  const hasGmailProfile = coldChainCredential?.config_keys?.includes('gmail_profile_data') || false;
 
   // Load existing values if credential exists
   useEffect(() => {
@@ -71,9 +71,9 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
       // Note: We can't read the actual encrypted values, but we can show placeholders
       setApiKey(hasApiKey ? '••••••••••••••••' : '');
       setArcadiaLink(hasArcadiaLink ? 'Configured' : '');
-      setErpUrl(hasErpUrl ? 'Configured' : '');
+      setGmailProfileData(hasGmailProfile ? 'Configured' : '');
     }
-  }, [coldChainCredential, hasApiKey, hasArcadiaLink, hasErpUrl, isEditing]);
+  }, [coldChainCredential, hasApiKey, hasArcadiaLink, hasGmailProfile, isEditing]);
 
   const handleSave = async () => {
     if (!apiKey.trim()) {
@@ -84,14 +84,11 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
     try {
       const config: Record<string, any> = {
         nova_act_api_key: apiKey,
+        gmail_profile_data: gmailProfileData.trim(), // Required field
       };
 
       if (arcadiaLink.trim()) {
         config.arcadia_link = arcadiaLink;
-      }
-
-      if (erpUrl.trim()) {
-        config.erp_url = erpUrl;
       }
 
       await storeCredential.mutateAsync({
@@ -119,7 +116,7 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
       toast.success('Credentials deleted successfully');
       setApiKey('');
       setArcadiaLink('');
-      setErpUrl('');
+      setGmailProfileData('');
       setIsEditing(false);
     } catch (error: any) {
       toast.error(error?.message || 'Failed to delete credentials');
@@ -211,14 +208,16 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
                   </div>
                   
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">ERP URL</Label>
-                    {hasErpUrl ? (
+                    <Label className="text-sm font-medium">Gmail Profile Data</Label>
+                    {hasGmailProfile ? (
                       <Badge variant="outline" className="text-xs">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
                         Configured
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="text-xs text-muted-foreground">
-                        Optional
+                      <Badge variant="outline" className="text-xs text-amber-600">
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                        Required
                       </Badge>
                     )}
                   </div>
@@ -304,17 +303,20 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="erp-url">ERP Login URL (Optional)</Label>
-                  <Input
-                    id="erp-url"
-                    type="url"
-                    placeholder="https://erp.coldchain.com/login"
-                    value={erpUrl}
-                    onChange={(e) => setErpUrl(e.target.value)}
+                  <Label htmlFor="gmail-profile">
+                    Gmail Profile Cached Data <span className="text-destructive">*</span>
+                  </Label>
+                  <textarea
+                    id="gmail-profile"
+                    rows={6}
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder="Paste Gmail OAuth token JSON or cached authentication data here..."
+                    value={gmailProfileData}
+                    onChange={(e) => setGmailProfileData(e.target.value)}
                     disabled={storeCredential.isPending}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Default ERP login URL if different from standard (optional).
+                    Required for Arcadia login. Paste your Gmail OAuth token JSON or cached authentication data. This will be used by the SDK to authenticate with Arcadia.
                   </p>
                 </div>
 
@@ -340,7 +342,7 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
                         setIsEditing(false);
                         setApiKey(hasApiKey ? '••••••••••••••••' : '');
                         setArcadiaLink(hasArcadiaLink ? 'Configured' : '');
-                        setErpUrl(hasErpUrl ? 'Configured' : '');
+                        setGmailProfileData(hasGmailProfile ? 'Configured' : '');
                       }}
                       disabled={storeCredential.isPending}
                     >

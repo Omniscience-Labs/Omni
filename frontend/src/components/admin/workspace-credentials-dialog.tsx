@@ -22,12 +22,13 @@ export function WorkspaceCredentialsDialog({ open, onOpenChange, accountId }: Wo
   const queryClient = useQueryClient();
   const [apiKey, setApiKey] = useState('');
   const [arcadiaLink, setArcadiaLink] = useState('');
-  const [erpUrl, setErpUrl] = useState('');
+  const [gmailProfileData, setGmailProfileData] = useState('');
   
   const { data: credentials, isLoading } = useUserCredentials();
   const novaActCredential = credentials?.find((c: any) => c.mcp_qualified_name === 'nova_act.inbound_orders');
   const hasApiKey = novaActCredential?.config_keys?.includes('nova_act_api_key') || false;
   const hasErpSession = novaActCredential?.config_keys?.includes('erp_session') || false;
+  const hasGmailProfile = novaActCredential?.config_keys?.includes('gmail_profile_data') || false;
   
   const storeCredentialMutation = useStoreCredential();
 
@@ -37,16 +38,18 @@ export function WorkspaceCredentialsDialog({ open, onOpenChange, accountId }: Wo
       return;
     }
 
+    if (!gmailProfileData.trim()) {
+      toast.error('Gmail profile data is required for Arcadia authentication');
+      return;
+    }
+
     const config: Record<string, any> = {
       nova_act_api_key: apiKey,
+      gmail_profile_data: gmailProfileData.trim(),
     };
 
     if (arcadiaLink.trim()) {
       config.arcadia_link = arcadiaLink.trim();
-    }
-
-    if (erpUrl.trim()) {
-      config.erp_url = erpUrl.trim();
     }
 
     try {
@@ -59,7 +62,7 @@ export function WorkspaceCredentialsDialog({ open, onOpenChange, accountId }: Wo
       toast.success('Credentials saved successfully');
       setApiKey('');
       setArcadiaLink('');
-      setErpUrl('');
+      setGmailProfileData('');
       queryClient.invalidateQueries({ queryKey: ['secure-mcp', 'credentials'] });
       onOpenChange(false);
     } catch (error: any) {
@@ -140,20 +143,28 @@ export function WorkspaceCredentialsDialog({ open, onOpenChange, accountId }: Wo
               </p>
             </div>
 
-            {/* ERP URL */}
+            {/* Gmail Profile Data */}
             <div>
-              <Label htmlFor="erp-url">ERP Login URL</Label>
-              <Input
-                id="erp-url"
-                type="url"
-                placeholder={novaActCredential?.config_keys?.includes('erp_url') ? 'Configured' : 'https://erp.coldchain.com/login'}
-                value={erpUrl}
-                onChange={(e) => setErpUrl(e.target.value)}
+              <Label htmlFor="gmail-profile">Gmail Profile Cached Data *</Label>
+              <textarea
+                id="gmail-profile"
+                rows={6}
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-2"
+                placeholder="Paste Gmail OAuth token JSON or cached authentication data here..."
+                value={gmailProfileData}
+                onChange={(e) => setGmailProfileData(e.target.value)}
                 disabled={storeCredentialMutation.isPending}
-                className="mt-2"
               />
+              {hasGmailProfile && (
+                <div className="flex items-center gap-2 mt-1">
+                  <CheckCircle2 className="h-3 w-3 text-green-600" />
+                  <p className="text-xs text-muted-foreground">
+                    Gmail profile data is configured
+                  </p>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground mt-1">
-                URL for ERP login page (used during browser profile setup)
+                Required for Arcadia login. Paste your Gmail OAuth token JSON or cached authentication data. This will be used by the SDK to authenticate with Arcadia.
               </p>
             </div>
 
@@ -175,7 +186,7 @@ export function WorkspaceCredentialsDialog({ open, onOpenChange, accountId }: Wo
           </Button>
           <Button
             onClick={handleSaveCredentials}
-            disabled={!apiKey.trim() || storeCredentialMutation.isPending}
+            disabled={!apiKey.trim() || !gmailProfileData.trim() || storeCredentialMutation.isPending}
           >
             {storeCredentialMutation.isPending ? (
               <>
