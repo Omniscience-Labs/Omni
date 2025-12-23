@@ -108,15 +108,26 @@ app = FastAPI(lifespan=lifespan)
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Custom handler for FastAPI validation errors to provide better error messages."""
-    logger.error(f"FastAPI validation error for {request.url.path}: {exc.errors()}", 
-                errors=exc.errors(),
+    errors = exc.errors()
+    # Create a more user-friendly error message
+    error_messages = []
+    for error in errors:
+        loc = '.'.join(str(loc) for loc in error.get('loc', []))
+        msg = error.get('msg', 'Validation error')
+        error_messages.append(f"{loc}: {msg}")
+    
+    error_message = "Validation error: " + "; ".join(error_messages)
+    
+    logger.error(f"FastAPI validation error for {request.method} {request.url.path}: {error_message}", 
+                errors=errors,
                 method=request.method,
                 path=request.url.path)
+    
     return JSONResponse(
         status_code=422,
         content={
-            "detail": exc.errors(),
-            "message": "Validation error: " + str(exc.errors())
+            "detail": errors,
+            "message": error_message
         }
     )
 

@@ -124,7 +124,19 @@ export function UserColdChainCredentials({ userId, workspaceSlug }: UserColdChai
         throw new Error(response.error?.message || 'Upload failed');
       }
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to upload SDK folder');
+      // Extract detailed error message from validation errors
+      let errorMessage = error?.message || 'Failed to upload SDK folder';
+      if (error?.details?.detail) {
+        // FastAPI validation errors are in details.detail array
+        const validationErrors = Array.isArray(error.details.detail) 
+          ? error.details.detail.map((e: any) => `${e.loc?.join('.')}: ${e.msg}`).join(', ')
+          : JSON.stringify(error.details.detail);
+        errorMessage = `Validation error: ${validationErrors}`;
+      } else if (error?.details?.message) {
+        errorMessage = error.details.message;
+      }
+      console.error('SDK folder upload error:', error);
+      toast.error(errorMessage);
     } finally {
       setIsUploadingFolder(false);
     }

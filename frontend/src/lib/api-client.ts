@@ -63,8 +63,10 @@ export const apiClient = {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
 
+      // Don't set Content-Type for FormData - browser will set it automatically with boundary
+      const isFormData = fetchOptions.body instanceof FormData;
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...fetchOptions.headers as Record<string, string>,
       };
 
