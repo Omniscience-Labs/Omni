@@ -33,6 +33,8 @@ import type { UserSummary } from '@/hooks/react-query/admin/use-admin-users';
 import { useAdminCheck } from '@/hooks/use-admin-check';
 import { useQueryClient } from '@tanstack/react-query';
 import UsageLogs from '@/components/billing/usage-logs';
+import { UserColdChainCredentials } from '@/components/admin/user-cold-chain-credentials';
+import { useCurrentAccount } from '@/hooks/use-current-account';
 
 interface AdminUserDetailsDialogProps {
   user: UserSummary | null;
@@ -105,10 +107,11 @@ export function AdminUserDetailsDialog({
             </div>
           ) : (
             <Tabs defaultValue="usage" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 sticky top-0 z-10">
+              <TabsList className="grid w-full grid-cols-4 sticky top-0 z-10">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="usage">Usage Logs</TabsTrigger>
                 <TabsTrigger value="activity">Activity</TabsTrigger>
+                <TabsTrigger value="automation">Automation</TabsTrigger>
               </TabsList>
 
             <TabsContent value="overview" className="space-y-4">
@@ -252,6 +255,12 @@ export function AdminUserDetailsDialog({
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="automation" className="space-y-4">
+              <UserColdChainCredentials 
+                userId={user.id}
+              />
             </TabsContent>
           </Tabs>
           )}

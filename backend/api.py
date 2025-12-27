@@ -4,6 +4,7 @@ load_dotenv()
 from fastapi import FastAPI, Request, HTTPException, Response, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.exceptions import RequestValidationError
 from core.services import redis
 import sentry
 from contextlib import asynccontextmanager
@@ -104,6 +105,32 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Custom handler for FastAPI validation errors to provide better error messages."""
+    errors = exc.errors()
+    # Create a more user-friendly error message
+    error_messages = []
+    for error in errors:
+        loc = '.'.join(str(loc) for loc in error.get('loc', []))
+        msg = error.get('msg', 'Validation error')
+        error_messages.append(f"{loc}: {msg}")
+    
+    error_message = "Validation error: " + "; ".join(error_messages)
+    
+    logger.error(f"FastAPI validation error for {request.method} {request.url.path}: {error_message}", 
+                errors=errors,
+                method=request.method,
+                path=request.url.path)
+    
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": errors,
+            "message": error_message
+        }
+    )
+
 @app.middleware("http")
 async def log_requests_middleware(request: Request, call_next):
     structlog.contextvars.clear_contextvars()
@@ -137,7 +164,7 @@ async def log_requests_middleware(request: Request, call_next):
         raise
 
 # Define allowed origins based on environment
-allowed_origins = ["https://www.suna.so", "https://suna.so", "https://operator.becomeomni.net", "https://operator.becomeomni.com", "https://coldchain.becomeomni.ai", "https://sundar-dev.operator.becomeomni.net","https://varnica.operator.becomeomni.net","https://mssc.becomeomni.net", "https://mssc.becomeomni.ai","https://coppermoon.becomeomni.ai","https://huston.becomeomni.ai","https://huston.staging.becomeomni.net","https://huston.staging.becomeomni.net/auth", "https://becomeomni.com", "https://bih.becomeomni.net"]
+allowed_origins = ["https://www.suna.so", "https://suna.so", "https://operator.becomeomni.net", "https://operator.becomeomni.com", "https://coldchain.becomeomni.ai", "https://sundar-dev.operator.becomeomni.net","https://varnica.operator.becomeomni.net","https://mssc.becomeomni.net", "https://mssc.becomeomni.ai","https://coppermoon.becomeomni.ai","https://huston.becomeomni.ai","https://huston.staging.becomeomni.net","https://huston.staging.becomeomni.net/auth", "https://becomeomni.com", "https://bih.becomeomni.ai"]
 allow_origin_regex = None
 
 # Add staging-specific origins
@@ -178,6 +205,15 @@ else:
 api_router.include_router(api_keys_api.router)
 api_router.include_router(billing_admin_router)
 api_router.include_router(users_admin.router)
+
+from core.admin import browser_profiles as browser_profiles_admin
+api_router.include_router(browser_profiles_admin.router)
+
+from core.admin import script_uploads as script_uploads_admin
+api_router.include_router(script_uploads_admin.router)
+
+from core.admin import sdk_folder_upload as sdk_folder_upload_admin
+api_router.include_router(sdk_folder_upload_admin.router)
 
 from core.mcp_module import api as mcp_api
 

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel
+import base64
 from core.auth import require_admin, require_super_admin
 from core.services.supabase import DBConnection
 from core.utils.logger import logger
@@ -9,6 +10,8 @@ from core.utils.pagination import PaginationService, PaginationParams, Paginated
 from collections import defaultdict
 from core.utils.config import config
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt
+from core.credentials.credential_service import get_credential_service
+from core.credentials.profile_service import get_profile_service
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 
@@ -723,6 +726,79 @@ async def adjust_user_credits(
     except Exception as e:
         logger.error(f"Failed to adjust credits: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to adjust user credits")
+
+class AdminStoreCredentialRequest(BaseModel):
+    mcp_qualified_name: str
+    display_name: str
+    config: Dict[str, Any]
+
+@router.post("/{user_id}/credentials")
+async def admin_store_user_credential(
+    user_id: str,
+    request: AdminStoreCredentialRequest,
+    admin: dict = Depends(require_any_admin)
+):
+    """Admin endpoint to store credentials for a specific user."""
+    try:
+        db = DBConnection()
+        
+        # Use ProfileService which uses user_mcp_credential_profiles table
+        profile_service = get_profile_service(db)
+        # Use "default" as profile name for Cold Chain credentials
+        profile_name = "default"
+        
+        # Check if profile already exists
+        existing_profiles = await profile_service.get_profiles(user_id, request.mcp_qualified_name)
+        existing_profile = next(
+            (p for p in existing_profiles if p.profile_name == profile_name),
+            None
+        )
+        
+        if existing_profile:
+            # Update existing profile
+            from core.credentials.profile_service import EncryptionService
+            encryption = EncryptionService()
+            encrypted_config, config_hash = encryption.encrypt_config(request.config)
+            encoded_config = base64.b64encode(encrypted_config).decode('utf-8')
+            
+            client = await db.client
+            result = await client.table('user_mcp_credential_profiles').update({
+                'display_name': request.display_name,
+                'encrypted_config': encoded_config,
+                'config_hash': config_hash,
+                'is_active': True,
+                'is_default': True,
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }).eq('profile_id', existing_profile.profile_id).execute()
+            
+            if result.data:
+                profile_id = existing_profile.profile_id
+                logger.info(f"Admin {admin['user_id']} updated credential profile {request.mcp_qualified_name} for user {user_id}")
+            else:
+                raise HTTPException(status_code=500, detail="Failed to update existing profile")
+        else:
+            # Insert new profile
+            profile_id = await profile_service.store_profile(
+                account_id=user_id,
+                mcp_qualified_name=request.mcp_qualified_name,
+                profile_name=profile_name,
+                display_name=request.display_name,
+                config=request.config,
+                is_default=True  # Set as default profile for this MCP
+            )
+            logger.info(f"Admin {admin['user_id']} stored credential profile {request.mcp_qualified_name} for user {user_id}")
+        
+        return {
+            "success": True,
+            "credential_id": profile_id,
+            "profile_id": profile_id,
+            "message": f"Credential stored successfully for user {user_id}"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to store credential for user {user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to store credential: {str(e)}")
 
 @router.get("/{user_id}/usage-logs")
 async def get_user_usage_logs(

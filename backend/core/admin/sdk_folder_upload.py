@@ -1,0 +1,432 @@
+"""
+Unified SDK folder upload endpoint for Cold Chain Enterprise.
+Handles uploading a single zip/tar.gz archive containing the entire SDK folder structure:
+- inbound_mcp/ (SDK)
+- stagehand-test/ (Scripts)
+  - contexts/ (Browser profiles)
+    - arcadia_profile/
+    - gmail_profile/
+
+Extracts to /workspace/omni_inbound_mcp_sdk/ preserving the folder structure.
+"""
+import os
+import tarfile
+import zipfile
+import tempfile
+import shutil
+from pathlib import Path
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from core.utils.logger import logger
+from core.admin.users_admin import require_any_admin
+
+router = APIRouter(prefix="/admin/sdk-folder-upload", tags=["admin-sdk-folder-upload"])
+
+
+@router.post("/{user_id}/upload")
+async def upload_sdk_folder(
+    user_id: str,
+    file: UploadFile = File(...),
+    admin: dict = Depends(require_any_admin)
+):
+    """
+    Upload and extract complete SDK folder archive (zip or tar.gz) for a user.
+    
+    Expected structure in archive:
+    omni_inbound_mcp_sdk/
+    ├── inbound_mcp/              ← SDK
+    └── stagehand-test/           ← Scripts
+        └── contexts/            ← Browser profiles
+            ├── arcadia_profile/
+            └── gmail_profile/
+    
+    Extracts to: /workspace/omni_inbound_mcp_sdk/
+    
+    Args:
+        user_id: User ID to upload SDK folder for
+        file: zip or tar.gz archive file containing the complete folder structure
+        admin: Admin user (from require_any_admin)
+    """
+    # Validate file was provided
+    if file is None:
+        logger.error("File parameter is None", user_id=user_id)
+        raise HTTPException(status_code=422, detail="File is required")
+    
+    if not file.filename:
+        logger.error("File has no filename", user_id=user_id, content_type=getattr(file, 'content_type', 'unknown'), size=getattr(file, 'size', 'unknown'))
+        raise HTTPException(status_code=400, detail="Filename is required")
+    
+    logger.info(f"Processing file upload", user_id=user_id, filename=file.filename, content_type=getattr(file, 'content_type', 'unknown'), size=getattr(file, 'size', 'unknown'))
+    
+    # Normalize filename to lowercase for comparison (case-insensitive)
+    filename_lower = file.filename.lower()
+    is_tar_gz = filename_lower.endswith('.tar.gz') or filename_lower.endswith('.tgz') or filename_lower.endswith('.gz')
+    is_zip = filename_lower.endswith('.zip') or filename_lower.endswith('.zipx')
+    
+    # Also check content type as fallback
+    content_type = file.content_type or ""
+    if not (is_tar_gz or is_zip):
+        # Check content type as fallback
+        if 'zip' in content_type.lower():
+            is_zip = True
+        elif 'gzip' in content_type.lower() or 'x-tar' in content_type.lower():
+            is_tar_gz = True
+    
+    if not (is_tar_gz or is_zip):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"File must be a .tar.gz, .tgz, .gz, .zip, or .zipx archive. Received: {file.filename} (Content-Type: {content_type})"
+        )
+    
+    # Extract to /workspace/omni_inbound_mcp_sdk/
+    base_extract_path = Path("/workspace/omni_inbound_mcp_sdk")
+    
+    try:
+        # Create base extract directory if it doesn't exist
+        base_extract_path.mkdir(parents=True, exist_ok=True)
+        
+        # Read uploaded file content
+        content = await file.read()
+        
+        # Write to temporary file
+        suffix = '.tar.gz' if is_tar_gz else '.zip'
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+            tmp_file.write(content)
+            tmp_path = tmp_file.name
+        
+        try:
+            # Create temporary extraction directory
+            with tempfile.TemporaryDirectory() as temp_extract_dir:
+                temp_extract_path = Path(temp_extract_dir)
+                
+                # Extract archive to temporary location first
+                if is_tar_gz:
+                    # Try different tar compression formats
+                    tar_opened = False
+                    for mode in ['r:gz', 'r:bz2', 'r:xz', 'r']:
+                        try:
+                            with tarfile.open(tmp_path, mode) as tar:
+                                tar.extractall(path=temp_extract_path)
+                            tar_opened = True
+                            logger.info(f"Successfully extracted tar archive with mode: {mode}")
+                            break
+                        except (tarfile.TarError, OSError) as e:
+                            logger.debug(f"Failed to extract with mode {mode}: {e}")
+                            continue
+                    
+                    if not tar_opened:
+                        raise tarfile.TarError("Could not extract tar archive with any supported compression format")
+                else:  # zip
+                    # Try different zip extraction methods
+                    zip_opened = False
+                    extraction_error = None
+                    
+                    # Method 1: Standard zipfile extraction
+                    try:
+                        with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
+                            # Test if zip is valid
+                            zip_ref.testzip()
+                            zip_ref.extractall(path=temp_extract_path)
+                        zip_opened = True
+                        logger.info("Successfully extracted zip archive using standard method")
+                    except zipfile.BadZipFile as e:
+                        extraction_error = str(e)
+                        logger.warning(f"Standard zip extraction failed: {e}")
+                    
+                    # Method 2: Try with allowZip64=True (for large files)
+                    if not zip_opened:
+                        try:
+                            with zipfile.ZipFile(tmp_path, 'r', allowZip64=True) as zip_ref:
+                                zip_ref.testzip()
+                                zip_ref.extractall(path=temp_extract_path)
+                            zip_opened = True
+                            logger.info("Successfully extracted zip archive using Zip64 method")
+                        except zipfile.BadZipFile as e:
+                            extraction_error = str(e)
+                            logger.warning(f"Zip64 extraction failed: {e}")
+                    
+                    # Method 3: Try reading as bytes and checking magic numbers
+                    if not zip_opened:
+                        try:
+                            with open(tmp_path, 'rb') as f:
+                                magic = f.read(4)
+                                # Check for ZIP magic numbers: PK\x03\x04 or PK\x05\x06 (empty zip) or PK\x07\x08 (spanned)
+                                if magic[:2] == b'PK':
+                                    # It's a zip file, try one more time with different options
+                                    with zipfile.ZipFile(tmp_path, 'r', allowZip64=True) as zip_ref:
+                                        # Don't test, just try to extract
+                                        zip_ref.extractall(path=temp_extract_path)
+                                    zip_opened = True
+                                    logger.info("Successfully extracted zip archive after magic number check")
+                                else:
+                                    raise zipfile.BadZipFile(f"File does not appear to be a valid zip archive. Magic bytes: {magic.hex()}")
+                        except Exception as e:
+                            extraction_error = str(e)
+                            logger.error(f"All zip extraction methods failed: {e}")
+                    
+                    if not zip_opened:
+                        error_msg = f"Could not extract zip archive. File may be corrupted or in an unsupported format."
+                        if extraction_error:
+                            error_msg += f" Error: {extraction_error}"
+                        raise zipfile.BadZipFile(error_msg)
+                
+                # Find the root folder (could be omni_inbound_mcp_sdk or just the contents)
+                extracted_items = list(temp_extract_path.iterdir())
+                # Filter out __MACOSX and other hidden/system folders
+                extracted_items = [item for item in extracted_items if not item.name.startswith('__') and not item.name.startswith('.')]
+                logger.info(f"Extracted items (filtered): {[item.name for item in extracted_items]}")
+                
+                if len(extracted_items) == 1 and extracted_items[0].is_dir():
+                    # Archive contains a single root folder
+                    root_folder = extracted_items[0]
+                    logger.info(f"Found single root folder: {root_folder.name}")
+                    # Check if it's the expected structure (has inbound_mcp and stagehand-test inside)
+                    if (root_folder / "inbound_mcp").exists() and (root_folder / "stagehand-test").exists():
+                        logger.info(f"Root folder '{root_folder.name}' has expected structure, moving CONTENTS to {base_extract_path}")
+                        # Move the CONTENTS of the folder to workspace (not the folder itself)
+                        extract_path = base_extract_path
+                        for item in root_folder.iterdir():
+                            # Skip hidden/system folders
+                            if item.name.startswith('__') or item.name.startswith('.'):
+                                continue
+                            dest = extract_path / item.name
+                            logger.info(f"Moving {item.name} to {dest}")
+                            if dest.exists():
+                                if dest.is_dir():
+                                    shutil.rmtree(dest)
+                                else:
+                                    dest.unlink()
+                            shutil.move(str(item), str(dest))
+                    else:
+                        # Root folder doesn't match expected structure, move contents
+                        logger.info(f"Root folder doesn't match expected structure, moving contents to {base_extract_path}")
+                        extract_path = base_extract_path
+                        for item in root_folder.iterdir():
+                            # Skip hidden/system folders
+                            if item.name.startswith('__') or item.name.startswith('.'):
+                                continue
+                            dest = extract_path / item.name
+                            logger.info(f"Moving {item.name} to {dest}")
+                            if dest.exists():
+                                if dest.is_dir():
+                                    shutil.rmtree(dest)
+                                else:
+                                    dest.unlink()
+                            shutil.move(str(item), str(dest))
+                else:
+                    # Archive contains multiple items or files at root
+                    # Check if inbound_mcp and stagehand-test are at root level
+                    has_inbound_mcp = any(item.name == "inbound_mcp" and item.is_dir() for item in extracted_items)
+                    has_stagehand_test = any(item.name == "stagehand-test" and item.is_dir() for item in extracted_items)
+                    logger.info(f"Multiple items at root - has_inbound_mcp: {has_inbound_mcp}, has_stagehand_test: {has_stagehand_test}")
+                    
+                    if has_inbound_mcp and has_stagehand_test:
+                        # Move items directly to workspace
+                        logger.info(f"Moving items directly to {base_extract_path}")
+                        extract_path = base_extract_path
+                        for item in extracted_items:
+                            dest = extract_path / item.name
+                            logger.info(f"Moving {item.name} to {dest}")
+                            if dest.exists():
+                                if dest.is_dir():
+                                    shutil.rmtree(dest)
+                                else:
+                                    dest.unlink()
+                            shutil.move(str(item), str(dest))
+                    else:
+                        # Unexpected structure, extract everything to workspace
+                        logger.warning(f"Unexpected archive structure, extracting all items to {base_extract_path}")
+                        extract_path = base_extract_path
+                        for item in extracted_items:
+                            dest = extract_path / item.name
+                            logger.info(f"Moving {item.name} to {dest}")
+                            if dest.exists():
+                                if dest.is_dir():
+                                    shutil.rmtree(dest)
+                                else:
+                                    dest.unlink()
+                            shutil.move(str(item), str(dest))
+                
+                logger.info(f"Final extract_path: {extract_path}")
+                logger.info(f"Contents of extract_path: {list(extract_path.iterdir()) if extract_path.exists() else 'DOES NOT EXIST'}")
+                
+                # Verify extraction - check for expected structure
+                # Handle case where extract_path might be the root folder (omni_inbound_mcp_sdk)
+                # or the base path itself
+                if extract_path.name == "omni_inbound_mcp_sdk":
+                    # extract_path is already the full path
+                    inbound_mcp_path = extract_path / "inbound_mcp"
+                    stagehand_test_path = extract_path / "stagehand-test"
+                else:
+                    # extract_path is base_extract_path, check if omni_inbound_mcp_sdk exists
+                    omni_sdk_path = base_extract_path / "omni_inbound_mcp_sdk"
+                    if omni_sdk_path.exists():
+                        inbound_mcp_path = omni_sdk_path / "inbound_mcp"
+                        stagehand_test_path = omni_sdk_path / "stagehand-test"
+                        extract_path = omni_sdk_path
+                    else:
+                        inbound_mcp_path = extract_path / "inbound_mcp"
+                        stagehand_test_path = extract_path / "stagehand-test"
+                
+                contexts_path = stagehand_test_path / "contexts" if stagehand_test_path.exists() else None
+                
+                # Check for browser profiles - they should have Default subfolder with actual data
+                has_contexts = False
+                if contexts_path and contexts_path.exists():
+                    arcadia_profile = contexts_path / "arcadia_profile"
+                    gmail_profile = contexts_path / "gmail_profile"
+                    # Check if profiles exist AND have Default subfolder with files
+                    arcadia_has_default = (arcadia_profile / "Default").exists() if arcadia_profile.exists() else False
+                    gmail_has_default = (gmail_profile / "Default").exists() if gmail_profile.exists() else False
+                    has_contexts = arcadia_has_default or gmail_has_default
+                    logger.info(f"Browser profiles check - arcadia: {arcadia_profile.exists()} (Default: {arcadia_has_default}), gmail: {gmail_profile.exists()} (Default: {gmail_has_default})")
+                
+                logger.info(f"Checking paths - inbound_mcp: {inbound_mcp_path.exists()}, stagehand-test: {stagehand_test_path.exists()}, contexts: {has_contexts}")
+                
+                has_sdk = inbound_mcp_path.exists() and any(inbound_mcp_path.rglob("__init__.py"))
+                has_scripts = stagehand_test_path.exists() and any(stagehand_test_path.rglob("*.py"))
+                
+                # Log detailed structure for debugging
+                if inbound_mcp_path.exists():
+                    logger.info(f"inbound_mcp contents: {list(inbound_mcp_path.iterdir())[:10]}")
+                if stagehand_test_path.exists():
+                    logger.info(f"stagehand-test contents: {list(stagehand_test_path.iterdir())[:10]}")
+                if contexts_path and contexts_path.exists():
+                    logger.info(f"contexts contents: {list(contexts_path.iterdir())}")
+                    # Log Default subfolder status
+                    arcadia_profile = contexts_path / "arcadia_profile"
+                    gmail_profile = contexts_path / "gmail_profile"
+                    if arcadia_profile.exists():
+                        arcadia_default = arcadia_profile / "Default"
+                        logger.info(f"arcadia_profile/Default exists: {arcadia_default.exists()}, has files: {any(arcadia_default.iterdir()) if arcadia_default.exists() else False}")
+                    if gmail_profile.exists():
+                        gmail_default = gmail_profile / "Default"
+                        logger.info(f"gmail_profile/Default exists: {gmail_default.exists()}, has files: {any(gmail_default.iterdir()) if gmail_default.exists() else False}")
+                
+                logger.info(
+                    f"SDK folder extracted",
+                    user_id=user_id,
+                    extract_path=str(extract_path),
+                    has_sdk=has_sdk,
+                    has_scripts=has_scripts,
+                    has_contexts=has_contexts,
+                    admin_user_id=admin['user_id']
+                )
+                
+                if not has_sdk:
+                    logger.warning(f"SDK extraction may be incomplete - inbound_mcp folder not found or missing __init__.py")
+                if not has_scripts:
+                    logger.warning(f"Scripts extraction may be incomplete - stagehand-test folder not found or missing .py files")
+                if not has_contexts:
+                    logger.warning(f"Browser profiles context folder not found - expected at {extract_path}/stagehand-test/contexts/")
+                
+                return {
+                    "status": "success",
+                    "message": f"SDK folder extracted successfully",
+                    "extract_path": str(extract_path),
+                    "sdk_path": str(inbound_mcp_path) if inbound_mcp_path.exists() else None,
+                    "scripts_path": str(stagehand_test_path) if stagehand_test_path.exists() else None,
+                    "contexts_path": str(contexts_path) if contexts_path and contexts_path.exists() else None,
+                    "has_sdk": has_sdk,
+                    "has_scripts": has_scripts,
+                    "has_contexts": has_contexts,
+                    "user_id": user_id
+                }
+            
+        finally:
+            # Clean up temporary file
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+                
+    except (tarfile.TarError, zipfile.BadZipFile) as e:
+        logger.error(f"Failed to extract archive: {e}", exc_info=True)
+        error_detail = f"Invalid or corrupted archive file: {str(e)}"
+        error_detail += f"\n\nTroubleshooting tips:"
+        error_detail += f"\n1. Verify the file is not corrupted - try opening it locally first"
+        error_detail += f"\n2. Ensure the file is a valid .zip, .tar.gz, or .tgz archive"
+        error_detail += f"\n3. Try recreating the archive with standard compression"
+        error_detail += f"\n4. Check file size - very large files may need to be split"
+        error_detail += f"\n5. For zip files, ensure they're not password-protected"
+        raise HTTPException(status_code=400, detail=error_detail)
+    except Exception as e:
+        logger.error(f"Error uploading SDK folder: {e}", exc_info=True)
+        error_detail = f"Failed to upload and extract SDK folder: {str(e)}"
+        error_detail += f"\n\nFile: {file.filename}"
+        error_detail += f"\nSize: {len(content) if 'content' in locals() else 'unknown'} bytes"
+        raise HTTPException(status_code=500, detail=error_detail)
+
+
+@router.get("/{user_id}/status")
+async def get_sdk_folder_status(
+    user_id: str,
+    admin: dict = Depends(require_any_admin)
+):
+    """
+    Check status of SDK folder for a user.
+    Returns whether the SDK folder structure exists and has required content.
+    """
+    base_path = Path("/workspace/omni_inbound_mcp_sdk")
+    inbound_mcp_path = base_path / "inbound_mcp"
+    stagehand_test_path = base_path / "stagehand-test"
+    contexts_path = stagehand_test_path / "contexts" if stagehand_test_path.exists() else None
+    
+    def check_folder(path: Path, folder_type: str) -> dict:
+        """Check if folder exists and has required files"""
+        if not path.exists():
+            return {
+                "exists": False,
+                "path": str(path)
+            }
+        
+        if folder_type == "sdk":
+            has_init = any(path.rglob("__init__.py"))
+            has_setup = (path / "setup.py").exists()
+            has_py_files = any(path.rglob("*.py"))
+            return {
+                "exists": True,
+                "has_python_files": has_py_files,
+                "has_init": has_init,
+                "has_setup": has_setup,
+                "path": str(path)
+            }
+        elif folder_type == "scripts":
+            has_py_files = any(path.rglob("*.py"))
+            return {
+                "exists": True,
+                "has_python_files": has_py_files,
+                "path": str(path)
+            }
+        elif folder_type == "contexts":
+            arcadia_profile = path / "arcadia_profile"
+            gmail_profile = path / "gmail_profile"
+            # Check for Default subfolder which contains actual Chrome profile data
+            arcadia_default = arcadia_profile / "Default" if arcadia_profile.exists() else None
+            gmail_default = gmail_profile / "Default" if gmail_profile.exists() else None
+            
+            # Profile is considered valid if it exists AND has Default subfolder with files
+            has_arcadia = arcadia_profile.exists() and arcadia_default and arcadia_default.exists() and any(arcadia_default.iterdir())
+            has_gmail = gmail_profile.exists() and gmail_default and gmail_default.exists() and any(gmail_default.iterdir())
+            
+            return {
+                "exists": True,
+                "has_arcadia_profile": has_arcadia,
+                "has_gmail_profile": has_gmail,
+                "arcadia_profile_path": str(arcadia_profile) if arcadia_profile.exists() else None,
+                "gmail_profile_path": str(gmail_profile) if gmail_profile.exists() else None,
+                "arcadia_default_path": str(arcadia_default) if arcadia_default and arcadia_default.exists() else None,
+                "gmail_default_path": str(gmail_default) if gmail_default and gmail_default.exists() else None,
+                "path": str(path)
+            }
+        else:
+            return {
+                "exists": True,
+                "path": str(path)
+            }
+    
+    return {
+        "base_path": str(base_path),
+        "sdk": check_folder(inbound_mcp_path, "sdk"),
+        "scripts": check_folder(stagehand_test_path, "scripts"),
+        "contexts": check_folder(contexts_path, "contexts") if contexts_path else {"exists": False, "path": str(contexts_path) if contexts_path else None},
+        "user_id": user_id
+    }
+
