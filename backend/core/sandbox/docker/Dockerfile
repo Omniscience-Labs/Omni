@@ -110,9 +110,13 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 # Note: We skip 'playwright install-deps' because it tries to install fonts
 # (ttf-unifont, ttf-ubuntu-font-family) that don't exist in newer Debian/Ubuntu repos.
 # All required Chromium dependencies are already installed in the apt-get section above.
-RUN npx playwright install chromium
+# Install browsers for both Node.js and Python Playwright (they share the same browser binaries)
+# Note: We do NOT run 'playwright install-deps' - all system dependencies are already installed above
+RUN npx playwright install chromium && \
+    python -m playwright install chromium
 # Verify installation
-RUN node -e "import('playwright').then(() => console.log('Playwright installation verified')).catch(e => { console.error('Playwright verification failed:', e); process.exit(1); })"
+RUN node -e "import('playwright').then(() => console.log('Node Playwright verified')).catch(e => { console.error('Node Playwright verification failed:', e); process.exit(1); })" && \
+    python -c "from playwright.sync_api import sync_playwright; print('Python Playwright verified')"
 
 # Copy server script
 COPY . /app
