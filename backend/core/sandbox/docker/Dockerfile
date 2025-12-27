@@ -1,4 +1,4 @@
-FROM python:3.11-slim-bookworm
+FROM python:3.11-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -106,8 +106,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright and browsers with system dependencies
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-# Then install dependencies and browsers
-RUN npx playwright install-deps
+# Install Chromium browser (dependencies already installed manually above)
+# Note: We skip 'playwright install-deps' because it tries to install fonts
+# (ttf-unifont, ttf-ubuntu-font-family) that don't exist in newer Debian/Ubuntu repos.
+# All required Chromium dependencies are already installed in the apt-get section above.
 RUN npx playwright install chromium
 # Verify installation
 RUN node -e "import('playwright').then(() => console.log('Playwright installation verified')).catch(e => { console.error('Playwright verification failed:', e); process.exit(1); })"

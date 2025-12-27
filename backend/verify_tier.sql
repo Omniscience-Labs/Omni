@@ -11,3 +11,4 @@ LEFT JOIN user_roles ur ON ur.user_id = u.id
 LEFT JOIN credit_accounts ca ON ca.account_id = u.id
 WHERE u.email = 'varnika@latent-labs.ai';
 
+
