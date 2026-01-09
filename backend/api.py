@@ -234,13 +234,11 @@ allowed_origins = [
     "https://coldchain.becomeomni.ai", 
     "https://sundar-dev.operator.becomeomni.net",
     "https://varnica.operator.becomeomni.net",
-    "https://varnica.operator.becomeomni.net/auth",
     "https://mssc.becomeomni.net", 
     "https://mssc.becomeomni.ai",
     "https://coppermoon.becomeomni.ai",
     "https://huston.becomeomni.ai",
     "https://huston.staging.becomeomni.net",
-    "https://huston.staging.becomeomni.net/auth", 
     "https://becomeomni.com", 
     "https://bih.becomeomni.net"  
 ]
@@ -254,8 +252,7 @@ if config.ENV_MODE == EnvMode.LOCAL:
 if config.ENV_MODE == EnvMode.STAGING:
     allowed_origins.append("https://staging.suna.so")
     allowed_origins.append("https://huston.staging.becomeomni.net")
-    allowed_origins.append("https://huston.staging.becomeomni.net/auth")
-    allowed_origins.append("https://dev1.operator.becomeomni.com/")
+    allowed_origins.append("https://dev1.operator.becomeomni.com")
     allow_origin_regex = r"https://suna-.*-prjcts\.vercel\.app"
 
 app.add_middleware(
