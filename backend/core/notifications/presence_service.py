@@ -25,15 +25,6 @@ class PresenceService:
         client_timestamp: Optional[str],
         device_info: Optional[Dict] = None
     ) -> Tuple[Any, str]:
-    async def _upsert_session(
-        self,
-        session_id: str,
-        account_id: str,
-        active_thread_id: Optional[str],
-        platform: str,
-        client_timestamp: Optional[str],
-        device_info: Optional[Dict] = None
-    ) -> Tuple[Any, str]:
         """
         Upsert presence session.
         Handles Postgrest 204 'Missing response' error by treating it as success.
@@ -66,6 +57,7 @@ class PresenceService:
             # Log real errors
             logger.error(f"Error upserting presence session: {e}")
             raise
+
 
 
     async def _delete_session(self, session_id: str):
