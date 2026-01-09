@@ -25,29 +25,48 @@ class PresenceService:
         client_timestamp: Optional[str],
         device_info: Optional[Dict] = None
     ) -> Tuple[Any, str]:
-        client = await self.db.client
-        now = datetime.now(timezone.utc).isoformat()
-        payload = {
-            'session_id': session_id,
-            'account_id': account_id,
-            'active_thread_id': active_thread_id,
-            'last_seen': now,
-            'platform': platform,
-            'device_info': device_info or {},
-            'client_timestamp': client_timestamp or now,
-            'updated_at': now
-        }
+        """
+        Upsert presence session using raw SQL to avoid Postgrest 204 response issues.
+        This matches the approach used in Suna codebase.
+        """
+        from core.services.db import execute_mutate
+        
+        now = datetime.now(timezone.utc)
+        
+        sql = """
+        INSERT INTO user_presence_sessions (
+            session_id, account_id, active_thread_id, last_seen, 
+            platform, device_info, client_timestamp, updated_at
+        )
+        VALUES (
+            :session_id, :account_id, :active_thread_id, :last_seen,
+            :platform, :device_info, :client_timestamp, :updated_at
+        )
+        ON CONFLICT (session_id) DO UPDATE SET
+            active_thread_id = EXCLUDED.active_thread_id,
+            last_seen = EXCLUDED.last_seen,
+            platform = EXCLUDED.platform,
+            device_info = EXCLUDED.device_info,
+            client_timestamp = EXCLUDED.client_timestamp,
+            updated_at = EXCLUDED.updated_at
+        """
+        
         try:
-            result = await client.table('user_presence_sessions').upsert(payload).execute()
-            return result, now
+            await execute_mutate(sql, {
+                "session_id": session_id,
+                "account_id": account_id,
+                "active_thread_id": active_thread_id,
+                "last_seen": now,
+                "platform": platform or "web",
+                "device_info": device_info or {},
+                "client_timestamp": client_timestamp or now.isoformat(),
+                "updated_at": now
+            })
+            return None, now.isoformat()
         except Exception as e:
-            # Handle 204 No Content response - this is actually a success
-            error_str = str(e)
-            if 'Missing response' in error_str and "'code': '204'" in error_str:
-                logger.debug(f"Presence upsert for {session_id} returned 204 (success, no content)")
-                return None, now
-            # Re-raise other errors
+            logger.error(f"Error upserting presence session: {e}")
             raise
+
 
     async def _delete_session(self, session_id: str):
         client = await self.db.client
