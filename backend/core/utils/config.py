@@ -97,7 +97,7 @@ class Configuration:
     SYSTEM_ADMIN_USER_ID: Optional[str] = None  # User ID that owns shared/fallback agents
 
 # Subscription tier IDs - Production
-    STRIPE_FREE_TIER_ID_PROD: str = 'price_1S7ibVRGnNsdCsluStxGPsPT'
+    STRIPE_FREE_TIER_ID_PROD: str = 'price_1SnWwZRGnNhiCsludARv8Gva'
     STRIPE_TIER_2_20_ID_PROD: str = 'price_1S7ibVRGnNhiCsluStxGPsPT'
     STRIPE_TIER_6_50_ID_PROD: str = 'price_1S7ibVRGnNhiCslujX0nuAnS'
     STRIPE_TIER_12_100_ID_PROD: str = 'price_1S7ibVRGnNhiCsluh23GQqnG'
