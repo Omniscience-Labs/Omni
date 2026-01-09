@@ -37,8 +37,17 @@ class PresenceService:
             'client_timestamp': client_timestamp or now,
             'updated_at': now
         }
-        result = await client.table('user_presence_sessions').upsert(payload).execute()
-        return result, now
+        try:
+            result = await client.table('user_presence_sessions').upsert(payload).execute()
+            return result, now
+        except Exception as e:
+            # Handle 204 No Content response - this is actually a success
+            error_str = str(e)
+            if 'Missing response' in error_str and "'code': '204'" in error_str:
+                logger.debug(f"Presence upsert for {session_id} returned 204 (success, no content)")
+                return None, now
+            # Re-raise other errors
+            raise
 
     async def _delete_session(self, session_id: str):
         client = await self.db.client
