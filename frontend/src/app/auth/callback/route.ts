@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get('type') // signup, recovery, etc.
   const next = searchParams.get('returnUrl') || searchParams.get('redirect') || '/dashboard'
   const termsAccepted = searchParams.get('terms_accepted') === 'true'
-  
+
   // Use request origin for redirects (most reliable for local dev)
   // This ensures localhost:3000 redirects stay on localhost, not staging
   const requestOrigin = request.nextUrl.origin
@@ -28,9 +28,9 @@ export async function GET(request: NextRequest) {
   // Handle errors FIRST - before any Supabase operations that might affect session
   if (error) {
     console.error('❌ Auth callback error:', error, errorCode, errorDescription)
-    
+
     // Check if the error is due to expired/invalid link
-    const isExpiredOrInvalid = 
+    const isExpiredOrInvalid =
       errorCode === 'otp_expired' ||
       errorCode === 'expired_token' ||
       errorCode === 'token_expired' ||
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       error?.toLowerCase().includes('invalid') ||
       errorDescription?.toLowerCase().includes('expired') ||
       errorDescription?.toLowerCase().includes('invalid')
-    
+
     if (isExpiredOrInvalid) {
       // Redirect to auth page with expired state to show resend form
       const email = searchParams.get('email') || ''
@@ -46,11 +46,11 @@ export async function GET(request: NextRequest) {
       expiredUrl.searchParams.set('expired', 'true')
       if (email) expiredUrl.searchParams.set('email', email)
       if (next) expiredUrl.searchParams.set('returnUrl', next)
-      
+
       console.log('🔄 Redirecting to auth page with expired state')
       return NextResponse.redirect(expiredUrl)
     }
-    
+
     // For other errors, redirect to auth page with error
     return NextResponse.redirect(`${baseUrl}/auth?error=${encodeURIComponent(error)}`)
   }
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     verifyUrl.searchParams.set('token', token)
     verifyUrl.searchParams.set('type', type)
     if (termsAccepted) verifyUrl.searchParams.set('terms_accepted', 'true')
-    
+
     return NextResponse.redirect(verifyUrl)
   }
 
@@ -73,19 +73,19 @@ export async function GET(request: NextRequest) {
   if (code) {
     try {
       const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-      
+
       if (error) {
         console.error('❌ Error exchanging code for session:', error)
-        
+
         // Check if the error is due to expired/invalid link
-        const isExpired = 
+        const isExpired =
           error.message?.toLowerCase().includes('expired') ||
           error.message?.toLowerCase().includes('invalid') ||
           error.status === 400 ||
           error.code === 'expired_token' ||
           error.code === 'token_expired' ||
           error.code === 'otp_expired'
-        
+
         if (isExpired) {
           // Redirect to auth page with expired state to show resend form
           const email = searchParams.get('email') || ''
@@ -93,32 +93,19 @@ export async function GET(request: NextRequest) {
           expiredUrl.searchParams.set('expired', 'true')
           if (email) expiredUrl.searchParams.set('email', email)
           if (next) expiredUrl.searchParams.set('returnUrl', next)
-          
+
           console.log('🔄 Redirecting to auth page with expired state')
           return NextResponse.redirect(expiredUrl)
         }
-        
+
         return NextResponse.redirect(`${baseUrl}/auth?error=${encodeURIComponent(error.message)}`)
       }
 
       let finalDestination = next
-      let shouldClearReferralCookie = false
+
 
       if (data.user) {
-        const pendingReferralCode = request.cookies.get('pending-referral-code')?.value
-        if (pendingReferralCode) {
-          try {
-            await supabase.auth.updateUser({
-              data: {
-                referral_code: pendingReferralCode
-              }
-            })
-            console.log('✅ Added referral code to OAuth user:', pendingReferralCode)
-            shouldClearReferralCookie = true
-          } catch (error) {
-            console.error('Failed to add referral code to OAuth user:', error)
-          }
-        }
+
 
         if (termsAccepted) {
           const currentMetadata = data.user.user_metadata || {};
@@ -164,19 +151,16 @@ export async function GET(request: NextRequest) {
 
       // Web redirect
       const response = NextResponse.redirect(`${baseUrl}${finalDestination}`)
-      
-      // Clear referral cookie if it was processed
-      if (shouldClearReferralCookie) {
-        response.cookies.set('pending-referral-code', '', { maxAge: 0, path: '/' })
-      }
-      
+
+
+
       return response
     } catch (error) {
       console.error('❌ Unexpected error in auth callback:', error)
       return NextResponse.redirect(`${baseUrl}/auth?error=unexpected_error`)
     }
   }
-  
+
   // No code or token - redirect to auth page
   return NextResponse.redirect(`${baseUrl}/auth`)
 }

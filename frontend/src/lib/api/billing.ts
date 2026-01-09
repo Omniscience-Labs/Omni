@@ -149,21 +149,21 @@ export interface CreateCheckoutSessionRequest {
   tier_key: string;
   success_url: string;
   cancel_url: string;
-  referral_id?: string;
+
   commitment_type?: 'monthly' | 'yearly' | 'yearly_commitment';
 }
 
 export interface CreateCheckoutSessionResponse {
   status:
-    | 'upgraded'
-    | 'downgrade_scheduled'
-    | 'checkout_created'
-    | 'no_change'
-    | 'new'
-    | 'updated'
-    | 'scheduled'
-    | 'commitment_created'
-    | 'commitment_blocks_downgrade';
+  | 'upgraded'
+  | 'downgrade_scheduled'
+  | 'checkout_created'
+  | 'no_change'
+  | 'new'
+  | 'updated'
+  | 'scheduled'
+  | 'commitment_created'
+  | 'commitment_blocks_downgrade';
   subscription_id?: string;
   schedule_id?: string;
   session_id?: string;
@@ -434,7 +434,7 @@ export const billingApi = {
       request
     );
     if (response.error) throw response.error;
-    
+
     const data = response.data!;
     if (data.checkout_url) {
       return {
@@ -566,24 +566,24 @@ export const billingApi = {
 
 export const getAccountState = (skipCache?: boolean) => billingApi.getAccountState(skipCache);
 export const deductTokenUsage = (usage: TokenUsage) => billingApi.deductTokenUsage(usage);
-export const createCheckoutSession = (request: CreateCheckoutSessionRequest) => 
+export const createCheckoutSession = (request: CreateCheckoutSessionRequest) =>
   billingApi.createCheckoutSession(request);
-export const createPortalSession = (request: CreatePortalSessionRequest) => 
+export const createPortalSession = (request: CreatePortalSessionRequest) =>
   billingApi.createPortalSession(request);
-export const cancelSubscription = (feedback?: string) => 
+export const cancelSubscription = (feedback?: string) =>
   billingApi.cancelSubscription(feedback ? { feedback } : undefined);
 export const reactivateSubscription = () => billingApi.reactivateSubscription();
-export const purchaseCredits = (request: PurchaseCreditsRequest) => 
+export const purchaseCredits = (request: PurchaseCreditsRequest) =>
   billingApi.purchaseCredits(request);
-export const getTransactions = (limit?: number, offset?: number) => 
+export const getTransactions = (limit?: number, offset?: number) =>
   billingApi.getTransactions(limit, offset);
 export const getUsageHistory = (days?: number) => billingApi.getUsageHistory(days);
 export const getTrialStatus = () => billingApi.getTrialStatus();
 export const startTrial = (request: TrialStartRequest) => billingApi.startTrial(request);
-export const createTrialCheckout = (request: TrialCheckoutRequest) => 
+export const createTrialCheckout = (request: TrialCheckoutRequest) =>
   billingApi.createTrialCheckout(request);
 export const cancelTrial = () => billingApi.cancelTrial();
-export const scheduleDowngrade = (request: ScheduleDowngradeRequest) => 
+export const scheduleDowngrade = (request: ScheduleDowngradeRequest) =>
   billingApi.scheduleDowngrade(request);
 export const cancelScheduledChange = () => billingApi.cancelScheduledChange();
 export const syncSubscription = () => billingApi.syncSubscription();

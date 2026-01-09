@@ -70,8 +70,7 @@ import { UserSettingsModal } from '@/components/settings/user-settings-modal';
 import { PlanSelectionModal } from '@/components/billing/pricing';
 import { TierBadge } from '@/components/billing/tier-badge';
 import { useTranslations } from 'next-intl';
-import { useReferralDialog } from '@/stores/referral-dialog';
-import { ReferralDialog } from '@/components/referrals/referral-dialog';
+
 import { Badge } from '@/components/ui/badge';
 
 export function NavUserWithTeams({
@@ -95,7 +94,7 @@ export function NavUserWithTeams({
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showPlanModal, setShowPlanModal] = React.useState(false);
   const [settingsTab, setSettingsTab] = React.useState<'general' | 'billing' | 'usage' | 'env-manager'>('general');
-  const { isOpen: isReferralDialogOpen, openDialog: openReferralDialog, closeDialog: closeReferralDialog } = useReferralDialog();
+
   const { theme, setTheme } = useTheme();
 
   // Check if user is on free tier
@@ -206,18 +205,7 @@ export function NavUserWithTeams({
           {/* Buttons Container - Above user card */}
           <div className="absolute bottom-full left-0 right-0 mb-2 px-0 group-data-[collapsible=icon]:hidden z-50 flex flex-col gap-2">
             {/* Referral Button - Above Upgrade */}
-            {!isProductionMode() && (
-              <Button
-                onClick={openReferralDialog}
-                variant="outline"
-                size="lg"
-                className="w-full items-center gap-2 px-3 hover:bg-muted/50 transition-colors"
-              >
-                <Users className="h-4 w-4 flex-shrink-0" />
-                <span className="text-sm flex-1 text-left">{t('referAndEarn')}</span>
-                <span className="text-xs font-semibold text-primary flex-shrink-0">+400</span>
-              </Button>
-            )}
+
             {/* Upgrade Button - Closest to user card */}
             {isFreeTier && (
               <Button
@@ -492,12 +480,9 @@ export function NavUserWithTeams({
         onOpenChange={setShowPlanModal}
         returnUrl={typeof window !== 'undefined' ? window?.location?.href || '/' : '/'}
       />
-      
+
       {/* Referral Dialog */}
-      <ReferralDialog
-        open={isReferralDialogOpen}
-        onOpenChange={closeReferralDialog}
-      />
+
     </Dialog>
   );
 }

@@ -39,10 +39,10 @@ export async function signIn(prevState: any, formData: FormData) {
   }
 
   console.log('✅ Magic link sent successfully');
-  
+
   // Return success message - user needs to check email
-  return { 
-    success: true, 
+  return {
+    success: true,
     message: 'Check your email for a magic link to sign in',
     email: email.trim().toLowerCase(),
   };
@@ -53,7 +53,7 @@ export async function signUp(prevState: any, formData: FormData) {
   const returnUrl = formData.get('returnUrl') as string | undefined;
   const origin = formData.get('origin') as string;
   const acceptedTerms = formData.get('acceptedTerms') === 'true';
-  const referralCode = formData.get('referralCode') as string | undefined;
+
 
   if (!email || !email.includes('@')) {
     return { message: 'Please enter a valid email address' };
@@ -71,16 +71,14 @@ export async function signUp(prevState: any, formData: FormData) {
   const siteUrl = origin || process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
   const emailRedirectTo = `${siteUrl}/auth/callback?returnUrl=${encodeURIComponent(returnUrl || '/dashboard')}${termsParam}`;
 
-  console.log('🔑 Magic link signup request:', { email, siteUrl, emailRedirectTo, referralCode });
+  console.log('🔑 Magic link signup request:', { email, siteUrl, emailRedirectTo });
 
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
     options: {
       emailRedirectTo,
       shouldCreateUser: true,
-      data: referralCode ? {
-        referral_code: referralCode.trim().toUpperCase(),
-      } : undefined,
+
     },
   });
 
@@ -92,11 +90,11 @@ export async function signUp(prevState: any, formData: FormData) {
   console.log('✅ Magic link sent successfully');
 
   // Return success message - user needs to check email
-    return {
-    success: true, 
+  return {
+    success: true,
     message: 'Check your email for a magic link to complete sign up',
     email: email.trim().toLowerCase(),
-    };
+  };
 }
 
 export async function forgotPassword(prevState: any, formData: FormData) {
@@ -183,8 +181,8 @@ export async function resendMagicLink(prevState: any, formData: FormData) {
   }
 
   // Return success message - user needs to check email
-  return { 
-    success: true, 
+  return {
+    success: true,
     message: 'Check your email for a magic link to sign in',
     email: email.trim().toLowerCase(),
   };

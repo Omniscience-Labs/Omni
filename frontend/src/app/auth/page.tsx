@@ -15,7 +15,7 @@ import { useAuthMethodTracking } from '@/stores/auth-tracking';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
-import { ReferralCodeDialog } from '@/components/referrals/referral-code-dialog';
+
 
 // Lazy load heavy components
 const GoogleSignIn = lazy(() => import('@/components/GoogleSignIn'));
@@ -31,13 +31,7 @@ function LoginContent() {
   const message = searchParams.get('message');
   const isExpired = searchParams.get('expired') === 'true';
   const expiredEmail = searchParams.get('email') || '';
-  const referralCodeParam = searchParams.get('ref') || '';
-  const t = useTranslations('auth');
 
-  const isSignUp = mode !== 'signin';
-  const [referralCode, setReferralCode] = useState(referralCodeParam);
-  const [showReferralInput, setShowReferralInput] = useState(false);
-  const [showReferralDialog, setShowReferralDialog] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [mounted, setMounted] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false); // GDPR requires explicit opt-in
@@ -61,7 +55,7 @@ function LoginContent() {
   const [registrationSuccess, setRegistrationSuccess] =
     useState(!!isSuccessMessage);
   const [registrationEmail, setRegistrationEmail] = useState('');
-  
+
   // Expired link state
   const [linkExpired, setLinkExpired] = useState(isExpired);
   const [expiredEmailState, setExpiredEmailState] = useState(expiredEmail);
@@ -125,10 +119,10 @@ function LoginContent() {
   const getEmailProviderInfo = (email: string) => {
     const domain = email.split('@')[1]?.toLowerCase();
     if (!domain) return null;
-    
+
     // Detect mobile device for deep links
     const isMobileDevice = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
+
     // Provider config with web and mobile URLs
     // Mobile URLs use deep links that open native apps if installed
     const providers: { [key: string]: { name: string; webUrl: string; mobileUrl: string } } = {
@@ -163,10 +157,10 @@ function LoginContent() {
       'web.de': { name: 'WEB.DE', webUrl: 'https://web.de', mobileUrl: 'https://web.de' },
       't-online.de': { name: 'T-Online', webUrl: 'https://email.t-online.de', mobileUrl: 'https://email.t-online.de' },
     };
-    
+
     const provider = providers[domain];
     if (!provider) return null;
-    
+
     return {
       name: provider.name,
       url: isMobileDevice ? provider.mobileUrl : provider.webUrl,
@@ -181,7 +175,7 @@ function LoginContent() {
       toast.error(t('pleaseEnterValidEmail'));
       return {};
     }
-    
+
     setRegistrationEmail(email);
 
     const finalReturnUrl = returnUrl || '/dashboard';
@@ -385,10 +379,10 @@ function LoginContent() {
             </div>
             <div className="space-y-3 mb-4">
               <Suspense fallback={<div className="h-11 bg-muted/20 rounded-full animate-pulse" />}>
-                <GoogleSignIn returnUrl={returnUrl || undefined} referralCode={referralCode} />
+                <GoogleSignIn returnUrl={returnUrl || undefined} />
               </Suspense>
               <Suspense fallback={<div className="h-11 bg-muted/20 rounded-full animate-pulse" />}>
-                <GitHubSignIn returnUrl={returnUrl || undefined} referralCode={referralCode} />
+                <GitHubSignIn returnUrl={returnUrl || undefined} />
               </Suspense>
             </div>
             <div className="relative my-4">
@@ -410,14 +404,7 @@ function LoginContent() {
                 required
               />
 
-              {referralCodeParam && (
-                <div className="bg-card border rounded-xl p-3">
-                  <p className="text-xs text-muted-foreground mb-1">{t('referralCode')}</p>
-                  <p className="text-sm font-semibold">{referralCode}</p>
-                </div>
-              )}
 
-              {!referralCodeParam && <input type="hidden" name="referralCode" value={referralCode} />}
               <div className="flex items-center gap-2">
                 <Checkbox
                   id="gdprConsent"
@@ -426,15 +413,15 @@ function LoginContent() {
                   required
                   className="h-5 w-5"
                 />
-                <label 
-                  htmlFor="gdprConsent" 
+                <label
+                  htmlFor="gdprConsent"
                   className="text-xs text-muted-foreground leading-relaxed cursor-pointer select-none flex-1"
                 >
                   {t.rich('acceptPrivacyTerms', {
                     privacyPolicy: (chunks) => {
                       return (
-                        <a 
-                          href="https://www.kortix.com/legal?tab=privacy" 
+                        <a
+                          href="https://www.kortix.com/legal?tab=privacy"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="hover:underline underline-offset-2 text-primary"
@@ -446,7 +433,7 @@ function LoginContent() {
                     },
                     termsOfService: (chunks) => {
                       return (
-                        <a 
+                        <a
                           href="https://www.kortix.com/legal?tab=terms"
                           target="_blank"
                           rel="noopener noreferrer"
@@ -481,29 +468,13 @@ function LoginContent() {
               <p className="text-xs text-muted-foreground text-center">
                 {t('magicLinkExplanation')}
               </p>
-              
+
               {/* Minimal Referral Link */}
-              {!referralCodeParam && (
-                <button
-                  type="button"
-                  onClick={() => setShowReferralDialog(true)}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors w-full text-center mt-1"
-                >
-                  Have a referral code?
-                </button>
-              )}
+
             </form>
-            
+
             {/* Referral Code Dialog */}
-            <ReferralCodeDialog
-              open={showReferralDialog}
-              onOpenChange={setShowReferralDialog}
-              referralCode={referralCode}
-              onCodeChange={(code) => {
-                setReferralCode(code);
-                setShowReferralDialog(false);
-              }}
-            />
+
           </div>
         </div>
         <div className="hidden lg:flex flex-1 items-center justify-center relative overflow-hidden">
