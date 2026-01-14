@@ -244,9 +244,24 @@ allowed_origins = [
 ]
 allow_origin_regex = None
 
-# Add staging-specific origins
-if config.ENV_MODE == EnvMode.LOCAL:
-    allowed_origins.append("http://localhost:3000")
+# Allow local development origins when not running in production
+if config.ENV_MODE != EnvMode.PRODUCTION:
+    allowed_origins.extend([
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ])
+    # Also allow simple localhost/127.0.0.1 variants via regex
+    allow_origin_regex = r"https?://(localhost|127\.0\.0\.1)(:[0-9]+)?"
+
+# Allow local origins when explicitly requested via env var (useful for Docker setups
+# where ENV_MODE may be production but frontend runs on localhost)
+if os.getenv("ALLOW_LOCAL_ORIGINS", "false").lower() in ("1", "true", "yes", "y"):
+    allowed_origins.extend([
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://host.docker.internal:3000",
+    ])
+    allow_origin_regex = r"https?://(localhost|127\.0\.0\.1|host\.docker\.internal)(:[0-9]+)?"
 
 # Add staging-specific origins
 if config.ENV_MODE == EnvMode.STAGING:

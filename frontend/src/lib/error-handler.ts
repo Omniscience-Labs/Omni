@@ -10,6 +10,7 @@ import {
   AgentCountLimitError
 } from './api/errors';
 import { usePricingModalStore } from '@/stores/pricing-modal-store';
+import { isLocalMode } from '@/lib/config';
 
 export interface ApiError extends Error {
   status?: number;
@@ -167,6 +168,11 @@ export const handleApiError = (error: any, context?: ErrorContext): void => {
   const formattedMessage = formatErrorMessage(rawMessage, context);
 
   if (error instanceof AgentRunLimitError) {
+      // Skip agent run limit errors in local mode
+      if (isLocalMode()) {
+        return;
+      }
+
     // Note: Translations should be handled in components that use this handler
     // This is a fallback for non-component contexts
     const upgradeMessage = `You've reached your limits. Agent Run Limit (${error.detail.running_count}/${error.detail.limit})`;

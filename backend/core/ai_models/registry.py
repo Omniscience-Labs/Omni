@@ -11,8 +11,8 @@ SHOULD_USE_ANTHROPIC = config.ENV_MODE == EnvMode.LOCAL and bool(config.ANTHROPI
 # _BASIC_MODEL_ID = "anthropic/claude-sonnet-4-5-20250929" if SHOULD_USE_ANTHROPIC else "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh"
 # _POWER_MODEL_ID = "anthropic/claude-sonnet-4-5-20250929" if SHOULD_USE_ANTHROPIC else "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh"
 # Hardcoded to standard public Bedrock Model IDs
-_BASIC_MODEL_ID = "bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0"
-_POWER_MODEL_ID = "bedrock/us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+_BASIC_MODEL_ID = "bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0"
+_POWER_MODEL_ID = "bedrock/us.anthropic.claude-3-5-sonnet-20241022-v2:0" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-3-5-sonnet-20241022-v2:0"
 # Default model IDs (these are aliases that resolve to actual IDs)
 FREE_MODEL_ID = "kortix/basic"
 PREMIUM_MODEL_ID = "kortix/power"

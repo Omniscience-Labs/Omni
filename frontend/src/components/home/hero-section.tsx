@@ -205,6 +205,11 @@ export function HeroSection() {
             if (error instanceof BillingError) {
                 setShowPaymentModal(true);
             } else if (error instanceof AgentRunLimitError) {
+                // Skip agent run limit errors in local mode
+                if (isLocalMode()) {
+                    console.log('Agent run limit error in local mode - ignoring');
+                    return;
+                }
                 const { running_thread_ids, running_count } = error.detail;
 
                 setAgentLimitData({
