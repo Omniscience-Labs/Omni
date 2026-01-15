@@ -904,16 +904,18 @@ class AgentRunner:
             # - If balance is negative: Stop (prevents infinite debt)
             # This way, a user with $0.10 can run a $0.15 request and go to -$0.05,
             # but the next iteration will stop them
-            can_run, message, reservation_id = await billing_integration.check_and_reserve_credits(self.account_id)
-            if not can_run:
-                error_msg = f"Insufficient credits: {message}"
-                logger.warning(f"Stopping agent - balance is negative: {error_msg}")
-                yield {
-                    "type": "status",
-                    "status": "stopped",
-                    "message": error_msg
-                }
-                break
+            # Skip credit check in local mode
+            if config.ENV_MODE != EnvMode.LOCAL:
+                can_run, message, reservation_id = await billing_integration.check_and_reserve_credits(self.account_id)
+                if not can_run:
+                    error_msg = f"Insufficient credits: {message}"
+                    logger.warning(f"Stopping agent - balance is negative: {error_msg}")
+                    yield {
+                        "type": "status",
+                        "status": "stopped",
+                        "message": error_msg
+                    }
+                    break
 
             latest_message = await self.client.table('messages').select('*').eq('thread_id', self.config.thread_id).in_('type', ['assistant', 'tool', 'user']).order('created_at', desc=True).limit(1).execute()
             if latest_message.data and len(latest_message.data) > 0:

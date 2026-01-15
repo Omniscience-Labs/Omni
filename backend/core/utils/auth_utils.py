@@ -4,6 +4,7 @@ from fastapi import HTTPException, Request, Header
 from typing import Optional
 import jwt
 from jwt.exceptions import PyJWTError
+import requests
 from core.utils.logger import structlog
 from core.utils.config import config
 from core.services.supabase import DBConnection
@@ -46,28 +47,68 @@ def _decode_jwt_with_verification(token: str) -> dict:
     This function properly validates the JWT signature to prevent token forgery.
     """
     jwt_secret = config.SUPABASE_JWT_SECRET
-    
+
     if not jwt_secret:
         logger.error("SUPABASE_JWT_SECRET is not configured - JWT verification disabled!")
         raise HTTPException(
             status_code=500,
             detail="Server authentication configuration error"
         )
-    
+
     try:
-        # Verify signature with the Supabase JWT secret
-        # Supabase uses HS256 algorithm by default
+        # Inspect header to determine algorithm
+        header = jwt.get_unverified_header(token)
+        alg = header.get("alg", "")
+
+        # If symmetric (HS*), verify using configured secret (Supabase default)
+        if alg.startswith("HS"):
+            return jwt.decode(
+                token,
+                jwt_secret,
+                algorithms=["HS256"],
+                options={
+                    "verify_signature": True,
+                    "verify_exp": True,
+                    "verify_aud": False,
+                    "verify_iss": False,
+                }
+            )
+
+        # For asymmetric algorithms (RS*, ES*), attempt to fetch issuer JWKS
+        # and verify using the provider's public key.
+        unverified = jwt.decode(token, options={"verify_signature": False})
+        iss = unverified.get("iss")
+        if not iss:
+            raise jwt.InvalidTokenError("Token missing issuer (iss)")
+
+        jwks_url = f"{iss.rstrip('/')}/.well-known/jwks.json"
+        resp = requests.get(jwks_url, timeout=5)
+        if resp.status_code != 200:
+            # fallback to openid-configuration
+            try:
+                cfg = requests.get(f"{iss.rstrip('/')}/.well-known/openid-configuration", timeout=5).json()
+                jwks_url = cfg.get("jwks_uri", jwks_url)
+                resp = requests.get(jwks_url, timeout=5)
+            except Exception:
+                pass
+
+        if resp.status_code != 200:
+            raise jwt.InvalidTokenError("Unable to fetch JWKS for issuer")
+
+        jwks_client = jwt.PyJWKClient(jwks_url)
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
         return jwt.decode(
             token,
-            jwt_secret,
-            algorithms=["HS256"],
+            signing_key.key,
+            algorithms=[alg],
             options={
                 "verify_signature": True,
                 "verify_exp": True,
-                "verify_aud": False,  # Supabase doesn't always set audience
-                "verify_iss": False,  # Issuer varies by project
+                "verify_aud": False,
+                "verify_iss": False,
             }
         )
+
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=401,
@@ -86,6 +127,13 @@ def _decode_jwt_with_verification(token: str) -> dict:
         raise HTTPException(
             status_code=401,
             detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    except requests.RequestException as e:
+        logger.warning(f"Failed to fetch JWKS: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail="Unable to verify token issuer",
             headers={"WWW-Authenticate": "Bearer"}
         )
 

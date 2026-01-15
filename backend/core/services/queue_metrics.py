@@ -15,6 +15,7 @@ from core.utils.config import config, EnvMode
 
 # CloudWatch client (lazy initialized)
 _cloudwatch_client = None
+_cloudwatch_disabled = False
 
 
 def _get_cloudwatch_client():
@@ -23,11 +24,22 @@ def _get_cloudwatch_client():
     
     if config.ENV_MODE != EnvMode.PRODUCTION:
         return None
-        
+    # Allow disabling CloudWatch publishing explicitly via env var
+    if os.getenv("CLOUDWATCH_ENABLED", "true").lower() not in ("1", "true", "yes", "y"):
+        logger.debug("CloudWatch publishing disabled via CLOUDWATCH_ENABLED")
+        return None
+
     if _cloudwatch_client is None:
         try:
             import boto3
-            _cloudwatch_client = boto3.client('cloudwatch', region_name='us-west-2')
+            # Use a session to inspect credentials before creating a client
+            session = boto3.Session()
+            creds = session.get_credentials()
+            if creds is None or getattr(creds, 'access_key', None) is None:
+                logger.warning("AWS credentials not found; skipping CloudWatch client initialization")
+                return None
+
+            _cloudwatch_client = session.client('cloudwatch', region_name=os.getenv('AWS_REGION', 'us-west-2'))
         except Exception as e:
             logger.warning(f"Failed to initialize CloudWatch client: {e}")
             return None
@@ -71,6 +83,10 @@ async def publish_to_cloudwatch(queue_depth: int) -> bool:
     Returns:
         True if published successfully, False otherwise
     """
+    global _cloudwatch_disabled
+    if _cloudwatch_disabled:
+        return False
+
     cloudwatch = _get_cloudwatch_client()
     if cloudwatch is None:
         return False
@@ -90,6 +106,16 @@ async def publish_to_cloudwatch(queue_depth: int) -> bool:
         logger.debug(f"Published queue depth to CloudWatch: {queue_depth}")
         return True
     except Exception as e:
+        try:
+            # Try to detect NoCredentialsError specifically to avoid noisy repeating logs
+            from botocore.exceptions import NoCredentialsError
+            if isinstance(e, NoCredentialsError) or "Unable to locate credentials" in str(e):
+                logger.info("CloudWatch disabled: no AWS credentials available; stopping publisher logs")
+                _cloudwatch_disabled = True
+                return False
+        except Exception:
+            pass
+
         logger.error(f"Failed to publish queue metrics to CloudWatch: {e}")
         return False
 
@@ -102,7 +128,12 @@ async def start_cloudwatch_publisher(interval_seconds: int = 60):
         interval_seconds: How often to publish (default 60s)
     """
     logger.info(f"Starting CloudWatch queue metrics publisher (interval: {interval_seconds}s)")
-    
+
+    # If the CloudWatch client cannot be initialized, exit early to avoid a noisy loop
+    if _get_cloudwatch_client() is None:
+        logger.info("CloudWatch publisher not started: no client available or disabled")
+        return
+
     while True:
         try:
             await asyncio.sleep(interval_seconds)

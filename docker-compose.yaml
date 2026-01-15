@@ -50,6 +50,7 @@ services:
     volumes:
       - ./backend/.env:/app/.env:ro
     environment:
+      - ENV_MODE=local
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=
@@ -70,6 +71,7 @@ services:
     volumes:
       - ./backend/.env:/app/.env:ro
     environment:
+      - ENV_MODE=local
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=

@@ -135,10 +135,13 @@ export function DashboardContent() {
   const { data: accountState, isLoading: isAccountStateLoading } = useAccountState({ enabled: !!user });
   const isLocal = isLocalMode();
   const planName = accountStateSelectors.planName(accountState);
-  const canCreateThread = accountState?.limits?.threads?.can_create || false;
+  
+  // Skip thread limit check in local mode
+  const canCreateThread = isLocal ? true : (accountState?.limits?.threads?.can_create || false);
   
   const isDismissed = typeof window !== 'undefined' && sessionStorage.getItem('threadLimitAlertDismissed') === 'true';
-  const threadLimitExceeded = !isAccountStateLoading && !canCreateThread && !isDismissed;
+  // Also skip the thread limit exceeded check in local mode
+  const threadLimitExceeded = isLocal ? false : (!isAccountStateLoading && !canCreateThread && !isDismissed);
   
   const dailyCreditsInfo = accountState?.credits.daily_refresh;
   const hasLowCredits = accountStateSelectors.totalCredits(accountState) <= 10;
@@ -361,12 +364,18 @@ export function DashboardContent() {
           alertSubtitle
         });
       } else if (error instanceof AgentRunLimitError) {
+        // Skip agent run limit errors in local mode
+        if (isLocal) {
+          console.log('Agent run limit error in local mode - ignoring');
+          // Don't show the dialog, just continue
+        } else {
         const { running_thread_ids, running_count } = error.detail;
         setAgentLimitData({
           runningCount: running_count,
           runningThreadIds: running_thread_ids,
         });
         setShowAgentLimitDialog(true);
+        }
       } else {
         const errorMessage = error instanceof Error ? error.message : 'Operation failed';
         toast.error(errorMessage);
