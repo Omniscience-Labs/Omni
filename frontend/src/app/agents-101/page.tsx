@@ -34,13 +34,13 @@ const slides: Slide[] = [
     id: 2,
     type: 'speaker',
     title: 'Marko Kraemer & Domenico Gagliardi',
-    subtitle: 'CEO & COO at Kortix',
+    subtitle: 'CEO & COO at Omni',
   },
   {
     id: 3,
     type: 'title',
     title: 'Demo',
-    subtitle: 'Let\'s see Kortix in action',
+    subtitle: 'Let\'s see Omni in action',
   },
 
   // Part 2: What Are Agents?
@@ -516,8 +516,8 @@ const InteractiveDemo = () => {
   );
 };
 
-// Kortix Stack Diagram
-const KortixStackDiagram = () => {
+// Omni Stack Diagram
+const OmniStackDiagram = () => {
   const layers = [
     { label: 'User Interface', color: '#9DC2FF', width: '100%' },
     { label: 'Agent Orchestration', color: '#82DD95', width: '90%' },
@@ -666,7 +666,7 @@ const SlideContent = ({ slide }: { slide: Slide }) => {
           >
             <Image
               src="/Logomark.svg"
-              alt="Kortix"
+              alt="Omni"
               width={140}
               height={40}
               className="dark:invert h-10 w-auto"
@@ -742,7 +742,7 @@ const SlideContent = ({ slide }: { slide: Slide }) => {
           >
             <Image
               src="/kortix-symbol.svg"
-              alt="Kortix"
+              alt="Omni"
               width={80}
               height={80}
               className="dark:invert w-full h-full"
@@ -834,7 +834,7 @@ const SlideContent = ({ slide }: { slide: Slide }) => {
             transition={{ delay: 0.3 }}
           >
             {slide.diagram === 'agent-loop' && <AgentLoopDiagram />}
-            {slide.diagram === 'kortix-stack' && <KortixStackDiagram />}
+            {slide.diagram === 'kortix-stack' && <OmniStackDiagram />}
             {slide.diagram === 'task-types' && <TaskTypesDiagram />}
             {slide.diagram === 'token-flow' && <TokenFlowDiagram />}
             {slide.diagram === 'messages-array' && <MessagesArrayDiagram />}
@@ -1123,7 +1123,7 @@ export default function Agents101Page() {
       <div className="fixed top-8 left-8 z-50">
         <Image
           src="/Logomark.svg"
-          alt="Kortix"
+          alt="Omni"
           width={72}
           height={72}
           className="dark:invert"

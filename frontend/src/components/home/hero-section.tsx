@@ -1,8 +1,8 @@
 'use client';
 import { siteConfig } from '@/lib/home';
-import { AnimatedBg } from '@/components/ui/animated-bg';
 import { useIsMobile } from '@/hooks/utils';
 import { useState, useEffect, useRef, FormEvent, lazy, Suspense } from 'react';
+import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
@@ -239,95 +239,60 @@ export function HeroSection() {
                 </Suspense>
             )}
             <div className="relative flex flex-col items-center w-full px-4 sm:px-6 pb-8 sm:pb-10">
-                {/* Animated background */}
-                <AnimatedBg
-                    variant="hero"
-                    sizeMultiplier={isMobile ? 0.7 : 1}
-                    blurMultiplier={isMobile ? 0.6 : 1}
-                    customArcs={isMobile ? {
-                        left: [
-                            {
-                                pos: { left: -150, top: 30 },
-                                size: 380,
-                                tone: 'medium' as const,
-                                opacity: 0.15,
-                                delay: 0.5,
-                                x: [0, 15, -8, 0],
-                                y: [0, 12, -6, 0],
-                                scale: [0.82, 1.08, 0.94, 0.82],
-                                blur: ['12px', '20px', '16px', '12px'],
-                            },
-                        ],
-                        right: [
-                            {
-                                pos: { right: -120, top: 140 },
-                                size: 300,
-                                tone: 'dark' as const,
-                                opacity: 0.2,
-                                delay: 1.0,
-                                x: [0, -18, 10, 0],
-                                y: [0, 14, -8, 0],
-                                scale: [0.86, 1.14, 1.0, 0.86],
-                                blur: ['10px', '6px', '8px', '10px'],
-                            },
-                        ],
-                    } : undefined}
-                />
 
                 <div className="relative z-10 pt-20 sm:pt-24 md:pt-32 mx-auto h-full w-full max-w-6xl flex flex-col items-center justify-center min-h-[60vh] sm:min-h-0">
 
-                    <div className="flex flex-col items-center justify-center gap-3 sm:gap-4 pt-12 sm:pt-20 max-w-4xl mx-auto pb-6 sm:pb-7">
-                        <h2 className="text-2xl sm:text-3xl md:text-3xl lg:text-4xl font-medium tracking-tighter text-balance text-center px-4 sm:px-2">
-                            {t('whatWouldYouLike')}
-                        </h2>
+                    {/* Decorative line */}
+                    <div className="w-24 h-0.5 bg-gradient-to-r from-purple-500 to-pink-500 mb-8" />
+
+                    {/* Main Heading */}
+                    <div className="flex flex-col items-center justify-center gap-4 sm:gap-6 max-w-4xl mx-auto pb-4">
+                        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-balance text-center px-4 sm:px-2 text-foreground">
+                            {hero.title}
+                        </h1>
+                        <p className="text-base sm:text-lg text-muted-foreground text-center">
+                            a generalist <span className="text-purple-400">AI Agent</span> that works on your behalf.
+                        </p>
                     </div>
 
-                    <div className="flex flex-col items-center w-full max-w-3xl mx-auto gap-2 flex-wrap justify-center px-4 sm:px-0">
+                    {/* Search Input */}
+                    <div className="flex flex-col items-center w-full max-w-xl mx-auto gap-2 flex-wrap justify-center px-4 sm:px-0 mt-8">
                         <div className="w-full relative">
-                            <div className="relative z-10">
-                                <ChatInput
-                                    ref={chatInputRef}
-                                    onSubmit={handleChatInputSubmit}
-                                    placeholder={t('describeTask')}
-                                    loading={isSubmitting}
-                                    disabled={isSubmitting}
+                            <div className="relative flex items-center w-full bg-muted/20 border border-border/50 rounded-full px-6 py-3">
+                                <input
+                                    type="text"
                                     value={inputValue}
-                                    onChange={setInputValue}
-                                    isLoggedIn={!!user}
-                                    selectedAgentId={selectedAgentId}
-                                    onAgentSelect={setSelectedAgent}
-                                    autoFocus={false}
-                                    enableAdvancedConfig={false}
-                                    selectedMode={selectedMode}
-                                    onModeDeselect={() => setSelectedMode(null)}
-                                    selectedCharts={selectedCharts}
-                                    selectedOutputFormat={selectedOutputFormat}
-                                    selectedTemplate={selectedTemplate}
+                                    onChange={(e) => setInputValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleChatInputSubmit(inputValue);
+                                        }
+                                    }}
+                                    placeholder={hero.inputPlaceholder}
+                                    className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground/60 text-sm outline-none"
+                                    disabled={isSubmitting}
                                 />
+                                <button
+                                    onClick={() => handleChatInputSubmit(inputValue)}
+                                    disabled={isSubmitting || !inputValue.trim()}
+                                    className="ml-4 w-10 h-10 rounded-full bg-muted/30 hover:bg-muted/50 flex items-center justify-center transition-colors disabled:opacity-50"
+                                >
+                                    <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                                </button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Modes Panel - Below chat input, visible for Suna agent */}
-                    {isSunaAgent && (
-                        <div className="w-full max-w-3xl mx-auto mt-4 px-4 sm:px-0">
-                            <Suspense fallback={<div className="h-24 animate-pulse bg-muted/10 rounded-lg" />}>
-                                <SunaModesPanel
-                                    selectedMode={selectedMode}
-                                    onModeSelect={setSelectedMode}
-                                    onSelectPrompt={setInputValue}
-                                    isMobile={isMobile}
-                                    selectedCharts={selectedCharts}
-                                    onChartsChange={setSelectedCharts}
-                                    selectedOutputFormat={selectedOutputFormat}
-                                    onOutputFormatChange={setSelectedOutputFormat}
-                                    selectedTemplate={selectedTemplate}
-                                    onTemplateChange={setSelectedTemplate}
-                                />
-                            </Suspense>
-                        </div>
-                    )}
-
+                    {/* Stats Section */}
+                    <div className="mt-16 text-center">
+                        <p className="text-base sm:text-lg text-muted-foreground">
+                            {hero.stats?.text1}{' '}
+                            <span className="font-bold text-foreground">{hero.stats?.highlight1}</span>
+                            {' '}{hero.stats?.text2}{' '}
+                            <span className="font-bold text-foreground">{hero.stats?.highlight2}</span>
+                        </p>
+                    </div>
 
                 </div>
 
@@ -350,7 +315,7 @@ export function HeroSection() {
               </button> */}
                         </div>
                         <DialogDescription className="text-muted-foreground">
-                            Sign in or create an account to talk with Kortix
+                            Sign in or create an account to talk with Omni
                         </DialogDescription>
                     </DialogHeader>
 
@@ -397,11 +362,11 @@ export function HeroSection() {
 
                     <div className="mt-8 text-center text-[13px] text-muted-foreground leading-relaxed">
                         By continuing, you agree to our{' '}
-                        <a href="https://www.kortix.com/legal?tab=terms" target="_blank" rel="noopener noreferrer" className="text-foreground/70 hover:text-foreground underline underline-offset-2 transition-colors">
+                        <a href="https://www.becomeomni.com/legal?tab=terms" target="_blank" rel="noopener noreferrer" className="text-foreground/70 hover:text-foreground underline underline-offset-2 transition-colors">
                             Terms of Service
                         </a>{' '}
                         and{' '}
-                        <a href="https://www.kortix.com/legal?tab=privacy" target="_blank" rel="noopener noreferrer" className="text-foreground/70 hover:text-foreground underline underline-offset-2 transition-colors">
+                        <a href="https://www.becomeomni.com/legal?tab=privacy" target="_blank" rel="noopener noreferrer" className="text-foreground/70 hover:text-foreground underline underline-offset-2 transition-colors">
                             Privacy Policy
                         </a>
                     </div>

@@ -367,10 +367,10 @@
     "heroPlaceholder": "Describe the task you want your Worker to complete..."
   },
   "showcase": {
-    "title": "Kortix: Your Autonomous AI Worker",
+    "title": "Omni: Your Autonomous AI Worker",
     "subtitle": "Built for complex tasks, designed for everything. The ultimate AI assistant that handles it all—from simple requests to mega-complex projects.",
     "tryItOut": "Try it out",
-    "kortixComputer": "Kortix Computer",
+    "omniComputer": "Omni Computer",
     "running": "Running",
     "workers": {
       "images": {
@@ -607,7 +607,7 @@
     "enterCode": "Enter code",
     "logIntoAccount": "Log into your account",
     "createAccount": "Create account",
-    "signInOrCreateAccount": "Sign in or create your Kortix account",
+    "signInOrCreateAccount": "Sign in or create your Omni account",
     "continueWithGoogle": "Continue with Google",
     "continueWithGitHub": "Continue with GitHub",
     "orEmail": "or email",

@@ -10,7 +10,7 @@ import { NavAgentsView } from '@/components/sidebar/nav-agents-view';
 import { NavGlobalConfig } from '@/components/sidebar/nav-global-config';
 import { NavTriggerRuns } from '@/components/sidebar/nav-trigger-runs';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { siteConfig } from '@/lib/home';
 import {
   Sidebar,
@@ -217,7 +217,7 @@ export function SidebarLeft({
             {state === 'collapsed' ? (
               <div className="pl-2 relative flex items-center justify-center w-fit group/logo">
                 <Link href="/dashboard" onClick={() => isMobile && setOpenMobile(false)}>
-                  <KortixLogo size={20} className="flex-shrink-0 opacity-100 group-hover/logo:opacity-0 transition-opacity" />
+                  <OmniLogo size={20} className="flex-shrink-0 opacity-100 group-hover/logo:opacity-0 transition-opacity" />
                 </Link>
                 <Tooltip delayDuration={2000}>
                   <TooltipTrigger asChild>
@@ -236,7 +236,7 @@ export function SidebarLeft({
             ) : (
               <div className="pl-2 relative flex items-center justify-center w-fit">
                 <Link href="/dashboard" onClick={() => isMobile && setOpenMobile(false)}>
-                  <KortixLogo size={20} className="flex-shrink-0" />
+                  <OmniLogo size={20} className="flex-shrink-0" />
                 </Link>
               </div>
             )}

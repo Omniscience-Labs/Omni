@@ -3,21 +3,21 @@ import { HomeLayoutClient } from './layout-client';
 
 // Static metadata for SEO - rendered in initial HTML
 export const metadata: Metadata = {
-  title: 'Kortix: Your Autonomous AI Worker',
-  description: 'Built for complex tasks, designed for everything. The ultimate AI assistant that handles it all—from simple requests to mega-complex projects.',
-  keywords: 'Kortix, Autonomous AI Worker, AI Worker, Generalist AI, Open Source AI, Autonomous Agent, Complex Tasks, AI Assistant',
+  title: 'Omni – Build, manage and train your AI Workforce',
+  description: 'A generalist AI Agent that works on your behalf. 80% more automation with 20% the resources.',
+  keywords: 'Omni, AI Workforce, AI Agent, Generalist AI, Automation, AI Assistant',
   openGraph: {
-    title: 'Kortix: Your Autonomous AI Worker',
-    description: 'Built for complex tasks, designed for everything. The ultimate AI assistant that handles it all—from simple requests to mega-complex projects.',
-    url: 'https://kortix.com',
-    siteName: 'Kortix',
+    title: 'Omni – Build, manage and train your AI Workforce',
+    description: 'A generalist AI Agent that works on your behalf. 80% more automation with 20% the resources.',
+    url: 'https://becomeomni.com',
+    siteName: 'Omni',
     images: [{ url: '/banner.png', width: 1200, height: 630 }],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Kortix: Your Autonomous AI Worker',
-    description: 'Built for complex tasks, designed for everything. The ultimate AI assistant that handles it all—from simple requests to mega-complex projects.',
+    title: 'Omni – Build, manage and train your AI Workforce',
+    description: 'A generalist AI Agent that works on your behalf. 80% more automation with 20% the resources.',
     images: ['/banner.png'],
   },
 };
