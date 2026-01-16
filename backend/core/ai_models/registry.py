@@ -5,14 +5,16 @@ from core.utils.logger import logger
 
 # SHOULD_USE_ANTHROPIC = False
 # CRITICAL: Production and Staging must ALWAYS use Bedrock, never Anthropic API directly
+# SHOULD_USE_ANTHROPIC = False
+# CRITICAL: Production and Staging must ALWAYS use Bedrock, never Anthropic API directly
 SHOULD_USE_ANTHROPIC = config.ENV_MODE == EnvMode.LOCAL and bool(config.ANTHROPIC_API_KEY)
 
-# # Actual model IDs for LiteLLM
-# _BASIC_MODEL_ID = "anthropic/claude-sonnet-4-5-20250929" if SHOULD_USE_ANTHROPIC else "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh"
-# _POWER_MODEL_ID = "anthropic/claude-sonnet-4-5-20250929" if SHOULD_USE_ANTHROPIC else "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh"
-# Hardcoded to standard public Bedrock Model IDs
-_BASIC_MODEL_ID = "bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0"
-_POWER_MODEL_ID = "bedrock/us.anthropic.claude-3-5-sonnet-20241022-v2:0" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+# Actual model IDs for LiteLLM
+# In local mode with ANTHROPIC_API_KEY, use Anthropic API directly
+# Otherwise, use Bedrock
+_BASIC_MODEL_ID = "anthropic/claude-3-5-haiku-20241022" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0"
+_POWER_MODEL_ID = "anthropic/claude-3-5-sonnet-20241022" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+
 # Default model IDs (these are aliases that resolve to actual IDs)
 FREE_MODEL_ID = "kortix/basic"
 PREMIUM_MODEL_ID = "kortix/power"

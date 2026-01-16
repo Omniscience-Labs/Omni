@@ -9,6 +9,7 @@ This module handles the processing of LLM responses, including:
 """
 
 import json
+import re
 import uuid
 import asyncio
 from pathlib import Path
@@ -169,6 +170,41 @@ class ResponseProcessor:
             logger.warning(f"Failed to serialize ModelResponse: {str(e)}, falling back to string representation")
             # Ultimate fallback: convert to string
             return {"raw_response": str(model_response), "serialization_error": str(e)}
+    
+    def _filter_xml_from_chunk(self, chunk_content: str, config: ProcessorConfig) -> str:
+        """
+        Filter XML tool call tags from a content chunk before yielding to frontend.
+        
+        This removes XML tool call tags (<function_calls>, <invoke>, <parameter>) 
+        from the chunk content so they don't appear in the frontend.
+        
+        Args:
+            chunk_content: The current chunk content to filter
+            config: ProcessorConfig to check if XML tool calling is enabled
+            
+        Returns:
+            Clean text with XML tags removed
+        """
+        if not chunk_content or not config.xml_tool_calling:
+            return chunk_content
+        
+        # Use strip_xml_tool_calls to remove complete XML blocks
+        # This handles the common case where XML tags are in the chunk
+        cleaned = strip_xml_tool_calls(chunk_content)
+        
+        # Handle partial XML tags that might be at the end of chunk (when XML spans chunks)
+        # Only remove incomplete tags that don't have closing tags - don't touch valid content
+        if '<function_calls' in cleaned and '</function_calls>' not in cleaned:
+            # Only remove if it's at the end (partial XML)
+            cleaned = re.sub(r'<function_calls[^>]*>.*$', '', cleaned, flags=re.DOTALL | re.IGNORECASE)
+        if '<invoke' in cleaned and '</invoke>' not in cleaned:
+            # Only remove if it's at the end (partial XML)
+            cleaned = re.sub(r'<invoke[^>]*>.*$', '', cleaned, flags=re.DOTALL | re.IGNORECASE)
+        if '<parameter' in cleaned and '</parameter>' not in cleaned:
+            # Only remove if it's at the end (partial XML)
+            cleaned = re.sub(r'<parameter[^>]*>.*$', '', cleaned, flags=re.DOTALL | re.IGNORECASE)
+        
+        return cleaned
 
     async def _add_message_with_agent_info(
         self,
@@ -437,13 +473,24 @@ class ResponseProcessor:
                         # logger.debug(f"About to concatenate chunk_content (type={type(chunk_content)}) to current_xml_content (type={type(current_xml_content)})")
                         current_xml_content += chunk_content
 
-                        # Yield ONLY content chunk (don't save)
+                        # Filter XML tags from chunk_content before yielding to frontend
+                        try:
+                            clean_chunk_content = self._filter_xml_from_chunk(chunk_content, config)
+                        except Exception as e:
+                            logger.warning(f"Error filtering XML from chunk: {e}, using original chunk_content")
+                            clean_chunk_content = chunk_content
+
+                        # Yield ONLY content chunk (don't save) - with XML tags filtered out
+                        # Note: We yield even if clean_chunk_content is empty, as the frontend
+                        # may need these for sequence tracking. The chunk will be empty if it
+                        # contained only XML tags, which is expected behavior.
+                        
                         now_chunk = datetime.now(timezone.utc).isoformat()
                         yield {
                             "sequence": __sequence,
                             "message_id": None, "thread_id": thread_id, "type": "assistant",
                             "is_llm_message": True,
-                            "content": to_json_string({"role": "assistant", "content": chunk_content}),
+                            "content": to_json_string({"role": "assistant", "content": clean_chunk_content}),
                             "metadata": to_json_string({"stream_status": "chunk", "thread_run_id": thread_run_id}),
                             "created_at": now_chunk, "updated_at": now_chunk
                         }
@@ -845,7 +892,7 @@ class ResponseProcessor:
                                      "arguments": tool_call.get("arguments")
                                  })
                              # Avoid adding if already processed during streaming
-                             if not any(exec['tool_call'] == tool_call for exec in pending_tool_executions):
+                             if not any(exec_item['tool_call'] == tool_call for exec_item in pending_tool_executions):
                                  final_tool_calls_to_process.append(tool_call)
                                  parsed_xml_data.append({'tool_call': tool_call})
 
@@ -1367,8 +1414,17 @@ class ResponseProcessor:
                                  })
 
 
-            # --- SAVE and YIELD Final Assistant Message ---
-            message_data = {"role": "assistant", "content": content}
+            # Extract clean text content (without tool calls) for frontend
+            text_content = strip_xml_tool_calls(content) if config.xml_tool_calling else content
+            
+            # Ensure text_content is clean - double-check if there's still XML
+            if config.xml_tool_calling and text_content:
+                # Additional cleanup pass to catch any remaining XML tags
+                text_content = re.sub(r'<function_calls[^>]*>[\s\S]*?</function_calls>', '', text_content, flags=re.IGNORECASE)
+                text_content = text_content.strip()
+
+            message_data = {"role": "assistant", "content": text_content} # Dict to be saved in 'content' - use clean text without XML tags
+
             
             # Only add tool_calls field for NATIVE tool calling
             if config.native_tool_calling and native_tool_calls_for_message:
@@ -1377,8 +1433,7 @@ class ResponseProcessor:
             # Build unified metadata with all tool calls (native + XML) and clean text
             assistant_metadata = {"thread_run_id": thread_run_id}
             
-            # Extract clean text content (without tool calls)
-            text_content = strip_xml_tool_calls(content) if config.xml_tool_calling else content
+            
             if text_content.strip():
                 assistant_metadata["text_content"] = text_content
             
