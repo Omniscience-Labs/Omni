@@ -58,7 +58,7 @@ export const useSunaModesStore = create<SunaModesState>()(
 );
 
 // Convenience hook for backward compatibility
-export function useSunaModePersistence() {
+export function useOmniModePersistence() {
   const store = useSunaModesStore();
   
   return {

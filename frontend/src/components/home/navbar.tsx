@@ -9,7 +9,8 @@ import { AnimatePresence, motion, useScroll } from 'motion/react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { ThreeSpinner } from '@/components/ui/three-spinner';
+import Image from 'next/image';
+import { useTheme } from 'next-themes';
 
 const INITIAL_WIDTH = '80rem';
 const MAX_WIDTH = '1400px';
@@ -61,6 +62,8 @@ export function Navbar({ tabs }: NavbarProps = {}) {
   const [activeSection, setActiveSection] = useState('hero');
   const [mounted, setMounted] = useState(false);
   const { user } = useAuth();
+  const { resolvedTheme } = useTheme();
+  const isDarkMode = resolvedTheme === 'dark';
 
   // Filter navigation links based on tabs prop
   const filteredLinks = tabs
@@ -133,14 +136,16 @@ export function Navbar({ tabs }: NavbarProps = {}) {
         >
           <div className="flex h-[56px] items-center justify-between p-4 gap-4">
             <Link href="/" className="flex items-center gap-3 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <ThreeSpinner 
-                  size={32} 
-                  color="currentColor"
-                  className="flex-shrink-0"
+              {mounted && (
+                <Image
+                  src={isDarkMode ? '/OMNI-Logo-light.png' : '/OMNI-Logo-Dark.png'}
+                  alt="Omni"
+                  width={100}
+                  height={32}
+                  className="h-21 w-auto"
+                  priority
                 />
-                <span className="font-semibold text-lg">Omni</span>
-              </div>
+              )}
             </Link>
 
             <NavMenu links={filteredLinks} />
@@ -202,16 +207,15 @@ export function Navbar({ tabs }: NavbarProps = {}) {
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                   <Link href="/" className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <ThreeSpinner 
-                        size={28} 
-                        color="currentColor"
-                        className="flex-shrink-0"
+                    {mounted && (
+                      <Image
+                        src={isDarkMode ? '/OMNI-Logo-light.png' : '/OMNI-Logo-Dark.png'}
+                        alt="Omni"
+                        width={80}
+                        height={28}
+                        className="h-7 w-auto"
                       />
-                      <span className="font-medium text-primary text-sm">
-                        Omni
-                      </span>
-                    </div>
+                    )}
                   </Link>
                   <button
                     onClick={toggleDrawer}
@@ -235,15 +239,18 @@ export function Navbar({ tabs }: NavbarProps = {}) {
                         <a
                           href={item.href}
                           onClick={(e) => {
-                            e.preventDefault();
-                            const element = document.getElementById(
-                              item.href.substring(1),
-                            );
-                            element?.scrollIntoView({ behavior: 'smooth' });
+                            // Only handle hash links with scroll behavior
+                            if (item.href.startsWith('#')) {
+                              e.preventDefault();
+                              const element = document.getElementById(
+                                item.href.substring(1),
+                              );
+                              element?.scrollIntoView({ behavior: 'smooth' });
+                            }
                             setIsDrawerOpen(false);
                           }}
                           className={`underline-offset-4 hover:text-primary/80 transition-colors ${
-                            activeSection === item.href.substring(1)
+                            (item.href.startsWith('#') && activeSection === item.href.substring(1))
                               ? 'text-primary font-medium'
                               : 'text-primary/60'
                           }`}

@@ -81,7 +81,7 @@ export const MarketplaceTab = ({
             <SelectContent className='rounded-xl'>
               <SelectItem className='rounded-xl' value="all">All Agents</SelectItem>
               <SelectItem className='rounded-xl' value="mine">Mine</SelectItem>
-              <SelectItem className='rounded-xl' value="kortix">Kortix Verified</SelectItem>
+              <SelectItem className='rounded-xl' value="kortix">Omni Verified</SelectItem>
               <SelectItem className='rounded-xl' value="community">Community</SelectItem>
             </SelectContent>
           </Select>
@@ -133,7 +133,7 @@ export const MarketplaceTab = ({
                         created_at: item.created_at,
                         creator_id: item.creator_id,
                         creator_name: item.creator_name,
-                        is_kortix_team: item.is_kortix_team,
+                        is_omni_team: item.is_omni_team,
                         download_count: item.download_count,
                         marketplace_published_at: item.marketplace_published_at,
                         icon_name: item.icon_name,
@@ -166,7 +166,7 @@ export const MarketplaceTab = ({
                       created_at: item.created_at,
                       creator_id: item.creator_id,
                       creator_name: item.creator_name,
-                      is_kortix_team: item.is_kortix_team,
+                      is_omni_team: item.is_omni_team,
                       download_count: item.download_count,
                       marketplace_published_at: item.marketplace_published_at,
                       icon_name: item.icon_name,

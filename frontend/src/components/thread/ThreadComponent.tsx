@@ -93,13 +93,13 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
     setSelectedAgent,
     initializeFromAgents,
     getCurrentAgent,
-    isSunaAgent,
+    isOmniAgent,
   } = isShared ? {
     selectedAgentId: undefined,
     setSelectedAgent: () => { },
     initializeFromAgents: () => { },
     getCurrentAgent: () => undefined,
-    isSunaAgent: false,
+    isOmniAgent: false,
   } : agentSelection;
 
   const agents = isShared ? [] : (agentsQuery?.data?.agents || []);

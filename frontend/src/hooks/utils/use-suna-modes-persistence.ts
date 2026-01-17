@@ -20,7 +20,7 @@ interface SunaModesActions {
   setSelectedTemplate: (template: string | null) => void;
 }
 
-export function useSunaModePersistence(): SunaModesState & SunaModesActions {
+export function useOmniModePersistence(): SunaModesState & SunaModesActions {
   // Initialize mode from localStorage
   const [selectedMode, setSelectedModeState] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {

@@ -1,7 +1,9 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { ThreeSpinner } from '@/components/ui/three-spinner';
+import { useTheme } from 'next-themes';
+import { useEffect, useState } from 'react';
+import Image from 'next/image';
 
 interface OmniLogoProps {
   size?: number;
@@ -16,26 +18,43 @@ export function OmniLogo({
   className,
   showText = false,
 }: OmniLogoProps) {
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const isDarkMode = resolvedTheme === 'dark';
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <div style={{ width: size, height: size }} />;
+  }
+
   // Full logo with text
   if (variant === 'full' || showText) {
     return (
       <div className={cn('flex items-center gap-2', className)}>
-        <ThreeSpinner
-          size={size}
-          className="text-white"
+        <Image
+          src={isDarkMode ? '/OMNI-Logo-light.png' : '/OMNI-Logo-Dark.png'}
+          alt="Omni"
+          width={size * 4}
+          height={size}
+          className="h-auto"
+          style={{ height: size }}
         />
-        <span className="text-base font-semibold text-white">
-          Omni
-        </span>
       </div>
     );
   }
 
-  // Icon only
+  // Icon only - use the symbol/logomark
   return (
-    <ThreeSpinner
-      size={size}
-      className={cn('text-white', className)}
+    <Image
+      src={isDarkMode ? '/OMNI-Logo-light.png' : '/OMNI-Logo-Dark.png'}
+      alt="Omni"
+      width={size * 4}
+      height={size}
+      className={cn('h-auto', className)}
+      style={{ height: size }}
     />
   );
 }

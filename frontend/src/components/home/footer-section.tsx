@@ -1,19 +1,16 @@
 'use client';
 
-import { FlickeringGrid } from '@/components/ui/flickering-grid';
-import { useMediaQuery } from '@/hooks/utils';
 import { siteConfig } from '@/lib/home';
 import { ChevronRightIcon } from '@radix-ui/react-icons';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
-import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 export function FooterSection() {
-  const tablet = useMediaQuery('(max-width: 1024px)');
-  const { theme, resolvedTheme } = useTheme();
+  const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const isDarkMode = resolvedTheme === 'dark';
 
   // After mount, we can access the theme
   useEffect(() => {
@@ -27,7 +24,15 @@ export function FooterSection() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between p-10">
             <div className="flex flex-col items-start justify-start gap-y-5 max-w-xs mx-0">
               <Link href="/" className="flex items-center gap-2">
-                <OmniLogo size={20} showText />
+                {mounted && (
+                  <Image
+                    src={isDarkMode ? '/OMNI-Logo-light.png' : '/OMNI-Logo-Dark.png'}
+                    alt="Omni"
+                    width={160}
+                    height={48}
+                    className="h-12 w-auto"
+                  />
+                )}
               </Link>
               <p className="tracking-tight text-muted-foreground font-medium">
                 {siteConfig.hero.description}
@@ -122,26 +127,25 @@ export function FooterSection() {
           </div>
         </div>
       </div>
-      <Link
-        href="https://www.youtube.com/watch?v=nuf5BF1jvjQ"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block w-full h-48 md:h-64 relative mt-24 z-0 cursor-pointer"
-      >
-        <div className="absolute inset-0 bg-gradient-to-t from-transparent to-background z-10 from-40%" />
-        <div className="absolute inset-0 ">
-          <FlickeringGrid
-            text={tablet ? 'Agents' : 'Agents Agents Agents'}
-            fontSize={tablet ? 60 : 90}
-            className="h-full w-full"
-            squareSize={2}
-            gridGap={tablet ? 2 : 3}
-            color="#6B7280"
-            maxOpacity={0.3}
-            flickerChance={0.1}
-          />
+      
+      {/* Bottom bar with copyright */}
+      <div className="border-t border-border mt-12">
+        <div className="max-w-6xl mx-auto px-6 py-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">
+              © {new Date().getFullYear()} Omni. All rights reserved.
+            </p>
+            <div className="flex items-center gap-6 text-sm text-muted-foreground">
+              <Link href="https://becomeomni.com/legal?tab=privacy" className="hover:text-primary transition-colors">
+                Privacy Policy
+              </Link>
+              <Link href="https://becomeomni.com/legal?tab=terms" className="hover:text-primary transition-colors">
+                Terms of Service
+              </Link>
+            </div>
+          </div>
         </div>
-      </Link>
+      </div>
     </footer>
   );
 }

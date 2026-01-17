@@ -30,7 +30,7 @@ import { useAgentSelection } from '@/stores/agent-selection-store';
 import { useThreadQuery } from '@/hooks/threads/use-threads';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 import { toast } from 'sonner';
-import { useSunaModePersistence } from '@/stores/suna-modes-store';
+import { useOmniModePersistence } from '@/stores/suna-modes-store';
 import { Button } from '../ui/button';
 import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -86,7 +86,7 @@ export function DashboardContent() {
     setSelectedCharts,
     setSelectedOutputFormat,
     setSelectedTemplate,
-  } = useSunaModePersistence();
+  } = useOmniModePersistence();
   
   const [viewMode, setViewMode] = useState<'super-worker' | 'worker-templates'>('super-worker');
   
@@ -127,7 +127,7 @@ export function DashboardContent() {
   const displayName = selectedAgent?.name || 'Suna';
   const agentAvatar = undefined;
   // Show Suna modes while loading (assume Suna is default) or when Suna agent is selected
-  const isSunaAgent = isLoadingAgents 
+  const isOmniAgent = isLoadingAgents 
     ? true // Show Suna modes while loading
     : (selectedAgent?.metadata?.is_suna_default || (!selectedAgentId && sunaAgent !== undefined) || false);
 
@@ -558,7 +558,7 @@ export function DashboardContent() {
                   </div>
 
                   {/* Modes Panel - Below chat input, doesn't affect its position */}
-                  {isSunaAgent && (
+                  {isOmniAgent && (
                     <div className="px-4 pb-6 sm:pb-8">
                       <div className="max-w-3xl mx-auto">
                         <Suspense fallback={<div className="h-24 bg-muted/10 rounded-lg animate-pulse" />}>

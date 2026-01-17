@@ -37,21 +37,9 @@ const CustomHeroSection = () => {
     <section className="w-full relative overflow-hidden">
       <div className="relative flex flex-col items-center w-full px-6">
         <div className="relative z-10 pt-32 mx-auto h-full w-full max-w-6xl flex flex-col items-center justify-center">
-          <div className="flex flex-col items-center justify-center gap-6 pt-12 max-w-4xl mx-auto">
-            {/* Omni Logo */}
-            <div className="mb-8">
-              <OmniLogo size={48} />
-            </div>
-            
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20">
-              <Sparkles className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium text-primary">Enterprise Implementation Services</span>
-            </div>
-            
+          <div className="flex flex-col items-center justify-center gap-6 max-w-4xl mx-auto">
             <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-medium tracking-tighter text-balance text-center">
-              <span className="text-primary">Enterprise AI Workers.</span>
-              <br />
-              <span className="text-secondary">Delivered in days.</span>
+              <span className="text-primary">Enterprise AI workers delivered in days</span>
             </h1>
             
             <p className="text-lg md:text-xl text-center text-muted-foreground font-medium text-balance leading-relaxed tracking-tight max-w-3xl">
@@ -83,7 +71,6 @@ const CustomHeroSection = () => {
             </div>
           </div>
         </div>
-        <div className="mb-16 sm:mt-32 mx-auto"></div>
       </div>
     </section>
   );
@@ -200,6 +187,141 @@ const ProcessSection = () => {
                   </div>
                   <p className="text-muted-foreground leading-relaxed">
                     {step.description}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// Enterprise Features Section (9 feature boxes from V2)
+const EnterpriseFeaturesSection = () => {
+  const enterpriseFeatures = [
+    {
+      title: "Private AI Training",
+      icon: "🔒",
+      features: ["Zero Data Leakage", "Proprietary Training", "Competitive Edge", "Domain-Specific AI"],
+      description: "Train AI models exclusively on your proprietary data. Create specialized capabilities tailored to your industry while ensuring your competitive insights never leave your organization.",
+      gradient: "from-blue-500/10 to-cyan-500/10",
+    },
+    {
+      title: "Zero Trust Security",
+      icon: "🛡️",
+      features: ["AES-256 Encryption", "Zero-Trust Architecture", "Real-time Monitoring", "Threat Detection"],
+      description: "Military-grade security with zero-trust architecture. Every interaction is encrypted with AES-256 standards and continuous threat monitoring.",
+      gradient: "from-green-500/10 to-emerald-500/10",
+    },
+    {
+      title: "Data Sovereignty",
+      icon: "⚔️",
+      features: ["Data Isolation", "Competitor Protection", "IP Safeguarding", "Full Ownership"],
+      description: "Protect your market position with isolated AI ecosystems. Your insights, customer intelligence, and strategic data stay exclusively yours.",
+      gradient: "from-purple-500/10 to-violet-500/10",
+    },
+    {
+      title: "Identity & Access Management",
+      icon: "🔑",
+      features: ["Role-Based Access Control", "Single Sign-On (SSO)", "Granular Permissions", "Identity Provider Integration"],
+      description: "Comprehensive access control with seamless SSO integration and granular role management to ensure secure access across your organization.",
+      gradient: "from-orange-500/10 to-amber-500/10",
+    },
+    {
+      title: "Flexible Deployment",
+      icon: "☁️",
+      features: ["Single Tenant Cloud", "Virtual Private Cloud", "Hybrid Deployments", "On-Premise Solutions"],
+      description: "Deploy Omni in your environment of choice - dedicated cloud resources, your own VPC, hybrid setups, or fully on-premise with all major cloud providers supported.",
+      gradient: "from-sky-500/10 to-blue-500/10",
+    },
+    {
+      title: "Custom AI Agents",
+      icon: "🤖",
+      features: ["Specialized Workflows", "Business Process Integration", "Domain-Specific Training", "Custom Capabilities"],
+      description: "Deploy specialized AI agents tailored to your specific business processes and workflows with domain-specific training and custom capabilities.",
+      gradient: "from-pink-500/10 to-rose-500/10",
+    },
+    {
+      title: "Enterprise Analytics",
+      icon: "📊",
+      features: ["Usage Monitoring", "Performance Metrics", "ROI Tracking", "Custom Dashboards"],
+      description: "Advanced analytics and reporting tools to monitor usage patterns, track performance metrics, and measure ROI across your organization with custom dashboards.",
+      gradient: "from-indigo-500/10 to-purple-500/10",
+    },
+    {
+      title: "Enterprise Credit Plans",
+      icon: "💳",
+      features: ["Volume Discounts", "Custom Billing", "Usage Patterns", "Flexible Pricing"],
+      description: "Flexible credit-based pricing plans designed for enterprise usage patterns with volume discounts, custom billing cycles, and adaptable pricing structures.",
+      gradient: "from-teal-500/10 to-cyan-500/10",
+    },
+    {
+      title: "24/7 Enterprise Support",
+      icon: "🎯",
+      features: ["Dedicated Support", "Guaranteed Response Times", "Senior Engineers", "Priority Access"],
+      description: "Round-the-clock dedicated support with guaranteed response times, direct access to senior engineers, and priority technical assistance for your enterprise.",
+      gradient: "from-red-500/10 to-orange-500/10",
+    },
+  ];
+
+  return (
+    <section className="flex flex-col items-center justify-center w-full relative py-16 lg:py-20">
+      <div className="w-full max-w-7xl mx-auto px-6">
+        <SectionHeader>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight text-center text-balance pb-2">
+            Managed Enterprise Deployments
+          </h2>
+          <p className="text-muted-foreground text-center text-balance font-medium max-w-3xl mx-auto">
+            Omni offers fully managed Enterprise deployments with advanced security, custom enterprise tooling, and flexible enterprise credit plans.
+          </p>
+        </SectionHeader>
+
+        <div className="py-10 lg:py-14">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6 max-w-7xl mx-auto">
+            {enterpriseFeatures.map((feature, index) => (
+              <motion.div
+                key={feature.title}
+                className={`group relative bg-gradient-to-br ${feature.gradient} dark:from-neutral-900/80 dark:to-neutral-950/80 p-6 lg:p-7 rounded-2xl overflow-hidden border border-border/40 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-1`}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: index * 0.05 }}
+                viewport={{ once: true }}
+              >
+                {/* Background pattern */}
+                <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,currentColor_1px,transparent_0)] [background-size:24px_24px]"></div>
+                </div>
+                
+                <div className="relative z-10">
+                  {/* Icon and Title */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-background/80 dark:bg-neutral-800/80 flex items-center justify-center text-xl shadow-sm border border-border/50">
+                      {feature.icon}
+                    </div>
+                    <h3 className="text-base lg:text-lg font-semibold text-foreground">
+                      {feature.title}
+                    </h3>
+                  </div>
+                  
+                  {/* Features grid */}
+                  <div className="mb-4">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                      {feature.features.map((item, idx) => (
+                        <div key={idx} className="flex items-center">
+                          <Check className="w-3.5 h-3.5 text-primary mr-1.5 flex-shrink-0" />
+                          <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground/80 transition-colors">
+                            {item}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Description */}
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {feature.description}
                   </p>
                 </div>
               </motion.div>
@@ -457,11 +579,8 @@ export default function CustomImplementationPage() {
     <main className="flex flex-col items-center justify-center min-h-screen w-full">
       <div className="w-full divide-y divide-border">
         <CustomHeroSection />
-        <ValuePropSection />
+        <EnterpriseFeaturesSection />
         <ProcessSection />
-        <BenefitsSection />
-        {/* <TestimonialsSection /> */}
-        {/* <SelfServiceSection /> */}
         <FinalCTASection />
         <FooterSection />
       </div>

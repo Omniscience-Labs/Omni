@@ -29,7 +29,7 @@ export function KortixLogo({ size = 24, variant = 'symbol', className }: KortixL
     return (
       <img
         src="/logomark-white.svg"
-        alt="Kortix"
+        alt="Omni"
         className={cn(`${shouldInvert ? '' : 'invert'} flex-shrink-0`, className)}
         style={{ height: `${size}px`, width: 'auto' }}
       />
@@ -40,7 +40,7 @@ export function KortixLogo({ size = 24, variant = 'symbol', className }: KortixL
   return (
     <img
       src="/kortix-symbol.svg"
-      alt="Kortix"
+      alt="Omni"
       className={cn(`${shouldInvert ? 'invert' : ''} flex-shrink-0`, className)}
       style={{ width: `${size}px`, height: `${size}px` }}
     />

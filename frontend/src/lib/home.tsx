@@ -19,10 +19,9 @@ export const siteConfig = {
   nav: {
     links: [
       { id: 1, name: 'Home', href: '#hero' },
-      { id: 2, name: 'Process', href: '#process' },
-      { id: 3, name: 'Enterprise', href: '/enterprise' },
-      { id: 4, name: 'Pricing', href: '#pricing' },
-      { id: 5, name: 'Solutions', href: '#solutions' },
+      { id: 2, name: 'Enterprise', href: '/enterprise' },
+      { id: 4, name: 'Pricing', href: '/pricing' },
+      { id: 5, name: 'Solutions', href: '/dashboard' },
     ],
   },
   hero: {
@@ -45,7 +44,7 @@ export const siteConfig = {
       title: 'Omni',
       links: [
         { id: 1, title: 'About', url: 'https://becomeomni.com' },
-        { id: 3, title: 'Contact', url: 'mailto:hey@becomeomni.com' },
+        { id: 3, title: 'socials@latent-labs.ai', url: 'mailto:socials@latent-labs.ai' },
         { id: 4, title: 'Careers', url: 'https://becomeomni.com/careers' },
       ],
     },

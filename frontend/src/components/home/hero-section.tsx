@@ -24,7 +24,7 @@ import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 import { useQuery } from '@tanstack/react-query';
 import { agentKeys } from '@/hooks/agents/keys';
 import { getAgents } from '@/hooks/agents/utils';
-import { useSunaModePersistence } from '@/stores/suna-modes-store';
+import { useOmniModePersistence } from '@/stores/suna-modes-store';
 import { useAgentSelection } from '@/stores/agent-selection-store';
 import { useTranslations } from 'next-intl';
 
@@ -37,7 +37,7 @@ const PlanSelectionModal = lazy(() =>
 const AgentRunLimitDialog = lazy(() => 
     import('@/components/thread/agent-run-limit-dialog').then(mod => ({ default: mod.AgentRunLimitDialog }))
 );
-const SunaModesPanel = lazy(() => 
+const SunaModesPanel = lazy(() =>
     import('@/components/dashboard/suna-modes-panel').then(mod => ({ default: mod.SunaModesPanel }))
 );
 
@@ -52,7 +52,7 @@ const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
 
 export function HeroSection() {
-    const t = useTranslations('suna');
+    const t = useTranslations('omni');
     const { hero } = siteConfig;
     const isMobile = useIsMobile();
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,7 +66,7 @@ export function HeroSection() {
         getCurrentAgent
     } = useAgentSelection();
 
-    // Use centralized Suna modes persistence hook
+    // Use centralized Omni modes persistence hook
     const {
         selectedMode,
         selectedCharts,
@@ -76,7 +76,7 @@ export function HeroSection() {
         setSelectedCharts,
         setSelectedOutputFormat,
         setSelectedTemplate,
-    } = useSunaModePersistence();
+    } = useOmniModePersistence();
     const router = useRouter();
     const { user, isLoading } = useAuth();
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -116,12 +116,12 @@ export function HeroSection() {
         }
     }, [agents, initializeFromAgents, setSelectedAgent]);
 
-    // Determine if selected agent is Suna default
-    // For unauthenticated users, assume Suna is the default
+    // Determine if selected agent is Omni default
+    // For unauthenticated users, assume Omni is the default
     const selectedAgent = selectedAgentId
         ? agents.find(agent => agent.agent_id === selectedAgentId)
         : null;
-    const isSunaAgent = !user || selectedAgent?.metadata?.is_suna_default || false;
+    const isOmniAgent = !user || selectedAgent?.metadata?.is_suna_default || false;
 
     // Auth dialog state
     const [authDialogOpen, setAuthDialogOpen] = useState(false);
@@ -392,4 +392,3 @@ export function HeroSection() {
         </section>
     );
 }
-

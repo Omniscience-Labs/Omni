@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { OmniLoader } from '@/components/ui/kortix-loader';
 import { useApiHealth } from '@/hooks/usage/use-health';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -77,7 +77,7 @@ export function MaintenancePage() {
                   className="h-12 w-12 bg-border"
                 >
                   {isCheckingHealth ? (
-                    <KortixLoader size="small" customSize={20} />
+                    <OmniLoader size="small" customSize={20} />
                   ) : (
                     <RefreshCw className="h-5 w-5 text-foreground" />
                   )}

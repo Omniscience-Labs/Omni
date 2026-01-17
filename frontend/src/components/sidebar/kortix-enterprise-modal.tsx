@@ -10,7 +10,6 @@ import Image from 'next/image';
 import Cal, { getCalApi } from '@calcom/embed-react';
 import { useTheme } from 'next-themes';
 import { Check, Calendar } from 'lucide-react';
-import { KortixLogo } from './kortix-logo';
 
 interface EnterpriseModalProps {
   children: React.ReactNode;
@@ -55,16 +54,22 @@ export function KortixEnterpriseModal({
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="p-0 gap-0 border-none max-w-[90vw] lg:max-w-[80vw] xl:max-w-[70vw] rounded-xl overflow-hidden">
+      <DialogContent className="p-0 gap-0 border-none max-w-[95vw] md:max-w-[90vw] lg:max-w-[80vw] xl:max-w-[70vw] max-h-[90vh] rounded-xl overflow-hidden">
         <DialogTitle className="sr-only">
           Enterprise AI Implementation - Schedule Consultation
         </DialogTitle>
-        <div className="grid grid-cols-1 lg:grid-cols-2 h-[700px] lg:h-[800px]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 h-[85vh] max-h-[700px] lg:max-h-[750px]">
           {/* Enhanced Info Panel */}
-          <div className="p-6 lg:p-8 flex flex-col bg-white dark:bg-black relative h-full overflow-y-auto border-r border-gray-200 dark:border-gray-800">
+          <div className="p-4 md:p-6 lg:p-8 flex flex-col bg-white dark:bg-black relative h-full overflow-y-auto border-r border-gray-200 dark:border-gray-800">
             <div className="relative z-10 flex flex-col h-full">
               <div className="mb-6 flex-shrink-0">
-                <KortixLogo size={30} variant="logomark" />
+                <Image
+                  src={isDarkMode ? '/OMNI-Logo-light.png' : '/OMNI-Logo-Dark.png'}
+                  alt="Omni"
+                  width={120}
+                  height={30}
+                  className="h-8 w-auto"
+                />
               </div>
 
               <div className="mb-6 flex-shrink-0">
@@ -114,7 +119,7 @@ export function KortixEnterpriseModal({
             <div className="h-full overflow-auto">
               <Cal
                 namespace="enterprise-demo"
-                calLink="team/kortix/enterprise-demo"
+                calLink="sundar001/30min"
                 style={{ width: '100%', height: '100%' }}
                 config={{
                   layout: 'month_view',

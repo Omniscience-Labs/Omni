@@ -4,18 +4,18 @@ import { ArrowRight, Github } from 'lucide-react';
 import Image from 'next/image';
 
 export const metadata: Metadata = {
-  title: 'Suna is now Kortix | Kortix Suna - Open Source AI Worker',
-  description: 'Suna has rebranded to Kortix. Kortix (formerly Suna) is the same powerful open source AI assistant and generalist AI worker you know and love, now with a new name and bigger vision.',
+  title: 'Omni is now Omni | Omni Omni - Open Source AI Worker',
+  description: 'Omni has rebranded to Omni. Omni (formerly Omni) is the same powerful open source AI assistant and generalist AI worker you know and love, now with a new name and bigger vision.',
   keywords: [
-    'Suna',
-    'Kortix Suna',
-    'Suna AI',
-    'Suna assistant',
-    'Suna.so',
-    'where is Suna',
-    'Kortix',
-    'Suna rebrand',
-    'Suna is now Kortix',
+    'Omni',
+    'Omni Omni',
+    'Omni AI',
+    'Omni assistant',
+    'Omni.so',
+    'where is Omni',
+    'Omni',
+    'Omni rebrand',
+    'Omni is now Omni',
     'AI assistant',
     'open source AI',
     'generalist AI worker',
@@ -23,24 +23,24 @@ export const metadata: Metadata = {
     'autonomous AI',
   ],
   openGraph: {
-    title: 'Suna is now Kortix',
-    description: 'Kortix (formerly Suna) - Same powerful open source AI worker, new name.',
+    title: 'Omni is now Omni',
+    description: 'Omni (formerly Omni) - Same powerful open source AI worker, new name.',
     type: 'website',
     url: 'https://kortix.com/suna',
-    siteName: 'Kortix',
+    siteName: 'Omni',
     images: [
       {
         url: '/banner.png',
         width: 1200,
         height: 630,
-        alt: 'Kortix - Formerly Suna',
+        alt: 'Omni - Formerly Omni',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Suna is now Kortix',
-    description: 'Kortix (formerly Suna) - Same powerful open source AI worker, new name.',
+    title: 'Omni is now Omni',
+    description: 'Omni (formerly Omni) - Same powerful open source AI worker, new name.',
     images: ['/banner.png'],
   },
   alternates: {
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function SunaPage() {
+export default function OmniPage() {
   return (
     <>
       {/* Structured Data for SEO */}
@@ -62,8 +62,8 @@ export default function SunaPage() {
           __html: JSON.stringify({
             '@context': 'https://schema.org',
             '@type': 'Organization',
-            name: 'Kortix',
-            alternateName: ['Suna', 'Kortix Suna', 'Suna AI'],
+            name: 'Omni',
+            alternateName: ['Omni', 'Omni Omni', 'Omni AI'],
             url: 'https://kortix.com',
             logo: 'https://kortix.com/favicon.png',
             sameAs: [
@@ -72,7 +72,7 @@ export default function SunaPage() {
               'https://linkedin.com/company/kortix',
             ],
             description:
-              'Kortix (formerly known as Suna) is an open source generalist AI worker that helps you accomplish real-world tasks through natural conversation.',
+              'Omni (formerly known as Omni) is an open source generalist AI worker that helps you accomplish real-world tasks through natural conversation.',
           }),
         }}
       />
@@ -93,7 +93,7 @@ export default function SunaPage() {
               {
                 '@type': 'ListItem',
                 position: 2,
-                name: 'Suna is now Kortix',
+                name: 'Omni is now Omni',
                 item: 'https://kortix.com/suna',
               },
             ],
@@ -106,11 +106,11 @@ export default function SunaPage() {
           {/* Hero Section with Logo */}
           <div className="relative z-10 pt-16 sm:pt-24 md:pt-32 mx-auto h-full w-full max-w-6xl flex flex-col items-center justify-center">
             <div className="flex flex-col items-center justify-center gap-3 sm:gap-4 pt-8 sm:pt-20 max-w-4xl mx-auto pb-10">
-              {/* Kortix Symbol with grain texture */}
+              {/* Omni Symbol with grain texture */}
               <div className="relative mb-8 sm:mb-12" style={{ width: '80px', height: '80px' }}>
                 <Image
                   src="/kortix-symbol.svg"
-                  alt="Kortix"
+                  alt="Omni"
                   fill
                   className="object-contain dark:invert"
                   priority
@@ -138,7 +138,7 @@ export default function SunaPage() {
 
               {/* Main Heading */}
               <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-medium tracking-tighter text-balance text-center">
-                Suna is now Kortix
+                Omni is now Omni
               </h1>
 
               {/* Subheading */}
@@ -153,7 +153,7 @@ export default function SunaPage() {
                 href="/"
                 className="flex h-12 items-center justify-center w-full sm:w-auto px-8 text-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm font-medium"
               >
-                Go to Kortix
+                Go to Omni
                 <ArrowRight className="ml-2 size-4" />
               </Link>
               <a
@@ -177,7 +177,7 @@ export default function SunaPage() {
                   What changed?
                 </h2>
                 <div className="space-y-3 text-base md:text-lg text-muted-foreground font-medium">
-                  <p>Our name changed from Suna to Kortix</p>
+                  <p>Our name changed from Omni to Omni</p>
                   <p>Our domain is now kortix.com</p>
                 </div>
               </div>
@@ -218,7 +218,7 @@ export default function SunaPage() {
               <div className="relative w-full h-full" style={{ isolation: 'isolate' }}>
                 <Image
                   src="/wordmark.svg"
-                  alt="Kortix"
+                  alt="Omni"
                   fill
                   className="object-contain dark:invert opacity-10"
                   priority
@@ -250,11 +250,11 @@ export default function SunaPage() {
           {/* SEO Footer Text */}
           <div className="relative z-10 text-center max-w-2xl mx-auto pb-20 pt-12 border-t border-border/50">
             <p className="text-sm text-muted-foreground/60 leading-relaxed font-medium">
-              Looking for Suna? You've found us. Kortix is the evolution of Suna — the same open
+              Looking for Omni? You've found us. Omni is the evolution of Omni — the same open
               source AI assistant and generalist AI worker, now with a name that better represents
-              our vision. For users searching for "Suna AI", "Suna assistant", "Suna.so", "where is
-              Suna", or "Kortix Suna" — this is the official continuation of the Suna project under
-              the Kortix brand.
+              our vision. For users searching for "Omni AI", "Omni assistant", "Omni.so", "where is
+              Omni", or "Omni Omni" — this is the official continuation of the Omni project under
+              the Omni brand.
             </p>
           </div>
         </div>

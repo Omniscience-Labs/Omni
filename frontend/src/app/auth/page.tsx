@@ -14,7 +14,8 @@ import { useAuth } from '@/components/AuthProvider';
 import { useAuthMethodTracking } from '@/stores/auth-tracking';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
-import { OmniLogo } from '@/components/sidebar/omni-logo';
+import Image from 'next/image';
+import { useTheme } from 'next-themes';
 
 
 // Lazy load heavy components
@@ -36,6 +37,8 @@ function LoginContent() {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [mounted, setMounted] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false); // GDPR requires explicit opt-in
+  const { resolvedTheme } = useTheme();
+  const isDarkMode = resolvedTheme === 'dark';
 
   const { wasLastMethod: wasEmailLastMethod, markAsUsed: markEmailAsUsed } = useAuthMethodTracking('email');
 
@@ -367,7 +370,16 @@ function LoginContent() {
     <div className="min-h-screen bg-background relative">
       <div className="absolute top-6 left-6 z-10">
         <Link href="/" className="flex items-center space-x-2">
-          <OmniLogo size={28} showText />
+          {mounted && (
+            <Image
+              src={isDarkMode ? '/OMNI-Logo-light.png' : '/OMNI-Logo-Dark.png'}
+              alt="Omni"
+              width={120}
+              height={36}
+              className="h-9 w-auto"
+              priority
+            />
+          )}
         </Link>
       </div>
       <div className="flex min-h-screen">

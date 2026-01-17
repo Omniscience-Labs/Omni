@@ -97,7 +97,7 @@ export default function SupportPage() {
 
                 <div className="flex flex-col sm:flex-row items-center gap-4 pt-4">
                   <Button asChild size="lg" className="text-base h-14 w-48 rounded-full px-8">
-                    <a href="mailto:support@kortix.com">
+                    <a href="mailto:support@kOmni.com">
                       <Mail className="w-5 h-5"/>
                       Email Support
                     </a>
@@ -110,7 +110,7 @@ export default function SupportPage() {
                 </div>
 
                 <p className="text-sm text-muted-foreground">
-                  Or email us directly at <a href="mailto:support@kortix.com" className="text-primary hover:underline font-medium">support@kortix.com</a>
+                  Or email us directly at <a href="mailto:support@kOmni.com" className="text-primary hover:underline font-medium">support@kOmni.com</a>
                 </p>
               </div>
             </div>
@@ -140,10 +140,10 @@ export default function SupportPage() {
                       Send us a detailed message and we'll get back to you as soon as possible.
                     </p>
                     <a 
-                      href="mailto:support@kortix.com" 
+                      href="mailto:support@kOmni.com" 
                       className="text-primary hover:underline font-medium inline-flex items-center gap-2"
                     >
-                      support@kortix.com
+                      support@kOmni.com
                     </a>
                   </div>
                 </div>
@@ -215,7 +215,7 @@ export default function SupportPage() {
                   question="How do I request a new feature?"
                   answer={
                     <>
-                      We love feature requests! Email us at <a href="mailto:support@kortix.com" className="text-primary hover:underline font-medium">support@kortix.com</a> with details about what you'd like to see and how it would help you. We carefully review all suggestions and prioritize features based on user feedback for our product roadmap.
+                      We love feature requests! Email us at <a href="mailto:support@kOmni.com" className="text-primary hover:underline font-medium">support@kOmni.com</a> with details about what you'd like to see and how it would help you. We carefully review all suggestions and prioritize features based on user feedback for our product roadmap.
                     </>
                   }
                 />
@@ -223,7 +223,7 @@ export default function SupportPage() {
                   question="How do I report a bug?"
                   answer={
                     <>
-                      If you encounter a bug, please email <a href="mailto:support@kortix.com" className="text-primary hover:underline font-medium">support@kortix.com</a> with a detailed description of the issue, steps to reproduce it, and any error messages you're seeing. Screenshots or screen recordings are extremely helpful. We'll investigate and work on a fix promptly.
+                      If you encounter a bug, please email <a href="mailto:support@kOmni.com" className="text-primary hover:underline font-medium">support@kOmni.com</a> with a detailed description of the issue, steps to reproduce it, and any error messages you're seeing. Screenshots or screen recordings are extremely helpful. We'll investigate and work on a fix promptly.
                     </>
                   }
                 />
@@ -231,7 +231,7 @@ export default function SupportPage() {
                   question="What if I don't get credits after paying?"
                   answer={
                     <>
-                      If your credits don't appear after payment, contact <a href="mailto:support@kortix.com" className="text-primary hover:underline font-medium">support@kortix.com</a> immediately. We prioritize billing and credit issues for all users regardless of tier and will resolve this as quickly as possible, typically within a few hours during business days.
+                      If your credits don't appear after payment, contact <a href="mailto:support@kOmni.com" className="text-primary hover:underline font-medium">support@kOmni.com</a> immediately. We prioritize billing and credit issues for all users regardless of tier and will resolve this as quickly as possible, typically within a few hours during business days.
                     </>
                   }
                 />
@@ -313,7 +313,7 @@ export default function SupportPage() {
               </p>
               <div className="pt-4">
                 <Button asChild size="lg" className="text-base h-14 w-48 rounded-full px-8">
-                  <a href="mailto:support@kortix.com">
+                  <a href="mailto:support@kOmni.com">
                     <Mail className="w-5 h-5" />
                     Contact Support
                   </a>
@@ -321,10 +321,10 @@ export default function SupportPage() {
               </div>
               <div className="pt-6 space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  General Inquiries: <a href="mailto:info@kortix.com" className="text-primary hover:underline">info@kortix.com</a>
+                  General Inquiries: <a href="mailto:info@kOmni.com" className="text-primary hover:underline">info@kOmni.com</a>
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Security Issues: <a href="mailto:security@kortix.com" className="text-primary hover:underline">security@kortix.com</a>
+                  Security Issues: <a href="mailto:security@kOmni.com" className="text-primary hover:underline">security@kOmni.com</a>
                 </p>
               </div>
             </div>

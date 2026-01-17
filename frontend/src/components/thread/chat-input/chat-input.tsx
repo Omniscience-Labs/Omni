@@ -19,7 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ArrowUp, X, Image as ImageIcon, Presentation, BarChart3, FileText, Search, Users, Code2, Sparkles, Brain as BrainIcon, MessageSquare, CornerDownLeft, Plug, Lock } from 'lucide-react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { OmniLoader } from '@/components/ui/kortix-loader';
 import { VoiceRecorder } from './voice-recorder';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -117,7 +117,7 @@ const SubmitButton = memo(function SubmitButton({
               disabled={isDisabled}
             >
               {((loading || isUploading) && !isAgentRunning) ? (
-                <KortixLoader size="small" customSize={20} variant={buttonLoaderVariant} />
+                <OmniLoader size="small" customSize={20} variant={buttonLoaderVariant} />
               ) : isAgentRunning ? (
                 <div className="min-h-[14px] min-w-[14px] w-[14px] h-[14px] rounded-sm bg-current" />
               ) : (
@@ -419,7 +419,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
     // While loading, default to Suna (assume Suna is the default agent)
     const selectedAgent = agents.find(agent => agent.agent_id === selectedAgentId);
     const sunaAgent = agents.find(agent => agent.metadata?.is_suna_default === true);
-    const isSunaAgent = isLoadingAgents 
+    const isOmniAgent = isLoadingAgents 
         ? true // Show Suna modes while loading
         : (selectedAgent?.metadata?.is_suna_default || (!selectedAgentId && sunaAgent !== undefined) || false);
 
@@ -909,7 +909,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
           )}
 
           {/* Agent Mode Switcher - Only for Suna */}
-          {ENABLE_SUNA_AGENT_MODES && (isStagingMode() || isLocalMode()) && isSunaAgent && (
+          {ENABLE_SUNA_AGENT_MODES && (isStagingMode() || isLocalMode()) && isOmniAgent && (
             <TooltipProvider>
               <div className="flex items-center gap-1 p-0.5 bg-muted/50 rounded-lg">
                 <Tooltip>
@@ -1032,7 +1032,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
           />
         </div>
       </div>
-    ), [hideAttachments, loading, disabled, isAgentRunning, isUploading, sandboxId, projectId, messages, isLoggedIn, renderConfigDropdown, planModalOpen, setPlanSelectionModalOpen, handleTranscription, onStopAgent, handleSubmit, hasContent, hasFiles, selectedMode, onModeDeselect, handleModeDeselect, isModeDismissing, isSunaAgent, sunaAgentModes, pendingFilesCount, googleDriveIcon, slackIcon, notionIcon, buttonLoaderVariant, isFreeTier, subscriptionData]);
+    ), [hideAttachments, loading, disabled, isAgentRunning, isUploading, sandboxId, projectId, messages, isLoggedIn, renderConfigDropdown, planModalOpen, setPlanSelectionModalOpen, handleTranscription, onStopAgent, handleSubmit, hasContent, hasFiles, selectedMode, onModeDeselect, handleModeDeselect, isModeDismissing, isOmniAgent, sunaAgentModes, pendingFilesCount, googleDriveIcon, slackIcon, notionIcon, buttonLoaderVariant, isFreeTier, subscriptionData]);
 
     const isSnackVisible = showToolPreview || !!showSnackbar || (isFreeTier && subscriptionData && !isLocalMode());
 
@@ -1099,7 +1099,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
                     {isUploading && pendingFiles.length > 0 && (
                       <div className="absolute inset-0 bg-background/50 backdrop-blur-sm rounded-xl flex items-center justify-center">
                         <div className="flex items-center gap-2 bg-background/90 px-3 py-2 rounded-lg border border-border">
-                          <KortixLoader size="small" customSize={16} variant="auto" />
+                          <OmniLoader size="small" customSize={16} variant="auto" />
                           <span className="text-sm">Uploading {pendingFiles.length} file{pendingFiles.length !== 1 ? 's' : ''}...</span>
                         </div>
                       </div>
