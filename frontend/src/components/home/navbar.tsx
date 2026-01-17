@@ -50,7 +50,11 @@ const drawerMenuVariants = {
   visible: { opacity: 1 },
 };
 
-export function Navbar() {
+interface NavbarProps {
+  tabs?: string[];
+}
+
+export function Navbar({ tabs }: NavbarProps = {}) {
   const { scrollY } = useScroll();
   const [hasScrolled, setHasScrolled] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -58,13 +62,22 @@ export function Navbar() {
   const [mounted, setMounted] = useState(false);
   const { user } = useAuth();
 
+  // Filter navigation links based on tabs prop
+  const filteredLinks = tabs
+    ? siteConfig.nav.links.filter((link) =>
+        tabs.some(
+          (tab) => link.name.toLowerCase() === tab.toLowerCase(),
+        ),
+      )
+    : siteConfig.nav.links;
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
     const handleScroll = () => {
-      const sections = siteConfig.nav.links.map((item) =>
+      const sections = filteredLinks.map((item) =>
         item.href.substring(1),
       );
 
@@ -84,7 +97,7 @@ export function Navbar() {
     handleScroll();
 
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [filteredLinks]);
 
   useEffect(() => {
     const unsubscribe = scrollY.on('change', (latest) => {
@@ -130,7 +143,7 @@ export function Navbar() {
               </div>
             </Link>
 
-            <NavMenu />
+            <NavMenu links={filteredLinks} />
 
             <div className="flex flex-row items-center gap-1 md:gap-3 flex-shrink-0">
               {user ? (
@@ -213,7 +226,7 @@ export function Navbar() {
                   variants={drawerMenuContainerVariants}
                 >
                   <AnimatePresence>
-                    {siteConfig.nav.links.map((item) => (
+                    {filteredLinks.map((item) => (
                       <motion.li
                         key={item.id}
                         className="p-2.5 border-b border-border last:border-b-0"
