@@ -8,7 +8,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 export function FooterSection() {
   const tablet = useMediaQuery('(max-width: 1024px)');
@@ -27,7 +27,7 @@ export function FooterSection() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between p-10">
             <div className="flex flex-col items-start justify-start gap-y-5 max-w-xs mx-0">
               <Link href="/" className="flex items-center gap-2">
-                <KortixLogo size={20} />
+                <OmniLogo size={20} showText />
               </Link>
               <p className="tracking-tight text-muted-foreground font-medium">
                 {siteConfig.hero.description}
@@ -35,7 +35,7 @@ export function FooterSection() {
 
               <div className="flex items-center gap-4">
                 <a
-                  href="https://github.com/kortix-ai/suna"
+                  href="https://github.com/becomeomni"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="GitHub"
@@ -52,7 +52,7 @@ export function FooterSection() {
                   </svg>
                 </a>
                 <a
-                  href="https://x.com/kortix"
+                  href="https://x.com/becomeomni"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="X (Twitter)"
@@ -69,7 +69,7 @@ export function FooterSection() {
                   </svg>
                 </a>
                 <a
-                  href="https://www.linkedin.com/company/kortix/"
+                  href="https://www.linkedin.com/company/becomeomni/"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="LinkedIn"

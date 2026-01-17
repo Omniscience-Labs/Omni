@@ -14,7 +14,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useAuthMethodTracking } from '@/stores/auth-tracking';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 
 // Lazy load heavy components
@@ -367,7 +367,7 @@ function LoginContent() {
     <div className="min-h-screen bg-background relative">
       <div className="absolute top-6 left-6 z-10">
         <Link href="/" className="flex items-center space-x-2">
-          <KortixLogo size={28} />
+          <OmniLogo size={28} showText />
         </Link>
       </div>
       <div className="flex min-h-screen">
@@ -422,7 +422,7 @@ function LoginContent() {
                     privacyPolicy: (chunks) => {
                       return (
                         <a
-                          href="https://www.kortix.com/legal?tab=privacy"
+                          href="https://www.becomeomni.com/legal?tab=privacy"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="hover:underline underline-offset-2 text-primary"
@@ -435,7 +435,7 @@ function LoginContent() {
                     termsOfService: (chunks) => {
                       return (
                         <a
-                          href="https://www.kortix.com/legal?tab=terms"
+                          href="https://www.becomeomni.com/legal?tab=terms"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="hover:underline underline-offset-2 text-primary"

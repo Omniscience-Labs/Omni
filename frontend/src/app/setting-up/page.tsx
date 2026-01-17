@@ -6,7 +6,7 @@ import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useInitializeAccount } from '@/hooks/account';
 import { createClient } from '@/lib/supabase/client';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -128,7 +128,7 @@ export default function SettingUpPage() {
         </Suspense>
 
         <div className="relative z-10 w-full max-w-[456px] flex flex-col items-center gap-8">
-          <KortixLogo size={32} />
+          <OmniLogo size={32} />
 
           {(status === 'checking' || status === 'initializing') && (
             <>

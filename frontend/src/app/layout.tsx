@@ -39,9 +39,9 @@ export const metadata: Metadata = {
   },
   description: siteMetadata.description,
   keywords: siteMetadata.keywords,
-  authors: [{ name: 'Kortix Team', url: 'https://kortix.com' }],
-  creator: 'Kortix Team',
-  publisher: 'Kortix Team',
+  authors: [{ name: 'Omni Team', url: 'https://becomeomni.com' }],
+  creator: 'Omni Team',
+  publisher: 'Omni Team',
   applicationName: siteMetadata.name,
   robots: {
     index: true,
@@ -74,17 +74,14 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: siteMetadata.title,
     description: siteMetadata.description,
-    creator: '@kortix',
-    site: '@kortix',
+    creator: '@becomeomni',
+    site: '@becomeomni',
     images: ['/banner.png'],
   },
   icons: {
-    icon: [
-      { url: '/favicon.png', sizes: '32x32' },
-      { url: '/favicon-light.png', sizes: '32x32', media: '(prefers-color-scheme: dark)' },
-    ],
+    icon: '/favicon.png',
     shortcut: '/favicon.png',
-    apple: [{ url: '/logo_black.png', sizes: '180x180' }],
+    apple: [{ url: '/favicon.png', sizes: '180x180' }],
   },
   manifest: '/manifest.json',
   alternates: {
@@ -113,21 +110,21 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://eu.i.posthog.com" />
         
         {/* Static SEO meta tags - rendered in initial HTML */}
-        <title>Kortix: Your Autonomous AI Worker</title>
-        <meta name="description" content="Built for complex tasks, designed for everything. The ultimate AI assistant that handles it all—from simple requests to mega-complex projects." />
-        <meta name="keywords" content="Kortix, Autonomous AI Worker, AI Worker, Generalist AI, Open Source AI, Autonomous Agent, Complex Tasks, AI Assistant" />
-        <meta property="og:title" content="Kortix: Your Autonomous AI Worker" />
-        <meta property="og:description" content="Built for complex tasks, designed for everything. The ultimate AI assistant that handles it all—from simple requests to mega-complex projects." />
-        <meta property="og:image" content="https://kortix.com/banner.png" />
-        <meta property="og:url" content="https://kortix.com" />
+        <title>Omni – Build, manage and train your AI Workforce</title>
+        <meta name="description" content="A generalist AI Agent that works on your behalf. 80% more automation with 20% the resources." />
+        <meta name="keywords" content="Omni, AI Workforce, AI Agent, Generalist AI, Automation, AI Assistant" />
+        <meta property="og:title" content="Omni – Build, manage and train your AI Workforce" />
+        <meta property="og:description" content="A generalist AI Agent that works on your behalf. 80% more automation with 20% the resources." />
+        <meta property="og:image" content="https://becomeomni.com/banner.png" />
+        <meta property="og:url" content="https://becomeomni.com" />
         <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="Kortix" />
+        <meta property="og:site_name" content="Omni" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Kortix: Your Autonomous AI Worker" />
-        <meta name="twitter:description" content="Built for complex tasks, designed for everything. The ultimate AI assistant that handles it all—from simple requests to mega-complex projects." />
-        <meta name="twitter:image" content="https://kortix.com/banner.png" />
-        <meta name="twitter:site" content="@kortix" />
-        <link rel="canonical" href="https://kortix.com" />
+        <meta name="twitter:title" content="Omni – Build, manage and train your AI Workforce" />
+        <meta name="twitter:description" content="A generalist AI Agent that works on your behalf. 80% more automation with 20% the resources." />
+        <meta name="twitter:image" content="https://becomeomni.com/banner.png" />
+        <meta name="twitter:site" content="@becomeomni" />
+        <link rel="canonical" href="https://becomeomni.com" />
 
         <Script id="facebook-pixel" strategy="lazyOnload">
           {`
@@ -161,15 +158,15 @@ export default function RootLayout({
               '@context': 'https://schema.org',
               '@type': 'Organization',
               name: siteMetadata.name,
-              alternateName: ['Suna', 'Kortix AI', 'Kortix: Your Autonomous AI Worker'],
+              alternateName: ['Omni AI', 'Omni Workforce'],
               url: siteMetadata.url,
-              logo: `${siteMetadata.url}/favicon.png`,
+              logo: `${siteMetadata.url}/logo_black.png`,
               description: siteMetadata.description,
               foundingDate: '2024',
               sameAs: [
-                'https://github.com/Kortix-ai/Suna',
-                'https://x.com/kortix',
-                'https://linkedin.com/company/kortix',
+                'https://github.com/becomeomni',
+                'https://x.com/becomeomni',
+                'https://linkedin.com/company/becomeomni',
               ],
               contactPoint: {
                 '@type': 'ContactPoint',

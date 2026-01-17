@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { createClient } from '@/lib/supabase/client';
 import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
 import { useMaintenanceNoticeQuery } from '@/hooks/edge-flags';
@@ -104,7 +104,7 @@ export default function SubscriptionRequiredPage() {
           <div className="flex items-center justify-between">
             <div className="flex-1" />
             <div className="text-2xl font-medium flex items-center justify-center gap-2">
-              <KortixLogo />
+              <OmniLogo />
               <span>{isTrialExpired ? 'Your Trial Has Ended' : 'Subscription Required'}</span>
             </div>
             <div className="flex-1 flex justify-end">
@@ -121,8 +121,8 @@ export default function SubscriptionRequiredPage() {
           </div>
           <p className="text-md text-muted-foreground max-w-2xl mx-auto">
             {isTrialExpired
-              ? 'Your 7-day free trial has ended. Choose a plan to continue using Kortix AI.'
-              : 'A subscription is required to use Kortix. Choose the plan that works best for you.'}
+              ? 'Your 7-day free trial has ended. Choose a plan to continue using Omni.'
+              : 'A subscription is required to use Omni. Choose the plan that works best for you.'}
           </p>
         </div>
         <Suspense fallback={
@@ -141,8 +141,8 @@ export default function SubscriptionRequiredPage() {
         <div className="text-center text-sm text-muted-foreground -mt-10">
           <p>
             Questions? Contact us at{' '}
-            <a href="mailto:support@kortix.com" className="underline hover:text-primary">
-              support@kortix.com
+            <a href="mailto:support@becomeomni.com" className="underline hover:text-primary">
+              support@becomeomni.com
             </a>
           </p>
         </div>
