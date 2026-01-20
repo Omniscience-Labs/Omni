@@ -49,7 +49,7 @@ class SandboxPodcastTool(SandboxToolsBase):
                     "async_mode": {
                         "type": "boolean",
                         "description": "If true, returns immediately with job ID for tracking. If false, waits for completion.",
-                        "default": True
+                        "default": False
                     }
                 },
                 "required": ["agent_run_id"]
