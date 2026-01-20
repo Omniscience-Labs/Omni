@@ -180,7 +180,7 @@ class ResponseProcessor:
         
         Args:
             chunk_content: The current chunk content to filter
-            config: ProcessorConfig to check if XML tool calling is enabled
+            config: ProcessorConfig (kept for compatibility, but not used for filtering decision)
             
         Returns:
             Clean text with XML tags removed
@@ -800,21 +800,44 @@ class ResponseProcessor:
                     final_content = final_content.replace("|||STOP_AGENT|||", "").strip()
                     logger.debug("Removed |||STOP_AGENT||| stop token from assistant message")
 
-                message_data = { # Dict to be saved in 'content'
-                    "role": "assistant", "content": final_content
+                # Extract clean text content (without tool calls) - always strip XML to prevent it appearing in UI
+                # Even if xml_tool_calling is disabled, models may still return XML format
+                text_content = strip_xml_tool_calls(final_content)
+                
+                # Always parse XML tool calls from final_content for metadata (even if xml_tool_calling is disabled)
+                # This ensures tool calls are visible in the UI even when XML tool calling is not enabled
+                # We parse from final_content (before stripping) to capture all tool calls
+                parsed_xml_tool_calls_for_metadata = []
+                if final_content and "<function_calls>" in final_content:
+                    xml_chunks_for_metadata = extract_xml_chunks(final_content)
+                    current_assistant_id_for_metadata = None  # Will be set after message is saved
+                    xml_index_for_metadata = 0
+                    for xml_chunk in xml_chunks_for_metadata:
+                        parsed_for_metadata = parse_xml_tool_calls_with_ids(xml_chunk, None, xml_index_for_metadata)
+                        for tool_call in parsed_for_metadata:
+                            tool_call_id = tool_call.get("id")
+                            if tool_call_id and not any(tc.get("tool_call_id") == tool_call_id for tc in parsed_xml_tool_calls_for_metadata):
+                                parsed_xml_tool_calls_for_metadata.append({
+                                    "tool_call_id": tool_call_id,
+                                    "function_name": tool_call.get("function_name"),
+                                    "arguments": tool_call.get("arguments"),
+                                    "source": "xml"
+                                })
+                            xml_index_for_metadata += 1
+                
+                # Build unified metadata with all tool calls (native + XML) and clean text
+                assistant_metadata = {"thread_run_id": thread_run_id}
+                if text_content.strip():
+                    assistant_metadata["text_content"] = text_content
+                
+                # Use cleaned text_content in message_data - this is what gets sent to frontend
+                message_data = { # Dict to be saved in 'content' - use clean text without XML tags
+                    "role": "assistant", "content": text_content
                 }
                 
                 # Only add tool_calls field for NATIVE tool calling
                 if config.native_tool_calling and complete_native_tool_calls:
                     message_data["tool_calls"] = complete_native_tool_calls
-
-                # Build unified metadata with all tool calls (native + XML) and clean text
-                assistant_metadata = {"thread_run_id": thread_run_id}
-                
-                # Extract clean text content (without tool calls)
-                text_content = strip_xml_tool_calls(final_content) if config.xml_tool_calling else final_content
-                if text_content.strip():
-                    assistant_metadata["text_content"] = text_content
                 
                 # Unify all tool calls into single tool_calls array
                 unified_tool_calls = []
@@ -824,9 +847,11 @@ class ResponseProcessor:
                     for tc in complete_native_tool_calls:
                         unified_tool_calls.append(convert_to_unified_tool_call_format(tc))
                 
-                # Add XML tool calls
-                if config.xml_tool_calling and xml_tool_calls_with_ids:
-                    for xml_tc in xml_tool_calls_with_ids:
+                # Add XML tool calls - always include if parsed (even if xml_tool_calling is disabled)
+                # Use parsed_xml_tool_calls_for_metadata if xml_tool_calls_with_ids is empty (happens when xml_tool_calling is False)
+                xml_tool_calls_to_add = xml_tool_calls_with_ids if xml_tool_calls_with_ids else parsed_xml_tool_calls_for_metadata
+                if xml_tool_calls_to_add:
+                    for xml_tc in xml_tool_calls_to_add:
                         unified_tool_calls.append({
                             "tool_call_id": xml_tc.get("tool_call_id"),
                             "function_name": xml_tc.get("function_name"),
@@ -1415,10 +1440,11 @@ class ResponseProcessor:
 
 
             # Extract clean text content (without tool calls) for frontend
-            text_content = strip_xml_tool_calls(content) if config.xml_tool_calling else content
+            # Always strip XML to prevent it appearing in UI (even if xml_tool_calling is disabled)
+            text_content = strip_xml_tool_calls(content)
             
-            # Ensure text_content is clean - double-check if there's still XML
-            if config.xml_tool_calling and text_content:
+            # Ensure text_content is clean - double-check if there's still XML (safety pass)
+            if text_content:
                 # Additional cleanup pass to catch any remaining XML tags
                 text_content = re.sub(r'<function_calls[^>]*>[\s\S]*?</function_calls>', '', text_content, flags=re.IGNORECASE)
                 text_content = text_content.strip()

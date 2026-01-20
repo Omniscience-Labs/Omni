@@ -349,13 +349,35 @@ async def process_agent_responses(
             trace.span(name="agent_run_stopped").end(status_message=f"agent_run_stopped: {stop_reason}", level="WARNING")
             break
 
-        response_json = json.dumps(response)
-        pending_redis_operations.append(
-            asyncio.create_task(redis.rpush(redis_keys['response_list'], response_json))
-        )
-        pending_redis_operations.append(
-            asyncio.create_task(redis.publish(redis_keys['response_channel'], "new"))
-        )
+        response_json = json.dumps(response)    
+        # CRITICAL FIX: Publish to Redis with error handling and retry
+        # If Redis connection fails, chunks won't reach the frontend, causing "response pops out of nowhere"
+        async def safe_redis_publish():
+            max_retries = 3
+            retry_delay = 0.1  # 100ms between retries
+            
+            for attempt in range(max_retries):
+                try:
+                    await redis.rpush(redis_keys['response_list'], response_json)
+                    await redis.publish(redis_keys['response_channel'], "new")
+                    return  # Success
+                except Exception as redis_err:
+                    if attempt < max_retries - 1:
+                        logger.warning(f"⚠️ Redis publish failed (attempt {attempt + 1}/{max_retries}) for {agent_run_id}: {redis_err}, retrying...")
+                        await asyncio.sleep(retry_delay * (attempt + 1))  # Exponential backoff
+                    else:
+                        # Final attempt failed
+                        logger.error(f"❌ CRITICAL: Failed to publish chunk to Redis after {max_retries} attempts for {agent_run_id}")
+                        logger.error(f"❌ Redis error: {redis_err} (type: {type(redis_err).__name__})")
+                        logger.error(f"❌ Chunk type: {response.get('type')}, sequence: {response.get('sequence')}")
+                        logger.error(f"❌ This will cause chunks to not appear in frontend!")
+                        # Don't re-raise - we want to continue processing even if Redis fails
+                        # The error will be tracked in pending_redis_operations check
+        
+        # Create task but also track it for error handling
+        publish_task = asyncio.create_task(safe_redis_publish())
+        pending_redis_operations.append(publish_task)
+
         total_responses += 1
         stop_signal_checker_state['total_responses'] = total_responses
         
