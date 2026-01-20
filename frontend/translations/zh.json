@@ -285,7 +285,7 @@
     "chatDescription": "简单的来回对话",
     "sampleAnswers": "示例答案",
     "samplePrompts": "示例提示",
-    "waitingForUserResponse": "您回答后，Kortix将继续自主工作。",
+    "waitingForUserResponse": "您回答后，OMNI将继续自主工作。",
     "taskCompleted": "任务已完成",
     "uploadingFiles": "正在上传 {count} 个文件...",
     "uploadingFilesOne": "正在上传 {count} 个文件...",
@@ -309,7 +309,7 @@
     "rateThisResult": "评价此结果",
     "feedbackHelpsImprove": "您的反馈帮助我们改进",
     "additionalFeedbackOptional": "附加反馈（可选）",
-    "helpKortixImprove": "帮助 Kortix 通过您的反馈改进",
+    "helpOMNIImprove": "帮助 OMNI 通过您的反馈改进",
     "submit": "提交",
     "submitting": "提交中...",
     "feedbackSubmittedSuccess": "反馈提交成功",
@@ -332,10 +332,10 @@
     "heroPlaceholder": "描述你想让你的 Worker 完成的任务..."
   },
   "showcase": {
-    "title": "Kortix：您的自主AI工作器",
+    "title": "OMNI：您的自主AI工作器",
     "subtitle": "为复杂任务而构建，为一切而设计。终极AI助手，处理一切——从简单请求到超级复杂的项目。",
     "tryItOut": "试试看",
-    "kortixComputer": "Kortix Computer",
+    "OMNIComputer": "OMNI Computer",
     "running": "运行中",
     "workers": {
       "images": {
@@ -441,10 +441,10 @@
     "localModeMessage": "在本地开发模式下运行 - 账单功能已禁用",
     "creditsExplainedPage": {
       "title": "积分说明",
-      "subtitle": "关于 Kortix 积分工作原理你需要知道的一切",
+      "subtitle": "关于 OMNI 积分工作原理你需要知道的一切",
       "understandingCredits": {
         "title": "了解积分",
-        "description": "积分是 Kortix 平台操作的通用货币。你的 AI 智能体执行的每个操作——从分析数据到生成代码——都会根据任务的复杂性和所需资源消耗积分。"
+        "description": "积分是 OMNI 平台操作的通用货币。你的 AI 智能体执行的每个操作——从分析数据到生成代码——都会根据任务的复杂性和所需资源消耗积分。"
       },
       "howCreditsWork": {
         "title": "积分如何工作",
@@ -462,7 +462,7 @@
       },
       "gettingMoreCredits": {
         "title": "获取更多积分",
-        "description": "在 Kortix 中有几种获取积分的方式：",
+        "description": "在 OMNI 中有几种获取积分的方式：",
         "monthlySubscription": {
           "title": "月度订阅积分",
           "description": "包含在你的付费计划中，每月自动续订。这些是过期积分。"
@@ -482,7 +482,7 @@
       },
       "typesOfCredits": {
         "title": "积分类型",
-        "description": "Kortix 使用两种类型的积分，让你灵活管理使用：",
+        "description": "OMNI 使用两种类型的积分，让你灵活管理使用：",
         "expiringCredits": {
           "title": "过期积分",
           "description": "月度订阅积分",
@@ -495,7 +495,7 @@
         },
         "creditPriority": {
           "title": "积分优先级：",
-          "description": "当你使用 Kortix 时，过期积分首先被消耗。只有在过期积分用完后，才会使用不过期积分。"
+          "description": "当你使用 OMNI 时，过期积分首先被消耗。只有在过期积分用完后，才会使用不过期积分。"
         }
       }
     },
@@ -546,16 +546,16 @@
       "continue": "继续",
       "keepCurrentPlan": "保留我的当前计划",
       "feedbackTitle": "帮助我们改进",
-      "feedbackSubtitle": "您的反馈塑造Kortix的未来",
+      "feedbackSubtitle": "您的反馈塑造OMNI的未来",
       "whatWouldMakeYouStay": "什么会让您留下来？",
-      "feedbackPlaceholder": "如果我们可以改变或添加一件事来让Kortix对您有价值，那会是什么？",
+      "feedbackPlaceholder": "如果我们可以改变或添加一件事来让OMNI对您有价值，那会是什么？",
       "feedbackFooter": "我们的团队会阅读每一条回复。您的反馈直接影响我们接下来构建什么。",
       "confirmDowngrade": "确认降级",
       "processing": "处理中...",
       "pleaseSelectReason": "请选择一个原因",
       "reasons": {
         "tooExpensive": "对我的需求来说太贵了",
-        "notUsingOften": "我使用Kortix不够频繁",
+        "notUsingOften": "我使用OMNI不够频繁",
         "foundAlternative": "我找到了其他解决方案",
         "technicalIssues": "我遇到了技术问题",
         "resultsNotGood": "结果没有达到我的期望",
@@ -569,7 +569,7 @@
     "enterCode": "输入代码",
     "logIntoAccount": "登录你的账户",
     "createAccount": "创建账号",
-    "signInOrCreateAccount": "登录或创建您的Kortix账户",
+    "signInOrCreateAccount": "登录或创建您的OMNI账户",
     "continueWithGoogle": "使用 Google 继续",
     "continueWithGitHub": "使用 GitHub 继续",
     "orEmail": "或邮箱",

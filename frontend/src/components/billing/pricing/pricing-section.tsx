@@ -26,7 +26,7 @@ import { ScheduledDowngradeCard } from '@/components/billing/scheduled-downgrade
 import posthog from 'posthog-js';
 import { AnimatedBg } from '@/components/ui/animated-bg';
 import { TierBadge } from '@/components/billing/tier-badge';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { CreditPurchaseModal } from '@/components/billing/credit-purchase';
 import { BorderBeam } from '@/components/ui/border-beam';
 import { useTranslations } from 'next-intl';
@@ -747,7 +747,7 @@ function PricingTier({
                       <div className="flex-1">
                         <div className="flex items-center gap-1 sm:gap-1.5">
                           <span className="text-xs sm:text-sm font-medium">{match[1]} custom</span>
-                          <KortixLogo size={12} variant="symbol" className="hidden sm:block" />
+                          <OmniLogo size={12} variant="symbol" className="hidden sm:block" />
                           <span className="text-xs sm:text-sm font-medium">AI Workers</span>
                         </div>
                         {description && (
@@ -759,7 +759,7 @@ function PricingTier({
                 }
               }
               
-              // Special handling for Kortix Power mode - show with Basic crossed out
+              // Special handling for OMNI Power mode - show with Basic crossed out
               if (feature.includes('Power mode') || feature.includes('POWER Mode')) {
                 const description = feature.split(' - ')[1];
                 return (
@@ -772,8 +772,8 @@ function PricingTier({
                         <span className="text-[10px] sm:text-xs text-muted-foreground/60 line-through">Basic</span>
                         <span className="text-muted-foreground/40 text-xs">→</span>
                         <span className="inline-flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-0.5 bg-primary/10 dark:bg-primary/15 rounded-md">
-                          <KortixLogo size={10} variant="symbol" className="sm:hidden" />
-                          <KortixLogo size={12} variant="symbol" className="hidden sm:block" />
+                          <OmniLogo size={10} variant="symbol" className="sm:hidden" />
+                          <OmniLogo size={12} variant="symbol" className="hidden sm:block" />
                           <span className="text-[10px] sm:text-xs font-semibold text-primary">Power</span>
                         </span>
                       </div>

@@ -285,7 +285,7 @@
     "chatDescription": "Conversa simples de ida e volta",
     "sampleAnswers": "Respostas de exemplo",
     "samplePrompts": "Prompts de exemplo",
-    "waitingForUserResponse": "Kortix continuará trabalhando de forma autônoma após tua resposta.",
+    "waitingForUserResponse": "OMNI continuará trabalhando de forma autônoma após tua resposta.",
     "taskCompleted": "Tarefa concluída",
     "uploadingFiles": "Enviando {count} arquivo{plural}...",
     "uploadingFilesOne": "Enviando {count} arquivo...",
@@ -309,7 +309,7 @@
     "rateThisResult": "Avaliar este resultado",
     "feedbackHelpsImprove": "Teu feedback nos ajuda a melhorar",
     "additionalFeedbackOptional": "Feedback adicional (opcional)",
-    "helpKortixImprove": "Ajuda Kortix a melhorar com teu feedback",
+    "helpOMNIImprove": "Ajuda OMNI a melhorar com teu feedback",
     "submit": "Enviar",
     "submitting": "Enviando...",
     "feedbackSubmittedSuccess": "Feedback enviado com sucesso",
@@ -332,10 +332,10 @@
     "heroPlaceholder": "Descreve a tarefa que queres que teu Worker complete..."
   },
   "showcase": {
-    "title": "Kortix: Teu Worker de IA Autônomo",
+    "title": "OMNI: Teu Worker de IA Autônomo",
     "subtitle": "Construído para tarefas complexas, projetado para tudo. O assistente de IA definitivo que lida com tudo—de solicitações simples a projetos mega-complexos.",
     "tryItOut": "Experimentar",
-    "kortixComputer": "Kortix Computer",
+    "OMNIComputer": "OMNI Computer",
     "running": "Em execução",
     "workers": {
       "images": {
@@ -441,10 +441,10 @@
     "localModeMessage": "Executando em modo de desenvolvimento local - recursos de cobrança desabilitados",
     "creditsExplainedPage": {
       "title": "Créditos Explicados",
-      "subtitle": "Tudo o que precisas saber sobre como os créditos funcionam no Kortix",
+      "subtitle": "Tudo o que precisas saber sobre como os créditos funcionam no OMNI",
       "understandingCredits": {
         "title": "Entendendo Créditos",
-        "description": "Os créditos servem como moeda universal do Kortix para operações da plataforma. Cada ação que teus agentes de IA executam—de analisar dados a gerar código—consome créditos com base na complexidade da tarefa e nos recursos necessários."
+        "description": "Os créditos servem como moeda universal do OMNI para operações da plataforma. Cada ação que teus agentes de IA executam—de analisar dados a gerar código—consome créditos com base na complexidade da tarefa e nos recursos necessários."
       },
       "howCreditsWork": {
         "title": "Como os Créditos Funcionam",
@@ -462,7 +462,7 @@
       },
       "gettingMoreCredits": {
         "title": "Obtendo Mais Créditos",
-        "description": "Existem várias formas de obter créditos no Kortix:",
+        "description": "Existem várias formas de obter créditos no OMNI:",
         "monthlySubscription": {
           "title": "Créditos de Assinatura Mensal",
           "description": "Incluídos no teu plano pago e renovados automaticamente a cada mês. Estes são créditos com expiração."
@@ -482,7 +482,7 @@
       },
       "typesOfCredits": {
         "title": "Tipos de Créditos",
-        "description": "O Kortix usa dois tipos de créditos para te dar flexibilidade em como geres teu uso:",
+        "description": "O OMNI usa dois tipos de créditos para te dar flexibilidade em como geres teu uso:",
         "expiringCredits": {
           "title": "Créditos com Expiração",
           "description": "Créditos de assinatura mensal",
@@ -495,7 +495,7 @@
         },
         "creditPriority": {
           "title": "Prioridade de Créditos:",
-          "description": "Quando usas o Kortix, os créditos com expiração são consumidos primeiro. Apenas após os teus créditos com expiração se esgotarem, os créditos sem expiração serão usados."
+          "description": "Quando usas o OMNI, os créditos com expiração são consumidos primeiro. Apenas após os teus créditos com expiração se esgotarem, os créditos sem expiração serão usados."
         }
       }
     },
@@ -546,16 +546,16 @@
       "continue": "Continuar",
       "keepCurrentPlan": "Manter meu plano atual",
       "feedbackTitle": "Ajude-nos a melhorar",
-      "feedbackSubtitle": "Seu feedback molda o futuro do Kortix",
+      "feedbackSubtitle": "Seu feedback molda o futuro do OMNI",
       "whatWouldMakeYouStay": "O que faria você ficar?",
-      "feedbackPlaceholder": "Se houvesse uma coisa que pudéssemos mudar ou adicionar para tornar o Kortix valioso para você, qual seria?",
+      "feedbackPlaceholder": "Se houvesse uma coisa que pudéssemos mudar ou adicionar para tornar o OMNI valioso para você, qual seria?",
       "feedbackFooter": "Nossa equipe lê cada resposta. Suas palavras influenciam diretamente o que construímos a seguir.",
       "confirmDowngrade": "Confirmar downgrade",
       "processing": "Processando...",
       "pleaseSelectReason": "Por favor, selecione um motivo",
       "reasons": {
         "tooExpensive": "É muito caro para minhas necessidades",
-        "notUsingOften": "Não estou usando o Kortix o suficiente",
+        "notUsingOften": "Não estou usando o OMNI o suficiente",
         "foundAlternative": "Encontrei outra solução",
         "technicalIssues": "Tive problemas técnicos",
         "resultsNotGood": "Os resultados não atenderam às minhas expectativas",
@@ -569,7 +569,7 @@
     "enterCode": "Inserir código",
     "logIntoAccount": "Entra na tua conta",
     "createAccount": "Criar conta",
-    "signInOrCreateAccount": "Entra ou cria a tua conta Kortix",
+    "signInOrCreateAccount": "Entra ou cria a tua conta OMNI",
     "continueWithGoogle": "Continuar com Google",
     "continueWithGitHub": "Continuar com GitHub",
     "orEmail": "ou email",

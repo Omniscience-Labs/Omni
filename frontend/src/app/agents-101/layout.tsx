@@ -1,19 +1,19 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Agents 101 | Kortix',
+  title: 'Agents 101 | OMNI',
   description: 'An introduction to AI Agents. Learn what AI agents are, how they work, and how to build them.',
   openGraph: {
-    title: 'Agents 101 | Kortix',
+    title: 'Agents 101 | OMNI',
     description: 'An introduction to AI Agents.',
-    url: 'https://kortix.ai/agents-101',
-    siteName: 'Kortix',
+    url: 'https://OMNI.ai/agents-101',
+    siteName: 'OMNI',
     images: [{ url: '/banner.png', width: 1200, height: 630 }],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Agents 101 | Kortix',
+    title: 'Agents 101 | OMNI',
     description: 'An introduction to AI Agents.',
     images: ['/banner.png'],
   },

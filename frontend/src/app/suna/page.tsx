@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     title: 'Omni is now Omni',
     description: 'Omni (formerly Omni) - Same powerful open source AI worker, new name.',
     type: 'website',
-    url: 'https://kortix.com/suna',
+    url: 'https://becomeomni.com/suna',
     siteName: 'Omni',
     images: [
       {
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     images: ['/banner.png'],
   },
   alternates: {
-    canonical: 'https://kortix.com/suna',
+    canonical: 'https://becomeomni.com/suna',
   },
   robots: {
     index: true,
@@ -64,12 +64,12 @@ export default function OmniPage() {
             '@type': 'Organization',
             name: 'Omni',
             alternateName: ['Omni', 'Omni Omni', 'Omni AI'],
-            url: 'https://kortix.com',
-            logo: 'https://kortix.com/favicon.png',
+            url: 'https://becomeomni.com',
+            logo: 'https://becomeomni.com/favicon.png',
             sameAs: [
-              'https://github.com/kortix-ai',
-              'https://x.com/kortix',
-              'https://linkedin.com/company/kortix',
+              'https://github.com/becomeomni',
+              'https://x.com/becomeomni',
+              'https://linkedin.com/company/become-omni',
             ],
             description:
               'Omni (formerly known as Omni) is an open source generalist AI worker that helps you accomplish real-world tasks through natural conversation.',
@@ -88,13 +88,13 @@ export default function OmniPage() {
                 '@type': 'ListItem',
                 position: 1,
                 name: 'Home',
-                item: 'https://kortix.com',
+                item: 'https://becomeomni.com',
               },
               {
                 '@type': 'ListItem',
                 position: 2,
                 name: 'Omni is now Omni',
-                item: 'https://kortix.com/suna',
+                item: 'https://becomeomni.com/suna',
               },
             ],
           }),
@@ -157,7 +157,7 @@ export default function OmniPage() {
                 <ArrowRight className="ml-2 size-4" />
               </Link>
               <a
-                href="https://github.com/kortix-ai/suna"
+                href="https://github.com/becomeomni"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex h-12 items-center justify-center w-full sm:w-auto px-8 text-center rounded-full border border-border bg-background hover:bg-accent/50 transition-all font-medium"
@@ -178,7 +178,7 @@ export default function OmniPage() {
                 </h2>
                 <div className="space-y-3 text-base md:text-lg text-muted-foreground font-medium">
                   <p>Our name changed from Omni to Omni</p>
-                  <p>Our domain is now kortix.com</p>
+                  <p>Our domain is now becomeomni.com</p>
                 </div>
               </div>
 
@@ -206,7 +206,7 @@ export default function OmniPage() {
                   Where to find us?
                 </h2>
                 <p className="text-base md:text-lg text-muted-foreground font-medium">
-                  Our GitHub repository remains at github.com/kortix-ai/suna
+                  Our GitHub repository remains at github.com/becomeomni
                 </p>
               </div>
             </div>

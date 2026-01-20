@@ -374,9 +374,9 @@ function LoginContent() {
             <Image
               src={isDarkMode ? '/OMNI-Logo-light.png' : '/OMNI-Logo-Dark.png'}
               alt="Omni"
-              width={120}
-              height={36}
-              className="h-9 w-auto"
+              width={160}
+              height={48}
+              className="h-12 w-auto"
               priority
             />
           )}
