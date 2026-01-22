@@ -10,18 +10,15 @@ class ZillowProvider(RapidDataProviderBase):
     def __init__(self):
         endpoints: Dict[str, EndpointSchema] = {
             "search": {
-                "route": "/search",
+                "route": "/v3/for-sale",
                 "method": "GET",
-                "name": "Zillow Property Search",
-                "description": "Search for properties by neighborhood, city, or ZIP code with various filters.",
+                "name": "Property Search",
+                "description": "Search for properties for sale by location (city, state, ZIP code) with various filters.",
                 "payload": {
-                    "location": "Location can be an address, neighborhood, city, or ZIP code (required)",
-                    "page": "Page number for pagination (optional, default: 0)",
-                    "output": "Output format: json, csv, xlsx (optional, default: json)",
-                    "status": "Status of properties: forSale, forRent, recentlySold (optional, default: forSale)",
-                    "sortSelection": "Sorting criteria (optional, default: priorityscore)",
-                    "listing_type": "Listing type: by_agent, by_owner_other (optional, default: by_agent)",
-                    "doz": "Days on Zillow: any, 1, 7, 14, 30, 90, 6m, 12m, 24m, 36m (optional, default: any)",
+                    "location": "Location can be a city, state, or ZIP code (e.g., 'Houston, TX' or '77001') (required)",
+                    "offset": "Offset for pagination (optional, default: 0)",
+                    "limit": "Number of results per page (optional, default: 42, max: 200)",
+                    "sort": "Sort order: newest, price_high, price_low, beds, baths, sqft, lot_sqft (optional)",
                     "price_min": "Minimum price (optional)",
                     "price_max": "Maximum price (optional)",
                     "sqft_min": "Minimum square footage (optional)",
@@ -30,71 +27,106 @@ class ZillowProvider(RapidDataProviderBase):
                     "beds_max": "Maximum number of bedrooms (optional)",
                     "baths_min": "Minimum number of bathrooms (optional)",
                     "baths_max": "Maximum number of bathrooms (optional)",
-                    "built_min": "Minimum year built (optional)",
-                    "built_max": "Maximum year built (optional)",
-                    "lotSize_min": "Minimum lot size in sqft (optional)",
-                    "lotSize_max": "Maximum lot size in sqft (optional)",
-                    "keywords": "Keywords to search for (optional)"
+                    "year_built_min": "Minimum year built (optional)",
+                    "year_built_max": "Maximum year built (optional)",
+                    "lot_sqft_min": "Minimum lot size in sqft (optional)",
+                    "lot_sqft_max": "Maximum lot size in sqft (optional)",
+                    "property_type": "Property type filter (optional)",
+                    "status": "Property status: for_sale, for_rent, recently_sold (optional, default: for_sale)"
                 }
             },
             "search_address": {
-                "route": "/search_address",
+                "route": "/v3/property-detail",
                 "method": "GET",
-                "name": "Zillow Address Search",
+                "name": "Property Search by Address",
                 "description": "Search for a specific property by its full address.",
                 "payload": {
                     "address": "Full property address (required)"
                 }
             },
             "propertyV2": {
-                "route": "/propertyV2",
+                "route": "/v3/property-detail",
                 "method": "GET",
-                "name": "Zillow Property Details",
-                "description": "Get detailed information about a specific property by zpid or URL.",
+                "name": "Property Details",
+                "description": "Get detailed information about a specific property by property_id, address, or MLS ID.",
                 "payload": {
-                    "zpid": "Zillow property ID (optional if URL is provided)",
-                    "url": "Property details URL (optional if zpid is provided)"
+                    "property_id": "Property ID (optional if address or mls_id is provided)",
+                    "address": "Property address (optional if property_id or mls_id is provided)",
+                    "mls_id": "MLS ID (optional if property_id or address is provided)"
                 }
             },
-            "zestimate_history": {
-                "route": "/zestimate_history",
+            "search_rent": {
+                "route": "/v2/for-rent",
                 "method": "GET",
-                "name": "Zillow Zestimate History",
-                "description": "Get historical Zestimate values for a specific property.",
+                "name": "Rental Property Search",
+                "description": "Search for rental properties by location with various filters.",
                 "payload": {
-                    "zpid": "Zillow property ID (optional if URL is provided)",
-                    "url": "Property details URL (optional if zpid is provided)"
+                    "location": "Location can be a city, state, or ZIP code (e.g., 'Houston, TX' or '77001') (required)",
+                    "offset": "Offset for pagination (optional, default: 0)",
+                    "limit": "Number of results per page (optional, default: 42)",
+                    "price_min": "Minimum rent price (optional)",
+                    "price_max": "Maximum rent price (optional)",
+                    "beds_min": "Minimum number of bedrooms (optional)",
+                    "baths_min": "Minimum number of bathrooms (optional)",
+                    "sqft_min": "Minimum square footage (optional)",
+                    "property_type": "Property type filter (optional)"
                 }
             },
-            "similar_properties": {
-                "route": "/similar_properties",
+            "sold_homes": {
+                "route": "/sold-homes",
                 "method": "GET",
-                "name": "Zillow Similar Properties",
-                "description": "Find properties similar to a specific property.",
+                "name": "Sold Homes Search",
+                "description": "Search for recently sold properties by location.",
                 "payload": {
-                    "zpid": "Zillow property ID (optional if URL or address is provided)",
-                    "url": "Property details URL (optional if zpid or address is provided)",
-                    "address": "Property address (optional if zpid or URL is provided)"
+                    "location": "Location can be a city, state, or ZIP code (e.g., 'Houston, TX' or '77001') (required)",
+                    "offset": "Offset for pagination (optional, default: 0)",
+                    "limit": "Number of results per page (optional, default: 42)"
                 }
             },
             "mortgage_rates": {
-                "route": "/mortgage/rates",
+                "route": "/finance/average-rate",
                 "method": "GET",
-                "name": "Zillow Mortgage Rates",
-                "description": "Get current mortgage rates for different loan programs and conditions.",
+                "name": "Mortgage Rates",
+                "description": "Get current average mortgage rates.",
                 "payload": {
-                    "program": "Loan program (required): Fixed30Year, Fixed20Year, Fixed15Year, Fixed10Year, ARM3, ARM5, ARM7, etc.",
-                    "state": "State abbreviation (optional, default: US)",
-                    "refinance": "Whether this is for refinancing (optional, default: false)",
-                    "loanType": "Type of loan: Conventional, etc. (optional)",
-                    "loanAmount": "Loan amount category: Micro, SmallConforming, Conforming, SuperConforming, Jumbo (optional)",
-                    "loanToValue": "Loan to value ratio: Normal, High, VeryHigh (optional)",
-                    "creditScore": "Credit score category: Low, High, VeryHigh (optional)",
-                    "duration": "Duration in days (optional, default: 30)"
+                    "loan_term": "Loan term in years (e.g., 30, 15, etc.) (optional)",
+                    "loan_type": "Loan type: conventional, fha, va, etc. (optional)"
                 }
             },
+            "mortgage_calculate": {
+                "route": "/finance/mortgage-calculate",
+                "method": "GET",
+                "name": "Mortgage Calculator",
+                "description": "Calculate mortgage payments based on loan amount, rate, and term.",
+                "payload": {
+                    "price": "Property price (required)",
+                    "down_payment": "Down payment amount (optional)",
+                    "down_payment_percent": "Down payment percentage (optional)",
+                    "loan_term": "Loan term in years (optional, default: 30)",
+                    "interest_rate": "Interest rate as decimal (e.g., 0.065 for 6.5%) (optional)"
+                }
+            },
+            "location_suggest": {
+                "route": "/location/suggest",
+                "method": "GET",
+                "name": "Location Suggestions",
+                "description": "Get location address suggestions for autocomplete.",
+                "payload": {
+                    "q": "Search query for location (required)"
+                }
+            },
+            "nearby_properties": {
+                "route": "/location/for-sale-nearby-areas",
+                "method": "GET",
+                "name": "Nearby Properties",
+                "description": "Find properties for sale in nearby areas.",
+                "payload": {
+                    "location": "Location (city, state, or ZIP code) (required)",
+                    "radius": "Radius in miles (optional, default: 5)"
+                }
+            }
         }
-        base_url = "https://zillow56.p.rapidapi.com"
+        base_url = "https://us-real-estate.p.rapidapi.com"
         super().__init__(base_url, endpoints)
 
 
@@ -108,11 +140,12 @@ if __name__ == "__main__":
     search_result = tool.call_endpoint(
         route="search",
         payload={
-            "location": "houston, tx",
-            "status": "forSale",
-            "sortSelection": "priorityscore",
-            "listing_type": "by_agent",
-            "doz": "any"
+            "location": "Houston, TX",
+            "limit": 20,
+            "sort": "newest",
+            "price_min": 100000,
+            "price_max": 500000,
+            "beds_min": 2
         }
     )
     logger.debug("Search Result: %s", search_result)
@@ -136,7 +169,7 @@ if __name__ == "__main__":
     property_result = tool.call_endpoint(
         route="propertyV2",
         payload={
-            "zpid": "7594920"
+            "address": "1161 Natchez Dr College Station Texas 77845"
         }
     )
     logger.debug("Property Details Result: %s", property_result)
@@ -144,27 +177,16 @@ if __name__ == "__main__":
     logger.debug("***")
     logger.debug("***")
     logger.debug("***")
-
-    # Example for getting zestimate history
-    zestimate_result = tool.call_endpoint(
-        route="zestimate_history",
+    # Example for searching rental properties
+    rent_result = tool.call_endpoint(
+        route="search_rent",
         payload={
-            "zpid": "20476226"
+            "location": "Houston, TX",
+            "limit": 20,
+            "price_max": 2000
         }
     )
-    logger.debug("Zestimate History Result: %s", zestimate_result)
-    sleep(1)
-    logger.debug("***")
-    logger.debug("***")
-    logger.debug("***")
-    # Example for getting similar properties
-    similar_result = tool.call_endpoint(
-        route="similar_properties",
-        payload={
-            "zpid": "28253016"
-        }
-    )
-    logger.debug("Similar Properties Result: %s", similar_result)
+    logger.debug("Rental Search Result: %s", rent_result)
     sleep(1)
     logger.debug("***")
     logger.debug("***")
@@ -173,15 +195,24 @@ if __name__ == "__main__":
     mortgage_result = tool.call_endpoint(
         route="mortgage_rates",
         payload={
-            "program": "Fixed30Year",
-            "state": "US",
-            "refinance": "false",
-            "loanType": "Conventional",
-            "loanAmount": "Conforming",
-            "loanToValue": "Normal",
-            "creditScore": "Low",
-            "duration": "30"
+            "loan_term": 30,
+            "loan_type": "conventional"
         }
     )
     logger.debug("Mortgage Rates Result: %s", mortgage_result)
+    sleep(1)
+    logger.debug("***")
+    logger.debug("***")
+    logger.debug("***")
+    # Example for mortgage calculation
+    mortgage_calc_result = tool.call_endpoint(
+        route="mortgage_calculate",
+        payload={
+            "price": 300000,
+            "down_payment_percent": 20,
+            "loan_term": 30,
+            "interest_rate": 0.065
+        }
+    )
+    logger.debug("Mortgage Calculation Result: %s", mortgage_calc_result)
   
