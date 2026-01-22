@@ -44,6 +44,141 @@ from core.agentpress.xml_tool_parser import strip_xml_tool_calls
 # Note: Debug stream saving is controlled by global_config.DEBUG_SAVE_LLM_IO
 
 
+class XMLTagFilterStateMachine:
+    """
+    State machine to filter XML tags from streaming text chunks.
+    
+    States:
+    - IN_TEXT: Currently in text content (output characters)
+    - IN_TAG: Inside an XML tag (e.g., <function_calls>)
+    - IN_ATTRIBUTE: Inside an attribute value (e.g., name="value")
+    - IN_COMMENT: Inside XML comment (not used for tool calls, but for robustness)
+    
+    The state machine processes chunks character-by-character and only outputs
+    text when in IN_TEXT state, effectively filtering out all XML tags.
+    """
+    
+    def __init__(self):
+        self.state = "IN_TEXT"
+        self.tag_depth = 0  # Track nested tags (for robustness, though tool calls shouldn't nest)
+        self.in_quotes = False
+        self.quote_char = None
+        
+    def process_chunk(self, chunk: str) -> str:
+        """
+        Process a chunk of text and return only the clean text (no XML tags).
+        
+        Args:
+            chunk: Raw chunk content from LLM
+            
+        Returns:
+            Clean text with XML tags filtered out
+        """
+        if not chunk:
+            return ""
+        
+        output = []
+        i = 0
+        
+        while i < len(chunk):
+            char = chunk[i]
+            
+            if self.state == "IN_TEXT":
+                if char == '<':
+                    # Potential start of XML tag
+                    if i + 1 < len(chunk):
+                        next_char = chunk[i + 1]
+                        if next_char == '/':
+                            # Closing tag: </tag>
+                            self.state = "IN_TAG"
+                            self.tag_depth = 1
+                            i += 1
+                            continue
+                        elif next_char == '!' and i + 3 < len(chunk) and chunk[i+1:i+4] == "!--":
+                            # XML comment: <!--
+                            self.state = "IN_COMMENT"
+                            i += 3
+                            continue
+                        else:
+                            # Opening tag: <tag>
+                            self.state = "IN_TAG"
+                            self.tag_depth = 1
+                            i += 1
+                            continue
+                    else:
+                        # '<' at end of chunk - start of tag, wait for next chunk
+                        self.state = "IN_TAG"
+                        self.tag_depth = 1
+                        break
+                else:
+                    # Regular text character - output it
+                    output.append(char)
+                    i += 1
+                    
+            elif self.state == "IN_TAG":
+                if char == '>':
+                    # End of tag
+                    self.tag_depth -= 1
+                    if self.tag_depth == 0:
+                        self.state = "IN_TEXT"
+                    i += 1
+                    continue
+                elif char in ('"', "'"):
+                    # Start of attribute value
+                    self.state = "IN_ATTRIBUTE"
+                    self.in_quotes = True
+                    self.quote_char = char
+                    i += 1
+                    continue
+                elif char == '<':
+                    # Another '<' inside tag (malformed, but handle it)
+                    # This could be a nested tag or just malformed XML
+                    self.tag_depth += 1
+                    i += 1
+                    continue
+                else:
+                    # Still in tag content
+                    i += 1
+                    continue
+                    
+            elif self.state == "IN_ATTRIBUTE":
+                if char == self.quote_char:
+                    # End of attribute value
+                    self.state = "IN_TAG"
+                    self.in_quotes = False
+                    self.quote_char = None
+                    i += 1
+                    continue
+                elif char == '\\' and i + 1 < len(chunk):
+                    # Escaped quote (skip the escape and the quote)
+                    i += 2
+                    continue
+                else:
+                    # Inside attribute value (don't output)
+                    i += 1
+                    continue
+                    
+            elif self.state == "IN_COMMENT":
+                if char == '-' and i + 2 < len(chunk) and chunk[i:i+3] == "-->":
+                    # End of comment
+                    self.state = "IN_TEXT"
+                    i += 3
+                    continue
+                else:
+                    # Inside comment (don't output)
+                    i += 1
+                    continue
+        
+        return ''.join(output)
+    
+    def reset(self):
+        """Reset the state machine (e.g., for a new message)."""
+        self.state = "IN_TEXT"
+        self.tag_depth = 0
+        self.in_quotes = False
+        self.quote_char = None
+
+
 # Type alias for tool execution strategy
 ToolExecutionStrategy = Literal["sequential", "parallel"]
 
@@ -171,41 +306,6 @@ class ResponseProcessor:
             # Ultimate fallback: convert to string
             return {"raw_response": str(model_response), "serialization_error": str(e)}
     
-    def _filter_xml_from_chunk(self, chunk_content: str, config: ProcessorConfig) -> str:
-        """
-        Filter XML tool call tags from a content chunk before yielding to frontend.
-        
-        This removes XML tool call tags (<function_calls>, <invoke>, <parameter>) 
-        from the chunk content so they don't appear in the frontend.
-        
-        Args:
-            chunk_content: The current chunk content to filter
-            config: ProcessorConfig (kept for compatibility, but not used for filtering decision)
-            
-        Returns:
-            Clean text with XML tags removed
-        """
-        if not chunk_content or not config.xml_tool_calling:
-            return chunk_content
-        
-        # Use strip_xml_tool_calls to remove complete XML blocks
-        # This handles the common case where XML tags are in the chunk
-        cleaned = strip_xml_tool_calls(chunk_content)
-        
-        # Handle partial XML tags that might be at the end of chunk (when XML spans chunks)
-        # Only remove incomplete tags that don't have closing tags - don't touch valid content
-        if '<function_calls' in cleaned and '</function_calls>' not in cleaned:
-            # Only remove if it's at the end (partial XML)
-            cleaned = re.sub(r'<function_calls[^>]*>.*$', '', cleaned, flags=re.DOTALL | re.IGNORECASE)
-        if '<invoke' in cleaned and '</invoke>' not in cleaned:
-            # Only remove if it's at the end (partial XML)
-            cleaned = re.sub(r'<invoke[^>]*>.*$', '', cleaned, flags=re.DOTALL | re.IGNORECASE)
-        if '<parameter' in cleaned and '</parameter>' not in cleaned:
-            # Only remove if it's at the end (partial XML)
-            cleaned = re.sub(r'<parameter[^>]*>.*$', '', cleaned, flags=re.DOTALL | re.IGNORECASE)
-        
-        return cleaned
-
     async def _add_message_with_agent_info(
         self,
         thread_id: str,
@@ -307,6 +407,9 @@ class ResponseProcessor:
         # CRITICAL: Generate unique ID for THIS specific LLM call (not per thread run)
         llm_response_id = str(uuid.uuid4())
         logger.info(f"🔵 LLM CALL #{auto_continue_count + 1} starting - llm_response_id: {llm_response_id}")
+        
+        # Initialize XML tag filter state machine for streaming
+        xml_filter = XMLTagFilterStateMachine()
 
         try:
             # --- Save and Yield Start Events ---
@@ -464,37 +567,29 @@ class ResponseProcessor:
                     # Process content chunk
                     if delta and hasattr(delta, 'content') and delta.content:
                         chunk_content = delta.content
-                        # logger.debug(f"Processing chunk_content: type={type(chunk_content)}, value={chunk_content}")
                         if isinstance(chunk_content, list):
                             chunk_content = ''.join(str(item) for item in chunk_content)
-                        # print(chunk_content, end='', flush=True)
-                        # logger.debug(f"About to concatenate chunk_content (type={type(chunk_content)}) to accumulated_content (type={type(accumulated_content)})")
                         accumulated_content += chunk_content
-                        # logger.debug(f"About to concatenate chunk_content (type={type(chunk_content)}) to current_xml_content (type={type(current_xml_content)})")
                         current_xml_content += chunk_content
 
-                        # Filter XML tags from chunk_content before yielding to frontend
-                        try:
-                            clean_chunk_content = self._filter_xml_from_chunk(chunk_content, config)
-                        except Exception as e:
-                            logger.warning(f"Error filtering XML from chunk: {e}, using original chunk_content")
-                            clean_chunk_content = chunk_content
-
-                        # Yield ONLY content chunk (don't save) - with XML tags filtered out
-                        # Note: We yield even if clean_chunk_content is empty, as the frontend
-                        # may need these for sequence tracking. The chunk will be empty if it
-                        # contained only XML tags, which is expected behavior.
+                        # Filter XML tags using state machine
+                        clean_chunk_content = xml_filter.process_chunk(chunk_content)
                         
-                        now_chunk = datetime.now(timezone.utc).isoformat()
-                        yield {
-                            "sequence": __sequence,
-                            "message_id": None, "thread_id": thread_id, "type": "assistant",
-                            "is_llm_message": True,
-                            "content": to_json_string({"role": "assistant", "content": clean_chunk_content}),
-                            "metadata": to_json_string({"stream_status": "chunk", "thread_run_id": thread_run_id}),
-                            "created_at": now_chunk, "updated_at": now_chunk
-                        }
-                        __sequence += 1
+                        # Only yield if there's clean content to stream
+                        if clean_chunk_content:
+                            now_chunk = datetime.now(timezone.utc).isoformat()
+                            yield {
+                                "sequence": __sequence,
+                                "message_id": None, "thread_id": thread_id, "type": "assistant",
+                                "is_llm_message": True,
+                                "content": to_json_string({"role": "assistant", "content": clean_chunk_content}),
+                                "metadata": to_json_string({"stream_status": "chunk", "thread_run_id": thread_run_id}),
+                                "created_at": now_chunk, "updated_at": now_chunk
+                            }
+                            __sequence += 1
+                        else:
+                            # No clean content, but still increment sequence for consistency
+                            __sequence += 1
 
                         # --- Process XML Tool Calls (if enabled) ---
                         if config.xml_tool_calling:
@@ -800,9 +895,23 @@ class ResponseProcessor:
                     final_content = final_content.replace("|||STOP_AGENT|||", "").strip()
                     logger.debug("Removed |||STOP_AGENT||| stop token from assistant message")
 
-                # Extract clean text content (without tool calls) - always strip XML to prevent it appearing in UI
-                # Even if xml_tool_calling is disabled, models may still return XML format
+                # Save raw content in message_data (like UPSTREAM)
+                message_data = { # Dict to be saved in 'content'
+                    "role": "assistant", "content": final_content
+                }
+                
+                # Only add tool_calls field for NATIVE tool calling
+                if config.native_tool_calling and complete_native_tool_calls:
+                    message_data["tool_calls"] = complete_native_tool_calls
+
+                # Build unified metadata with all tool calls (native + XML) and clean text
+                assistant_metadata = {"thread_run_id": thread_run_id}
+                
+                # ALWAYS strip XML from text_content for display (regardless of xml_tool_calling flag)
+                # The xml_tool_calling flag controls whether we PARSE/EXECUTE XML tool calls, not whether we FILTER them from display
                 text_content = strip_xml_tool_calls(final_content)
+                if text_content.strip():
+                    assistant_metadata["text_content"] = text_content
                 
                 # Always parse XML tool calls from final_content for metadata (even if xml_tool_calling is disabled)
                 # This ensures tool calls are visible in the UI even when XML tool calling is not enabled
@@ -824,20 +933,6 @@ class ResponseProcessor:
                                     "source": "xml"
                                 })
                             xml_index_for_metadata += 1
-                
-                # Build unified metadata with all tool calls (native + XML) and clean text
-                assistant_metadata = {"thread_run_id": thread_run_id}
-                if text_content.strip():
-                    assistant_metadata["text_content"] = text_content
-                
-                # Use cleaned text_content in message_data - this is what gets sent to frontend
-                message_data = { # Dict to be saved in 'content' - use clean text without XML tags
-                    "role": "assistant", "content": text_content
-                }
-                
-                # Only add tool_calls field for NATIVE tool calling
-                if config.native_tool_calling and complete_native_tool_calls:
-                    message_data["tool_calls"] = complete_native_tool_calls
                 
                 # Unify all tool calls into single tool_calls array
                 unified_tool_calls = []
@@ -1439,18 +1534,8 @@ class ResponseProcessor:
                                  })
 
 
-            # Extract clean text content (without tool calls) for frontend
-            # Always strip XML to prevent it appearing in UI (even if xml_tool_calling is disabled)
-            text_content = strip_xml_tool_calls(content)
-            
-            # Ensure text_content is clean - double-check if there's still XML (safety pass)
-            if text_content:
-                # Additional cleanup pass to catch any remaining XML tags
-                text_content = re.sub(r'<function_calls[^>]*>[\s\S]*?</function_calls>', '', text_content, flags=re.IGNORECASE)
-                text_content = text_content.strip()
-
-            message_data = {"role": "assistant", "content": text_content} # Dict to be saved in 'content' - use clean text without XML tags
-
+            # Save raw content in message_data (like UPSTREAM)
+            message_data = {"role": "assistant", "content": content}
             
             # Only add tool_calls field for NATIVE tool calling
             if config.native_tool_calling and native_tool_calls_for_message:
@@ -1459,7 +1544,9 @@ class ResponseProcessor:
             # Build unified metadata with all tool calls (native + XML) and clean text
             assistant_metadata = {"thread_run_id": thread_run_id}
             
-            
+            # ALWAYS strip XML from text_content for display (regardless of xml_tool_calling flag)
+            # The xml_tool_calling flag controls whether we PARSE/EXECUTE XML tool calls, not whether we FILTER them from display
+            text_content = strip_xml_tool_calls(content)
             if text_content.strip():
                 assistant_metadata["text_content"] = text_content
             
