@@ -190,18 +190,21 @@ export function renderAssistantMessage(props: AssistantMessageRendererProps): Re
   const metadata = safeJsonParse<ParsedMetadata>(message.metadata, {});
   
   const toolCalls = metadata.tool_calls || [];
-  const textContent = metadata.text_content || '';
+  // Ensure textContent is a string to prevent React error #301 (like UPSTREAM)
+  const rawTextContent = metadata.text_content;
+  const textContent = typeof rawTextContent === 'string' ? rawTextContent : (rawTextContent ? String(rawTextContent) : '');
   
   const contentParts: React.ReactNode[] = [];
   
-  // Render text content first (if any)
+  // Render text content first (if any) - wrapped in div like UPSTREAM
   if (textContent.trim()) {
     contentParts.push(
-      <ComposioUrlDetector 
-        key="text-content" 
-        content={textContent} 
-        className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words" 
-      />
+      <div key="text-content" className="my-1.5">
+        <ComposioUrlDetector 
+          content={textContent} 
+          className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words" 
+        />
+      </div>
     );
   }
   

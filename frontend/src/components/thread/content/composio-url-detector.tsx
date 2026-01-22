@@ -8,6 +8,7 @@ import { Markdown } from '@/components/ui/markdown';
 interface ComposioUrlDetectorProps {
   content: string;
   className?: string;
+  isStreaming?: boolean; // Enable streaming animation for incomplete markdown
 }
 
 interface ComposioUrl {
@@ -296,7 +297,8 @@ const ComposioConnectButton: React.FC<ComposioConnectButtonProps> = ({
 
 export const ComposioUrlDetector: React.FC<ComposioUrlDetectorProps> = ({ 
   content, 
-  className 
+  className,
+  isStreaming = false
 }) => {
   const composioUrls = detectComposioUrls(content);
 
