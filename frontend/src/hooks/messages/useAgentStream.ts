@@ -61,24 +61,33 @@ export function useAgentStream(
   // Throttled content update function for smoother streaming
   const flushPendingContent = useCallback(() => {
     if (pendingContentRef.current.length > 0) {
-      // Sort chunks by sequence before adding to state
-      const sortedContent = pendingContentRef.current.slice().sort((a, b) => {
+      // Deduplicate chunks by sequence number (keep latest for each sequence)
+      const chunkMap = new Map<number, { content: string; sequence?: number }>();
+      
+      // First, add existing chunks from current state to map
+      const currentContent = textContentRef.current;
+      for (const chunk of currentContent) {
+        const seq = chunk.sequence ?? 0;
+        chunkMap.set(seq, chunk);
+      }
+      
+      // Then, add/update with pending chunks (latest wins for same sequence)
+      for (const chunk of pendingContentRef.current) {
+        const seq = chunk.sequence ?? 0;
+        chunkMap.set(seq, chunk);
+      }
+      
+      // Convert map back to array and sort
+      const deduplicatedContent = Array.from(chunkMap.values()).sort((a, b) => {
         const aSeq = a.sequence ?? 0;
         const bSeq = b.sequence ?? 0;
         return aSeq - bSeq;
       });
+      
       pendingContentRef.current = [];
       
       React.startTransition(() => {
-        setTextContent((prev) => {
-          // Combine with existing content and sort all together
-          const combined = [...prev, ...sortedContent];
-          return combined.sort((a, b) => {
-            const aSeq = a.sequence ?? 0;
-            const bSeq = b.sequence ?? 0;
-            return aSeq - bSeq;
-          });
-        });
+        setTextContent(deduplicatedContent);
       });
     }
   }, []);
