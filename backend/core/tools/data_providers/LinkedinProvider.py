@@ -184,9 +184,11 @@ class LinkedinProvider(RapidDataProviderBase):
                 "route": "/api/v1/search/people",
                 "method": "GET",
                 "name": "Search People",
-                "description": "Search for LinkedIn profiles",
+                "description": "Search for LinkedIn profiles by keyword, name, or location",
                 "payload": {
-                    "keyword": "Search keyword (required)",
+                    "keyword": "Search term for job title, skill, etc. (optional)",
+                    "name": "Filter by person's name (optional)",
+                    "location": "Geographic location filter (optional)",
                     "page": "Page number for pagination (optional, default: 1)"
                 }
             },
@@ -253,14 +255,15 @@ class LinkedinProvider(RapidDataProviderBase):
             
             # Job Endpoints
             "search_jobs": {
-                "route": "/api/v1/search/jobs",
+                "route": "/api/v1/job/search",
                 "method": "GET",
                 "name": "Search Jobs",
-                "description": "Search for LinkedIn job listings",
+                "description": "Search for LinkedIn job listings with filters",
                 "payload": {
-                    "keyword": "Job search keyword (required)",
-                    "location": "Location for job search (optional)",
-                    "page": "Page number for pagination (optional, default: 1)"
+                    "keyword": "Job search keyword for titles or descriptions (required)",
+                    "page": "Page number for pagination (optional, default: 1)",
+                    "sort_by": "Sort by: recent or relevant (optional, default: recent)",
+                    "date_posted": "Filter by posting date: anytime, past_month, past_week, past_24_hours (optional)"
                 }
             },
             "get_job_detail": {
@@ -337,12 +340,19 @@ if __name__ == "__main__":
     )
     print("User Skills:", skills_result)
     
-    # Example: Search people
+    # Example: Search people by job title
     search_result = tool.call_endpoint(
         route="search_people",
-        payload={"keyword": "software engineer", "page": 1}
+        payload={"keyword": "software engineer", "location": "San Francisco", "page": 1}
     )
-    print("Search People:", search_result)
+    print("Search People by Job:", search_result)
+    
+    # Example: Search people by name
+    search_by_name = tool.call_endpoint(
+        route="search_people",
+        payload={"name": "Bill Gates", "page": 1}
+    )
+    print("Search People by Name:", search_by_name)
     
     # Example: Get company profile
     company_result = tool.call_endpoint(
@@ -354,6 +364,11 @@ if __name__ == "__main__":
     # Example: Search jobs
     jobs_result = tool.call_endpoint(
         route="search_jobs",
-        payload={"keyword": "python developer", "location": "San Francisco", "page": 1}
+        payload={
+            "keyword": "python developer",
+            "page": 1,
+            "sort_by": "recent",
+            "date_posted": "past_week"
+        }
     )
     print("Jobs:", jobs_result)
