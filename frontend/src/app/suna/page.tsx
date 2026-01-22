@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     title: 'Omni is now Omni',
     description: 'Omni (formerly Omni) - Same powerful open source AI worker, new name.',
     type: 'website',
-    url: 'https://becomeomni.com/suna',
+    url: 'https://becomeomni.com',
     siteName: 'Omni',
     images: [
       {
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     images: ['/banner.png'],
   },
   alternates: {
-    canonical: 'https://becomeomni.com/suna',
+    canonical: 'https://becomeomni.com',
   },
   robots: {
     index: true,
@@ -94,7 +94,7 @@ export default function OmniPage() {
                 '@type': 'ListItem',
                 position: 2,
                 name: 'Omni is now Omni',
-                item: 'https://becomeomni.com/suna',
+                item: 'https://becomeomni.com',
               },
             ],
           }),
