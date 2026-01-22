@@ -52,10 +52,23 @@ class RapidDataProviderBase:
 
         method = endpoint.get('method', 'GET').upper()
         
+        # Clean up payload - remove None values and convert types
+        if payload:
+            payload = {k: v for k, v in payload.items() if v is not None}
+            # Convert page to int if present (for Apollo API compatibility)
+            if 'page' in payload:
+                try:
+                    payload['page'] = int(payload['page'])
+                except (ValueError, TypeError):
+                    payload['page'] = 1
+        
         if method == 'GET':
             response = requests.get(url, params=payload, headers=headers)
         elif method == 'POST':
             response = requests.post(url, json=payload, headers=headers)
         else:
             raise ValueError(f"Unsupported HTTP method: {method}")
+        
+        # Raise for status to get better error messages
+        response.raise_for_status()
         return response.json()

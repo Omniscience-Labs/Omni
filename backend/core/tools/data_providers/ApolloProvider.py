@@ -114,23 +114,23 @@ class ApolloProvider(RapidDataProviderBase):
                 "route": "/search_people",
                 "method": "GET",
                 "name": "Search People",
-                "description": "Search for people/contacts using various filters and criteria.",
+                "description": "Search for people/contacts using various filters and criteria. At minimum, you must provide 'page' parameter.",
                 "payload": {
-                    "q_person_name": "Person name search query (optional)",
-                    "page": "Page number for pagination (required, default: 1)",
-                    "not_organization_ids": "IDs of organizations to exclude people from. For multiple IDs, separate with comma (optional)",
-                    "organization_ids": "IDs of organizations to get people from. For multiple IDs, separate with comma (optional)",
-                    "person_past_organization_ids": "IDs of organizations people used to work in. For multiple IDs, separate with comma (optional)",
-                    "person_titles": "Job titles of people you are interested in. For multiple titles, separate with comma (optional)",
-                    "person_past_titles": "Past job titles of people you are interested in. For multiple titles, separate with comma (optional)",
-                    "person_not_titles": "Job titles of people you are NOT interested in. For multiple titles, separate with comma (optional)",
-                    "person_locations": "Locations to filter people. For multiple locations, separate with comma (e.g., 'United States,United Kingdom') (optional)",
-                    "zip_code": "ZIP code for location-based search (use with person_location_radius) (optional)",
-                    "person_location_radius": "Radius in miles for ZIP code search. Values: 25, 50, 100, 300 (optional)",
-                    "organization_num_employees_ranges": "Employee count ranges for current company. Values: 1-10, 1-20, 21-50, 51-100, 101-200, 201-500, 501-1000, 1001-2000, 2001-5000, 5001-10000, 10001 (optional)",
-                    "organization_industry_tag_ids": "Industry tag IDs for current company. For multiple values, separate with comma (optional)",
-                    "q_organization_keyword_tags": "Keywords to match with current company. For multiple values, separate with comma (optional)",
-                    "contact_email_status_v2": "Email verification status. Values: verified, likely_to_engage, unverified, new_data_available, unavailable. For multiple values, separate with comma (optional)"
+                    "page": "Page number for pagination (required, type: number, default: 1)",
+                    "q_person_name": "Person name search query (optional, type: string, example: Ali or John Smith)",
+                    "not_organization_ids": "IDs of organizations to exclude people from. For multiple IDs, separate with comma (optional, type: string)",
+                    "organization_ids": "IDs of organizations to get people from. For multiple IDs, separate with comma (optional, type: string)",
+                    "person_past_organization_ids": "IDs of organizations people used to work in. For multiple IDs, separate with comma (optional, type: string)",
+                    "person_titles": "Job titles of people you are interested in. For multiple titles, separate with comma (optional, type: string)",
+                    "person_past_titles": "Past job titles of people you are interested in. For multiple titles, separate with comma (optional, type: string)",
+                    "person_not_titles": "Job titles of people you are NOT interested in. For multiple titles, separate with comma (optional, type: string)",
+                    "person_locations": "Locations to filter people. For multiple locations, separate with comma (e.g., 'United States,United Kingdom'). Cannot be used with zip_code (optional, type: string)",
+                    "zip_code": "ZIP code for location-based search. Use with person_location_radius. Cannot be used with person_locations (optional, type: string)",
+                    "person_location_radius": "Radius in miles for ZIP code search. Values: 25, 50, 100, 300 (optional, type: string)",
+                    "organization_num_employees_ranges": "Employee count ranges for current company. Values: 1-10, 1-20, 21-50, 51-100, 101-200, 201-500, 501-1000, 1001-2000, 2001-5000, 5001-10000, 10001 (for 10000+). For multiple ranges, separate with comma (optional, type: string)",
+                    "organization_industry_tag_ids": "Industry tag IDs for current company. For multiple values, separate with comma (optional, type: string)",
+                    "q_organization_keyword_tags": "Keywords to match with current company. For multiple values, separate with comma (optional, type: string)",
+                    "contact_email_status_v2": "Email verification status. Values: verified, likely_to_engage, unverified, new_data_available, unavailable. For multiple values, separate with comma (optional, type: string)"
                 }
             },
             "search_people_via_url": {
@@ -148,8 +148,8 @@ class ApolloProvider(RapidDataProviderBase):
                 "name": "Search Organizations",
                 "description": "Search for companies/organizations using various filters and criteria.",
                 "payload": {
-                    "q_organization_name": "Organization name search query (optional)",
-                    "page": "Page number for pagination (required, default: 1)",
+                    "page": "Page number for pagination (required, type: number, default: 1)",
+                    "q_organization_name": "Organization name search query (optional, type: string)",
                     "organization_num_employees_ranges": "Employee count ranges. Values: 1-10, 1-20, 21-50, 51-100, 101-200, 201-500, 501-1000, 1001-2000, 2001-5000, 5001-10000, 10001 (for 10000+). For multiple ranges, separate with comma (optional)",
                     "organization_locations": "Locations to filter organizations. For multiple locations, separate with comma (e.g., 'United States,United Kingdom'). Cannot be used with zip_code (optional)",
                     "zip_code": "ZIP code for location-based search (e.g., 94105). Use with organization_location_radius. Cannot be used with organization_locations (optional)",
@@ -193,7 +193,7 @@ class ApolloProvider(RapidDataProviderBase):
                 "description": "Get recent news and updates about a specific organization.",
                 "payload": {
                     "organization_id": "Apollo organization ID (required)",
-                    "page": "Page number for pagination (required, default: 1)"
+                    "page": "Page number for pagination (optional, default: 1)"
                 }
             },
             "suggestion_location": {
@@ -202,7 +202,7 @@ class ApolloProvider(RapidDataProviderBase):
                 "name": "Suggestion Location",
                 "description": "Get location suggestions for search filters.",
                 "payload": {
-                    "query": "Location query string (optional)"
+                    "query": "Location query string (required)"
                 }
             },
             "suggestion_job_title": {
@@ -229,7 +229,7 @@ class ApolloProvider(RapidDataProviderBase):
                 "name": "Suggestion Industry",
                 "description": "Get industry suggestions for search filters.",
                 "payload": {
-                    "query": "Industry query string (optional)"
+                    "query": "Industry query string (required)"
                 }
             }
         }
@@ -242,12 +242,22 @@ if __name__ == "__main__":
     load_dotenv()
     tool = ApolloProvider()
 
-    # Example for searching people
+    # Example 1: Simple search by name only
+    people_search_simple = tool.call_endpoint(
+        route="search_people",
+        payload={
+            "page": 1,
+            "q_person_name": "Ali"
+        }
+    )
+    print("People Search (Simple):", people_search_simple)
+    
+    # Example 2: Search with multiple filters
     people_search = tool.call_endpoint(
         route="search_people",
         payload={
-            "q_person_name": "John Smith",
             "page": 1,
+            "q_person_name": "John Smith",
             "person_titles": "Software Engineer,Senior Software Engineer",
             "person_locations": "United States,United Kingdom",
             "organization_num_employees_ranges": "101-200,201-500",
