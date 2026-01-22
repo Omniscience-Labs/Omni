@@ -6,120 +6,222 @@ from core.tools.data_providers.RapidDataProviderBase import RapidDataProviderBas
 class TwitterProvider(RapidDataProviderBase):
     def __init__(self):
         endpoints: Dict[str, EndpointSchema] = {
-            "user_info": {
-                "route": "/screenname.php",
+            # User Endpoints
+            "get_user": {
+                "route": "/user",
                 "method": "GET",
-                "name": "Twitter User Info",
-                "description": "Get information about a Twitter user by screenname or user ID.",
+                "name": "Get User By Username",
+                "description": "Get detailed information about a Twitter/X user by username",
                 "payload": {
-                    "screenname": "Twitter username without the @ symbol",
-                    "rest_id": "Optional Twitter user's ID. If provided, overwrites screenname parameter."
+                    "username": "Twitter username without the @ symbol (required)"
                 }
             },
-            "timeline": {
-                "route": "/timeline.php",
+            "get_users_by_ids": {
+                "route": "/users-by-ids",
                 "method": "GET",
-                "name": "User Timeline",
-                "description": "Get tweets from a user's timeline.",
+                "name": "Get Users By IDs",
+                "description": "Get multiple user profiles by their user IDs",
                 "payload": {
-                    "screenname": "Twitter username without the @ symbol",
-                    "rest_id": "Optional parameter that overwrites the screenname",
-                    "cursor": "Optional pagination cursor"
+                    "ids": "Comma-separated list of user IDs (required)"
                 }
             },
-            "following": {
-                "route": "/following.php",
+            "get_user_tweets": {
+                "route": "/user-tweets",
                 "method": "GET",
-                "name": "User Following",
-                "description": "Get users that a specific user follows.",
+                "name": "Get User Tweets",
+                "description": "Get tweets posted by a specific user",
                 "payload": {
-                    "screenname": "Twitter username without the @ symbol",
-                    "rest_id": "Optional parameter that overwrites the screenname",
-                    "cursor": "Optional pagination cursor"
+                    "username": "Twitter username without the @ symbol (required)",
+                    "cursor": "Pagination cursor for next page (optional)"
                 }
             },
-            "followers": {
-                "route": "/followers.php",
+            "get_user_replies": {
+                "route": "/user-replies",
                 "method": "GET",
-                "name": "User Followers",
-                "description": "Get followers of a specific user.",
+                "name": "Get User Replies",
+                "description": "Get replies made by a specific user",
                 "payload": {
-                    "screenname": "Twitter username without the @ symbol",
-                    "cursor": "Optional pagination cursor"
+                    "username": "Twitter username without the @ symbol (required)",
+                    "cursor": "Pagination cursor for next page (optional)"
                 }
             },
+            "get_user_media": {
+                "route": "/user-media",
+                "method": "GET",
+                "name": "Get User Media",
+                "description": "Get media (photos/videos) posted by a user",
+                "payload": {
+                    "username": "Twitter username without the @ symbol (required)",
+                    "cursor": "Pagination cursor for next page (optional)"
+                }
+            },
+            "get_user_followers": {
+                "route": "/user-followers",
+                "method": "GET",
+                "name": "Get User Followers",
+                "description": "Get list of users following a specific user",
+                "payload": {
+                    "username": "Twitter username without the @ symbol (required)",
+                    "cursor": "Pagination cursor for next page (optional)"
+                }
+            },
+            "get_user_verified_followers": {
+                "route": "/user-verified-followers",
+                "method": "GET",
+                "name": "Get User Verified Followers",
+                "description": "Get list of verified users following a specific user",
+                "payload": {
+                    "username": "Twitter username without the @ symbol (required)",
+                    "cursor": "Pagination cursor for next page (optional)"
+                }
+            },
+            "get_user_followers_ids": {
+                "route": "/user-followers-ids",
+                "method": "GET",
+                "name": "Get User Followers IDs",
+                "description": "Get IDs of users following a specific user",
+                "payload": {
+                    "username": "Twitter username without the @ symbol (required)",
+                    "cursor": "Pagination cursor for next page (optional)"
+                }
+            },
+            "get_user_following": {
+                "route": "/user-following",
+                "method": "GET",
+                "name": "Get User Following",
+                "description": "Get list of users that a specific user follows",
+                "payload": {
+                    "username": "Twitter username without the @ symbol (required)",
+                    "cursor": "Pagination cursor for next page (optional)"
+                }
+            },
+            "get_user_following_ids": {
+                "route": "/user-following-ids",
+                "method": "GET",
+                "name": "Get User Following IDs",
+                "description": "Get IDs of users that a specific user follows",
+                "payload": {
+                    "username": "Twitter username without the @ symbol (required)",
+                    "cursor": "Pagination cursor for next page (optional)"
+                }
+            },
+            "get_user_highlights": {
+                "route": "/user-highlights",
+                "method": "GET",
+                "name": "Get User Highlights",
+                "description": "Get highlighted tweets from a user's profile",
+                "payload": {
+                    "username": "Twitter username without the @ symbol (required)"
+                }
+            },
+            
+            # Search & Explore Endpoints
             "search": {
-                "route": "/search.php",
+                "route": "/search",
                 "method": "GET",
-                "name": "Twitter Search",
-                "description": "Search for tweets with a specific query.",
+                "name": "Search Tweets",
+                "description": "Search for tweets matching a query",
                 "payload": {
-                    "query": "Search query string",
-                    "cursor": "Optional pagination cursor",
-                    "search_type": "Optional search type (e.g. 'Top')"
+                    "query": "Search query string (required)",
+                    "type": "Search type: Latest, Top, People, Photos, Videos (optional, default: Latest)",
+                    "cursor": "Pagination cursor for next page (optional)"
                 }
             },
-            "replies": {
-                "route": "/replies.php",
+            "search_top": {
+                "route": "/search/top",
                 "method": "GET",
-                "name": "User Replies",
-                "description": "Get replies made by a user.",
+                "name": "Search Top Tweets",
+                "description": "Search for top/popular tweets matching a query",
                 "payload": {
-                    "screenname": "Twitter username without the @ symbol",
-                    "cursor": "Optional pagination cursor"
+                    "query": "Search query string (required)",
+                    "cursor": "Pagination cursor for next page (optional)"
                 }
             },
-            "check_retweet": {
-                "route": "/checkretweet.php",
+            "search_latest": {
+                "route": "/search/latest",
                 "method": "GET",
-                "name": "Check Retweet",
-                "description": "Check if a user has retweeted a specific tweet.",
+                "name": "Search Latest Tweets",
+                "description": "Search for latest tweets matching a query",
                 "payload": {
-                    "screenname": "Twitter username without the @ symbol",
-                    "tweet_id": "ID of the tweet to check"
+                    "query": "Search query string (required)",
+                    "cursor": "Pagination cursor for next page (optional)"
                 }
             },
-            "tweet": {
-                "route": "/tweet.php",
+            
+            # Tweet/Post Endpoints
+            "get_tweet": {
+                "route": "/tweet",
                 "method": "GET",
-                "name": "Get Tweet",
-                "description": "Get details of a specific tweet by ID.",
+                "name": "Get Tweet By ID",
+                "description": "Get detailed information about a specific tweet",
                 "payload": {
-                    "id": "ID of the tweet"
+                    "id": "Tweet ID (required)"
                 }
             },
-            "tweet_thread": {
-                "route": "/tweet_thread.php",
+            "get_tweet_replies": {
+                "route": "/tweet-replies",
                 "method": "GET",
-                "name": "Get Tweet Thread",
-                "description": "Get a thread of tweets starting from a specific tweet ID.",
+                "name": "Get Tweet Replies",
+                "description": "Get replies to a specific tweet",
                 "payload": {
-                    "id": "ID of the tweet",
-                    "cursor": "Optional pagination cursor"
+                    "id": "Tweet ID (required)",
+                    "cursor": "Pagination cursor for next page (optional)"
                 }
             },
-            "retweets": {
-                "route": "/retweets.php",
+            "get_tweet_retweets": {
+                "route": "/tweet-retweets",
                 "method": "GET",
-                "name": "Get Retweets",
-                "description": "Get users who retweeted a specific tweet.",
+                "name": "Get Tweet Retweets",
+                "description": "Get users who retweeted a specific tweet",
                 "payload": {
-                    "id": "ID of the tweet",
-                    "cursor": "Optional pagination cursor"
+                    "id": "Tweet ID (required)",
+                    "cursor": "Pagination cursor for next page (optional)"
                 }
             },
-            "latest_replies": {
-                "route": "/latest_replies.php",
+            "get_tweet_likes": {
+                "route": "/tweet-likes",
                 "method": "GET",
-                "name": "Get Latest Replies",
-                "description": "Get the latest replies to a specific tweet.",
+                "name": "Get Tweet Likes",
+                "description": "Get users who liked a specific tweet",
                 "payload": {
-                    "id": "ID of the tweet",
-                    "cursor": "Optional pagination cursor"
+                    "id": "Tweet ID (required)",
+                    "cursor": "Pagination cursor for next page (optional)"
+                }
+            },
+            
+            # Trends Endpoint
+            "get_trends": {
+                "route": "/trends",
+                "method": "GET",
+                "name": "Get Trending Topics",
+                "description": "Get current trending topics on Twitter/X",
+                "payload": {
+                    "woeid": "Where On Earth ID for location (optional, default: 1 for worldwide)"
+                }
+            },
+            
+            # Lists Endpoints
+            "get_list": {
+                "route": "/list",
+                "method": "GET",
+                "name": "Get List Details",
+                "description": "Get details about a Twitter list",
+                "payload": {
+                    "id": "List ID (required)"
+                }
+            },
+            "get_list_tweets": {
+                "route": "/list-tweets",
+                "method": "GET",
+                "name": "Get List Tweets",
+                "description": "Get tweets from a Twitter list",
+                "payload": {
+                    "id": "List ID (required)",
+                    "cursor": "Pagination cursor for next page (optional)"
                 }
             }
         }
-        base_url = "https://twitter-api45.p.rapidapi.com"
+        base_url = "https://twitter241.p.rapidapi.com"
         super().__init__(base_url, endpoints)
 
 
@@ -128,113 +230,84 @@ if __name__ == "__main__":
     load_dotenv()
     tool = TwitterProvider()
 
-    # Example for getting user info
+    # Example: Get user profile
     user_info = tool.call_endpoint(
-        route="user_info",
+        route="get_user",
         payload={
-            "screenname": "elonmusk",
-            # "rest_id": "44196397"  # Optional, uncomment to use user ID instead of screenname
+            "username": "elonmusk"
         }
     )
     print("User Info:", user_info)
     
-    # Example for getting user timeline
-    timeline = tool.call_endpoint(
-        route="timeline",
+    # Example: Get user tweets
+    user_tweets = tool.call_endpoint(
+        route="get_user_tweets",
         payload={
-            "screenname": "elonmusk",
-            # "cursor": "optional-cursor-value"  # Optional for pagination
+            "username": "elonmusk"
         }
     )
-    print("Timeline:", timeline)
+    print("User Tweets:", user_tweets)
     
-    # Example for getting user following
-    following = tool.call_endpoint(
-        route="following",
-        payload={
-            "screenname": "elonmusk",
-            # "cursor": "optional-cursor-value"  # Optional for pagination
-        }
-    )
-    print("Following:", following)
-    
-    # Example for getting user followers
+    # Example: Get user followers
     followers = tool.call_endpoint(
-        route="followers",
+        route="get_user_followers",
         payload={
-            "screenname": "elonmusk",
-            # "cursor": "optional-cursor-value"  # Optional for pagination
+            "username": "elonmusk"
         }
     )
     print("Followers:", followers)
     
-    # Example for searching tweets
-    search_results = tool.call_endpoint(
-        route="search",
+    # Example: Get user following
+    following = tool.call_endpoint(
+        route="get_user_following",
         payload={
-            "query": "cybertruck",
-            "search_type": "Top"  # Optional, defaults to Top
-            # "cursor": "optional-cursor-value"  # Optional for pagination
+            "username": "elonmusk"
+        }
+    )
+    print("Following:", following)
+    
+    # Example: Search latest tweets
+    search_results = tool.call_endpoint(
+        route="search_latest",
+        payload={
+            "query": "artificial intelligence"
         }
     )
     print("Search Results:", search_results)
     
-    # Example for getting user replies
-    replies = tool.call_endpoint(
-        route="replies",
-        payload={
-            "screenname": "elonmusk",
-            # "cursor": "optional-cursor-value"  # Optional for pagination
-        }
-    )
-    print("Replies:", replies)
-    
-    # Example for checking if user retweeted a tweet
-    check_retweet = tool.call_endpoint(
-        route="check_retweet",
-        payload={
-            "screenname": "elonmusk",
-            "tweet_id": "1671370010743263233"
-        }
-    )
-    print("Check Retweet:", check_retweet)
-    
-    # Example for getting tweet details
+    # Example: Get tweet details
     tweet = tool.call_endpoint(
-        route="tweet",
+        route="get_tweet",
         payload={
-            "id": "1671370010743263233"
+            "id": "1234567890123456789"
         }
     )
     print("Tweet:", tweet)
     
-    # Example for getting a tweet thread
-    tweet_thread = tool.call_endpoint(
-        route="tweet_thread",
+    # Example: Get tweet replies
+    replies = tool.call_endpoint(
+        route="get_tweet_replies",
         payload={
-            "id": "1738106896777699464",
-            # "cursor": "optional-cursor-value"  # Optional for pagination
+            "id": "1234567890123456789"
         }
     )
-    print("Tweet Thread:", tweet_thread)
+    print("Tweet Replies:", replies)
     
-    # Example for getting retweets of a tweet
-    retweets = tool.call_endpoint(
-        route="retweets",
+    # Example: Get trending topics
+    trends = tool.call_endpoint(
+        route="get_trends",
         payload={
-            "id": "1700199139470942473",
-            # "cursor": "optional-cursor-value"  # Optional for pagination
+            "woeid": "1"  # 1 = Worldwide
         }
     )
-    print("Retweets:", retweets)
+    print("Trends:", trends)
     
-    # Example for getting latest replies to a tweet
-    latest_replies = tool.call_endpoint(
-        route="latest_replies",
+    # Example: Get user media
+    media = tool.call_endpoint(
+        route="get_user_media",
         payload={
-            "id": "1738106896777699464",
-            # "cursor": "optional-cursor-value"  # Optional for pagination
+            "username": "elonmusk"
         }
     )
-    print("Latest Replies:", latest_replies)
+    print("User Media:", media)
   
