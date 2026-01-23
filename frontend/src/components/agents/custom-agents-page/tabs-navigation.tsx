@@ -16,6 +16,11 @@ const agentTabs: TabConfig[] = [
     icon: Bot,
     label: 'My Agents',
   },
+  {
+    value: 'marketplace',
+    icon: ShoppingBag,
+    label: 'Marketplace',
+  },
 ]; 
 
 export const TabsNavigation = ({ activeTab, onTabChange, onCreateAgent }: TabsNavigationProps) => {
