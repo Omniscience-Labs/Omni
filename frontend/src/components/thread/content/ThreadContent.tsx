@@ -18,8 +18,10 @@ import { AgentLoader } from './loader';
 // Removed XML parsing - we only use metadata now
 import { ShowToolStream } from './ShowToolStream';
 import { ComposioUrlDetector } from './composio-url-detector';
+import { StreamingText } from './StreamingText';
 import { TaskCompletedFeedback } from '@/components/thread/tool-views/shared/TaskCompletedFeedback';
 import { PromptExamples } from '@/components/shared/prompt-examples';
+import { useSmoothStream } from '@/lib/streaming';
 import { 
     renderAssistantMessage,
     extractTextFromPartialJson,
@@ -200,6 +202,18 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
         return () => resizeObserver.disconnect();
     }, [displayMessages, streamingTextContent, agentStatus, scrollContainerRef]);
+
+    // Use useSmoothStream for animation (like UPSTREAM)
+    const isActivelyStreaming = streamHookStatus === "streaming" || streamHookStatus === "connecting";
+    const displayStreamingText = useSmoothStream(
+        streamingTextContent || "",
+        isActivelyStreaming,
+        300
+    );
+
+    // PLACEHOLDER APPROACH: No separate streamingContent rendering
+    // Streaming is handled by placeholder messages in displayMessages
+    // This eliminates the visual jump when streaming completes
 
     // Preload all message attachments when messages change or sandboxId is provided
     React.useEffect(() => {
@@ -555,89 +569,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                 return elements;
                                                             })()}
 
-                                                            {/* Render streaming text content (XML tool calls or regular text) */}
-                                                            {groupIndex === finalGroupedMessages.length - 1 && !readOnly && streamingTextContent && (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && (
-                                                                <div className="mt-2">
-                                                                    {(() => {
-                                                                        // Detect XML tags in streaming content
-                                                                        let detectedTag: string | null = null;
-                                                                        let tagStartIndex = -1;
-                                                                        
-                                                                        // Check for ask/complete tags (XML format)
-                                                                        const askIndex = streamingTextContent.indexOf('<ask');
-                                                                        const completeIndex = streamingTextContent.indexOf('<complete');
-                                                                        if (askIndex !== -1 && (completeIndex === -1 || askIndex < completeIndex)) {
-                                                                            detectedTag = 'ask';
-                                                                            tagStartIndex = askIndex;
-                                                                        } else if (completeIndex !== -1) {
-                                                                            detectedTag = 'complete';
-                                                                            tagStartIndex = completeIndex;
-                                                                        } else {
-                                                                            // Check for function_calls format
-                                                                            const functionCallsIndex = streamingTextContent.indexOf('<function_calls>');
-                                                                            if (functionCallsIndex !== -1) {
-                                                                                const functionCallsContent = streamingTextContent.substring(functionCallsIndex);
-                                                                                if (functionCallsContent.includes('<invoke name="ask"') || functionCallsContent.includes('<invoke name=\'ask\'')) {
-                                                                                    detectedTag = 'ask';
-                                                                                    tagStartIndex = functionCallsIndex;
-                                                                                } else if (functionCallsContent.includes('<invoke name="complete"') || functionCallsContent.includes('<invoke name=\'complete\'')) {
-                                                                                    detectedTag = 'complete';
-                                                                                    tagStartIndex = functionCallsIndex;
-                                                                                } else {
-                                                                                    detectedTag = 'function_calls';
-                                                                                    tagStartIndex = functionCallsIndex;
-                                                                                }
-                                                                            } else {
-                                                                                // Check for other tool tags
-                                                                                for (const tag of HIDE_STREAMING_XML_TAGS) {
-                                                                                    if (tag === 'ask' || tag === 'complete') continue;
-                                                                                    const openingTagPattern = `<${tag}`;
-                                                                                    const index = streamingTextContent.indexOf(openingTagPattern);
-                                                                                    if (index !== -1) {
-                                                                                        detectedTag = tag;
-                                                                                        tagStartIndex = index;
-                                                                                        break;
-                                                                                    }
-                                                                                }
-                                                                            }
-                                                                        }
-
-                                                                        const textToRender = streamingTextContent;
-                                                                        const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
-                                                                        const isAskOrComplete = detectedTag === 'ask' || detectedTag === 'complete';
-
-                                                                        return (
-                                                                            <>
-                                                                                {textBeforeTag && (
-                                                                                    <ComposioUrlDetector content={textBeforeTag} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere" />
-                                                                                )}
-
-                                                                                {detectedTag && isAskOrComplete ? (
-                                                                                    // Extract and render text from XML ask/complete
-                                                                                    (() => {
-                                                                                        const streamingContent = textToRender.substring(tagStartIndex);
-                                                                                        const extractedText = extractTextFromStreamingAskComplete(streamingContent, detectedTag as 'ask' | 'complete');
-                                                                                        return (
-                                                                                            <ComposioUrlDetector 
-                                                                                                content={extractedText} 
-                                                                                                className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3" 
-                                                                                            />
-                                                                                        );
-                                                                                    })()
-                                                                                ) : detectedTag ? (
-                                                                                    <ShowToolStream
-                                                                                        content={textToRender.substring(tagStartIndex)}
-                                                                                        messageId={visibleMessages && visibleMessages.length > 0 ? visibleMessages[visibleMessages.length - 1].message_id : "playback-streaming"}
-                                                                                        onToolClick={handleToolClick}
-                                                                                        showExpanded={true}
-                                                                                        startTime={Date.now()}
-                                                                                    />
-                                                                                ) : null}
-                                                                            </>
-                                                                        );
-                                                                    })()}
-                                                                </div>
-                                                            )}
+                                                            {/* PLACEHOLDER APPROACH: No separate streamingContent rendering
+                                                                Streaming is handled by placeholder messages in displayMessages */}
 
                                                             {/* For playback mode, show streaming text and tool calls */}
                                                             {readOnly && groupIndex === finalGroupedMessages.length - 1 && isStreamingText && (

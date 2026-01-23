@@ -81,7 +81,8 @@ function renderAskToolCall(
   index: number,
   props: AssistantMessageRendererProps
 ): React.ReactNode {
-  const { onFileClick, sandboxId, project, isLatestMessage, t, onPromptFill } = props;
+  const { onFileClick, sandboxId, project, isLatestMessage, t, onPromptFill, message } = props;
+  const metadata = safeJsonParse<ParsedMetadata>(message.metadata, {});
   const askText = toolCall.arguments?.text || '';
   const attachments = normalizeAttachments(toolCall.arguments?.attachments);
   const followUpAnswers = normalizeArrayValue(toolCall.arguments?.follow_up_answers);
@@ -101,7 +102,8 @@ function renderAskToolCall(
           </p>
         </div>
       )}
-      {isLatestMessage && followUpAnswers.length > 0 && (
+      {/* Only show sample answers as buttons when message is finalized (not streaming) */}
+      {isLatestMessage && followUpAnswers.length > 0 && metadata.stream_status === 'complete' && (
         <PromptExamples
           prompts={followUpAnswers.slice(0, 4).map(answer => ({ text: answer }))}
           onPromptClick={(answer) => onPromptFill?.(answer)}
@@ -123,6 +125,7 @@ function renderCompleteToolCall(
   props: AssistantMessageRendererProps
 ): React.ReactNode {
   const { onFileClick, sandboxId, project, isLatestMessage, t, onPromptFill, threadId, message } = props;
+  const metadata = safeJsonParse<ParsedMetadata>(message.metadata, {});
   const completeText = toolCall.arguments?.text || '';
   const attachments = normalizeAttachments(toolCall.arguments?.attachments);
   const followUpPrompts = normalizeArrayValue(toolCall.arguments?.follow_up_prompts);
@@ -134,14 +137,17 @@ function renderCompleteToolCall(
         className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3" 
       />
       {renderAttachments(attachments, onFileClick, sandboxId, project)}
-      <TaskCompletedFeedback
-        taskSummary={completeText}
-        followUpPrompts={isLatestMessage && followUpPrompts.length > 0 ? followUpPrompts : undefined}
-        onFollowUpClick={(prompt) => onPromptFill?.(prompt)}
-        samplePromptsTitle={t ? t('thread.samplePrompts') : 'Sample prompts'}
-        threadId={threadId}
-        messageId={message.message_id}
-      />
+      {/* Only show task completed feedback when message is finalized (not streaming) */}
+      {metadata.stream_status === 'complete' && (
+        <TaskCompletedFeedback
+          taskSummary={completeText}
+          followUpPrompts={isLatestMessage && followUpPrompts.length > 0 ? followUpPrompts : undefined}
+          onFollowUpClick={(prompt) => onPromptFill?.(prompt)}
+          samplePromptsTitle={t ? t('thread.samplePrompts') : 'Sample prompts'}
+          threadId={threadId}
+          messageId={message.message_id}
+        />
+      )}
     </div>
   );
 }

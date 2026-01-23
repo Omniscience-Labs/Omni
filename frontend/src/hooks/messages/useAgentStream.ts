@@ -44,7 +44,7 @@ export interface AgentStreamCallbacks {
 export function useAgentStream(
   callbacks: AgentStreamCallbacks,
   threadId: string,
-  setMessages: (messages: UnifiedMessage[]) => void,
+  setMessages: React.Dispatch<React.SetStateAction<UnifiedMessage[]>>,
   agentId?: string,
 ): UseAgentStreamResult {
   const queryClient = useQueryClient();
@@ -57,6 +57,8 @@ export function useAgentStream(
   // Throttled state updates for smoother streaming
   const throttleRef = useRef<NodeJS.Timeout | null>(null);
   const pendingContentRef = useRef<{ content: string; sequence?: number }[]>([]);
+  // Placeholder message ID for in-place streaming updates
+  const placeholderMessageIdRef = useRef<string | null>(null);
   
   // Throttled content update function for smoother streaming
   const flushPendingContent = useCallback(() => {
@@ -151,6 +153,66 @@ export function useAgentStream(
   const agentRunIdRef = useRef(agentRunId);
   const textContentRef = useRef(textContent);
 
+  // Helper to get/create placeholder message ID
+  const getPlaceholderMessageId = useCallback((runId: string | null): string => {
+    if (!runId) return `stream-msg:${Date.now()}`;
+    return `stream-msg:${runId}`;
+  }, []);
+
+  // Helper to create/update placeholder message in messages array
+  const updatePlaceholderMessage = useCallback((
+    textContent: string,
+    toolCalls?: any[],
+    streamStatus: 'chunk' | 'complete' = 'chunk'
+  ) => {
+    const runId = currentRunIdRef.current;
+    if (!runId) return;
+
+    const placeholderId = getPlaceholderMessageId(runId);
+    const now = new Date().toISOString();
+
+    setMessagesRef.current((prev: UnifiedMessage[]) => {
+      const existingIndex = prev.findIndex(m => m.message_id === placeholderId);
+      
+      const updatedMessage: UnifiedMessage = {
+        message_id: placeholderId,
+        thread_id: threadIdRef.current,
+        type: 'assistant',
+        is_llm_message: true,
+        content: JSON.stringify({ role: 'assistant', content: textContent }),
+        metadata: JSON.stringify({
+          text_content: textContent,
+          stream_status: streamStatus,
+          tool_calls: toolCalls || undefined,
+        }),
+        created_at: existingIndex >= 0 ? prev[existingIndex].created_at : now,
+        updated_at: now,
+      };
+
+      if (existingIndex >= 0) {
+        // Update existing placeholder
+        return prev.map((m, idx) => idx === existingIndex ? updatedMessage : m);
+      } else {
+        // Create new placeholder
+        return [...prev, updatedMessage];
+      }
+    });
+  }, []);
+
+  // Update placeholder message when accumulated content changes
+  useEffect(() => {
+    const runId = currentRunIdRef.current;
+    if (!runId || orderedTextContent === '') return;
+
+    const placeholderId = getPlaceholderMessageId(runId);
+    if (!placeholderMessageIdRef.current) {
+      placeholderMessageIdRef.current = placeholderId;
+    }
+
+    // Update placeholder with current accumulated text
+    updatePlaceholderMessage(orderedTextContent, undefined, 'chunk');
+  }, [orderedTextContent, getPlaceholderMessageId, updatePlaceholderMessage]);
+
   // Update refs whenever state changes
   useEffect(() => {
     statusRef.current = status;
@@ -179,6 +241,15 @@ export function useAgentStream(
       setToolCall(null);
       setAgentRunId(null);
       currentRunIdRef.current = null;
+      
+      // Clean up placeholder message
+      const placeholderId = placeholderMessageIdRef.current;
+      if (placeholderId) {
+        setMessagesRef.current((prev: UnifiedMessage[]) => 
+          prev.filter(m => m.message_id !== placeholderId)
+        );
+        placeholderMessageIdRef.current = null;
+      }
     }
     threadIdRef.current = threadId;
   }, [threadId]);
@@ -233,6 +304,16 @@ export function useAgentStream(
 
       const currentThreadId = threadIdRef.current;
       const currentSetMessages = setMessagesRef.current;
+      
+      // Clean up placeholder message if stream ends without completion
+      const placeholderId = placeholderMessageIdRef.current;
+      if (placeholderId && finalStatus !== 'completed') {
+        // Remove placeholder if stream ended in error/stopped state
+        currentSetMessages((prev: UnifiedMessage[]) => 
+          prev.filter(m => m.message_id !== placeholderId)
+        );
+        placeholderMessageIdRef.current = null;
+      }
 
       // Only finalize if this is for the current run ID or if no specific run ID is provided
       if (
@@ -500,10 +581,22 @@ export function useAgentStream(
       switch (message.type) {
         case 'assistant':
           if (parsedMetadata.stream_status === 'tool_call_chunk') {
-            // Handle tool call chunks - extract from metadata.tool_calls
+            // Handle tool call chunks - update placeholder message metadata.tool_calls
             const toolCalls = parsedMetadata.tool_calls || [];
             if (toolCalls.length > 0) {
-              // Set toolCall state with the UnifiedMessage
+              const runId = currentRunIdRef.current;
+              if (runId) {
+                const placeholderId = getPlaceholderMessageId(runId);
+                if (!placeholderMessageIdRef.current) {
+                  placeholderMessageIdRef.current = placeholderId;
+                }
+
+                // Update placeholder with tool calls
+                const currentText = orderedTextContent;
+                updatePlaceholderMessage(currentText, toolCalls, 'chunk');
+              }
+
+              // Set toolCall state for backwards compatibility
               setToolCall(message);
               // Call the callback with the full message (includes all tool calls in metadata)
               callbacks.onToolCallChunk?.(message);
@@ -512,6 +605,13 @@ export function useAgentStream(
             parsedMetadata.stream_status === 'chunk' &&
             parsedContent.content
           ) {
+            // Initialize placeholder on first chunk if needed
+            const runId = currentRunIdRef.current;
+            if (runId && !placeholderMessageIdRef.current) {
+              const placeholderId = getPlaceholderMessageId(runId);
+              placeholderMessageIdRef.current = placeholderId;
+            }
+
             // Use throttled approach for smoother streaming
             addContentThrottled({
               sequence: message.sequence,
@@ -521,12 +621,47 @@ export function useAgentStream(
           } else if (parsedMetadata.stream_status === 'complete') {
             // Flush any pending content before completing
             flushPendingContent();
-            
+
+            const runId = currentRunIdRef.current;
+            const placeholderId = placeholderMessageIdRef.current;
+
+            if (placeholderId && message.message_id) {
+              // Finalize placeholder in-place - DON'T clear streaming state first
+              // Update placeholder with final message data
+              const finalTextContent = parsedMetadata.text_content || orderedTextContent;
+              const finalToolCalls = parsedMetadata.tool_calls || [];
+
+              setMessagesRef.current((prev: UnifiedMessage[]) => 
+                prev.map(m => {
+                  if (m.message_id === placeholderId) {
+                    // Replace placeholder with final message, preserving the same ID position
+                    return {
+                      ...message,
+                      message_id: message.message_id, // Use final message_id from backend
+                      metadata: JSON.stringify({
+                        ...parsedMetadata,
+                        stream_status: 'complete',
+                        text_content: finalTextContent,
+                        tool_calls: finalToolCalls,
+                      }),
+                    };
+                  }
+                  return m;
+                })
+              );
+
+              // Clear placeholder reference
+              placeholderMessageIdRef.current = null;
+            } else if (message.message_id) {
+              // Fallback: if no placeholder, add message normally
+              callbacks.onMessage(message);
+            }
+
+            // Clear streaming state after placeholder is finalized
             React.startTransition(() => {
               setTextContent([]);
               setToolCall(null);
             });
-            if (message.message_id) callbacks.onMessage(message);
           } else if (!parsedMetadata.stream_status) {
             // Handle non-chunked assistant messages if needed
             callbacks.onAssistantStart?.();
@@ -573,10 +708,10 @@ export function useAgentStream(
           if (message.message_id) callbacks.onMessage(message);
           break;
         default:
-          console.warn(
-            '[useAgentStream] Unhandled message type:',
-            message.type,
-          );
+      console.warn(
+        '[useAgentStream] Unhandled message type:',
+        message.type,
+      );
       }
     },
     [
@@ -587,6 +722,9 @@ export function useAgentStream(
       updateStatus,
       addContentThrottled,
       flushPendingContent,
+      orderedTextContent,
+      getPlaceholderMessageId,
+      updatePlaceholderMessage,
     ],
   );
 
