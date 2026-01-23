@@ -140,9 +140,9 @@ export function Navbar({ tabs }: NavbarProps = {}) {
                 <Image
                   src={isDarkMode ? '/OMNI-Logo-light.png' : '/OMNI-Logo-Dark.png'}
                   alt="Omni"
-                  width={100}
-                  height={32}
-                  className="h-21 w-auto"
+                  width={130}
+                  height={40}
+                  className="h-10 w-auto"
                   priority
                 />
               )}
@@ -211,7 +211,7 @@ export function Navbar({ tabs }: NavbarProps = {}) {
                       <Image
                         src={isDarkMode ? '/OMNI-Logo-light.png' : '/OMNI-Logo-Dark.png'}
                         alt="Omni"
-                        width={80}
+                        width={110}
                         height={28}
                         className="h-7 w-auto"
                       />

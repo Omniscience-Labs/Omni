@@ -39,14 +39,14 @@ export default function CreditsPage() {
         <section>
           <h2 className="text-2xl font-semibold mb-4">What are credits?</h2>
           <p className="text-lg mb-8">
-            Credits are Kortix's standard unit of measurement for platform usage. Think of them as tokens that power your AI agents - the more complex or lengthy the task, the more credits it requires.
+            Credits are OMNI's standard unit of measurement for platform usage. Think of them as tokens that power your AI agents - the more complex or lengthy the task, the more credits it requires.
           </p>
         </section>
 
         <section>
           <h2 className="text-2xl font-semibold mb-4">Types of Credits</h2>
           <p className="mb-6">
-            Kortix uses two types of credits to give you flexibility in how you manage your usage:
+            OMNI uses two types of credits to give you flexibility in how you manage your usage:
           </p>
 
           <div className="grid gap-4 md:grid-cols-2 mb-8">
@@ -100,7 +100,7 @@ export default function CreditsPage() {
           <Alert className="mb-8">
             <Info className="h-4 w-4" />
             <AlertDescription>
-              <strong>Credit Priority:</strong> When you use Kortix, expiring credits are consumed first. 
+              <strong>Credit Priority:</strong> When you use OMNI, expiring credits are consumed first. 
               Only after your expiring credits run out will non-expiring credits be used.
             </AlertDescription>
           </Alert>
@@ -164,7 +164,7 @@ export default function CreditsPage() {
         <section>
           <h2 className="text-2xl font-semibold mb-4">Getting More Credits</h2>
           <p className="mb-6">
-            There are several ways to obtain credits in Kortix:
+            There are several ways to obtain credits in OMNI:
           </p>
 
           <div className="space-y-4 mb-8">
@@ -315,7 +315,7 @@ export default function CreditsPage() {
             <Button
               variant="outline"
               className="gap-2"
-              onClick={() => window.location.href = 'mailto:support@kortix.ai'}
+              onClick={() => window.location.href = 'mailto:socials@latent-labs.ai'}
             >
               <Mail className="h-4 w-4" />
               Email Support
@@ -323,7 +323,7 @@ export default function CreditsPage() {
             <Button
               variant="outline"
               className="gap-2"
-              onClick={() => window.open('https://discord.gg/kortix', '_blank')}
+              onClick={() => window.open('https://discord.gg/Py6pCBUUPw', '_blank')}
             >
               <MessageCircle className="h-4 w-4" />
               Join Discord

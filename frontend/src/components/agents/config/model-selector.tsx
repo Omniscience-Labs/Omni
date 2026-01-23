@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Check, Search, AlertTriangle, Crown, Cpu, Plus, Edit, Trash, KeyRound, Lock } from 'lucide-react';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { ModelProviderIcon } from '@/lib/model-provider-icons';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,7 +32,7 @@ const ModelLabel = ({ label, className }: { label: string; className?: string })
             <span className={cn("flex items-center gap-2", className)}>
                 <span className="font-medium">Omni</span>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 dark:bg-primary/15 rounded-full">
-                    <KortixLogo size={12} variant="symbol" />
+                    <OmniLogo size={12} variant="symbol" />
                     <span className="text-[11px] font-semibold tracking-wide uppercase text-primary">
                         Power
                     </span>

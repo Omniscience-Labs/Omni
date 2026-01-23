@@ -124,7 +124,7 @@ export function DashboardContent() {
     ? agents.find(agent => agent.agent_id === selectedAgentId)
     : null;
   const sunaAgent = agents.find(agent => agent.metadata?.is_suna_default === true);
-  const displayName = selectedAgent?.name || 'Suna';
+  const displayName = selectedAgent?.name || 'OMNI';
   const agentAvatar = undefined;
   // Show Suna modes while loading (assume Suna is default) or when Suna agent is selected
   const isOmniAgent = isLoadingAgents 

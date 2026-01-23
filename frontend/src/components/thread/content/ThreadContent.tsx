@@ -13,7 +13,7 @@ import {
     safeJsonParse,
     HIDE_STREAMING_XML_TAGS,
 } from '@/components/thread/utils';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { AgentLoader } from './loader';
 // Removed XML parsing - we only use metadata now
 import { ShowToolStream } from './ShowToolStream';
@@ -99,8 +99,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     sandboxId,
     project,
     isPreviewMode = false,
-    agentName = 'Suna',
-    agentAvatar = <KortixLogo size={16} />,
+    agentName = 'OMNI',
+    agentAvatar = <OmniLogo size={16} />,
     emptyStateComponent,
     threadMetadata,
     scrollContainerRef,
@@ -159,13 +159,13 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                 name: recentAssistantWithAgent.agents.name,
                 avatar: (
                     <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
-                        <KortixLogo size={16} />
+                        <OmniLogo size={16} />
                     </div>
                 )
             };
         }
         return {
-            name: agentName || 'Suna',
+            name: agentName || 'OMNI',
             avatar: agentAvatar
         };
     }, [threadMetadata, displayMessages, agentName, agentAvatar]);

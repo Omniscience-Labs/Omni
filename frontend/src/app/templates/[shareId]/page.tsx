@@ -38,7 +38,7 @@ import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import ColorThief from 'colorthief';
 import { AgentAvatar } from '@/components/thread/content/agent-avatar';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 interface MarketplaceTemplate {
   template_id: string;
@@ -405,7 +405,7 @@ export default function TemplateSharePage() {
             <div className="flex h-14 items-center">
               <div className="flex items-center">
                 <Link href="/" className="flex items-center">
-                  <KortixLogo size={24} />
+                  <OmniLogo size={24} />
                 </Link>
               </div>
               <div className="flex items-center space-x-3 ml-auto">

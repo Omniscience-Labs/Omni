@@ -79,9 +79,9 @@ export const metadata: Metadata = {
     images: ['/banner.png'],
   },
   icons: {
-    icon: '/favicon.png',
-    shortcut: '/favicon.png',
-    apple: [{ url: '/favicon.png', sizes: '180x180' }],
+    icon: '/favicon-light.png',
+    shortcut: '/favicon-light.png',
+    apple: [{ url: '/favicon-light.png', sizes: '180x180' }],
   },
   manifest: '/manifest.json',
   alternates: {

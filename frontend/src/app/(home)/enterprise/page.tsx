@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { KortixEnterpriseModal } from '@/components/sidebar/kortix-enterprise-modal';
+import { KortixEnterpriseModal as OmniEnterpriseModal } from '@/components/sidebar/kortix-enterprise-modal';
 import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 // Section Header Component
@@ -47,27 +47,13 @@ const CustomHeroSection = () => {
             </p>
             
             <div className="flex flex-col items-center gap-6 pt-6">
-              <KortixEnterpriseModal>
+              <OmniEnterpriseModal>
                 <Button size="lg">
                   <Calendar className="w-4 h-4 mr-2" />
                   Schedule Strategy Call
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
-              </KortixEnterpriseModal>
-              <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-primary"></div>
-                  <span>Free consultation</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-primary"></div>
-                  <span>Custom solution design</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-primary"></div>
-                  <span>Tailored pricing</span>
-                </div>
-              </div>
+              </OmniEnterpriseModal>
             </div>
           </div>
         </div>
@@ -152,7 +138,7 @@ const ProcessSection = () => {
   return (
     <section className="flex flex-col items-center justify-center w-full relative">
       <div className="relative w-full px-6">
-        <div className="max-w-6xl mx-auto border-l border-r border-border">
+        <div className="max-w-6xl mx-auto">
           <SectionHeader>
             <h2 className="text-3xl md:text-4xl font-medium tracking-tighter text-center text-balance pb-1">
               Our Implementation Methodology
@@ -162,7 +148,7 @@ const ProcessSection = () => {
             </p>
           </SectionHeader>
 
-          <div className="border-t border-border">
+          <div>
             {steps.map((step, index) => (
               <motion.div
                 key={index}
@@ -525,7 +511,7 @@ const FinalCTASection = () => {
   return (
     <section className="flex flex-col items-center justify-center w-full relative">
       <div className="relative w-full px-6">
-        <div className="max-w-6xl mx-auto border-l border-r border-border">
+        <div className="max-w-6xl mx-auto">
           <SectionHeader>
             <h2 className="text-3xl md:text-4xl font-medium tracking-tighter text-center text-balance pb-1">
               Ready to Transform Your Operations?
@@ -535,17 +521,17 @@ const FinalCTASection = () => {
             </p>
           </SectionHeader>
 
-          <div className="border-t border-border p-8">
+          <div className="p-8">
             <div className="text-center space-y-6">
               <div className="space-y-4">
                 <div className="space-y-6">
-                  <KortixEnterpriseModal>
+                  <OmniEnterpriseModal>
                     <Button size="lg">
                       <Calendar className="w-4 h-4 mr-2" />
                       Book Your Strategy Session
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
-                  </KortixEnterpriseModal>
+                  </OmniEnterpriseModal>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center max-w-2xl mx-auto">
                     <div className="flex flex-col items-center gap-2 p-4 rounded-lg bg-accent/20">
                       <Shield className="w-6 h-6 text-primary" />

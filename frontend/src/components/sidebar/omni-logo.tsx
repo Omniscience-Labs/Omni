@@ -13,7 +13,7 @@ interface OmniLogoProps {
 }
 
 export function OmniLogo({
-  size = 24,
+  size = 32,
   variant = 'symbol',
   className,
   showText = false,
@@ -27,7 +27,7 @@ export function OmniLogo({
   }, []);
 
   if (!mounted) {
-    return <div style={{ width: size, height: size }} />;
+    return <div style={{ width: size * 4, height: size }} />;
   }
 
   // Full logo with text
@@ -37,10 +37,11 @@ export function OmniLogo({
         <Image
           src={isDarkMode ? '/OMNI-Logo-light.png' : '/OMNI-Logo-Dark.png'}
           alt="Omni"
-          width={size * 4}
+          width={size * 4.5}
           height={size}
-          className="h-auto"
+          className="h-auto w-auto"
           style={{ height: size }}
+          priority
         />
       </div>
     );
@@ -51,10 +52,11 @@ export function OmniLogo({
     <Image
       src={isDarkMode ? '/OMNI-Logo-light.png' : '/OMNI-Logo-Dark.png'}
       alt="Omni"
-      width={size * 4}
+      width={size * 4.5}
       height={size}
-      className={cn('h-auto', className)}
+      className={cn('h-auto w-auto', className)}
       style={{ height: size }}
+      priority
     />
   );
 }
