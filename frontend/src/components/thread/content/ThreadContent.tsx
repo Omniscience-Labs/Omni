@@ -785,16 +785,29 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                 })()}
 
                                                             {/* Show loader when agent is running but not streaming, inside the last assistant group */}
-                                                            {groupIndex === finalGroupedMessages.length - 1 && 
-                                                                !readOnly && 
-                                                                (agentStatus === 'running' || agentStatus === 'connecting') && 
-                                                                !streamingTextContent && 
-                                                                !streamingToolCall &&
-                                                                (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && (
-                                                                <div className="mt-2">
-                                                                    <AgentLoader />
-                                                                </div>
-                                                            )}
+                                                            {/* Don't show if last message is already complete (prevents "Thinking" flash after completion) */}
+                                                            {(() => {
+                                                                // Check if last assistant message is already complete
+                                                                const lastAssistantMessage = group.messages
+                                                                    .filter(m => m.type === 'assistant')
+                                                                    .slice(-1)[0];
+                                                                const lastMessageComplete = lastAssistantMessage ? (() => {
+                                                                    const metadata = safeJsonParse<ParsedMetadata>(lastAssistantMessage.metadata, {});
+                                                                    return metadata.stream_status === 'complete';
+                                                                })() : false;
+                                                                
+                                                                return groupIndex === finalGroupedMessages.length - 1 && 
+                                                                    !readOnly && 
+                                                                    (agentStatus === 'running' || agentStatus === 'connecting') && 
+                                                                    !streamingTextContent && 
+                                                                    !streamingToolCall &&
+                                                                    (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') &&
+                                                                    !lastMessageComplete && (
+                                                                    <div className="mt-2">
+                                                                        <AgentLoader />
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -806,10 +819,23 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                             })()}
 
                             {/* Show loader as new assistant group only when there's no assistant group (last message is user or no messages) and agent is running */}
-                            {((agentStatus === 'running' || agentStatus === 'connecting') && !streamingTextContent && !streamingToolCall &&
-                                !readOnly &&
-                                (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') &&
-                                (displayMessages.length === 0 || displayMessages[displayMessages.length - 1].type === 'user')) && (
+                            {/* Don't show if there's a complete assistant message (prevents "Thinking" flash after completion) */}
+                            {(() => {
+                                // Check if there's a complete assistant message
+                                const lastMessage = displayMessages[displayMessages.length - 1];
+                                const hasCompleteAssistantMessage = lastMessage && lastMessage.type === 'assistant' ? (() => {
+                                    const metadata = safeJsonParse<ParsedMetadata>(lastMessage.metadata, {});
+                                    return metadata.stream_status === 'complete';
+                                })() : false;
+                                
+                                return (agentStatus === 'running' || agentStatus === 'connecting') && 
+                                    !streamingTextContent && 
+                                    !streamingToolCall &&
+                                    !readOnly &&
+                                    (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') &&
+                                    (displayMessages.length === 0 || displayMessages[displayMessages.length - 1].type === 'user') &&
+                                    !hasCompleteAssistantMessage;
+                            })() && (
                                     <div ref={latestMessageRef} className='w-full h-22 rounded'>
                                         <div className="flex flex-col gap-2">
                                             {/* Logo positioned above the loader */}
