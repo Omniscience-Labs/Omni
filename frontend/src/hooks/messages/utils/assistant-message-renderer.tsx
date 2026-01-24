@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { Clock } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { UnifiedMessage, ParsedMetadata } from '@/components/thread/types';
 import { safeJsonParse, getToolIcon, getUserFriendlyToolName } from '@/components/thread/utils';
 import { ComposioUrlDetector } from '@/components/thread/content/composio-url-detector';
@@ -104,13 +105,23 @@ function renderAskToolCall(
       )}
       {/* Only show sample answers as buttons when message is finalized (not streaming) */}
       {isLatestMessage && followUpAnswers.length > 0 && metadata.stream_status === 'complete' && (
-        <PromptExamples
-          prompts={followUpAnswers.slice(0, 4).map(answer => ({ text: answer }))}
-          onPromptClick={(answer) => onPromptFill?.(answer)}
-          variant="text"
-          showTitle={true}
-          title={t ? t('thread.sampleAnswers') : 'Sample answers'}
-        />
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 0.4,
+            ease: [0.16, 1, 0.3, 1], // Custom easing for smooth entrance
+          }}
+          className="mt-3"
+        >
+          <PromptExamples
+            prompts={followUpAnswers.slice(0, 4).map(answer => ({ text: answer }))}
+            onPromptClick={(answer) => onPromptFill?.(answer)}
+            variant="text"
+            showTitle={true}
+            title={t ? t('thread.sampleAnswers') : 'Sample answers'}
+          />
+        </motion.div>
       )}
     </div>
   );
@@ -139,14 +150,23 @@ function renderCompleteToolCall(
       {renderAttachments(attachments, onFileClick, sandboxId, project)}
       {/* Only show task completed feedback when message is finalized (not streaming) */}
       {metadata.stream_status === 'complete' && (
-        <TaskCompletedFeedback
-          taskSummary={completeText}
-          followUpPrompts={isLatestMessage && followUpPrompts.length > 0 ? followUpPrompts : undefined}
-          onFollowUpClick={(prompt) => onPromptFill?.(prompt)}
-          samplePromptsTitle={t ? t('thread.samplePrompts') : 'Sample prompts'}
-          threadId={threadId}
-          messageId={message.message_id}
-        />
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 0.4,
+            ease: [0.16, 1, 0.3, 1], // Custom easing for smooth entrance
+          }}
+        >
+          <TaskCompletedFeedback
+            taskSummary={completeText}
+            followUpPrompts={isLatestMessage && followUpPrompts.length > 0 ? followUpPrompts : undefined}
+            onFollowUpClick={(prompt) => onPromptFill?.(prompt)}
+            samplePromptsTitle={t ? t('thread.samplePrompts') : 'Sample prompts'}
+            threadId={threadId}
+            messageId={message.message_id}
+          />
+        </motion.div>
       )}
     </div>
   );
