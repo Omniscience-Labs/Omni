@@ -44,6 +44,89 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
         except:
             pass
     
+    def _validate_and_normalize_path(self, path: str, must_exist: bool = False) -> tuple[str, str]:
+        """
+        Validate and normalize a file path to ensure it's under /workspace.
+        Prevents path traversal attacks and ensures paths never escape /workspace.
+        
+        Args:
+            path: Input path (can be absolute or relative)
+            must_exist: If True, validate that the file exists (not implemented here, check separately)
+            
+        Returns:
+            Tuple of (cleaned_relative_path, full_path)
+            
+        Raises:
+            ValueError: If path is invalid or escapes /workspace
+        """
+        if not path or not isinstance(path, str):
+            raise ValueError("Path must be a non-empty string")
+        
+        # Clean path using base class method (removes /workspace prefix if present)
+        cleaned_path = self.clean_path(path)
+        
+        # Security: Prevent path traversal attacks and normalize
+        # Remove any Windows-style backslashes
+        cleaned_path = cleaned_path.replace('\\', '/')
+        
+        # Split into parts and normalize
+        parts = cleaned_path.split('/')
+        normalized_parts = []
+        
+        for part in parts:
+            if part == '..':
+                # Path traversal attempt - remove previous part if exists, but never go above workspace
+                if normalized_parts:
+                    normalized_parts.pop()
+                # If already at root, ignore the ..
+            elif part == '.':
+                # Current directory reference - ignore
+                continue
+            elif part and part != '':
+                # Valid path component
+                normalized_parts.append(part)
+        
+        # Reconstruct cleaned path
+        cleaned_path = '/'.join(normalized_parts)
+        
+        # Final security checks
+        if cleaned_path.startswith('/'):
+            raise ValueError("Path must be relative to /workspace, not absolute")
+        
+        if '..' in cleaned_path or '\\' in cleaned_path:
+            raise ValueError("Path cannot contain '..' or backslashes (path traversal not allowed)")
+        
+        # Construct full path
+        full_path = f"{self.workspace_path}/{cleaned_path}"
+        
+        # Ensure it's still under workspace (final security check using realpath logic)
+        # Normalize the full path to detect any remaining traversal
+        normalized_full = '/'.join([self.workspace_path] + normalized_parts)
+        if not normalized_full.startswith(self.workspace_path + '/') and normalized_full != self.workspace_path:
+            raise ValueError(f"Invalid path: path must be under {self.workspace_path}")
+        
+        return cleaned_path, full_path
+    
+    async def _ensure_directory_exists(self, file_path: str):
+        """Ensure the parent directory of a file path exists.
+        
+        Args:
+            file_path: Full path (must already be validated and under /workspace)
+        """
+        try:
+            # Extract directory path
+            parent_dir = '/'.join(file_path.split('/')[:-1])
+            if parent_dir and parent_dir != self.workspace_path:
+                # Security: Ensure parent_dir is still under workspace
+                if not parent_dir.startswith(self.workspace_path + '/') and parent_dir != self.workspace_path:
+                    logger.warning(f"Attempted to create directory outside workspace: {parent_dir}")
+                    return
+                # Only create if it's a subdirectory
+                await self.sandbox.fs.create_folder(parent_dir, "755")
+        except Exception as e:
+            # Directory might already exist, which is fine
+            logger.debug(f"Directory creation note (may already exist): {str(e)}")
+    
     def _sanitize_filename(self, name: str) -> str:
         """Convert name to safe filename"""
         safe = "".join(c for c in name if c.isalnum() or c in "-_./").strip()
@@ -148,6 +231,18 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             "rows": rows
         }
     
+    def _fail_with_details(self, message: str, details: Optional[Dict[str, Any]] = None) -> ToolResult:
+        """Create a failed tool result with optional details"""
+        if details:
+            error_output = {
+                "ok": False,
+                "error": message,
+                "details": details
+            }
+            return ToolResult(success=False, output=json.dumps(error_output))
+        else:
+            return self.fail_response(message)
+    
     # ==================== FUNCTION 1: create_spreadsheet ====================
     @openapi_schema({
         "type": "function",
@@ -192,13 +287,23 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             if not path:
                 path = "/workspace/spreadsheets/workbook.xlsx"
             
-            # Clean and resolve path
-            cleaned_path = self.clean_path(path)
-            full_path = f"{self.workspace_path}/{cleaned_path}"
+            # Validate and normalize path (prevents path traversal)
+            try:
+                cleaned_path, full_path = self._validate_and_normalize_path(path)
+            except ValueError as e:
+                return self.fail_response(f"Invalid path: {str(e)}. Paths must be relative to /workspace.")
             
             # Ensure .xlsx extension
             if not full_path.endswith('.xlsx'):
                 full_path += '.xlsx'
+                # Re-validate after adding extension
+                try:
+                    cleaned_path, full_path = self._validate_and_normalize_path(full_path)
+                except ValueError as e:
+                    return self.fail_response(f"Invalid path after extension: {str(e)}")
+            
+            # Ensure parent directory exists
+            await self._ensure_directory_exists(full_path)
             
             # Check if file exists
             try:
@@ -230,6 +335,7 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             logger.info(f"Created spreadsheet: {full_path} with sheets: {sheet_names}")
             
             return self.success_response({
+                "ok": True,
                 "file_path": full_path,
                 "sheet_names": sheet_names
             })
@@ -269,9 +375,11 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
         try:
             await self._ensure_sandbox()
             
-            # Clean and resolve path
-            cleaned_path = self.clean_path(path)
-            full_path = f"{self.workspace_path}/{cleaned_path}"
+            # Validate and normalize path (prevents path traversal)
+            try:
+                cleaned_path, full_path = self._validate_and_normalize_path(path, must_exist=True)
+            except ValueError as e:
+                return self.fail_response(f"Invalid path: {str(e)}. Paths must be relative to /workspace.")
             
             # Validate sheet name length
             if len(sheet_name) > 31:
@@ -293,6 +401,8 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             logger.info(f"Added sheet '{sheet_name}' to {full_path}")
             
             return self.success_response({
+                "ok": True,
+                "file_path": full_path,
                 "sheet_names": workbook.sheetnames
             })
             
@@ -331,9 +441,11 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
         try:
             await self._ensure_sandbox()
             
-            # Clean and resolve path
-            cleaned_path = self.clean_path(path)
-            full_path = f"{self.workspace_path}/{cleaned_path}"
+            # Validate and normalize path (prevents path traversal)
+            try:
+                cleaned_path, full_path = self._validate_and_normalize_path(path, must_exist=True)
+            except ValueError as e:
+                return self.fail_response(f"Invalid path: {str(e)}. Paths must be relative to /workspace.")
             
             # Load workbook
             workbook = await self._load_workbook_from_sandbox(full_path)
@@ -357,6 +469,8 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             logger.info(f"Deleted sheet '{sheet_name}' from {full_path}")
             
             return self.success_response({
+                "ok": True,
+                "file_path": full_path,
                 "sheet_names": workbook.sheetnames
             })
             
@@ -409,9 +523,11 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             if not self._validate_cell_reference(cell):
                 return self.fail_response(f"Invalid cell reference: {cell}. Expected format: A1")
             
-            # Clean and resolve path
-            cleaned_path = self.clean_path(path)
-            full_path = f"{self.workspace_path}/{cleaned_path}"
+            # Validate and normalize path (prevents path traversal)
+            try:
+                cleaned_path, full_path = self._validate_and_normalize_path(path, must_exist=True)
+            except ValueError as e:
+                return self.fail_response(f"Invalid path: {str(e)}. Paths must be relative to /workspace.")
             
             # Load workbook
             workbook = await self._load_workbook_from_sandbox(full_path)
@@ -431,6 +547,8 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             logger.info(f"Updated cell {cell} in {full_path}")
             
             return self.success_response({
+                "ok": True,
+                "file_path": full_path,
                 "updated_cell": cell.upper(),
                 "value": str(value) if value is not None else None
             })
@@ -490,9 +608,11 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             if not self._validate_range(range):
                 return self.fail_response(f"Invalid range format: {range}. Expected format: A1:C3")
             
-            # Clean and resolve path
-            cleaned_path = self.clean_path(path)
-            full_path = f"{self.workspace_path}/{cleaned_path}"
+            # Validate and normalize path (prevents path traversal)
+            try:
+                cleaned_path, full_path = self._validate_and_normalize_path(path, must_exist=True)
+            except ValueError as e:
+                return self.fail_response(f"Invalid path: {str(e)}. Paths must be relative to /workspace.")
             
             # Load workbook
             workbook = await self._load_workbook_from_sandbox(full_path)
@@ -528,6 +648,8 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             logger.info(f"Updated range {range} in {full_path}")
             
             return self.success_response({
+                "ok": True,
+                "file_path": full_path,
                 "range_written": range,
                 "rows": len(values),
                 "cols": len(values[0]) if values else 0
@@ -577,9 +699,11 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             if not self._validate_cell_reference(cell):
                 return self.fail_response(f"Invalid cell reference: {cell}. Expected format: A1")
             
-            # Clean and resolve path
-            cleaned_path = self.clean_path(path)
-            full_path = f"{self.workspace_path}/{cleaned_path}"
+            # Validate and normalize path (prevents path traversal)
+            try:
+                cleaned_path, full_path = self._validate_and_normalize_path(path, must_exist=True)
+            except ValueError as e:
+                return self.fail_response(f"Invalid path: {str(e)}. Paths must be relative to /workspace.")
             
             # Load workbook
             workbook = await self._load_workbook_from_sandbox(full_path)
@@ -613,6 +737,8 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
                     value = str(value)
             
             return self.success_response({
+                "ok": True,
+                "file_path": full_path,
                 "value": value,
                 "formula": formula
             })
@@ -661,9 +787,11 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             if not self._validate_range(range):
                 return self.fail_response(f"Invalid range format: {range}. Expected format: A1:C10")
             
-            # Clean and resolve path
-            cleaned_path = self.clean_path(path)
-            full_path = f"{self.workspace_path}/{cleaned_path}"
+            # Validate and normalize path (prevents path traversal)
+            try:
+                cleaned_path, full_path = self._validate_and_normalize_path(path, must_exist=True)
+            except ValueError as e:
+                return self.fail_response(f"Invalid path: {str(e)}. Paths must be relative to /workspace.")
             
             # Load workbook
             workbook = await self._load_workbook_from_sandbox(full_path)
@@ -693,6 +821,8 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             cols = len(values[0]) if values else 0
             
             return self.success_response({
+                "ok": True,
+                "file_path": full_path,
                 "values": values,
                 "rows": rows,
                 "cols": cols
@@ -752,9 +882,11 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
         try:
             await self._ensure_sandbox()
             
-            # Clean and resolve path
-            cleaned_path = self.clean_path(path)
-            full_path = f"{self.workspace_path}/{cleaned_path}"
+            # Validate and normalize path (prevents path traversal)
+            try:
+                cleaned_path, full_path = self._validate_and_normalize_path(path, must_exist=True)
+            except ValueError as e:
+                return self.fail_response(f"Invalid path: {str(e)}. Paths must be relative to /workspace.")
             
             # Load workbook
             workbook = await self._load_workbook_from_sandbox(full_path)
@@ -788,6 +920,8 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
                 }
             
             return self.success_response({
+                "ok": True,
+                "file_path": full_path,
                 "metadata": metadata,
                 "preview_data": preview_data
             })
@@ -845,9 +979,11 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             if not formula.startswith('='):
                 return self.fail_response(f"Formula must start with '='. Got: {formula}")
             
-            # Clean and resolve path
-            cleaned_path = self.clean_path(path)
-            full_path = f"{self.workspace_path}/{cleaned_path}"
+            # Validate and normalize path (prevents path traversal)
+            try:
+                cleaned_path, full_path = self._validate_and_normalize_path(path, must_exist=True)
+            except ValueError as e:
+                return self.fail_response(f"Invalid path: {str(e)}. Paths must be relative to /workspace.")
             
             # Load workbook
             workbook = await self._load_workbook_from_sandbox(full_path)
@@ -867,6 +1003,8 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             logger.info(f"Set formula in cell {cell} in {full_path}")
             
             return self.success_response({
+                "ok": True,
+                "file_path": full_path,
                 "cell": cell.upper(),
                 "formula": formula
             })
@@ -941,9 +1079,11 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
                 cell_row = int(re.match(r'[A-Z]+(\d+)$', target.upper()).group(1))
                 start_row, start_col, end_row, end_col = cell_row, cell_col, cell_row, cell_col
             
-            # Clean and resolve path
-            cleaned_path = self.clean_path(path)
-            full_path = f"{self.workspace_path}/{cleaned_path}"
+            # Validate and normalize path (prevents path traversal)
+            try:
+                cleaned_path, full_path = self._validate_and_normalize_path(path, must_exist=True)
+            except ValueError as e:
+                return self.fail_response(f"Invalid path: {str(e)}. Paths must be relative to /workspace.")
             
             # Load workbook
             workbook = await self._load_workbook_from_sandbox(full_path)
@@ -1035,6 +1175,8 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             logger.info(f"Formatted {target} in {full_path}")
             
             return self.success_response({
+                "ok": True,
+                "file_path": full_path,
                 "formatted_target": target,
                 "applied_keys": applied_keys
             })
