@@ -30,6 +30,7 @@ SANDBOX_TOOLS = [
     ('sb_kb_tool', 'core.tools.sb_kb_tool', 'SandboxKbTool'),
     # ('sb_design_tool', 'core.tools.sb_designer_tool', 'SandboxDesignerTool'),
     ('sb_presentation_tool', 'core.tools.sb_presentation_tool', 'SandboxPresentationTool'),
+    ('sb_spreadsheet_tool', 'core.tools.sb_spreadsheet_tool', 'SandboxSpreadsheetTool'),
     ('sb_upload_file_tool', 'core.tools.sb_upload_file_tool', 'SandboxUploadFileTool'),
     # ('sb_docs_tool', 'core.tools.sb_docs_tool', 'SandboxDocsTool'),
 ]
