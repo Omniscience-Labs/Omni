@@ -29,6 +29,7 @@ import {
     findAskOrCompleteTool,
     shouldSkipStreamingRender,
 } from '@/hooks/messages/utils';
+import { useSmoothStream } from '@/hooks/utils/useSmoothStream';
 
 // Configuration for prompt/answer rendering
 const PROMPT_SAMPLES_CONFIG = {
@@ -114,6 +115,10 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     const { session } = useAuth();
     const t = useTranslations();
 
+    // Apply smooth typing effect to streaming text
+    const isStreaming = (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && !readOnly;
+    const smoothStreamingText = useSmoothStream(streamingTextContent, isStreaming);
+
     // React Query file preloader
     const { preloadFiles } = useFilePreloader();
 
@@ -123,6 +128,24 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
     // In playback mode, we use visibleMessages instead of messages
     const displayMessages = readOnly && visibleMessages ? visibleMessages : messages;
+
+    // Helper function to check if last assistant message is complete (prevents "Thinking" flash)
+    const isLastAssistantMessageComplete = useCallback(() => {
+        if (displayMessages.length === 0) return false;
+        const lastMessage = displayMessages[displayMessages.length - 1];
+        if (lastMessage.type !== 'assistant') return false;
+        const metadata = safeJsonParse<ParsedMetadata>(lastMessage.metadata, {});
+        return metadata.stream_status === 'complete';
+    }, [displayMessages]);
+
+    // Helper to check if a group's last assistant message is complete
+    const isGroupLastAssistantComplete = useCallback((groupMessages: UnifiedMessage[]) => {
+        const assistantMessages = groupMessages.filter(m => m.type === 'assistant');
+        if (assistantMessages.length === 0) return false;
+        const lastAssistant = assistantMessages[assistantMessages.length - 1];
+        const metadata = safeJsonParse<ParsedMetadata>(lastAssistant.metadata, {});
+        return metadata.stream_status === 'complete';
+    }, []);
 
     // Helper function to get agent info robustly
     const getAgentInfo = useCallback(() => {
@@ -559,7 +582,10 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                             {groupIndex === finalGroupedMessages.length - 1 && !readOnly && streamingTextContent && (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && (
                                                                 <div className="mt-2">
                                                                     {(() => {
-                                                                        // Detect XML tags in streaming content
+                                                                        // Use smooth streaming text for typing effect
+                                                                        const textToRender = smoothStreamingText;
+                                                                        
+                                                                        // Detect XML tags in streaming content (use original for detection, but render smooth version)
                                                                         let detectedTag: string | null = null;
                                                                         let tagStartIndex = -1;
                                                                         
@@ -602,8 +628,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                             }
                                                                         }
 
-                                                                        const textToRender = streamingTextContent;
-                                                                        const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
+                                                                        // Apply smooth stream to text before tag, but only show up to the revealed length
+                                                                        const textBeforeTag = detectedTag ? textToRender.substring(0, Math.min(tagStartIndex, textToRender.length)) : textToRender;
                                                                         const isAskOrComplete = detectedTag === 'ask' || detectedTag === 'complete';
 
                                                                         return (
@@ -615,23 +641,30 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                 {detectedTag && isAskOrComplete ? (
                                                                                     // Extract and render text from XML ask/complete
                                                                                     (() => {
-                                                                                        const streamingContent = textToRender.substring(tagStartIndex);
-                                                                                        const extractedText = extractTextFromStreamingAskComplete(streamingContent, detectedTag as 'ask' | 'complete');
-                                                                                        return (
-                                                                                            <ComposioUrlDetector 
-                                                                                                content={extractedText} 
-                                                                                                className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3" 
-                                                                                            />
-                                                                                        );
+                                                                                        // Only show content after tag if we've reached that point in the smooth stream
+                                                                                        if (textToRender.length > tagStartIndex) {
+                                                                                            const streamingContent = textToRender.substring(tagStartIndex);
+                                                                                            const extractedText = extractTextFromStreamingAskComplete(streamingContent, detectedTag as 'ask' | 'complete');
+                                                                                            return (
+                                                                                                <ComposioUrlDetector 
+                                                                                                    content={extractedText} 
+                                                                                                    className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3" 
+                                                                                                />
+                                                                                            );
+                                                                                        }
+                                                                                        return null;
                                                                                     })()
                                                                                 ) : detectedTag ? (
-                                                                                    <ShowToolStream
-                                                                                        content={textToRender.substring(tagStartIndex)}
-                                                                                        messageId={visibleMessages && visibleMessages.length > 0 ? visibleMessages[visibleMessages.length - 1].message_id : "playback-streaming"}
-                                                                                        onToolClick={handleToolClick}
-                                                                                        showExpanded={true}
-                                                                                        startTime={Date.now()}
-                                                                                    />
+                                                                                    // Only show tool stream if we've reached that point
+                                                                                    textToRender.length > tagStartIndex ? (
+                                                                                        <ShowToolStream
+                                                                                            content={textToRender.substring(tagStartIndex)}
+                                                                                            messageId={visibleMessages && visibleMessages.length > 0 ? visibleMessages[visibleMessages.length - 1].message_id : "playback-streaming"}
+                                                                                            onToolClick={handleToolClick}
+                                                                                            showExpanded={true}
+                                                                                            startTime={Date.now()}
+                                                                                        />
+                                                                                    ) : null
                                                                                 ) : null}
                                                                             </>
                                                                         );
@@ -857,7 +890,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                 (agentStatus === 'running' || agentStatus === 'connecting') && 
                                                                 !streamingTextContent && 
                                                                 !streamingToolCall &&
-                                                                (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && (
+                                                                (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') &&
+                                                                !isGroupLastAssistantComplete(group.messages) && (
                                                                 <div className="mt-2">
                                                                     <AgentLoader />
                                                                 </div>
@@ -876,7 +910,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                             {((agentStatus === 'running' || agentStatus === 'connecting') && !streamingTextContent && !streamingToolCall &&
                                 !readOnly &&
                                 (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') &&
-                                (displayMessages.length === 0 || displayMessages[displayMessages.length - 1].type === 'user')) && (
+                                (displayMessages.length === 0 || displayMessages[displayMessages.length - 1].type === 'user') &&
+                                !isLastAssistantMessageComplete()) && (
                                     <div ref={latestMessageRef} className='w-full h-22 rounded'>
                                         <div className="flex flex-col gap-2">
                                             {/* Logo positioned above the loader */}
