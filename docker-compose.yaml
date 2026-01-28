@@ -49,6 +49,8 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/.env:/app/.env:ro
+      - ./backend:/app
+      - /app/.venv
     environment:
       - ENV_MODE=local
       - REDIS_HOST=redis
@@ -70,6 +72,8 @@ services:
     command: uv run dramatiq --skip-logging --processes 4 --threads 4 run_agent_background
     volumes:
       - ./backend/.env:/app/.env:ro
+      - ./backend:/app
+      - /app/.venv
     environment:
       - ENV_MODE=local
       - REDIS_HOST=redis

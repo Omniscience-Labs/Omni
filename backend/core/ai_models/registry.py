@@ -1,18 +1,36 @@
 from typing import Dict, List, Optional, Set
 from .ai_models import Model, ModelProvider, ModelCapability, ModelPricing, ModelConfig
-from core.utils.config import config, EnvMode
+from core.utils.config import config, EnvMode, get_config
 from core.utils.logger import logger
+import os
+
+# Ensure config is initialized before we use it
+get_config()
 
 # SHOULD_USE_ANTHROPIC = False
 # CRITICAL: Production and Staging must ALWAYS use Bedrock, never Anthropic API directly
-SHOULD_USE_ANTHROPIC = config.ENV_MODE == EnvMode.LOCAL and bool(config.ANTHROPIC_API_KEY)
+# Robust check: Use config object OR direct os.getenv fallback to avoid initialization timing issues
+is_local = config.ENV_MODE == EnvMode.LOCAL or os.getenv("ENV_MODE") == "local"
+has_anthropic = bool(config.ANTHROPIC_API_KEY) or bool(os.getenv("ANTHROPIC_API_KEY"))
+
+# Logic update: In local mode, prioritize Anthropic Direct API.
+# Only fallback to Bedrock if we are NOT local (Production/Staging).
+SHOULD_USE_ANTHROPIC = is_local
+
+if is_local and not has_anthropic:
+    logger.warning("⚠️ Local mode detected but ANTHROPIC_API_KEY appears missing. System will attempt to use Anthropic models but may fail with authentication errors.")
+
+# Debug logging for model selection
+logger.info(f"🔧 MODEL SELECTION: ENV_MODE={config.ENV_MODE}, ANTHROPIC_KEY_SET={has_anthropic}, SHOULD_USE_ANTHROPIC={SHOULD_USE_ANTHROPIC}")
 
 # # Actual model IDs for LiteLLM
 # _BASIC_MODEL_ID = "anthropic/claude-sonnet-4-5-20250929" if SHOULD_USE_ANTHROPIC else "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh"
 # _POWER_MODEL_ID = "anthropic/claude-sonnet-4-5-20250929" if SHOULD_USE_ANTHROPIC else "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh"
 # Hardcoded to standard public Bedrock Model IDs
-_BASIC_MODEL_ID = "bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0"
-_POWER_MODEL_ID = "bedrock/us.anthropic.claude-3-5-sonnet-20241022-v2:0" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+_BASIC_MODEL_ID = "anthropic/claude-3-5-haiku-20241022" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0"
+_POWER_MODEL_ID = "anthropic/claude-3-5-sonnet-20241022" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+
+logger.info(f"🎯 SELECTED MODELS: BASIC={_BASIC_MODEL_ID}, POWER={_POWER_MODEL_ID}")
 # Default model IDs (these are aliases that resolve to actual IDs)
 FREE_MODEL_ID = "kortix/basic"
 PREMIUM_MODEL_ID = "kortix/power"

@@ -1,6 +1,6 @@
 """Agent-related API models."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
 # Import PaginationInfo directly to avoid forward reference issues
@@ -11,9 +11,9 @@ class AgentCreateRequest(BaseModel):
     """Request model for creating a new agent."""
     name: str
     system_prompt: Optional[str] = None
-    configured_mcps: Optional[List[Dict[str, Any]]] = []
-    custom_mcps: Optional[List[Dict[str, Any]]] = []
-    agentpress_tools: Optional[Dict[str, Any]] = {}
+    configured_mcps: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
+    custom_mcps: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
+    agentpress_tools: Optional[Dict[str, Any]] = Field(default_factory=dict)
     is_default: Optional[bool] = False
     icon_name: Optional[str] = None
     icon_color: Optional[str] = None
@@ -44,9 +44,9 @@ class AgentVersionResponse(BaseModel):
     version_name: str
     system_prompt: str
     model: Optional[str] = None
-    configured_mcps: List[Dict[str, Any]]
-    custom_mcps: List[Dict[str, Any]]
-    agentpress_tools: Dict[str, Any]
+    configured_mcps: List[Dict[str, Any]] = Field(default_factory=list)
+    custom_mcps: List[Dict[str, Any]] = Field(default_factory=list)
+    agentpress_tools: Dict[str, Any] = Field(default_factory=dict)
     is_active: bool
     created_at: str
     updated_at: str
@@ -56,9 +56,9 @@ class AgentVersionResponse(BaseModel):
 class AgentVersionCreateRequest(BaseModel):
     """Request model for creating a new agent version."""
     system_prompt: str
-    configured_mcps: Optional[List[Dict[str, Any]]] = []
-    custom_mcps: Optional[List[Dict[str, Any]]] = []
-    agentpress_tools: Optional[Dict[str, Any]] = {}
+    configured_mcps: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
+    custom_mcps: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
+    agentpress_tools: Optional[Dict[str, Any]] = Field(default_factory=dict)
     version_name: Optional[str] = None
 
 
@@ -69,9 +69,9 @@ class AgentResponse(BaseModel):
     description: Optional[str] = None
     system_prompt: Optional[str] = None  # Optional for list operations where config not loaded
     model: Optional[str] = None
-    configured_mcps: List[Dict[str, Any]]
-    custom_mcps: List[Dict[str, Any]]
-    agentpress_tools: Dict[str, Any]
+    configured_mcps: List[Dict[str, Any]] = Field(default_factory=list)
+    custom_mcps: List[Dict[str, Any]] = Field(default_factory=list)
+    agentpress_tools: Dict[str, Any] = Field(default_factory=dict)
     is_default: bool
     is_public: Optional[bool] = False
     tags: Optional[List[str]] = []

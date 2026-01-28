@@ -38,6 +38,22 @@ def get_setup_method():
     progress = load_progress()
     return progress.get("data", {}).get("setup_method")
 
+def check_supermemory_env():
+    """Checks if the Supermemory API Key is present in the environment or .env file."""
+    if os.environ.get("SUPERMEMORY_API_KEY"):
+        return True
+    
+    # Check .env file in backend
+    env_path = os.path.join("backend", ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r") as f:
+            if "SUPERMEMORY_API_KEY" in f.read():
+                return True
+                
+    print(f"{Colors.RED}❌ Supermemory API Key missing!{Colors.ENDC}")
+    print(f"{Colors.YELLOW}Please add SUPERMEMORY_API_KEY to your backend/.env file to enable V3 memory.{Colors.ENDC}")
+    return False
+
 def check_docker_available():
     """Check if Docker is available and running."""
     try:
@@ -58,49 +74,40 @@ def check_docker_compose_up():
     return len(result.stdout.strip()) > 0
 
 def print_manual_instructions():
-    """Prints instructions for manually starting Suna services."""
+    """Prints updated V3 instructions for starting services with Supermemory."""
     progress = load_progress()
     supabase_setup_method = progress.get("data", {}).get("supabase_setup_method")
     
-    print(f"\n{Colors.BLUE}{Colors.BOLD}🚀 Manual Startup Instructions{Colors.ENDC}\n")
+    print(f"\n{Colors.BLUE}{Colors.BOLD}🚀 V3 Manual Startup Instructions (Supermemory Enabled){Colors.ENDC}\n")
 
-    print("To start Suna, you need to run these commands in separate terminals:\n")
+    print("To start the V3 environment, run these commands in separate terminals:\n")
 
     step_num = 1
     
-    # Show Supabase start command for local setup
     if supabase_setup_method == "local":
-        print(f"{Colors.BOLD}{step_num}. Start Local Supabase (in backend directory):{Colors.ENDC}")
+        print(f"{Colors.BOLD}{step_num}. Start Local Supabase (Data Storage):{Colors.ENDC}")
         print(f"{Colors.CYAN}   cd backend && npx supabase start{Colors.ENDC}\n")
         step_num += 1
 
-    print(f"{Colors.BOLD}{step_num}. Start Infrastructure (in project root):{Colors.ENDC}")
+    print(f"{Colors.BOLD}{step_num}. Start Infrastructure (Redis for Task Queue):{Colors.ENDC}")
     print(f"{Colors.CYAN}   docker compose up redis -d{Colors.ENDC}\n")
     step_num += 1
 
-    print(f"{Colors.BOLD}{step_num}. Start Frontend (in a new terminal):{Colors.ENDC}")
+    print(f"{Colors.BOLD}{step_num}. Start V3 Frontend:{Colors.ENDC}")
     print(f"{Colors.CYAN}   cd frontend && npm run dev{Colors.ENDC}\n")
     step_num += 1
 
-    print(f"{Colors.BOLD}{step_num}. Start Backend (in a new terminal):{Colors.ENDC}")
+    print(f"{Colors.BOLD}{step_num}. Start V3 API (with Memory Service):{Colors.ENDC}")
     print(f"{Colors.CYAN}   cd backend && uv run api.py{Colors.ENDC}\n")
     step_num += 1
 
-    print(f"{Colors.BOLD}{step_num}. Start Background Worker (in a new terminal):{Colors.ENDC}")
+    print(f"{Colors.BOLD}{step_num}. Start Background Worker (Mem0 -> Supermemory Sync):{Colors.ENDC}")
     print(
         f"{Colors.CYAN}   cd backend && uv run dramatiq run_agent_background{Colors.ENDC}\n"
     )
 
-    # Show stop commands for local Supabase
-    if supabase_setup_method == "local":
-        print(f"{Colors.BOLD}To stop Local Supabase:{Colors.ENDC}")
-        print(f"{Colors.CYAN}   cd backend && npx supabase stop{Colors.ENDC}\n")
-
-    print("Once all services are running, access Suna at: http://localhost:3000\n")
-
-    print(
-        f"{Colors.YELLOW}💡 Tip:{Colors.ENDC} You can use '{Colors.CYAN}./start.py{Colors.ENDC}' to start/stop the infrastructure services."
-    )
+    print(f"Once all services are running, access the V3 app at: {Colors.BOLD}http://localhost:3000{Colors.ENDC}\n")
+    print(f"{Colors.GREEN}💡 Note: V2 memories are being migrated in the background.{Colors.ENDC}")
 
 
 def main():
@@ -114,23 +121,23 @@ def main():
         print("  --help\tShow this help message")
         return
 
-    # If setup hasn't been run or method is not determined, default to docker
+    # Check for Supermemory before starting
+    if not check_supermemory_env():
+        # We don't return here so infra can still start, but we warn the user
+        pass
+
     if not setup_method:
         print(
-            f"{Colors.YELLOW}⚠️  Setup method not detected. Run './setup.py' first or using Docker Compose as default.{Colors.ENDC}"
+            f"{Colors.YELLOW}⚠️  Setup method not detected. Defaulting to Docker Compose.{Colors.ENDC}"
         )
         setup_method = "docker"
 
     if setup_method == "manual":
-        # For manual setup, we only manage infrastructure services (redis)
-        # and show instructions for the rest
-        print(f"{Colors.BLUE}{Colors.BOLD}Manual Setup Detected{Colors.ENDC}")
+        print(f"{Colors.BLUE}{Colors.BOLD}Manual Setup Detected (V3 Mode){Colors.ENDC}")
         print("Managing infrastructure services (Redis)...\n")
 
         force = "-f" in sys.argv
-        if force:
-            print("Force awakened. Skipping confirmation.")
-
+        
         is_infra_up = subprocess.run(
             ["docker", "compose", "ps", "-q", "redis"],
             capture_output=True,
@@ -148,14 +155,8 @@ def main():
 
         if not force:
             response = input(msg).strip().lower()
-            if action == "stop":
-                if response != "y":
-                    print("Aborting.")
-                    return
-            else:
-                if response == "n":
-                    print("Aborting.")
-                    return
+            if action == "stop" and response != "y": return
+            if action == "start" and response == "n": return
 
         if action == "stop":
             subprocess.run(["docker", "compose", "down"], shell=IS_WINDOWS)
@@ -168,43 +169,25 @@ def main():
             print_manual_instructions()
 
     else:  # docker setup
-        print(f"{Colors.BLUE}{Colors.BOLD}Docker Setup Detected{Colors.ENDC}")
-        print("Managing all Suna services with Docker Compose...\n")
-
-        force = "-f" in sys.argv
-        if force:
-            print("Force awakened. Skipping confirmation.")
-
-        if not check_docker_available():
-            return
+        print(f"{Colors.BLUE}{Colors.BOLD}Docker V3 Setup Detected{Colors.ENDC}")
+        if not check_docker_available(): return
             
         is_up = check_docker_compose_up()
+        action = "stop" if is_up else "start"
+        msg = "🛑 Stop all services? [y/N] " if is_up else "⚡ Start all services? [Y/n] "
 
-        if is_up:
-            action = "stop"
-            msg = "🛑 Stop all Suna services? [y/N] "
-        else:
-            action = "start"
-            msg = "⚡ Start all Suna services? [Y/n] "
-
-        if not force:
+        if "-f" not in sys.argv:
             response = input(msg).strip().lower()
-            if action == "stop":
-                if response != "y":
-                    print("Aborting.")
-                    return
-            else:
-                if response == "n":
-                    print("Aborting.")
-                    return
+            if action == "stop" and response != "y": return
+            if action == "start" and response == "n": return
 
         if action == "stop":
             subprocess.run(["docker", "compose", "down"], shell=IS_WINDOWS)
-            print(f"\n{Colors.GREEN}✅ All Suna services stopped.{Colors.ENDC}")
+            print(f"\n{Colors.GREEN}✅ V3 environment stopped.{Colors.ENDC}")
         else:
             subprocess.run(["docker", "compose", "up", "-d"], shell=IS_WINDOWS)
-            print(f"\n{Colors.GREEN}✅ All Suna services started.{Colors.ENDC}")
-            print(f"{Colors.CYAN}🌐 Access Suna at: http://localhost:3000{Colors.ENDC}")
+            print(f"\n{Colors.GREEN}✅ V3 environment started with Supermemory.{Colors.ENDC}")
+            print(f"{Colors.CYAN}🌐 Access at: http://localhost:3000{Colors.ENDC}")
 
 
 if __name__ == "__main__":
