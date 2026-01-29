@@ -1,6 +1,8 @@
 import json
 import asyncio
-from typing import Dict, Any
+import httpx
+import uuid
+from typing import Dict, Any, Optional
 from core.agentpress.tool import ToolResult
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
@@ -15,6 +17,9 @@ class MCPToolExecutor:
         self.mcp_manager = mcp_service
         self.custom_tools = custom_tools
         self.tool_wrapper = tool_wrapper
+        # Track the current request_id for cancellation purposes
+        self._current_request_id: Optional[str] = None
+        self._current_server_url: Optional[str] = None
     
     async def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> ToolResult:
         logger.debug(f"Executing MCP tool {tool_name} with arguments {arguments}")
@@ -132,13 +137,32 @@ class MCPToolExecutor:
         url = custom_config['url']
         headers = custom_config.get('headers', {})
         
+        # Check if this server supports our cancellation protocol
+        # Only inject _request_id for servers we control to maintain backward compatibility
+        supports_cancellation = self._server_supports_cancellation(url, custom_config)
+        
+        request_id = None
+        call_arguments = arguments
+        
+        if supports_cancellation:
+            # Generate a unique request ID for this specific tool call
+            request_id = str(uuid.uuid4())
+            self._current_request_id = request_id
+            self._current_server_url = url
+            
+            # Inject request_id into arguments so server can track it
+            call_arguments = {
+                **arguments,
+                '_request_id': request_id
+            }
+        
         try:
             async with asyncio.timeout(360):  # 6 minutes
                 try:
                     async with sse_client(url, headers=headers) as (read, write):
                         async with ClientSession(read, write) as session:
                             await session.initialize()
-                            result = await session.call_tool(original_tool_name, arguments)
+                            result = await session.call_tool(original_tool_name, call_arguments)
                             content = self._extract_content(result)
                             return self._parse_tool_response(content)
                             
@@ -147,19 +171,36 @@ class MCPToolExecutor:
                         async with sse_client(url) as (read, write):
                             async with ClientSession(read, write) as session:
                                 await session.initialize()
-                                result = await session.call_tool(original_tool_name, arguments)
+                                result = await session.call_tool(original_tool_name, call_arguments)
                                 content = self._extract_content(result)
                                 return self._parse_tool_response(content)
                     else:
                         raise
+        
+        except asyncio.CancelledError:
+            # User cancelled the operation (clicked Stop)
+            logger.warning(f"SSE MCP tool {tool_name} was cancelled by user")
+            # Try to cancel this specific job on the server (only if supported)
+            if supports_cancellation and request_id:
+                await self._cancel_server_job_by_request_id(url, request_id)
+            # Re-raise to propagate cancellation
+            raise
+        
         except asyncio.TimeoutError:
             logger.error(f"SSE MCP tool {tool_name} timed out after 360 seconds")
+            # Try to cancel this specific job on timeout (only if supported)
+            if supports_cancellation and request_id:
+                await self._cancel_server_job_by_request_id(url, request_id)
             return self._create_error_result(
                 f"Tool execution timed out after 6 minutes. The operation may still be running on the server."
             )
         except Exception as e:
             logger.error(f"Error executing SSE MCP tool {tool_name}: {str(e)}")
             return self._create_error_result(f"Error executing SSE tool: {str(e)}")
+        finally:
+            # Clear tracking after execution completes
+            self._current_request_id = None
+            self._current_server_url = None
     
     async def _execute_http_tool(self, tool_name: str, arguments: Dict[str, Any], tool_info: Dict[str, Any]) -> ToolResult:
         custom_config = tool_info['custom_config']
@@ -167,24 +208,60 @@ class MCPToolExecutor:
         
         url = custom_config['url']
         
+        # Check if this server supports our cancellation protocol
+        # Only inject _request_id for servers we control to maintain backward compatibility
+        supports_cancellation = self._server_supports_cancellation(url, custom_config)
+        
+        request_id = None
+        call_arguments = arguments
+        
+        if supports_cancellation:
+            # Generate a unique request ID for this specific tool call
+            # This allows us to cancel just this job if the user clicks Stop
+            request_id = str(uuid.uuid4())
+            self._current_request_id = request_id
+            self._current_server_url = url
+            
+            # Inject request_id into arguments so server can track it
+            call_arguments = {
+                **arguments,
+                '_request_id': request_id
+            }
+        
         try:
             async with asyncio.timeout(360):  # 6 minutes - aligned with server timeout
                 async with streamablehttp_client(url) as (read, write, _):
                     async with ClientSession(read, write) as session:
                         await session.initialize()
-                        result = await session.call_tool(original_tool_name, arguments)
+                        result = await session.call_tool(original_tool_name, call_arguments)
                         content = self._extract_content(result)
                         # Parse response to detect tool-level errors
                         return self._parse_tool_response(content)
         
+        except asyncio.CancelledError:
+            # User cancelled the operation (clicked Stop)
+            logger.warning(f"HTTP MCP tool {tool_name} was cancelled by user")
+            # Try to cancel this specific job on the server (only if supported)
+            if supports_cancellation and request_id:
+                await self._cancel_server_job_by_request_id(url, request_id)
+            # Re-raise to propagate cancellation
+            raise
+        
         except asyncio.TimeoutError:
             logger.error(f"HTTP MCP tool {tool_name} timed out after 360 seconds")
+            # Try to cancel this specific job on timeout (only if supported)
+            if supports_cancellation and request_id:
+                await self._cancel_server_job_by_request_id(url, request_id)
             return self._create_error_result(
                 f"Tool execution timed out after 6 minutes. The operation may still be running on the server."
             )
         except Exception as e:
             logger.error(f"Error executing HTTP MCP tool {tool_name}: {str(e)}")
             return self._create_error_result(f"Error executing HTTP tool: {str(e)}")
+        finally:
+            # Clear tracking after execution completes
+            self._current_request_id = None
+            self._current_server_url = None
     
     async def _execute_json_tool(self, tool_name: str, arguments: Dict[str, Any], tool_info: Dict[str, Any]) -> ToolResult:
         custom_config = tool_info['custom_config']
@@ -202,6 +279,84 @@ class MCPToolExecutor:
                     await session.initialize()
                     result = await session.call_tool(original_tool_name, arguments)
                     return self._create_success_result(self._extract_content(result))
+    
+    def _server_supports_cancellation(self, url: str, custom_config: Dict[str, Any]) -> bool:
+        """
+        Check if the MCP server supports our cancellation protocol.
+        
+        This is used to maintain backward compatibility - we only inject
+        _request_id and attempt cancellation for servers that support it.
+        
+        A server supports cancellation if:
+        1. The custom_config explicitly sets 'supports_cancellation': True
+        2. OR the URL matches known servers we control (bihi/aptean automation)
+        
+        Args:
+            url: The MCP server URL
+            custom_config: The tool's custom configuration
+            
+        Returns:
+            True if the server supports our cancellation protocol
+        """
+        # Check explicit config flag first
+        if custom_config.get('supports_cancellation', False):
+            return True
+        
+        # Check for known servers we control
+        # These are the automation servers that implement our cancellation endpoint
+        known_cancellation_servers = [
+            'bihi-aptean-ross-automation',
+            'aptean-ross-automation',
+            'bihi-automation',
+            # Add more known servers here as needed
+        ]
+        
+        url_lower = url.lower()
+        for server_pattern in known_cancellation_servers:
+            if server_pattern in url_lower:
+                return True
+        
+        return False
+    
+    async def _cancel_server_job_by_request_id(self, mcp_url: str, request_id: str) -> None:
+        """
+        Cancel a specific job on the MCP server by its request_id.
+        Called when user cancels the operation or on timeout.
+        
+        This is a best-effort cleanup - failures are logged but don't raise.
+        
+        Args:
+            mcp_url: The MCP server URL (e.g., https://server.onrender.com/mcp)
+            request_id: The unique request ID that was passed to the server
+        """
+        try:
+            # Extract base URL from MCP URL (remove /mcp suffix if present)
+            base_url = mcp_url.rstrip('/')
+            if base_url.endswith('/mcp'):
+                base_url = base_url[:-4]
+            
+            cancel_url = f"{base_url}/jobs/cancel"
+            
+            logger.info(f"Attempting to cancel job with request_id={request_id} at {cancel_url}")
+            
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    cancel_url,
+                    params={"request_id": request_id}
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get('cancelled'):
+                        logger.info(f"Successfully cancelled job {result.get('job_id')} (request_id: {request_id})")
+                    else:
+                        logger.info(f"No job found to cancel for request_id: {request_id}")
+                else:
+                    logger.warning(f"Failed to cancel job: HTTP {response.status_code}")
+                    
+        except Exception as e:
+            # Best-effort cleanup - don't fail if server is unreachable
+            logger.warning(f"Could not cancel server job (best-effort cleanup): {e}")
     
     async def _resolve_external_user_id(self, custom_config: Dict[str, Any]) -> str:
         profile_id = custom_config.get('profile_id')
