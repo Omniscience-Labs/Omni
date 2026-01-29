@@ -132,23 +132,34 @@ class MCPToolExecutor:
         url = custom_config['url']
         headers = custom_config.get('headers', {})
         
-        async with asyncio.timeout(360):
-            try:
-                async with sse_client(url, headers=headers) as (read, write):
-                    async with ClientSession(read, write) as session:
-                        await session.initialize()
-                        result = await session.call_tool(original_tool_name, arguments)
-                        return self._create_success_result(self._extract_content(result))
-                        
-            except TypeError as e:
-                if "unexpected keyword argument" in str(e):
-                    async with sse_client(url) as (read, write):
+        try:
+            async with asyncio.timeout(360):  # 6 minutes
+                try:
+                    async with sse_client(url, headers=headers) as (read, write):
                         async with ClientSession(read, write) as session:
                             await session.initialize()
                             result = await session.call_tool(original_tool_name, arguments)
-                            return self._create_success_result(self._extract_content(result))
-                else:
-                    raise
+                            content = self._extract_content(result)
+                            return self._parse_tool_response(content)
+                            
+                except TypeError as e:
+                    if "unexpected keyword argument" in str(e):
+                        async with sse_client(url) as (read, write):
+                            async with ClientSession(read, write) as session:
+                                await session.initialize()
+                                result = await session.call_tool(original_tool_name, arguments)
+                                content = self._extract_content(result)
+                                return self._parse_tool_response(content)
+                    else:
+                        raise
+        except asyncio.TimeoutError:
+            logger.error(f"SSE MCP tool {tool_name} timed out after 360 seconds")
+            return self._create_error_result(
+                f"Tool execution timed out after 6 minutes. The operation may still be running on the server."
+            )
+        except Exception as e:
+            logger.error(f"Error executing SSE MCP tool {tool_name}: {str(e)}")
+            return self._create_error_result(f"Error executing SSE tool: {str(e)}")
     
     async def _execute_http_tool(self, tool_name: str, arguments: Dict[str, Any], tool_info: Dict[str, Any]) -> ToolResult:
         custom_config = tool_info['custom_config']
@@ -157,15 +168,22 @@ class MCPToolExecutor:
         url = custom_config['url']
         
         try:
-            async with asyncio.timeout(360):
+            async with asyncio.timeout(360):  # 6 minutes - aligned with server timeout
                 async with streamablehttp_client(url) as (read, write, _):
                     async with ClientSession(read, write) as session:
                         await session.initialize()
                         result = await session.call_tool(original_tool_name, arguments)
-                        return self._create_success_result(self._extract_content(result))
-                        
+                        content = self._extract_content(result)
+                        # Parse response to detect tool-level errors
+                        return self._parse_tool_response(content)
+        
+        except asyncio.TimeoutError:
+            logger.error(f"HTTP MCP tool {tool_name} timed out after 360 seconds")
+            return self._create_error_result(
+                f"Tool execution timed out after 6 minutes. The operation may still be running on the server."
+            )
         except Exception as e:
-            logger.error(f"Error executing HTTP MCP tool: {str(e)}")
+            logger.error(f"Error executing HTTP MCP tool {tool_name}: {str(e)}")
             return self._create_error_result(f"Error executing HTTP tool: {str(e)}")
     
     async def _execute_json_tool(self, tool_name: str, arguments: Dict[str, Any], tool_info: Dict[str, Any]) -> ToolResult:
@@ -230,6 +248,55 @@ class MCPToolExecutor:
                 return str(content)
         else:
             return str(result)
+    
+    def _parse_tool_response(self, content: str) -> ToolResult:
+        """
+        Parse tool response content and detect tool-level errors.
+        
+        This handles the case where the MCP protocol succeeded but the tool itself
+        returned an error response (e.g., {"success": false, "error_type": "tool_error"}).
+        
+        Args:
+            content: The raw string content from the MCP tool call
+            
+        Returns:
+            ToolResult with success=True if tool succeeded, success=False if tool failed
+        """
+        try:
+            parsed = json.loads(content)
+            
+            if isinstance(parsed, dict):
+                # Check for explicit success=False flag (new structured format)
+                if parsed.get("success") == False:
+                    error_type = parsed.get("error_type", "unknown")
+                    error = parsed.get("error", "Tool execution failed")
+                    error_class = parsed.get("error_class", "")
+                    recoverable = parsed.get("recoverable", True)
+                    
+                    # Format error message with type information
+                    if error_class:
+                        error_msg = f"[{error_type}:{error_class}] {error}"
+                    else:
+                        error_msg = f"[{error_type}] {error}"
+                    
+                    logger.warning(f"Tool returned error: {error_msg}")
+                    return self._create_error_result(error_msg)
+                
+                # Check for legacy status="error" format
+                if parsed.get("status") == "error":
+                    error = parsed.get("error") or parsed.get("message", "Tool failed")
+                    error_type = parsed.get("error_type", "tool_error")
+                    
+                    error_msg = f"[{error_type}] {error}"
+                    logger.warning(f"Tool returned error (legacy format): {error_msg}")
+                    return self._create_error_result(error_msg)
+            
+            # Success case - return the content as-is
+            return self._create_success_result(content)
+            
+        except json.JSONDecodeError:
+            # Not JSON, return as-is (probably plain text result)
+            return self._create_success_result(content)
     
     def _create_success_result(self, content: Any) -> ToolResult:
         if self.tool_wrapper and hasattr(self.tool_wrapper, 'success_response'):
