@@ -5,6 +5,9 @@
 -- ============================================================================
 -- 1. Function to ensure credit_accounts row exists for enterprise user
 -- ============================================================================
+-- Drop existing function first (V2 may have different signature)
+DROP FUNCTION IF EXISTS ensure_enterprise_user_credit_account(UUID);
+
 CREATE OR REPLACE FUNCTION ensure_enterprise_user_credit_account(p_account_id UUID)
 RETURNS JSONB AS $$
 DECLARE
@@ -59,6 +62,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ============================================================================
 -- 2. Trigger: Auto-create credit_accounts when enterprise_user_limits is inserted
 -- ============================================================================
+-- Drop existing function first (V2 may have different signature)
+DROP FUNCTION IF EXISTS trigger_ensure_enterprise_credit_account() CASCADE;
+
 CREATE OR REPLACE FUNCTION trigger_ensure_enterprise_credit_account()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -78,6 +84,10 @@ CREATE TRIGGER enterprise_user_ensure_credit_account
 -- 3. Function to provision a new enterprise user (convenience function)
 -- ============================================================================
 -- This is the main function to call when adding a new user to the enterprise
+-- Drop existing function first (V2 may have different signature)
+DROP FUNCTION IF EXISTS provision_enterprise_user(UUID, NUMERIC, BOOLEAN);
+DROP FUNCTION IF EXISTS provision_enterprise_user(UUID, NUMERIC(10,2), BOOLEAN);
+
 CREATE OR REPLACE FUNCTION provision_enterprise_user(
     p_account_id UUID,
     p_monthly_limit NUMERIC(10, 2) DEFAULT 100.00,
@@ -123,6 +133,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ============================================================================
 -- 4. Function to deactivate an enterprise user
 -- ============================================================================
+-- Drop existing function first (V2 may have different signature)
+DROP FUNCTION IF EXISTS deactivate_enterprise_user(UUID);
+
 CREATE OR REPLACE FUNCTION deactivate_enterprise_user(p_account_id UUID)
 RETURNS JSONB AS $$
 BEGIN
@@ -148,6 +161,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ============================================================================
 -- 5. Function to reactivate an enterprise user
 -- ============================================================================
+-- Drop existing function first (V2 may have different signature)
+DROP FUNCTION IF EXISTS reactivate_enterprise_user(UUID);
+
 CREATE OR REPLACE FUNCTION reactivate_enterprise_user(p_account_id UUID)
 RETURNS JSONB AS $$
 BEGIN
@@ -173,6 +189,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ============================================================================
 -- 6. Function to update user's monthly limit
 -- ============================================================================
+-- Drop existing function first (V2 may have different signature)
+DROP FUNCTION IF EXISTS update_enterprise_user_limit(UUID, NUMERIC);
+DROP FUNCTION IF EXISTS update_enterprise_user_limit(UUID, NUMERIC(10,2));
+
 CREATE OR REPLACE FUNCTION update_enterprise_user_limit(
     p_account_id UUID,
     p_new_limit NUMERIC(10, 2)
