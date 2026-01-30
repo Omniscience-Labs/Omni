@@ -17,6 +17,11 @@ CREATE TABLE IF NOT EXISTS enterprise_billing (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Add missing columns for V2 migration compatibility
+ALTER TABLE enterprise_billing ADD COLUMN IF NOT EXISTS total_loaded NUMERIC(12, 2) DEFAULT 0.00;
+ALTER TABLE enterprise_billing ADD COLUMN IF NOT EXISTS total_used NUMERIC(12, 2) DEFAULT 0.00;
+ALTER TABLE enterprise_billing ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
 -- Insert the single enterprise billing row if it doesn't exist
 INSERT INTO enterprise_billing (id, credit_balance, total_loaded, total_used)
 VALUES ('00000000-0000-0000-0000-000000000000'::uuid, 0.00, 0.00, 0.00)
@@ -39,6 +44,12 @@ CREATE TABLE IF NOT EXISTS enterprise_user_limits (
     UNIQUE(account_id)
 );
 
+-- Add missing columns for V2 migration compatibility
+ALTER TABLE enterprise_user_limits ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+ALTER TABLE enterprise_user_limits ADD COLUMN IF NOT EXISTS last_reset_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE enterprise_user_limits ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE enterprise_user_limits ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
 -- Index for fast lookup by account_id
 CREATE INDEX IF NOT EXISTS idx_enterprise_user_limits_account_id 
     ON enterprise_user_limits(account_id);
@@ -57,12 +68,18 @@ CREATE TABLE IF NOT EXISTS enterprise_usage (
     thread_id TEXT,
     message_id TEXT,
     cost NUMERIC(10, 4) NOT NULL,
-    model_name TEXT NOT NULL,
+    model_name TEXT NOT NULL DEFAULT 'unknown',
     tokens_used INTEGER NOT NULL DEFAULT 0,
     prompt_tokens INTEGER DEFAULT 0,
     completion_tokens INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Add missing columns for V2 migration compatibility
+ALTER TABLE enterprise_usage ADD COLUMN IF NOT EXISTS model_name TEXT DEFAULT 'unknown';
+ALTER TABLE enterprise_usage ADD COLUMN IF NOT EXISTS tokens_used INTEGER DEFAULT 0;
+ALTER TABLE enterprise_usage ADD COLUMN IF NOT EXISTS prompt_tokens INTEGER DEFAULT 0;
+ALTER TABLE enterprise_usage ADD COLUMN IF NOT EXISTS completion_tokens INTEGER DEFAULT 0;
 
 -- Indexes for reporting and analytics
 CREATE INDEX IF NOT EXISTS idx_enterprise_usage_account_id 
@@ -85,12 +102,30 @@ CREATE INDEX IF NOT EXISTS idx_enterprise_usage_thread_id
 CREATE TABLE IF NOT EXISTS enterprise_credit_loads (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     amount NUMERIC(12, 2) NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('load', 'negate')),
+    type TEXT NOT NULL DEFAULT 'load' CHECK (type IN ('load', 'negate')),
     description TEXT,
-    performed_by TEXT NOT NULL,
-    balance_after NUMERIC(12, 2) NOT NULL,
+    performed_by TEXT NOT NULL DEFAULT 'SYSTEM',
+    balance_after NUMERIC(12, 2) NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Add missing columns to existing tables (for V2 migration compatibility)
+ALTER TABLE enterprise_credit_loads ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'load';
+ALTER TABLE enterprise_credit_loads ADD COLUMN IF NOT EXISTS performed_by TEXT DEFAULT 'SYSTEM';
+ALTER TABLE enterprise_credit_loads ADD COLUMN IF NOT EXISTS balance_after NUMERIC(12, 2) DEFAULT 0;
+
+-- Add check constraint if not exists (wrapped in DO block to handle existing constraint)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'enterprise_credit_loads_type_check'
+    ) THEN
+        ALTER TABLE enterprise_credit_loads ADD CONSTRAINT enterprise_credit_loads_type_check 
+            CHECK (type IN ('load', 'negate'));
+    END IF;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_enterprise_credit_loads_created_at 
     ON enterprise_credit_loads(created_at DESC);
