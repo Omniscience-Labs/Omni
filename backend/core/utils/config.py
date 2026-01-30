@@ -331,6 +331,13 @@ class Configuration:
     # AWS Bedrock authentication
     AWS_BEARER_TOKEN_BEDROCK: Optional[str] = None
     
+    # AWS Textract configuration
+    AWS_TEXTRACT_S3_BUCKET: Optional[str] = None
+    AWS_TEXTRACT_S3_PREFIX: Optional[str] = "textract-inputs/"
+    AWS_TEXTRACT_REGION: Optional[str] = "us-east-1"
+    AWS_TEXTRACT_POLL_SECONDS: Optional[int] = 2
+    AWS_TEXTRACT_MAX_WAIT_SECONDS: Optional[int] = 300
+    
     # Supabase configuration
     SUPABASE_URL: str
     SUPABASE_ANON_KEY: str
