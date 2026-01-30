@@ -82,4 +82,4 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Grant permission
-GRANT EXECUTE ON FUNCTION api_reset_enterprise_monthly_usage TO authenticated;
+GRANT EXECUTE ON FUNCTION api_reset_enterprise_monthly_usage() TO authenticated;

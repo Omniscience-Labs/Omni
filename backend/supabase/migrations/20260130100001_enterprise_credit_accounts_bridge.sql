@@ -236,8 +236,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ============================================================================
 -- 7. Grant permissions
 -- ============================================================================
-GRANT EXECUTE ON FUNCTION ensure_enterprise_user_credit_account TO authenticated;
-GRANT EXECUTE ON FUNCTION provision_enterprise_user TO authenticated;
-GRANT EXECUTE ON FUNCTION deactivate_enterprise_user TO authenticated;
-GRANT EXECUTE ON FUNCTION reactivate_enterprise_user TO authenticated;
-GRANT EXECUTE ON FUNCTION update_enterprise_user_limit TO authenticated;
+GRANT EXECUTE ON FUNCTION ensure_enterprise_user_credit_account(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION provision_enterprise_user(UUID, NUMERIC(10,2), BOOLEAN) TO authenticated;
+GRANT EXECUTE ON FUNCTION deactivate_enterprise_user(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION reactivate_enterprise_user(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION update_enterprise_user_limit(UUID, NUMERIC(10,2)) TO authenticated;

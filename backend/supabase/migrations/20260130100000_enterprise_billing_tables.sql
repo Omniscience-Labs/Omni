@@ -583,13 +583,13 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ============================================================================
 -- 6. Grant permissions to authenticated users
 -- ============================================================================
-GRANT EXECUTE ON FUNCTION load_enterprise_credits TO authenticated;
-GRANT EXECUTE ON FUNCTION negate_enterprise_credits TO authenticated;
-GRANT EXECUTE ON FUNCTION use_enterprise_credits_simple TO authenticated;
-GRANT EXECUTE ON FUNCTION check_enterprise_billing_status TO authenticated;
-GRANT EXECUTE ON FUNCTION reset_enterprise_monthly_usage TO authenticated;
-GRANT EXECUTE ON FUNCTION get_enterprise_pool_status TO authenticated;
-GRANT EXECUTE ON FUNCTION get_enterprise_user_status TO authenticated;
+GRANT EXECUTE ON FUNCTION load_enterprise_credits(NUMERIC(12,2), TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION negate_enterprise_credits(NUMERIC(12,2), TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION use_enterprise_credits_simple(UUID, NUMERIC(10,4), TEXT, INTEGER, INTEGER, INTEGER, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION check_enterprise_billing_status(UUID, NUMERIC(10,4)) TO authenticated;
+GRANT EXECUTE ON FUNCTION reset_enterprise_monthly_usage() TO authenticated;
+GRANT EXECUTE ON FUNCTION get_enterprise_pool_status() TO authenticated;
+GRANT EXECUTE ON FUNCTION get_enterprise_user_status(UUID) TO authenticated;
 
 -- Grant table access (the functions use SECURITY DEFINER, but we also allow direct access)
 GRANT SELECT ON enterprise_billing TO authenticated;
