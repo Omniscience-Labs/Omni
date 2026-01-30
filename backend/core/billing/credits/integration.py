@@ -14,6 +14,14 @@ class BillingIntegration:
         if config.ENV_MODE == EnvMode.LOCAL:
             return True, "Local mode", None
         
+        # ===== ENTERPRISE MODE FORK =====
+        if config.ENTERPRISE_MODE:
+            # Use enterprise billing - check shared pool and user limits
+            from core.billing.enterprise.service import enterprise_billing_service
+            return await enterprise_billing_service.check_billing_status(account_id)
+        # ================================
+        
+        # Standard SaaS mode - check and refresh daily credits
         try:
             from core.credits import credit_service
             await credit_service.check_and_refresh_daily_credits(account_id)
@@ -45,6 +53,36 @@ class BillingIntegration:
         try:
             if not model_name:
                 return False, "No model specified", {"error_type": "no_model"}
+
+            # ===== ENTERPRISE MODE HANDLING =====
+            if config.ENTERPRISE_MODE:
+                # In enterprise mode, all models are allowed (is_model_allowed already handles this)
+                # and we use enterprise billing check instead of SaaS
+                from ..shared.config import ENTERPRISE_TIER_LIMITS
+                
+                # Create a virtual tier_info for enterprise mode
+                tier_info = {
+                    'name': 'enterprise',
+                    'display_name': 'Enterprise',
+                    'models': ENTERPRISE_TIER_LIMITS['models'],
+                    'limits': ENTERPRISE_TIER_LIMITS
+                }
+                
+                # All models allowed in enterprise mode
+                can_run, message, reservation_id = await BillingIntegration.check_and_reserve_credits(account_id)
+                if not can_run:
+                    return False, f"Enterprise billing check failed: {message}", {
+                        "tier_info": tier_info,
+                        "error_type": "insufficient_credits",
+                        "enterprise_mode": True
+                    }
+                
+                return True, "Access granted (Enterprise)", {
+                    "tier_info": tier_info,
+                    "reservation_id": reservation_id,
+                    "enterprise_mode": True
+                }
+            # ====================================
 
             from ..subscriptions import subscription_service
             
@@ -92,6 +130,23 @@ class BillingIntegration:
         if config.ENV_MODE == EnvMode.LOCAL:
             return {'success': True, 'cost': 0, 'new_balance': 999999}
 
+        # ===== ENTERPRISE MODE FORK =====
+        if config.ENTERPRISE_MODE:
+            # Use enterprise billing - deduct from shared pool
+            from core.billing.enterprise.service import enterprise_billing_service
+            return await enterprise_billing_service.deduct_credits(
+                account_id=account_id,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                model=model,
+                message_id=message_id,
+                thread_id=thread_id,
+                cache_read_tokens=cache_read_tokens,
+                cache_creation_tokens=cache_creation_tokens
+            )
+        # ================================
+
+        # Standard SaaS mode - deduct from individual credit account
         # Handle cache reads and writes separately with actual pricing
         if cache_read_tokens > 0 or cache_creation_tokens > 0:
             non_cached_prompt_tokens = prompt_tokens - cache_read_tokens - cache_creation_tokens
