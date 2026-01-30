@@ -45,6 +45,9 @@ $$;
 -- ============================================================================
 -- This can be called from an external cron (Render cron job, etc.)
 
+-- Drop existing function first (V2 may have different signature)
+DROP FUNCTION IF EXISTS api_reset_enterprise_monthly_usage();
+
 CREATE OR REPLACE FUNCTION api_reset_enterprise_monthly_usage()
 RETURNS JSONB AS $$
 DECLARE

@@ -140,6 +140,10 @@ CREATE INDEX IF NOT EXISTS idx_enterprise_credit_loads_type
 -- -----------------------------------------------------------------------------
 -- 5a. load_enterprise_credits - Add credits to the enterprise pool
 -- -----------------------------------------------------------------------------
+-- Drop existing function first (V2 may have different signature)
+DROP FUNCTION IF EXISTS load_enterprise_credits(NUMERIC, TEXT, TEXT);
+DROP FUNCTION IF EXISTS load_enterprise_credits(NUMERIC(12,2), TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION load_enterprise_credits(
     p_amount NUMERIC(12, 2),
     p_performed_by TEXT,
@@ -192,6 +196,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- -----------------------------------------------------------------------------
 -- 5b. negate_enterprise_credits - Remove credits from the enterprise pool
 -- -----------------------------------------------------------------------------
+-- Drop existing function first (V2 may have different signature)
+DROP FUNCTION IF EXISTS negate_enterprise_credits(NUMERIC, TEXT, TEXT);
+DROP FUNCTION IF EXISTS negate_enterprise_credits(NUMERIC(12,2), TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION negate_enterprise_credits(
     p_amount NUMERIC(12, 2),
     p_performed_by TEXT,
@@ -262,6 +270,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 1. Check if enterprise_billing.credit_balance > cost
 -- 2. Check if enterprise_user_limits allows the spend
 -- 3. Deduct from global balance, increment user usage, insert into enterprise_usage
+
+-- Drop existing function first (V2 may have different signature)
+DROP FUNCTION IF EXISTS use_enterprise_credits_simple(UUID, NUMERIC, TEXT, INTEGER, INTEGER, INTEGER, TEXT, TEXT);
+DROP FUNCTION IF EXISTS use_enterprise_credits_simple(UUID, NUMERIC(10,4), TEXT, INTEGER, INTEGER, INTEGER, TEXT, TEXT);
 
 CREATE OR REPLACE FUNCTION use_enterprise_credits_simple(
     p_account_id UUID,
@@ -386,6 +398,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- -----------------------------------------------------------------------------
 -- 5d. check_enterprise_billing_status - Check if user can spend
 -- -----------------------------------------------------------------------------
+-- Drop existing function first (V2 may have different signature)
+DROP FUNCTION IF EXISTS check_enterprise_billing_status(UUID, NUMERIC);
+DROP FUNCTION IF EXISTS check_enterprise_billing_status(UUID, NUMERIC(10,4));
+DROP FUNCTION IF EXISTS check_enterprise_billing_status(UUID);
+
 CREATE OR REPLACE FUNCTION check_enterprise_billing_status(
     p_account_id UUID,
     p_estimated_cost NUMERIC(10, 4) DEFAULT 0.01
@@ -470,6 +487,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- -----------------------------------------------------------------------------
 -- 5e. reset_enterprise_monthly_usage - Reset all users' monthly usage
 -- -----------------------------------------------------------------------------
+-- Drop existing function first (V2 may have different return type)
+DROP FUNCTION IF EXISTS reset_enterprise_monthly_usage();
+
 CREATE OR REPLACE FUNCTION reset_enterprise_monthly_usage()
 RETURNS INTEGER AS $$
 DECLARE
@@ -490,6 +510,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- -----------------------------------------------------------------------------
 -- 5f. get_enterprise_pool_status - Get current pool status
 -- -----------------------------------------------------------------------------
+-- Drop existing function first (V2 may have different signature)
+DROP FUNCTION IF EXISTS get_enterprise_pool_status();
+
 CREATE OR REPLACE FUNCTION get_enterprise_pool_status()
 RETURNS JSONB AS $$
 DECLARE
@@ -521,6 +544,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- -----------------------------------------------------------------------------
 -- 5g. get_enterprise_user_status - Get user's enterprise status
 -- -----------------------------------------------------------------------------
+-- Drop existing function first (V2 may have different signature)
+DROP FUNCTION IF EXISTS get_enterprise_user_status(UUID);
+
 CREATE OR REPLACE FUNCTION get_enterprise_user_status(p_account_id UUID)
 RETURNS JSONB AS $$
 DECLARE
