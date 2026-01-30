@@ -293,6 +293,12 @@ api_router.include_router(billing_admin_router)
 api_router.include_router(admin_router)
 api_router.include_router(notification_admin_router)
 
+# Enterprise admin router (only included if enterprise mode is enabled)
+if config.ENTERPRISE_MODE:
+    from core.billing.enterprise import enterprise_admin_router
+    api_router.include_router(enterprise_admin_router)
+    logger.info("Enterprise mode enabled - registered enterprise admin router")
+
 from core.mcp_module import api as mcp_api
 from core.credentials import api as credentials_api
 from core.templates import api as template_api
