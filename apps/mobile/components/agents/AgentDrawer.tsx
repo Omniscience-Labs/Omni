@@ -132,17 +132,21 @@ export function AgentDrawer({
   const { freeModels, premiumModels } = React.useMemo(() => {
     const resultsToUse = modelQuery ? modelResults : models;
     
-    // Filter out OpenAI models when showing Kortix models
-    const hasKortixModels = resultsToUse.some(m => 
+    // Filter out OpenAI models when showing Omni models
+    const hasOmniModels = resultsToUse.some(m => 
+      m.id === 'omni/basic' || m.id === 'omni/power' || 
+      m.id === 'omni-basic' || m.id === 'omni-power' ||
       m.id === 'kortix/basic' || m.id === 'kortix/power' || 
       m.id === 'kortix-basic' || m.id === 'kortix-power' ||
       m.id.includes('claude-haiku-4-5') || m.id.includes('claude-sonnet-4-5')
     );
     
-    const filteredModels = hasKortixModels 
+    const filteredModels = hasOmniModels 
       ? resultsToUse.filter(m => {
-          // Keep Kortix models
-          if (m.id === 'kortix/basic' || m.id === 'kortix/power' || 
+          // Keep Omni models
+          if (m.id === 'omni/basic' || m.id === 'omni/power' || 
+              m.id === 'omni-basic' || m.id === 'omni-power' ||
+              m.id === 'kortix/basic' || m.id === 'kortix/power' || 
               m.id === 'kortix-basic' || m.id === 'kortix-power' ||
               m.id.includes('claude-haiku-4-5') || m.id.includes('claude-sonnet-4-5')) {
             return true;
@@ -606,8 +610,8 @@ export function AgentDrawer({
                   isLoading={false}
                   gap={3}
                   renderItem={(model) => {
-                    const isPower = model.id === 'kortix/power' || model.id === 'kortix-power' || model.id.includes('claude-sonnet-4-5');
-                    const isBasic = model.id === 'kortix/basic' || model.id === 'kortix-basic' || model.id.includes('claude-haiku-4-5');
+                    const isPower = model.id === 'omni/power' || model.id === 'omni-power' || model.id === 'kortix/power' || model.id === 'kortix-power' || model.id.includes('claude-sonnet-4-5');
+                    const isBasic = model.id === 'omni/basic' || model.id === 'omni-basic' || model.id === 'kortix/basic' || model.id === 'kortix-basic' || model.id.includes('claude-haiku-4-5');
                     
                     return (
                       <SelectableListItem

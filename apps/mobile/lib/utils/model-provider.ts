@@ -27,8 +27,10 @@ export type ModelProvider =
  * Check if a model ID corresponds to a Kortix mode (Basic or POWER)
  */
 export function isKortixMode(modelId: string): boolean {
-  // New Kortix registry IDs
-  if (modelId === 'kortix/basic' || modelId === 'kortix/power' || 
+  // New Omni registry IDs (keeping function name for backward compatibility)
+  if (modelId === 'omni/basic' || modelId === 'omni/power' || 
+      modelId === 'omni-basic' || modelId === 'omni-power' ||
+      modelId === 'kortix/basic' || modelId === 'kortix/power' || 
       modelId === 'kortix-basic' || modelId === 'kortix-power') {
     return true;
   }

@@ -179,7 +179,7 @@ export const EventTriggerConfigForm: React.FC<EventTriggerConfigFormProps> = ({
                 <div className="space-y-3">
                   <Label className="text-sm">Choose which model to use for this event trigger</Label>
                   <AgentModelSelector
-                    value={config.model || 'kortix/basic'}
+                    value={config.model || 'omni/basic'}
                     onChange={(model) => onChange({ ...config, model })}
                   />
                 </div>
