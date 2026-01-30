@@ -12,8 +12,8 @@ SHOULD_USE_ANTHROPIC = config.ENV_MODE == EnvMode.LOCAL and bool(config.ANTHROPI
 _BASIC_MODEL_ID = "claude-haiku-4-5-20251001" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
 _POWER_MODEL_ID = "claude-sonnet-4-5-20250929" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 # Default model IDs (these are aliases that resolve to actual IDs)
-FREE_MODEL_ID = "kortix/basic"
-PREMIUM_MODEL_ID = "kortix/power"
+FREE_MODEL_ID = "omni/basic"
+PREMIUM_MODEL_ID = "omni/power"
 
 
 is_local = config.ENV_MODE == EnvMode.LOCAL
@@ -26,14 +26,14 @@ class ModelRegistry:
         self._aliases: Dict[str, str] = {}
         self._initialize_models()
     
-    # KORTIX BASIC & POWER – Different underlying models (Haiku vs Sonnet)
+    # OMNI BASIC & POWER – Different underlying models (Haiku vs Sonnet)
     def _initialize_models(self):
-        # Kortix Basic (uses Haiku 4.5)
+        # Omni Basic (uses Haiku 4.5)
         self.register(Model(
-            id="kortix/basic",
-            name="Kortix Basic",
+            id="omni/basic",
+            name="Omni Basic",
             provider=ModelProvider.ANTHROPIC,
-            aliases=["kortix-basic", "Kortix Basic"],
+            aliases=["omni-basic", "kortix-basic", "Omni Basic", "kortix/basic"],
             context_window=1_000_000,
             capabilities=[
                 ModelCapability.CHAT,
@@ -58,12 +58,12 @@ class ModelRegistry:
             )
         ))
         
-        # Kortix Power - extended context & thinking (uses Sonnet 4.5)
+        # Omni Power - extended context & thinking (uses Sonnet 4.5)
         self.register(Model(
-            id="kortix/power",
-            name="Kortix POWER Mode",
+            id="omni/power",
+            name="Omni POWER Mode",
             provider=ModelProvider.ANTHROPIC,
-            aliases=["kortix-power", "Kortix POWER Mode", "Kortix Power"],
+            aliases=["omni-power", "kortix-power", "Omni POWER Mode", "Omni Power", "kortix/power"],
             context_window=1_000_000,
             capabilities=[
                 ModelCapability.CHAT,
@@ -393,21 +393,22 @@ class ModelRegistry:
     def get_litellm_model_id(self, model_id: str) -> str:
         """Get the actual model ID to pass to LiteLLM.
         
-        Resolves kortix/basic and kortix/power to actual provider model IDs.
+        Resolves omni/basic and omni/power to actual provider model IDs.
+        Also supports legacy kortix/basic and kortix/power for backward compatibility.
         """
-        # Map kortix model IDs to actual LiteLLM model IDs
-        if model_id == "kortix/basic":
+        # Map omni model IDs to actual LiteLLM model IDs
+        if model_id == "omni/basic" or model_id == "kortix/basic":
             return _BASIC_MODEL_ID  # Haiku
-        elif model_id == "kortix/power":
+        elif model_id == "omni/power" or model_id == "kortix/power":
             return _POWER_MODEL_ID  # Sonnet
         
         # For other models, check if it's an alias and resolve
         model = self.get(model_id)
         if model:
             # Check if this model's ID needs resolution
-            if model.id == "kortix/basic":
+            if model.id == "omni/basic" or model.id == "kortix/basic":
                 return _BASIC_MODEL_ID
-            elif model.id == "kortix/power":
+            elif model.id == "omni/power" or model.id == "kortix/power":
                 return _POWER_MODEL_ID
             return model.id
         
@@ -423,7 +424,7 @@ class ModelRegistry:
             litellm_model_id: The actual model ID used by LiteLLM (e.g. Bedrock ARN)
             
         Returns:
-            The registry model ID (e.g. 'kortix/basic' or 'kortix/power') or the input if not found
+            The registry model ID (e.g. 'omni/basic' or 'omni/power') or the input if not found
         """
         # Strip common prefixes for comparison
         normalized_id = litellm_model_id
@@ -448,11 +449,11 @@ class ModelRegistry:
         
         # Check if it matches the basic model (Haiku)
         if normalized_id == basic_model_normalized or litellm_model_id == _BASIC_MODEL_ID:
-            return "kortix/basic"
+            return "omni/basic"
         
         # Check if it matches the power model (Sonnet)
         if normalized_id == power_model_normalized or litellm_model_id == _POWER_MODEL_ID:
-            return "kortix/power"
+            return "omni/power"
         
         # Check if this model exists directly in registry
         if self.get(litellm_model_id):
@@ -486,7 +487,7 @@ class ModelRegistry:
     def get_pricing(self, model_id: str) -> Optional[ModelPricing]:
         """Get pricing for a model, with reverse lookup for LiteLLM model IDs.
         
-        Handles both registry model IDs (kortix/basic) and LiteLLM model IDs (Bedrock ARNs).
+        Handles both registry model IDs (omni/basic, omni/power) and LiteLLM model IDs (Bedrock ARNs).
         """
         # First try direct lookup
         model = self.get(model_id)

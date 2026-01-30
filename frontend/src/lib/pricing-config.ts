@@ -44,7 +44,7 @@ export const pricingTiers: PricingTier[] = [
     features: [
       '200 daily credits - Refreshes every 24 hours (applies to all tiers)',
       '1 concurrent run',
-      '10 Total Chats',
+      '3 Total Chats',
       'Basic Mode - Core OMNI experience with basic autonomy',
     ],
     disabledFeatures: [

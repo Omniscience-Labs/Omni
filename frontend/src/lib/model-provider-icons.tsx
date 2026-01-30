@@ -18,7 +18,9 @@ export type ModelProvider =
  */
 export function isOmniMode(modelId: string): boolean {
   // New Omni registry IDs
-  if (modelId === 'kortix/basic' || modelId === 'kortix/power' || 
+  if (modelId === 'omni/basic' || modelId === 'omni/power' || 
+      modelId === 'omni-basic' || modelId === 'omni-power' ||
+      modelId === 'kortix/basic' || modelId === 'kortix/power' || 
       modelId === 'kortix-basic' || modelId === 'kortix-power') {
     return true;
   }

@@ -15,9 +15,9 @@ class ModelManager:
         """Resolve a model ID to its registry ID.
         
         Handles:
-        - Registry model IDs (kortix/basic) → returns as-is
+        - Registry model IDs (omni/basic, omni/power) → returns as-is
         - Model aliases → resolves to registry ID
-        - LiteLLM model IDs (Bedrock ARNs) → reverse lookup to registry ID (e.g. kortix/basic)
+        - LiteLLM model IDs (Bedrock ARNs) → reverse lookup to registry ID (e.g. omni/basic)
         """
         # logger.debug(f"resolve_model_id called with: '{model_id}' (type: {type(model_id)})")
         
@@ -26,7 +26,7 @@ class ModelManager:
         if resolved:
             return resolved
         
-        # Try reverse lookup from LiteLLM model ID (e.g. Bedrock ARN → kortix/basic)
+        # Try reverse lookup from LiteLLM model ID (e.g. Bedrock ARN → omni/basic)
         reverse_resolved = self.registry.resolve_from_litellm_id(model_id)
         if reverse_resolved != model_id:
             return reverse_resolved
