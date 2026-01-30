@@ -6,7 +6,7 @@
 -- Check if pg_cron extension exists and create the job
 -- ============================================================================
 
-DO $$
+DO $do_block$
 BEGIN
     -- Check if pg_cron extension is available
     IF EXISTS (
@@ -24,9 +24,9 @@ BEGIN
         -- Schedule the monthly reset job
         -- Runs at 00:00 on the 1st of every month (UTC)
         PERFORM cron.schedule(
-            'enterprise-monthly-reset',  -- job name
-            '0 0 1 * *',                 -- cron schedule: midnight on 1st of month
-            $$SELECT reset_enterprise_monthly_usage()$$
+            'enterprise-monthly-reset',
+            '0 0 1 * *',
+            'SELECT reset_enterprise_monthly_usage()'
         );
         
         RAISE NOTICE 'Enterprise monthly reset cron job scheduled successfully';
@@ -38,7 +38,7 @@ EXCEPTION
         -- Fail silently if pg_cron is not set up correctly
         RAISE NOTICE 'Could not schedule pg_cron job: %. Monthly reset will need to be triggered externally.', SQLERRM;
 END;
-$$;
+$do_block$;
 
 -- ============================================================================
 -- Alternative: Create an API-callable reset function with logging
@@ -49,7 +49,7 @@ $$;
 DROP FUNCTION IF EXISTS api_reset_enterprise_monthly_usage();
 
 CREATE OR REPLACE FUNCTION api_reset_enterprise_monthly_usage()
-RETURNS JSONB AS $$
+RETURNS JSONB AS $func$
 DECLARE
     v_users_reset INTEGER;
     v_reset_time TIMESTAMPTZ := NOW();
@@ -66,7 +66,7 @@ BEGIN
         balance_after
     ) VALUES (
         0,
-        'load',  -- Using 'load' type with 0 amount to log system events
+        'load',
         'Monthly usage reset - ' || v_users_reset || ' users reset at ' || v_reset_time::TEXT,
         'SYSTEM_CRON',
         (SELECT credit_balance FROM enterprise_billing WHERE id = '00000000-0000-0000-0000-000000000000'::uuid)
@@ -79,7 +79,7 @@ BEGIN
         'message', 'Monthly usage reset completed'
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$func$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Grant permission
 GRANT EXECUTE ON FUNCTION api_reset_enterprise_monthly_usage() TO authenticated;
