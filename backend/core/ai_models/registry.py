@@ -26,9 +26,9 @@ class ModelRegistry:
         self._aliases: Dict[str, str] = {}
         self._initialize_models()
     
-    # KORTIX BASIC & POWER – Same underlying model, different configs
+    # KORTIX BASIC & POWER – Different underlying models (Haiku vs Sonnet)
     def _initialize_models(self):
-        # Kortix Basic
+        # Kortix Basic (uses Haiku 4.5)
         self.register(Model(
             id="kortix/basic",
             name="Kortix Basic",
@@ -58,7 +58,7 @@ class ModelRegistry:
             )
         ))
         
-        # Kortix Power - extended context & thinking
+        # Kortix Power - extended context & thinking (uses Sonnet 4.5)
         self.register(Model(
             id="kortix/power",
             name="Kortix POWER Mode",
@@ -72,11 +72,11 @@ class ModelRegistry:
                 ModelCapability.THINKING,
             ],
             pricing=ModelPricing(
-                input_cost_per_million_tokens=1.00,
-                output_cost_per_million_tokens=5.00,
-                cached_read_cost_per_million_tokens=0.10,
-                cache_write_5m_cost_per_million_tokens=1.25,
-                cache_write_1h_cost_per_million_tokens=2.00
+                input_cost_per_million_tokens=3.00,
+                output_cost_per_million_tokens=15.00,
+                cached_read_cost_per_million_tokens=0.30,
+                cache_write_5m_cost_per_million_tokens=3.75,
+                cache_write_1h_cost_per_million_tokens=6.00
             ),
             tier_availability=["paid"],
             priority=101,
@@ -396,15 +396,19 @@ class ModelRegistry:
         Resolves kortix/basic and kortix/power to actual provider model IDs.
         """
         # Map kortix model IDs to actual LiteLLM model IDs
-        if model_id in ("kortix/basic", "kortix/power"):
-            return _BASIC_MODEL_ID  # Both use the same underlying model
+        if model_id == "kortix/basic":
+            return _BASIC_MODEL_ID  # Haiku
+        elif model_id == "kortix/power":
+            return _POWER_MODEL_ID  # Sonnet
         
         # For other models, check if it's an alias and resolve
         model = self.get(model_id)
         if model:
             # Check if this model's ID needs resolution
-            if model.id in ("kortix/basic", "kortix/power"):
+            if model.id == "kortix/basic":
                 return _BASIC_MODEL_ID
+            elif model.id == "kortix/power":
+                return _POWER_MODEL_ID
             return model.id
         
         # Return as-is if not found (let LiteLLM handle it)
@@ -419,9 +423,8 @@ class ModelRegistry:
             litellm_model_id: The actual model ID used by LiteLLM (e.g. Bedrock ARN)
             
         Returns:
-            The registry model ID (e.g. 'kortix/basic') or the input if not found
+            The registry model ID (e.g. 'kortix/basic' or 'kortix/power') or the input if not found
         """
-        # Check if this is the Bedrock ARN that maps to kortix models
         # Strip common prefixes for comparison
         normalized_id = litellm_model_id
         for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
@@ -429,20 +432,27 @@ class ModelRegistry:
                 normalized_id = normalized_id[len(prefix):]
                 break
         
-        # Check if this matches _BASIC_MODEL_ID (also normalize it)
+        # Normalize the basic model ID for comparison
         basic_model_normalized = _BASIC_MODEL_ID
         for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
             if basic_model_normalized.startswith(prefix):
                 basic_model_normalized = basic_model_normalized[len(prefix):]
                 break
         
-        # If the normalized ID matches the basic model ARN, return kortix/basic
+        # Normalize the power model ID for comparison
+        power_model_normalized = _POWER_MODEL_ID
+        for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
+            if power_model_normalized.startswith(prefix):
+                power_model_normalized = power_model_normalized[len(prefix):]
+                break
+        
+        # Check if it matches the basic model (Haiku)
         if normalized_id == basic_model_normalized or litellm_model_id == _BASIC_MODEL_ID:
             return "kortix/basic"
         
-        # Also check if the full ID matches
-        if litellm_model_id == _BASIC_MODEL_ID:
-            return "kortix/basic"
+        # Check if it matches the power model (Sonnet)
+        if normalized_id == power_model_normalized or litellm_model_id == _POWER_MODEL_ID:
+            return "kortix/power"
         
         # Check if this model exists directly in registry
         if self.get(litellm_model_id):
