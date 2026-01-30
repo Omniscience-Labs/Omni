@@ -73,10 +73,10 @@ export const PRICING_TIERS: PricingTier[] = [
     price: '$20',
     priceMonthly: 20,
     priceYearly: 17, // 15% off = $17/month billed yearly
-    credits: 40, // $40/month = 4,000 credits/month (40 * 100)
+    credits: 20, // $20/month = 2,000 credits/month (20 * 100)
     description: 'Best for individuals and small teams',
     features: [
-      'CREDITS_BONUS:2000:4000',
+      'CREDITS_BONUS:2000:2000',
       'Unlimited Chats',
       '3 concurrent runs - Run multiple Chats simultaneously',
       // '5 custom AI Workers - Create Kortix Agents with custom Knowledge, Tools & Integrations',
@@ -98,10 +98,10 @@ export const PRICING_TIERS: PricingTier[] = [
     price: '$50',
     priceMonthly: 50,
     priceYearly: 42.5, // 15% off = $42.50/month billed yearly
-    credits: 100, // $100/month = 10,000 credits/month (100 * 100)
+    credits: 50, // $50/month = 5,000 credits/month (50 * 100)
     description: 'Ideal for growing businesses',
     features: [
-      'CREDITS_BONUS:5000:10000',
+      'CREDITS_BONUS:5000:5000',
       'Unlimited Chats',
       '5 concurrent runs - Run multiple Chats simultaneously',
       // '20 custom AI Workers - Create Kortix Agents with custom Knowledge, Tools & Integrations',
@@ -123,10 +123,10 @@ export const PRICING_TIERS: PricingTier[] = [
     price: '$200',
     priceMonthly: 200,
     // No yearly option available for Ultra
-    credits: 400, // $400/month = 40,000 credits/month (400 * 100)
+    credits: 200, // $200/month = 20,000 credits/month (200 * 100)
     description: 'For power users',
     features: [
-      'CREDITS_BONUS:20000:40000',
+      'CREDITS_BONUS:20000:20000',
       'Unlimited Chats',
       '20 concurrent runs - Run multiple Chats simultaneously',
       // '100 custom AI Workers - Create Kortix Agents with custom Knowledge, Tools & Integrations',

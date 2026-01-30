@@ -57,7 +57,7 @@ TIERS: Dict[str, Tier] = {
         display_name='Basic',
         can_purchase_credits=False,
         models=['haiku'],
-        project_limit=3,
+        project_limit=10,
         thread_limit=10,
         concurrent_runs=1,
         custom_workers_limit=0,
@@ -77,7 +77,7 @@ TIERS: Dict[str, Tier] = {
             config.STRIPE_TIER_2_20_YEARLY_ID,
             config.STRIPE_TIER_2_17_YEARLY_COMMITMENT_ID
         ],
-        monthly_credits=Decimal('40.00'),
+        monthly_credits=Decimal('20.00'),
         display_name='Plus',
         can_purchase_credits=False,
         models=['all'],
@@ -101,7 +101,7 @@ TIERS: Dict[str, Tier] = {
             config.STRIPE_TIER_6_50_YEARLY_ID,
             config.STRIPE_TIER_6_42_YEARLY_COMMITMENT_ID
         ],
-        monthly_credits=Decimal('100.00'),
+        monthly_credits=Decimal('50.00'),
         display_name='Pro',
         can_purchase_credits=False,
         models=['all'],
@@ -125,7 +125,7 @@ TIERS: Dict[str, Tier] = {
             config.STRIPE_TIER_25_200_YEARLY_ID,
             config.STRIPE_TIER_25_170_YEARLY_COMMITMENT_ID
         ],
-        monthly_credits=Decimal('400.00'),
+        monthly_credits=Decimal('200.00'),
         display_name='Ultra',
         can_purchase_credits=True,
         models=['all'],
