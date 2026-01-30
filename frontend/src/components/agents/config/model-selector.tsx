@@ -210,7 +210,7 @@ export function AgentModelSelector({
       // If user doesn't have access, open pricing modal
       setIsOpen(false);
       const model = enhancedModelOptions.find(m => m.id === modelId);
-      const isPowerModel = modelId === 'kortix/power';
+      const isPowerModel = modelId === 'omni/power' || modelId === 'kortix/power';
       openPricingModal({
         isAlert: true,
         alertTitle: isPowerModel ? 'Upgrade to access Omni Power mode' : 'Upgrade to access this model',
@@ -313,7 +313,7 @@ export function AgentModelSelector({
     const isPremium = model.requiresSubscription;
     const isLowQuality = false; // API models are quality controlled
     const isRecommended = false; // Remove recommended badges
-    const isPowerModel = model.id === 'kortix/power';
+    const isPowerModel = model.id === 'omni/power' || model.id === 'kortix/power';
 
     // Format cost display
     const formatCost = (cost: number | null | undefined) => {
