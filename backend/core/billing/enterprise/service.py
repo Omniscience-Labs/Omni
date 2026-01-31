@@ -53,41 +53,42 @@ class EnterpriseBillingService:
             Tuple of (can_spend: bool, message: str, reservation_id: Optional[str])
         """
         try:
-            async with DBConnection() as client:
-                # Call the check_enterprise_billing_status function
-                result = await client.rpc(
-                    'check_enterprise_billing_status',
-                    {
-                        'p_account_id': account_id,
-                        'p_estimated_cost': float(estimated_cost)
-                    }
-                ).execute()
+            db = DBConnection()
+            client = await db.client
+            # Call the check_enterprise_billing_status function
+            result = await client.rpc(
+                'check_enterprise_billing_status',
+                {
+                    'p_account_id': account_id,
+                    'p_estimated_cost': float(estimated_cost)
+                }
+            ).execute()
+            
+            if result.data:
+                status = result.data
                 
-                if result.data:
-                    status = result.data
-                    
-                    if status.get('can_spend'):
-                        remaining = status.get('user_remaining', 0)
-                        return True, f"Enterprise credits available. Remaining this month: ${remaining:.2f}", None
-                    else:
-                        error_code = status.get('error_code', 'UNKNOWN')
-                        error_msg = status.get('error', 'Cannot spend credits')
-                        
-                        if error_code == 'INSUFFICIENT_POOL_BALANCE':
-                            return False, "Enterprise credit pool is empty. Please contact your administrator.", None
-                        elif error_code == 'MONTHLY_LIMIT_EXCEEDED':
-                            remaining = status.get('remaining', 0)
-                            limit = status.get('monthly_limit', 100)
-                            return False, f"Monthly spending limit of ${limit:.2f} exceeded. Remaining: ${remaining:.2f}", None
-                        elif error_code == 'USER_DEACTIVATED':
-                            return False, "Your account has been deactivated. Please contact your administrator.", None
-                        elif error_code == 'ENTERPRISE_NOT_INITIALIZED':
-                            return False, "Enterprise billing not configured. Please contact your administrator.", None
-                        else:
-                            return False, error_msg, None
+                if status.get('can_spend'):
+                    remaining = status.get('user_remaining', 0)
+                    return True, f"Enterprise credits available. Remaining this month: ${remaining:.2f}", None
                 else:
-                    logger.error(f"[ENTERPRISE] Empty response from check_enterprise_billing_status for {account_id}")
-                    return False, "Unable to verify enterprise billing status", None
+                    error_code = status.get('error_code', 'UNKNOWN')
+                    error_msg = status.get('error', 'Cannot spend credits')
+                    
+                    if error_code == 'INSUFFICIENT_POOL_BALANCE':
+                        return False, "Enterprise credit pool is empty. Please contact your administrator.", None
+                    elif error_code == 'MONTHLY_LIMIT_EXCEEDED':
+                        remaining = status.get('remaining', 0)
+                        limit = status.get('monthly_limit', 100)
+                        return False, f"Monthly spending limit of ${limit:.2f} exceeded. Remaining: ${remaining:.2f}", None
+                    elif error_code == 'USER_DEACTIVATED':
+                        return False, "Your account has been deactivated. Please contact your administrator.", None
+                    elif error_code == 'ENTERPRISE_NOT_INITIALIZED':
+                        return False, "Enterprise billing not configured. Please contact your administrator.", None
+                    else:
+                        return False, error_msg, None
+            else:
+                logger.error(f"[ENTERPRISE] Empty response from check_enterprise_billing_status for {account_id}")
+                return False, "Unable to verify enterprise billing status", None
                     
         except Exception as e:
             logger.error(f"[ENTERPRISE] Error checking billing status for {account_id}: {e}")
@@ -159,57 +160,58 @@ class EnterpriseBillingService:
             # Calculate total tokens
             total_tokens = prompt_tokens + completion_tokens
             
-            async with DBConnection() as client:
-                # Call the atomic enterprise credit deduction function
-                result = await client.rpc(
-                    'use_enterprise_credits_simple',
-                    {
-                        'p_account_id': account_id,
-                        'p_cost': float(cost),
-                        'p_model_name': model,
-                        'p_tokens_used': total_tokens,
-                        'p_prompt_tokens': prompt_tokens,
-                        'p_completion_tokens': completion_tokens,
-                        'p_thread_id': thread_id,
-                        'p_message_id': message_id
-                    }
-                ).execute()
+            db = DBConnection()
+            client = await db.client
+            # Call the atomic enterprise credit deduction function
+            result = await client.rpc(
+                'use_enterprise_credits_simple',
+                {
+                    'p_account_id': account_id,
+                    'p_cost': float(cost),
+                    'p_model_name': model,
+                    'p_tokens_used': total_tokens,
+                    'p_prompt_tokens': prompt_tokens,
+                    'p_completion_tokens': completion_tokens,
+                    'p_thread_id': thread_id,
+                    'p_message_id': message_id
+                }
+            ).execute()
+            
+            if result.data:
+                response = result.data
                 
-                if result.data:
-                    response = result.data
-                    
-                    if response.get('success'):
-                        logger.info(
-                            f"[ENTERPRISE] Deducted ${cost:.6f} from pool for user {account_id}. "
-                            f"Pool balance: ${response.get('new_pool_balance', 0):.2f}, "
-                            f"User usage: ${response.get('new_user_usage', 0):.2f}/{response.get('user_monthly_limit', 100):.2f}"
-                        )
-                        return {
-                            'success': True,
-                            'cost': float(cost),
-                            'new_balance': response.get('new_pool_balance', 0),
-                            'user_usage': response.get('new_user_usage', 0),
-                            'user_limit': response.get('user_monthly_limit', 100),
-                            'user_remaining': response.get('user_remaining', 0),
-                            'usage_id': response.get('usage_id')
-                        }
-                    else:
-                        error_code = response.get('error_code', 'UNKNOWN')
-                        error_msg = response.get('error', 'Deduction failed')
-                        logger.error(f"[ENTERPRISE] Deduction failed for {account_id}: {error_msg}")
-                        return {
-                            'success': False,
-                            'cost': float(cost),
-                            'error': error_msg,
-                            'error_code': error_code
-                        }
+                if response.get('success'):
+                    logger.info(
+                        f"[ENTERPRISE] Deducted ${cost:.6f} from pool for user {account_id}. "
+                        f"Pool balance: ${response.get('new_pool_balance', 0):.2f}, "
+                        f"User usage: ${response.get('new_user_usage', 0):.2f}/{response.get('user_monthly_limit', 100):.2f}"
+                    )
+                    return {
+                        'success': True,
+                        'cost': float(cost),
+                        'new_balance': response.get('new_pool_balance', 0),
+                        'user_usage': response.get('new_user_usage', 0),
+                        'user_limit': response.get('user_monthly_limit', 100),
+                        'user_remaining': response.get('user_remaining', 0),
+                        'usage_id': response.get('usage_id')
+                    }
                 else:
-                    logger.error(f"[ENTERPRISE] Empty response from use_enterprise_credits_simple for {account_id}")
+                    error_code = response.get('error_code', 'UNKNOWN')
+                    error_msg = response.get('error', 'Deduction failed')
+                    logger.error(f"[ENTERPRISE] Deduction failed for {account_id}: {error_msg}")
                     return {
                         'success': False,
                         'cost': float(cost),
-                        'error': 'Empty response from database'
+                        'error': error_msg,
+                        'error_code': error_code
                     }
+            else:
+                logger.error(f"[ENTERPRISE] Empty response from use_enterprise_credits_simple for {account_id}")
+                return {
+                    'success': False,
+                    'cost': float(cost),
+                    'error': 'Empty response from database'
+                }
                     
         except Exception as e:
             logger.error(f"[ENTERPRISE] Error deducting credits for {account_id}: {e}")
@@ -230,23 +232,24 @@ class EnterpriseBillingService:
             Dict with monthly_limit, current_usage, remaining, is_active, etc.
         """
         try:
-            async with DBConnection() as client:
-                result = await client.rpc(
-                    'get_enterprise_user_status',
-                    {'p_account_id': account_id}
-                ).execute()
-                
-                if result.data:
-                    return result.data
-                else:
-                    # Return defaults for new users
-                    return {
-                        'monthly_limit': 100.00,
-                        'current_month_usage': 0.00,
-                        'remaining': 100.00,
-                        'is_active': True,
-                        'is_new_user': True
-                    }
+            db = DBConnection()
+            client = await db.client
+            result = await client.rpc(
+                'get_enterprise_user_status',
+                {'p_account_id': account_id}
+            ).execute()
+            
+            if result.data:
+                return result.data
+            else:
+                # Return defaults for new users
+                return {
+                    'monthly_limit': 100.00,
+                    'current_month_usage': 0.00,
+                    'remaining': 100.00,
+                    'is_active': True,
+                    'is_new_user': True
+                }
                     
         except Exception as e:
             logger.error(f"[ENTERPRISE] Error getting user status for {account_id}: {e}")
@@ -266,18 +269,19 @@ class EnterpriseBillingService:
             Dict with credit_balance, total_loaded, total_used, etc.
         """
         try:
-            async with DBConnection() as client:
-                result = await client.rpc('get_enterprise_pool_status', {}).execute()
-                
-                if result.data:
-                    return result.data
-                else:
-                    return {
-                        'credit_balance': 0,
-                        'total_loaded': 0,
-                        'total_used': 0,
-                        'error': 'Not initialized'
-                    }
+            db = DBConnection()
+            client = await db.client
+            result = await client.rpc('get_enterprise_pool_status', {}).execute()
+            
+            if result.data:
+                return result.data
+            else:
+                return {
+                    'credit_balance': 0,
+                    'total_loaded': 0,
+                    'total_used': 0,
+                    'error': 'Not initialized'
+                }
                     
         except Exception as e:
             logger.error(f"[ENTERPRISE] Error getting pool status: {e}")
@@ -311,23 +315,24 @@ class EnterpriseBillingService:
             Dict with success status and new balance
         """
         try:
-            async with DBConnection() as client:
-                result = await client.rpc(
-                    'load_enterprise_credits',
-                    {
-                        'p_amount': float(amount),
-                        'p_performed_by': performed_by,
-                        'p_description': description
-                    }
-                ).execute()
-                
-                if result.data:
-                    response = result.data
-                    if response.get('success'):
-                        logger.info(f"[ENTERPRISE] Loaded ${amount:.2f} by {performed_by}. New balance: ${response.get('new_balance', 0):.2f}")
-                    return response
-                else:
-                    return {'success': False, 'error': 'Empty response'}
+            db = DBConnection()
+            client = await db.client
+            result = await client.rpc(
+                'load_enterprise_credits',
+                {
+                    'p_amount': float(amount),
+                    'p_performed_by': performed_by,
+                    'p_description': description
+                }
+            ).execute()
+            
+            if result.data:
+                response = result.data
+                if response.get('success'):
+                    logger.info(f"[ENTERPRISE] Loaded ${amount:.2f} by {performed_by}. New balance: ${response.get('new_balance', 0):.2f}")
+                return response
+            else:
+                return {'success': False, 'error': 'Empty response'}
                     
         except Exception as e:
             logger.error(f"[ENTERPRISE] Error loading credits: {e}")
@@ -351,23 +356,24 @@ class EnterpriseBillingService:
             Dict with success status and new balance
         """
         try:
-            async with DBConnection() as client:
-                result = await client.rpc(
-                    'negate_enterprise_credits',
-                    {
-                        'p_amount': float(amount),
-                        'p_performed_by': performed_by,
-                        'p_description': description
-                    }
-                ).execute()
-                
-                if result.data:
-                    response = result.data
-                    if response.get('success'):
-                        logger.info(f"[ENTERPRISE] Negated ${amount:.2f} by {performed_by}. New balance: ${response.get('new_balance', 0):.2f}")
-                    return response
-                else:
-                    return {'success': False, 'error': 'Empty response'}
+            db = DBConnection()
+            client = await db.client
+            result = await client.rpc(
+                'negate_enterprise_credits',
+                {
+                    'p_amount': float(amount),
+                    'p_performed_by': performed_by,
+                    'p_description': description
+                }
+            ).execute()
+            
+            if result.data:
+                response = result.data
+                if response.get('success'):
+                    logger.info(f"[ENTERPRISE] Negated ${amount:.2f} by {performed_by}. New balance: ${response.get('new_balance', 0):.2f}")
+                return response
+            else:
+                return {'success': False, 'error': 'Empty response'}
                     
         except Exception as e:
             logger.error(f"[ENTERPRISE] Error negating credits: {e}")
@@ -389,19 +395,20 @@ class EnterpriseBillingService:
             Dict with success status and updated values
         """
         try:
-            async with DBConnection() as client:
-                result = await client.rpc(
-                    'update_enterprise_user_limit',
-                    {
-                        'p_account_id': account_id,
-                        'p_new_limit': float(new_limit)
-                    }
-                ).execute()
-                
-                if result.data:
-                    return result.data
-                else:
-                    return {'success': False, 'error': 'Empty response'}
+            db = DBConnection()
+            client = await db.client
+            result = await client.rpc(
+                'update_enterprise_user_limit',
+                {
+                    'p_account_id': account_id,
+                    'p_new_limit': float(new_limit)
+                }
+            ).execute()
+            
+            if result.data:
+                return result.data
+            else:
+                return {'success': False, 'error': 'Empty response'}
                     
         except Exception as e:
             logger.error(f"[ENTERPRISE] Error updating user limit for {account_id}: {e}")
@@ -428,21 +435,22 @@ class EnterpriseBillingService:
             Dict with success status
         """
         try:
-            async with DBConnection() as client:
-                result = await client.rpc(
-                    'provision_enterprise_user',
-                    {
-                        'p_account_id': account_id,
-                        'p_monthly_limit': float(monthly_limit),
-                        'p_is_active': is_active
-                    }
-                ).execute()
-                
-                if result.data:
-                    logger.info(f"[ENTERPRISE] Provisioned user {account_id} with limit ${monthly_limit:.2f}")
-                    return result.data
-                else:
-                    return {'success': False, 'error': 'Empty response'}
+            db = DBConnection()
+            client = await db.client
+            result = await client.rpc(
+                'provision_enterprise_user',
+                {
+                    'p_account_id': account_id,
+                    'p_monthly_limit': float(monthly_limit),
+                    'p_is_active': is_active
+                }
+            ).execute()
+            
+            if result.data:
+                logger.info(f"[ENTERPRISE] Provisioned user {account_id} with limit ${monthly_limit:.2f}")
+                return result.data
+            else:
+                return {'success': False, 'error': 'Empty response'}
                     
         except Exception as e:
             logger.error(f"[ENTERPRISE] Error provisioning user {account_id}: {e}")
@@ -451,17 +459,18 @@ class EnterpriseBillingService:
     async def deactivate_user(self, account_id: str) -> Dict:
         """Deactivate an enterprise user."""
         try:
-            async with DBConnection() as client:
-                result = await client.rpc(
-                    'deactivate_enterprise_user',
-                    {'p_account_id': account_id}
-                ).execute()
-                
-                if result.data:
-                    logger.info(f"[ENTERPRISE] Deactivated user {account_id}")
-                    return result.data
-                else:
-                    return {'success': False, 'error': 'Empty response'}
+            db = DBConnection()
+            client = await db.client
+            result = await client.rpc(
+                'deactivate_enterprise_user',
+                {'p_account_id': account_id}
+            ).execute()
+            
+            if result.data:
+                logger.info(f"[ENTERPRISE] Deactivated user {account_id}")
+                return result.data
+            else:
+                return {'success': False, 'error': 'Empty response'}
                     
         except Exception as e:
             logger.error(f"[ENTERPRISE] Error deactivating user {account_id}: {e}")
@@ -470,17 +479,18 @@ class EnterpriseBillingService:
     async def reactivate_user(self, account_id: str) -> Dict:
         """Reactivate an enterprise user."""
         try:
-            async with DBConnection() as client:
-                result = await client.rpc(
-                    'reactivate_enterprise_user',
-                    {'p_account_id': account_id}
-                ).execute()
-                
-                if result.data:
-                    logger.info(f"[ENTERPRISE] Reactivated user {account_id}")
-                    return result.data
-                else:
-                    return {'success': False, 'error': 'Empty response'}
+            db = DBConnection()
+            client = await db.client
+            result = await client.rpc(
+                'reactivate_enterprise_user',
+                {'p_account_id': account_id}
+            ).execute()
+            
+            if result.data:
+                logger.info(f"[ENTERPRISE] Reactivated user {account_id}")
+                return result.data
+            else:
+                return {'success': False, 'error': 'Empty response'}
                     
         except Exception as e:
             logger.error(f"[ENTERPRISE] Error reactivating user {account_id}: {e}")
