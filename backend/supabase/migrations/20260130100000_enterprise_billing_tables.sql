@@ -81,6 +81,37 @@ ALTER TABLE enterprise_usage ADD COLUMN IF NOT EXISTS tokens_used INTEGER DEFAUL
 ALTER TABLE enterprise_usage ADD COLUMN IF NOT EXISTS prompt_tokens INTEGER DEFAULT 0;
 ALTER TABLE enterprise_usage ADD COLUMN IF NOT EXISTS completion_tokens INTEGER DEFAULT 0;
 
+-- V2 Migration Cleanup: Drop view and constraints that block column type changes
+-- The enterprise_tool_usage_analytics view from V2 is not needed in V3
+DROP VIEW IF EXISTS enterprise_tool_usage_analytics;
+
+-- Drop V2 foreign key constraints on thread_id/message_id (not needed for audit logging)
+ALTER TABLE enterprise_usage DROP CONSTRAINT IF EXISTS enterprise_usage_thread_id_fkey;
+ALTER TABLE enterprise_usage DROP CONSTRAINT IF EXISTS enterprise_usage_message_id_fkey;
+
+-- Fix V2 type mismatch: thread_id and message_id may be UUID in V2, need TEXT
+-- This only runs if the column is actually UUID type (idempotent)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'enterprise_usage' 
+        AND column_name = 'thread_id' 
+        AND data_type = 'uuid'
+    ) THEN
+        ALTER TABLE enterprise_usage ALTER COLUMN thread_id TYPE TEXT USING thread_id::TEXT;
+    END IF;
+    
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'enterprise_usage' 
+        AND column_name = 'message_id' 
+        AND data_type = 'uuid'
+    ) THEN
+        ALTER TABLE enterprise_usage ALTER COLUMN message_id TYPE TEXT USING message_id::TEXT;
+    END IF;
+END $$;
+
 -- Indexes for reporting and analytics
 CREATE INDEX IF NOT EXISTS idx_enterprise_usage_account_id 
     ON enterprise_usage(account_id);
