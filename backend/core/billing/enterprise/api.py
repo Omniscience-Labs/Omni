@@ -88,24 +88,25 @@ class UsageRecord(BaseModel):
 async def get_user_email(user_id: str) -> Optional[str]:
     """Get user email from auth.users or billing_customers."""
     try:
-        async with DBConnection() as client:
-            # Try billing_customers first
-            result = await client.schema('basejump').from_('billing_customers').select(
-                'email'
-            ).eq('account_id', user_id).limit(1).execute()
-            
-            if result.data and result.data[0].get('email'):
-                return result.data[0]['email']
-            
-            # Try get_user_email RPC
-            try:
-                email_result = await client.rpc('get_user_email', {'user_id': user_id}).execute()
-                if email_result.data:
-                    return email_result.data
-            except Exception:
-                pass
-            
-            return None
+        db = DBConnection()
+        client = await db.client
+        # Try billing_customers first
+        result = await client.schema('basejump').from_('billing_customers').select(
+            'email'
+        ).eq('account_id', user_id).limit(1).execute()
+        
+        if result.data and result.data[0].get('email'):
+            return result.data[0]['email']
+        
+        # Try get_user_email RPC
+        try:
+            email_result = await client.rpc('get_user_email', {'user_id': user_id}).execute()
+            if email_result.data:
+                return email_result.data
+        except Exception:
+            pass
+        
+        return None
     except Exception as e:
         logger.warning(f"Failed to get email for user {user_id}: {e}")
         return None
@@ -286,15 +287,16 @@ async def get_credit_history(
     Get the history of credit loads and negations.
     """
     try:
-        async with DBConnection() as client:
-            result = await client.from_('enterprise_credit_loads').select(
-                '*'
-            ).order('created_at', desc=True).limit(limit).execute()
-            
-            return {
-                "history": result.data or [],
-                "count": len(result.data or [])
-            }
+        db = DBConnection()
+        client = await db.client
+        result = await client.from_('enterprise_credit_loads').select(
+            '*'
+        ).order('created_at', desc=True).limit(limit).execute()
+        
+        return {
+            "history": result.data or [],
+            "count": len(result.data or [])
+        }
     except Exception as e:
         logger.error(f"Failed to get credit history: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve credit history")
@@ -318,45 +320,46 @@ async def list_users(
     Only shows users who have used the system (lazy provisioning).
     """
     try:
-        async with DBConnection() as client:
-            # Build query for enterprise_user_limits
-            query = client.from_('enterprise_user_limits').select('*')
+        db = DBConnection()
+        client = await db.client
+        # Build query for enterprise_user_limits
+        query = client.from_('enterprise_user_limits').select('*')
+        
+        if active_only:
+            query = query.eq('is_active', True)
+        
+        # Get paginated results
+        offset = (page - 1) * page_size
+        result = await query.order('created_at', desc=True).range(
+            offset, offset + page_size - 1
+        ).execute()
+        
+        users = []
+        for row in result.data or []:
+            # Get user email
+            user_email = await get_user_email(row['account_id'])
             
-            if active_only:
-                query = query.eq('is_active', True)
+            # Filter by email if search provided
+            if search_email:
+                if not user_email or search_email.lower() not in user_email.lower():
+                    continue
             
-            # Get paginated results
-            offset = (page - 1) * page_size
-            result = await query.order('created_at', desc=True).range(
-                offset, offset + page_size - 1
-            ).execute()
+            monthly_limit = float(row.get('monthly_limit', 100))
+            current_usage = float(row.get('current_month_usage', 0))
             
-            users = []
-            for row in result.data or []:
-                # Get user email
-                user_email = await get_user_email(row['account_id'])
-                
-                # Filter by email if search provided
-                if search_email:
-                    if not user_email or search_email.lower() not in user_email.lower():
-                        continue
-                
-                monthly_limit = float(row.get('monthly_limit', 100))
-                current_usage = float(row.get('current_month_usage', 0))
-                
-                users.append(EnterpriseUserSummary(
-                    account_id=row['account_id'],
-                    email=user_email,
-                    monthly_limit=monthly_limit,
-                    current_month_usage=current_usage,
-                    remaining=monthly_limit - current_usage,
-                    is_active=row.get('is_active', True),
-                    last_reset_at=row.get('last_reset_at'),
-                    usage_percentage=round((current_usage / monthly_limit * 100) if monthly_limit > 0 else 0, 2),
-                    created_at=row.get('created_at')
-                ))
-            
-            return users
+            users.append(EnterpriseUserSummary(
+                account_id=row['account_id'],
+                email=user_email,
+                monthly_limit=monthly_limit,
+                current_month_usage=current_usage,
+                remaining=monthly_limit - current_usage,
+                is_active=row.get('is_active', True),
+                last_reset_at=row.get('last_reset_at'),
+                usage_percentage=round((current_usage / monthly_limit * 100) if monthly_limit > 0 else 0, 2),
+                created_at=row.get('created_at')
+            ))
+        
+        return users
             
     except Exception as e:
         logger.error(f"Failed to list enterprise users: {e}")
@@ -421,34 +424,35 @@ async def get_user_usage_history(
     Get usage history for a specific user.
     """
     try:
-        async with DBConnection() as client:
-            result = await client.from_('enterprise_usage').select(
-                '*'
-            ).eq('account_id', account_id).order('created_at', desc=True).limit(limit).execute()
-            
-            usage_records = []
-            for row in result.data or []:
-                usage_records.append(UsageRecord(
-                    id=row['id'],
-                    cost=float(row.get('cost', 0)),
-                    model_name=row.get('model_name', 'unknown'),
-                    tokens_used=row.get('tokens_used', 0),
-                    thread_id=row.get('thread_id'),
-                    message_id=row.get('message_id'),
-                    created_at=row['created_at']
-                ))
-            
-            # Get summary
-            user_status = await enterprise_billing_service.get_user_status(account_id)
-            user_email = await get_user_email(account_id)
-            
-            return {
-                "account_id": account_id,
-                "email": user_email,
-                "summary": user_status,
-                "usage_records": usage_records,
-                "count": len(usage_records)
-            }
+        db = DBConnection()
+        client = await db.client
+        result = await client.from_('enterprise_usage').select(
+            '*'
+        ).eq('account_id', account_id).order('created_at', desc=True).limit(limit).execute()
+        
+        usage_records = []
+        for row in result.data or []:
+            usage_records.append(UsageRecord(
+                id=row['id'],
+                cost=float(row.get('cost', 0)),
+                model_name=row.get('model_name', 'unknown'),
+                tokens_used=row.get('tokens_used', 0),
+                thread_id=row.get('thread_id'),
+                message_id=row.get('message_id'),
+                created_at=row['created_at']
+            ))
+        
+        # Get summary
+        user_status = await enterprise_billing_service.get_user_status(account_id)
+        user_email = await get_user_email(account_id)
+        
+        return {
+            "account_id": account_id,
+            "email": user_email,
+            "summary": user_status,
+            "usage_records": usage_records,
+            "count": len(usage_records)
+        }
             
     except Exception as e:
         logger.error(f"Failed to get user usage history: {e}")
@@ -552,17 +556,18 @@ async def reset_monthly_usage(
     Can be called by external cron if pg_cron is not available.
     """
     try:
-        async with DBConnection() as client:
-            result = await client.rpc('api_reset_enterprise_monthly_usage', {}).execute()
-            
-            if result.data:
-                logger.info(f"[ENTERPRISE_ADMIN] {admin['email']} triggered monthly reset: {result.data}")
-                return result.data
-            else:
-                return {
-                    "success": True,
-                    "message": "Monthly usage reset completed"
-                }
+        db = DBConnection()
+        client = await db.client
+        result = await client.rpc('api_reset_enterprise_monthly_usage', {}).execute()
+        
+        if result.data:
+            logger.info(f"[ENTERPRISE_ADMIN] {admin['email']} triggered monthly reset: {result.data}")
+            return result.data
+        else:
+            return {
+                "success": True,
+                "message": "Monthly usage reset completed"
+            }
                 
     except Exception as e:
         logger.error(f"Failed to reset monthly usage: {e}")
@@ -579,39 +584,40 @@ async def get_enterprise_stats(
     try:
         pool_status = await enterprise_billing_service.get_pool_status()
         
-        async with DBConnection() as client:
-            # Count active users
-            active_result = await client.from_('enterprise_user_limits').select(
-                'account_id', count='exact'
-            ).eq('is_active', True).execute()
-            
-            # Count total users
-            total_result = await client.from_('enterprise_user_limits').select(
-                'account_id', count='exact'
-            ).execute()
-            
-            # Get usage stats for current month
-            usage_result = await client.from_('enterprise_usage').select(
-                'cost'
-            ).execute()
-            
-            total_usage = sum(float(r.get('cost', 0)) for r in usage_result.data or [])
-            
-            return {
-                "pool": {
-                    "balance": float(pool_status.get('credit_balance', 0)),
-                    "total_loaded": float(pool_status.get('total_loaded', 0)),
-                    "total_used": float(pool_status.get('total_used', 0))
-                },
-                "users": {
-                    "total": total_result.count or 0,
-                    "active": active_result.count or 0
-                },
-                "usage": {
-                    "total_all_time": total_usage,
-                    "transaction_count": len(usage_result.data or [])
-                }
+        db = DBConnection()
+        client = await db.client
+        # Count active users
+        active_result = await client.from_('enterprise_user_limits').select(
+            'account_id', count='exact'
+        ).eq('is_active', True).execute()
+        
+        # Count total users
+        total_result = await client.from_('enterprise_user_limits').select(
+            'account_id', count='exact'
+        ).execute()
+        
+        # Get usage stats for current month
+        usage_result = await client.from_('enterprise_usage').select(
+            'cost'
+        ).execute()
+        
+        total_usage = sum(float(r.get('cost', 0)) for r in usage_result.data or [])
+        
+        return {
+            "pool": {
+                "balance": float(pool_status.get('credit_balance', 0)),
+                "total_loaded": float(pool_status.get('total_loaded', 0)),
+                "total_used": float(pool_status.get('total_used', 0))
+            },
+            "users": {
+                "total": total_result.count or 0,
+                "active": active_result.count or 0
+            },
+            "usage": {
+                "total_all_time": total_usage,
+                "transaction_count": len(usage_result.data or [])
             }
+        }
             
     except Exception as e:
         logger.error(f"Failed to get enterprise stats: {e}")
