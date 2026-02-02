@@ -504,24 +504,40 @@ class ModelRegistry:
         return None
     
     def to_legacy_format(self) -> Dict:
+        """
+        Generate legacy format with pricing INCLUDING margin.
+        All prices returned include the TOKEN_PRICE_MULTIPLIER markup.
+        """
+        from core.billing.shared.config import TOKEN_PRICE_MULTIPLIER
+        
         models_dict = {}
         pricing_dict = {}
         context_windows_dict = {}
         
         for model in self.get_all(enabled_only=True):
-            models_dict[model.id] = {
-                "pricing": {
-                    "input_cost_per_million_tokens": model.pricing.input_cost_per_million_tokens,
-                    "output_cost_per_million_tokens": model.pricing.output_cost_per_million_tokens,
-                } if model.pricing else None,
-                "context_window": model.context_window,
-                "tier_availability": model.tier_availability,
-            }
-            
+            # Apply margin to all pricing for user-facing display
             if model.pricing:
+                input_with_margin = float(model.pricing.input_cost_per_million_tokens) * float(TOKEN_PRICE_MULTIPLIER)
+                output_with_margin = float(model.pricing.output_cost_per_million_tokens) * float(TOKEN_PRICE_MULTIPLIER)
+                
+                models_dict[model.id] = {
+                    "pricing": {
+                        "input_cost_per_million_tokens": input_with_margin,
+                        "output_cost_per_million_tokens": output_with_margin,
+                    },
+                    "context_window": model.context_window,
+                    "tier_availability": model.tier_availability,
+                }
+                
                 pricing_dict[model.id] = {
-                    "input_cost_per_million_tokens": model.pricing.input_cost_per_million_tokens,
-                    "output_cost_per_million_tokens": model.pricing.output_cost_per_million_tokens,
+                    "input_cost_per_million_tokens": input_with_margin,
+                    "output_cost_per_million_tokens": output_with_margin,
+                }
+            else:
+                models_dict[model.id] = {
+                    "pricing": None,
+                    "context_window": model.context_window,
+                    "tier_availability": model.tier_availability,
                 }
             
             context_windows_dict[model.id] = model.context_window
