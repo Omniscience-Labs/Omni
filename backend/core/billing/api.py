@@ -7,6 +7,7 @@ from .endpoints.payments import router as payments_router
 from .endpoints.trial import router as trial_router
 from .endpoints.webhooks import router as webhooks_router
 from .endpoints.admin import router as admin_router
+from .endpoints.enterprise_user import router as enterprise_user_router
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -20,5 +21,8 @@ router.include_router(payments_router, include_in_schema=True)
 router.include_router(trial_router, include_in_schema=True)
 router.include_router(webhooks_router, include_in_schema=True)
 router.include_router(admin_router, include_in_schema=True)
+
+# Enterprise user-facing endpoints (available when ENTERPRISE_MODE is enabled)
+router.include_router(enterprise_user_router, include_in_schema=True)
 
 __all__ = ['router']

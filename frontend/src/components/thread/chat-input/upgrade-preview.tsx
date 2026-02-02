@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { isLocalMode } from '@/lib/config';
+import { isLocalMode, isEnterpriseMode } from '@/lib/config';
 import { Button } from '@/components/ui/button';
 import { TierBadge } from '@/components/billing/tier-badge';
 
@@ -27,7 +27,8 @@ export const UpgradePreview: React.FC<UpgradePreviewProps> = ({
     totalCount = 1,
     onIndicatorClick,
 }) => {
-    if (isLocalMode()) return null;
+    // Don't show upgrade preview in local mode or enterprise mode
+    if (isLocalMode() || isEnterpriseMode()) return null;
 
     return (
         <div className="flex items-center gap-3">

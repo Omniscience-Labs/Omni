@@ -32,7 +32,7 @@ import {
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
-import { isLocalMode, isProductionMode } from '@/lib/config';
+import { isLocalMode, isProductionMode, isEnterpriseMode } from '@/lib/config';
 import { backendApi } from '@/lib/api-client';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Switch } from '@/components/ui/switch';
@@ -113,10 +113,12 @@ export function UserSettingsModal({
     const [showPlanModal, setShowPlanModal] = useState(false);
     const isLocal = isLocalMode();
     const isProduction = isProductionMode();
+    const isEnterprise = isEnterpriseMode();
     const tabs: Tab[] = [
         { id: 'general', label: 'General', icon: Settings },
-        { id: 'plan', label: 'Plan', icon: Zap },
-        { id: 'billing', label: 'Billing', icon: CreditCard },
+        // Plan and Billing tabs are hidden in enterprise mode
+        ...(!isEnterprise ? [{ id: 'plan' as TabId, label: 'Plan', icon: Zap }] : []),
+        ...(!isEnterprise ? [{ id: 'billing' as TabId, label: 'Billing', icon: CreditCard }] : []),
         { id: 'usage', label: 'Usage', icon: TrendingDown },
 
         { id: 'knowledge-base', label: 'Knowledge Base', icon: FileText },
@@ -202,7 +204,7 @@ export function UserSettingsModal({
                         <div className="flex-1 overflow-x-hidden overflow-y-auto">
                             <div className="w-full max-w-full">
                                 {activeTab === 'general' && <GeneralTab onClose={() => onOpenChange(false)} />}
-                                {activeTab === 'billing' && <BillingTab returnUrl={returnUrl} onOpenPlanModal={() => setShowPlanModal(true)} isActive={activeTab === 'billing'} />}
+                                {activeTab === 'billing' && !isEnterprise && <BillingTab returnUrl={returnUrl} onOpenPlanModal={() => setShowPlanModal(true)} isActive={activeTab === 'billing'} />}
                                 {activeTab === 'usage' && <UsageTab />}
 
                                 {activeTab === 'env-manager' && isLocal && <EnvManagerTab />}
@@ -256,7 +258,7 @@ export function UserSettingsModal({
                         {/* Desktop Content */}
                         <div className="flex-1 overflow-y-auto min-h-0 w-full max-w-full">
                             {activeTab === 'general' && <GeneralTab onClose={() => onOpenChange(false)} />}
-                            {activeTab === 'billing' && <BillingTab returnUrl={returnUrl} onOpenPlanModal={() => setShowPlanModal(true)} isActive={activeTab === 'billing'} />}
+                            {activeTab === 'billing' && !isEnterprise && <BillingTab returnUrl={returnUrl} onOpenPlanModal={() => setShowPlanModal(true)} isActive={activeTab === 'billing'} />}
                             {activeTab === 'usage' && <UsageTab />}
 
                             {activeTab === 'env-manager' && isLocal && <EnvManagerTab />}
