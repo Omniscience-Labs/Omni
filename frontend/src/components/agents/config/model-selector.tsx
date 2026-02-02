@@ -107,7 +107,7 @@ export function AgentModelSelector({
     const modelMap = new Map();
 
     if (modelsData?.models) {
-      modelsData.models.forEach(model => {
+      modelsData.models.forEach((model: any) => {
         const displayName = model.name || model.id;
         
         modelMap.set(model.id, {
@@ -119,7 +119,10 @@ export function AgentModelSelector({
           top: (model.priority || 0) >= 90,
           capabilities: model.capabilities || [],
           contextWindow: model.context_window || 128000,
-          isCustom: false
+          isCustom: false,
+          // Map snake_case to camelCase for pricing data
+          inputCostPerMillionTokens: model.input_cost_per_million_tokens,
+          outputCostPerMillionTokens: model.output_cost_per_million_tokens
         });
       });
     } else {

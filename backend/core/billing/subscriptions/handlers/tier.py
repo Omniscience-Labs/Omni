@@ -2,11 +2,31 @@ from typing import Dict, List
 from core.services.supabase import DBConnection
 from core.utils.cache import Cache
 from core.utils.logger import logger
-from core.billing.shared.config import TIERS, TRIAL_TIER
+from core.utils.config import config
+from core.billing.shared.config import TIERS, TRIAL_TIER, ENTERPRISE_TIER_LIMITS, ENTERPRISE_TIER_NAME
 
 class TierHandler:
     @staticmethod
     async def get_user_subscription_tier(account_id: str, skip_cache: bool = False) -> Dict:
+        # Enterprise mode: All users get enterprise/ultra tier limits
+        if config.ENTERPRISE_MODE:
+            return {
+                'name': ENTERPRISE_TIER_NAME,
+                'display_name': 'Enterprise',
+                'credits': 0,  # Enterprise uses pool-based credits
+                'can_purchase_credits': False,  # No self-service purchases in enterprise
+                'models': ENTERPRISE_TIER_LIMITS['models'],
+                'project_limit': ENTERPRISE_TIER_LIMITS['project_limit'],
+                'thread_limit': ENTERPRISE_TIER_LIMITS['thread_limit'],
+                'concurrent_runs': ENTERPRISE_TIER_LIMITS['concurrent_runs'],
+                'custom_workers_limit': ENTERPRISE_TIER_LIMITS['custom_workers_limit'],
+                'scheduled_triggers_limit': ENTERPRISE_TIER_LIMITS['scheduled_triggers_limit'],
+                'app_triggers_limit': ENTERPRISE_TIER_LIMITS['app_triggers_limit'],
+                'agent_limit': ENTERPRISE_TIER_LIMITS['custom_workers_limit'],
+                'is_trial': False,
+                'is_enterprise': True
+            }
+        
         cache_key = f"subscription_tier:{account_id}"
         
         if not skip_cache:

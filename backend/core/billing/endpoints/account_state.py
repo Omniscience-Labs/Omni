@@ -215,6 +215,12 @@ async def _build_account_state(account_id: str, client) -> Dict:
     models = []
     for model in all_models:
         allowed = is_model_allowed(tier_name, model['id'])
+        
+        # Extract pricing data if available
+        pricing = model.get('pricing')
+        input_cost = pricing.get('input_per_million') if pricing else None
+        output_cost = pricing.get('output_per_million') if pricing else None
+        
         models.append({
             'id': model['id'],
             'name': model['name'],
@@ -223,7 +229,9 @@ async def _build_account_state(account_id: str, client) -> Dict:
             'context_window': model.get('context_window', 128000),
             'capabilities': model.get('capabilities', []),
             'priority': model.get('priority', 0),
-            'recommended': model.get('recommended', False)
+            'recommended': model.get('recommended', False),
+            'input_cost_per_million_tokens': input_cost,
+            'output_cost_per_million_tokens': output_cost
         })
     
     # Get tier limits with detailed usage info
