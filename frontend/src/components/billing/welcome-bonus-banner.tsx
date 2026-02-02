@@ -7,6 +7,7 @@ import { useAccountState, accountStateSelectors } from '@/hooks/billing';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePricingModalStore } from '@/stores/pricing-modal-store';
 import { usePathname } from 'next/navigation';
+import { isEnterpriseMode } from '@/lib/config';
 
 const BANNER_DISMISSED_KEY = 'welcome-bonus-banner-dismissed';
 
@@ -62,9 +63,11 @@ export function WelcomeBonusBanner() {
 
   // Only show on /dashboard, for confirmed free tier users, and if not dismissed
   // Don't show during loading - wait until we confirm user is on free tier
+  // Never show in enterprise mode
   if (!mounted || isDismissed || !isDashboardPage) return null;
   if (isLoading) return null;
   if (!isFreeTier) return null;
+  if (isEnterpriseMode()) return null;
 
   const formatTime = (value: number) => value.toString().padStart(2, '0');
 
