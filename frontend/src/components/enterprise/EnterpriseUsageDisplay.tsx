@@ -219,13 +219,13 @@ export function EnterpriseUsageCard({ className }: { className?: string }) {
         {/* Warning message if near limit */}
         {isNearLimit && !isOverLimit && (
           <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-md p-2">
-            You&apos;re approaching your monthly limit. Contact your admin if you need more credits.
+            You&apos;re approaching your monthly limit. Contact your admin if you need more.
           </div>
         )}
         
         {isOverLimit && (
           <div className="text-xs text-destructive bg-destructive/10 rounded-md p-2">
-            You&apos;ve reached your monthly limit. Contact your admin for additional credits.
+            You&apos;ve reached your monthly limit. Contact your admin for additional funds.
           </div>
         )}
       </CardContent>

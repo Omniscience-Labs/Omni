@@ -29,7 +29,8 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useThreadUsage } from '@/hooks/billing/use-thread-usage';
-import { formatCredits } from '@/lib/utils/credit-formatter';
+import { formatCredits, creditsToDollars } from '@/lib/utils/credit-formatter';
+import { isEnterpriseMode } from '@/lib/config';
 
 export default function ThreadUsage() {
   const router = useRouter();
@@ -103,6 +104,7 @@ export default function ThreadUsage() {
 
   const threadRecords = data?.thread_usage || [];
   const summary = data?.summary;
+  const useDollars = isEnterpriseMode();
 
   if (showSkeleton) {
     return (
@@ -134,7 +136,7 @@ export default function ThreadUsage() {
               <div>
                 <CardTitle>Usage</CardTitle>
                 <CardDescription className='mt-2'>
-                  Credit consumption per conversation
+                  {useDollars ? 'Amount consumed per conversation' : 'Credit consumption per conversation'}
                 </CardDescription>
               </div>
               <Skeleton className="h-10 w-[280px]" />
@@ -147,7 +149,7 @@ export default function ThreadUsage() {
                   <TableRow>
                     <TableHead>Thread</TableHead>
                     <TableHead className="w-[180px]">Last Used</TableHead>
-                    <TableHead className="text-right">Credits Used</TableHead>
+                    <TableHead className="text-right">{useDollars ? 'Amount' : 'Credits Used'}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -190,10 +192,10 @@ export default function ThreadUsage() {
                 <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                 <div>
                   <div className="text-xl sm:text-3xl font-semibold">
-                    {formatCredits(summary.total_credits_used)}
+                    {useDollars ? `$${creditsToDollars(summary.total_credits_used).toFixed(2)}` : formatCredits(summary.total_credits_used)}
                   </div>
                   <p className="text-xs sm:text-sm text-muted-foreground">
-                    Credits consumed
+                    {useDollars ? 'Amount consumed' : 'Credits consumed'}
                   </p>
                 </div>
               </div>
@@ -206,7 +208,7 @@ export default function ThreadUsage() {
             <div>
               <CardTitle className="text-base sm:text-lg">Usage</CardTitle>
               <CardDescription className='mt-1 sm:mt-2 text-xs sm:text-sm'>
-                Credit consumption per conversation
+                {useDollars ? 'Amount consumed per conversation' : 'Credit consumption per conversation'}
               </CardDescription>
             </div>
             <DateRangePicker
@@ -234,7 +236,7 @@ export default function ThreadUsage() {
                     <TableRow>
                       <TableHead>Thread</TableHead>
                       <TableHead className="w-[180px]">Last Used</TableHead>
-                      <TableHead className="text-right">Credits Used</TableHead>
+                      <TableHead className="text-right">{useDollars ? 'Amount' : 'Credits Used'}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -270,7 +272,7 @@ export default function ThreadUsage() {
                             {formatDate(record.last_used)}
                           </TableCell>
                           <TableCell className="text-right">
-                            {formatCredits(record.credits_used)}
+                            {useDollars ? `$${creditsToDollars(record.credits_used).toFixed(2)}` : formatCredits(record.credits_used)}
                           </TableCell>
                         </TableRow>
                       ))
