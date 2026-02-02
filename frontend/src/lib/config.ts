@@ -28,6 +28,7 @@ interface Config {
   ENV_MODE: EnvMode;
   IS_LOCAL: boolean;
   IS_STAGING: boolean;
+  IS_ENTERPRISE: boolean;
   SUBSCRIPTION_TIERS: SubscriptionTiers;
 }
 
@@ -83,10 +84,18 @@ function getEnvironmentMode(): EnvMode {
 
 const currentEnvMode = getEnvironmentMode();
 
+function getEnterpriseMode(): boolean {
+  const enterpriseMode = process.env.NEXT_PUBLIC_ENTERPRISE_MODE?.toLowerCase();
+  return enterpriseMode === 'true' || enterpriseMode === '1' || enterpriseMode === 'yes';
+}
+
+const currentEnterpriseMode = getEnterpriseMode();
+
 export const config: Config = {
   ENV_MODE: currentEnvMode,
   IS_LOCAL: currentEnvMode === EnvMode.LOCAL,
   IS_STAGING: currentEnvMode === EnvMode.STAGING,
+  IS_ENTERPRISE: currentEnterpriseMode,
   SUBSCRIPTION_TIERS: TIERS,  // Same tiers for all environments
 };
 
@@ -100,4 +109,8 @@ export const isStagingMode = (): boolean => {
 
 export const isProductionMode = (): boolean => {
   return config.ENV_MODE === EnvMode.PRODUCTION;
+};
+
+export const isEnterpriseMode = (): boolean => {
+  return config.IS_ENTERPRISE;
 };
