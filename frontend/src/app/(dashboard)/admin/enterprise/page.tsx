@@ -79,12 +79,12 @@ function LoadCreditsDialog({ isOmni }: { isOmni: boolean }) {
         amount: numAmount, 
         description: description || 'Credit load' 
       });
-      toast.success(`Successfully loaded $${numAmount.toFixed(2)} credits`);
+      toast.success(`Successfully loaded $${numAmount.toFixed(2)}`);
       setOpen(false);
       setAmount('');
       setDescription('');
     } catch (error: any) {
-      toast.error(error?.response?.data?.detail || 'Failed to load credits');
+      toast.error(error?.response?.data?.detail || 'Failed to load funds');
     }
   };
 
@@ -95,14 +95,14 @@ function LoadCreditsDialog({ isOmni }: { isOmni: boolean }) {
       <DialogTrigger asChild>
         <Button className="gap-2">
           <Plus className="h-4 w-4" />
-          Load Credits
+          Load Funds
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Load Credits to Pool</DialogTitle>
+          <DialogTitle>Load Funds to Pool</DialogTitle>
           <DialogDescription>
-            Add credits to the enterprise pool. This will be available for all users.
+            Add funds to the enterprise pool. This will be available for all users.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -133,7 +133,7 @@ function LoadCreditsDialog({ isOmni }: { isOmni: boolean }) {
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={loadCredits.isPending}>
-            {loadCredits.isPending ? 'Loading...' : 'Load Credits'}
+            {loadCredits.isPending ? 'Loading...' : 'Load Funds'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -163,12 +163,12 @@ function NegateCreditsDialog({ isOmni }: { isOmni: boolean }) {
         amount: numAmount, 
         description: description || 'Credit negation' 
       });
-      toast.success(`Successfully negated $${numAmount.toFixed(2)} credits`);
+      toast.success(`Successfully negated $${numAmount.toFixed(2)}`);
       setOpen(false);
       setAmount('');
       setDescription('');
     } catch (error: any) {
-      toast.error(error?.response?.data?.detail || 'Failed to negate credits');
+      toast.error(error?.response?.data?.detail || 'Failed to negate funds');
     }
   };
 
@@ -179,14 +179,14 @@ function NegateCreditsDialog({ isOmni }: { isOmni: boolean }) {
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2">
           <Minus className="h-4 w-4" />
-          Negate Credits
+          Negate Funds
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Negate Credits from Pool</DialogTitle>
+          <DialogTitle>Negate Funds from Pool</DialogTitle>
           <DialogDescription>
-            Remove credits from the enterprise pool. Use with caution.
+            Remove funds from the enterprise pool. Use with caution.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -217,7 +217,7 @@ function NegateCreditsDialog({ isOmni }: { isOmni: boolean }) {
             Cancel
           </Button>
           <Button variant="destructive" onClick={handleSubmit} disabled={negateCredits.isPending}>
-            {negateCredits.isPending ? 'Processing...' : 'Negate Credits'}
+            {negateCredits.isPending ? 'Processing...' : 'Negate Funds'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -424,7 +424,7 @@ function CreditHistorySection() {
   if (!data?.history || data.history.length === 0) {
     return (
       <div className="text-center py-4 text-muted-foreground text-sm">
-        No credit transactions yet
+        No transactions yet
       </div>
     );
   }
@@ -646,7 +646,7 @@ export default function EnterpriseAdminPage() {
                 Recent Transactions
               </CardTitle>
               <CardDescription>
-                Credit load and negation history
+                Fund load and negation history
               </CardDescription>
             </CardHeader>
             <CardContent>
