@@ -197,16 +197,28 @@ async def get_credit_usage_by_thread(
     start_date: Optional[str] = Query(None, description="Start date in ISO format"),
     end_date: Optional[str] = Query(None, description="End date in ISO format")
 ) -> Dict:
+    from core.utils.config import config
+    
     try:
         db = DBConnection()
         client = await db.client
         
-        query = client.from_('credit_ledger')\
-            .select('thread_id, amount, created_at, description, metadata')\
-            .eq('account_id', account_id)\
-            .eq('type', 'usage')
-        
         period_days = None
+        
+        # Enterprise mode uses enterprise_usage table, SaaS uses credit_ledger
+        if config.ENTERPRISE_MODE:
+            query = client.from_('enterprise_usage')\
+                .select('thread_id, cost, created_at, model_name')\
+                .eq('account_id', account_id)
+            table_name = 'enterprise_usage'
+            amount_field = 'cost'
+        else:
+            query = client.from_('credit_ledger')\
+                .select('thread_id, amount, created_at, description, metadata')\
+                .eq('account_id', account_id)\
+                .eq('type', 'usage')
+            table_name = 'credit_ledger'
+            amount_field = 'amount'
         
         # Handle date filtering: prioritize start_date/end_date over days
         if start_date and end_date:
@@ -227,14 +239,14 @@ async def get_credit_usage_by_thread(
             logger.info(f"[BILLING] Filtering credit usage by days: {days} days back from now")
         
         usage_result = await query.order('created_at', desc=True).execute()
-        logger.info(f"[BILLING] Found {len(usage_result.data) if usage_result.data else 0} credit usage records for account {account_id}")
+        logger.info(f"[BILLING] Found {len(usage_result.data) if usage_result.data else 0} credit usage records from {table_name} for account {account_id}")
         
         thread_usage = {}
         total_usage = 0.0
         
         if usage_result.data:
             for record in usage_result.data:
-                # thread_id can be in the column OR in metadata (from atomic functions)
+                # thread_id can be in the column OR in metadata (from atomic functions in SaaS mode)
                 thread_id = record.get('thread_id')
                 if not thread_id and record.get('metadata'):
                     thread_id = record['metadata'].get('thread_id')
@@ -243,7 +255,11 @@ async def get_credit_usage_by_thread(
                 if not thread_id:
                     continue
                 
-                amount = abs(float(record['amount']))
+                # Enterprise mode uses 'cost', SaaS uses 'amount'
+                if config.ENTERPRISE_MODE:
+                    amount = abs(float(record.get('cost', 0)))
+                else:
+                    amount = abs(float(record.get('amount', 0)))
                 total_usage += amount
                 
                 if thread_id not in thread_usage:

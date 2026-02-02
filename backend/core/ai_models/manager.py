@@ -160,10 +160,32 @@ class ModelManager:
         
         return token_count <= max_allowed, max_allowed
     
-    def format_model_info(self, model_id: str) -> Dict[str, Any]:
+    def format_model_info(self, model_id: str, include_margin: bool = True) -> Dict[str, Any]:
+        """
+        Format model info for API responses.
+        
+        Args:
+            model_id: The model ID to format
+            include_margin: If True, applies TOKEN_PRICE_MULTIPLIER to pricing (for user-facing display)
+        """
         model = self.get_model(model_id)
         if not model:
             return {"error": f"Model '{model_id}' not found"}
+        
+        # Apply margin to pricing for user-facing display
+        pricing = None
+        if model.pricing:
+            if include_margin:
+                from core.billing.shared.config import TOKEN_PRICE_MULTIPLIER
+                pricing = {
+                    "input_per_million": float(model.pricing.input_cost_per_million_tokens) * float(TOKEN_PRICE_MULTIPLIER),
+                    "output_per_million": float(model.pricing.output_cost_per_million_tokens) * float(TOKEN_PRICE_MULTIPLIER),
+                }
+            else:
+                pricing = {
+                    "input_per_million": model.pricing.input_cost_per_million_tokens,
+                    "output_per_million": model.pricing.output_cost_per_million_tokens,
+                }
         
         return {
             "id": model.id,
@@ -172,10 +194,7 @@ class ModelManager:
             "context_window": model.context_window,
             "max_output_tokens": model.max_output_tokens,
             "capabilities": [cap.value for cap in model.capabilities],
-            "pricing": {
-                "input_per_million": model.pricing.input_cost_per_million_tokens,
-                "output_per_million": model.pricing.output_cost_per_million_tokens,
-            } if model.pricing else None,
+            "pricing": pricing,
             "enabled": model.enabled,
             "beta": model.beta,
             "tier_availability": model.tier_availability,
