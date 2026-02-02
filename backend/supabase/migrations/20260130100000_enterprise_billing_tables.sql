@@ -172,8 +172,35 @@ CREATE INDEX IF NOT EXISTS idx_enterprise_credit_loads_type
 -- 5a. load_enterprise_credits - Add credits to the enterprise pool
 -- -----------------------------------------------------------------------------
 -- Drop existing function first (V2 may have different signature)
+-- V2 used UUID for performed_by, V3 uses TEXT
 DROP FUNCTION IF EXISTS load_enterprise_credits(NUMERIC, TEXT, TEXT);
 DROP FUNCTION IF EXISTS load_enterprise_credits(NUMERIC(12,2), TEXT, TEXT);
+DROP FUNCTION IF EXISTS load_enterprise_credits(NUMERIC, TEXT, UUID);
+DROP FUNCTION IF EXISTS load_enterprise_credits(NUMERIC(12,2), TEXT, UUID);
+
+-- Fix enterprise_credit_loads.performed_by column type if it's UUID (V2)
+-- First drop the FK constraint if it exists, then alter the column type
+DO $$
+BEGIN
+    -- Drop the foreign key constraint if it exists
+    IF EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE table_name = 'enterprise_credit_loads'
+        AND constraint_name = 'enterprise_credit_loads_performed_by_fkey'
+    ) THEN
+        ALTER TABLE enterprise_credit_loads DROP CONSTRAINT enterprise_credit_loads_performed_by_fkey;
+    END IF;
+
+    -- Now alter the column type if it's UUID
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'enterprise_credit_loads'
+        AND column_name = 'performed_by'
+        AND data_type = 'uuid'
+    ) THEN
+        ALTER TABLE enterprise_credit_loads ALTER COLUMN performed_by TYPE TEXT USING performed_by::TEXT;
+    END IF;
+END $$;
 
 CREATE OR REPLACE FUNCTION load_enterprise_credits(
     p_amount NUMERIC(12, 2),
@@ -228,8 +255,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 5b. negate_enterprise_credits - Remove credits from the enterprise pool
 -- -----------------------------------------------------------------------------
 -- Drop existing function first (V2 may have different signature)
+-- V2 used UUID for performed_by, V3 uses TEXT
 DROP FUNCTION IF EXISTS negate_enterprise_credits(NUMERIC, TEXT, TEXT);
 DROP FUNCTION IF EXISTS negate_enterprise_credits(NUMERIC(12,2), TEXT, TEXT);
+DROP FUNCTION IF EXISTS negate_enterprise_credits(NUMERIC, TEXT, UUID);
+DROP FUNCTION IF EXISTS negate_enterprise_credits(NUMERIC(12,2), TEXT, UUID);
 
 CREATE OR REPLACE FUNCTION negate_enterprise_credits(
     p_amount NUMERIC(12, 2),
