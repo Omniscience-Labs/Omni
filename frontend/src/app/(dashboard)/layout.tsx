@@ -1,4 +1,5 @@
 import DashboardLayoutContent from '@/components/dashboard/layout-content';
+import { HelpButton } from '@/components/help';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -7,5 +8,10 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({
   children,
 }: DashboardLayoutProps) {
-  return <DashboardLayoutContent>{children}</DashboardLayoutContent>;
+  return (
+    <DashboardLayoutContent>
+      {children}
+      <HelpButton />
+    </DashboardLayoutContent>
+  );
 }

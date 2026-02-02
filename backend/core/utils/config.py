@@ -419,6 +419,10 @@ class Configuration:
     # Composio integration
     COMPOSIO_API_KEY: Optional[str] = None
     COMPOSIO_WEBHOOK_SECRET: Optional[str] = None
+
+    # Linear integration
+    LINEAR_API_KEY: Optional[str] = None
+    LINEAR_TEAM_KEY: Optional[str] = "OMN"
     
     # Webhook configuration
     WEBHOOK_BASE_URL: Optional[str] = None

@@ -50,7 +50,8 @@ class PresenceService:
             # Handle 204 No Content response - this is actually a success
             # The Supabase Python client throws an error when it expects a response body but gets 204
             error_str = str(e)
-            if 'Missing response' in error_str and "'code': '204'" in error_str:
+            # Check for various 204 error formats
+            if '204' in error_str and ('Missing response' in error_str or 'No Content' in error_str):
                 logger.debug(f"Presence upsert for {session_id} returned 204 (success, no content)")
                 return None, now
             
