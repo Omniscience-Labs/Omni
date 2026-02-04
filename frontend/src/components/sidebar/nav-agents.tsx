@@ -227,15 +227,15 @@ const ThreadItem: React.FC<{
             </Link>
           )}
           
-          {/* Checkbox - only visible on hover of this specific area */}
+          {/* Checkbox - visible on row hover */}
           <div
-            className="mr-1 flex-shrink-0 w-4 h-4 flex items-center justify-center group/checkbox"
+            className="mr-1 flex-shrink-0 w-4 h-4 flex items-center justify-center"
             onClick={(e) => toggleThreadSelection(thread.threadId, e)}
           >
             <div
               className={`h-4 w-4 border rounded cursor-pointer transition-all duration-150 flex items-center justify-center ${isSelected
                 ? 'opacity-100 bg-primary border-primary hover:bg-primary/90'
-                : 'opacity-0 group-hover/checkbox:opacity-100 border-muted-foreground/30 bg-background hover:bg-muted/50'
+                : 'opacity-0 group-hover/row:opacity-100 border-muted-foreground/30 bg-background hover:bg-muted/50'
                 }`}
             >
               {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
