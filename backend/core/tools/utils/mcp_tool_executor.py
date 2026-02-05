@@ -8,7 +8,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
-from core.mcp_module import mcp_service
+from core.mcp_module import mcp_service, ToolExecutionResult
 from core.utils.logger import logger
 
 
@@ -35,6 +35,16 @@ class MCPToolExecutor:
     
     async def _execute_standard_tool(self, tool_name: str, arguments: Dict[str, Any]) -> ToolResult:
         result = await self.mcp_manager.execute_tool(tool_name, arguments)
+        
+        # Handle ToolExecutionResult dataclass from mcp_service
+        if isinstance(result, ToolExecutionResult):
+            if result.success:
+                return self._create_success_result(result.result)
+            else:
+                error_msg = result.error or "Tool execution failed"
+                return self._create_error_result(error_msg)
+        
+        # Legacy dict handling
         if isinstance(result, dict):
             if result.get('isError', False):
                 return self._create_error_result(result.get('content', 'Tool execution failed'))
