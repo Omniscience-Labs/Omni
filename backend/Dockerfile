@@ -1,15 +1,17 @@
-FROM ghcr.io/astral-sh/uv:python3.11-alpine
+# Debian (glibc) required: PyTorch CPU wheels are manylinux (glibc), not compatible with Alpine (musl)
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm
 
 ENV ENV_MODE production
 WORKDIR /app
 
-RUN apk add --no-cache curl git \
-    # Dependencies for Python package compilation
-    freetype-dev \
-    gcc \
-    linux-headers \
-    musl-dev \
-    python3-dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    build-essential \
+    libfreetype6-dev \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 COPY pyproject.toml ./
