@@ -68,6 +68,7 @@ dependencies = [
   "croniter>=1.4.0",
   "structlog==25.4.0",
   "PyPDF2==3.0.1",
+  "PyPDFForm==1.4.36",
   "python-docx==1.1.0",
   "openpyxl==3.1.2",
   "chardet==5.2.0",
@@ -90,6 +91,13 @@ dependencies = [
   "anthropic>=0.69.0",
   "novu-py>=3.11.0",
   "psutil>=5.9.0",
+  "PyMuPDF>=1.23.0",
+  "ultralytics>=8.0.0",
+  "torch>=2.0.0",
+  "torchvision>=0.15.0",
+  "huggingface_hub>=0.20.0",
+  "pdf2image==1.17.0",
+  "opencv-python>=4.8.0",
 ]
 
 [project.urls]
@@ -98,6 +106,17 @@ repository = "https://github.com/kortix-ai/suna"
 
 [tool.uv]
 package = false
+# Required so torch+cpu (manylinux_2_28_x86_64) is considered when building on Linux x86_64
+required-environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
 
 [dependency-groups]
 dev = [

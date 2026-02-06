@@ -1,15 +1,18 @@
-FROM ghcr.io/astral-sh/uv:python3.11-alpine
+# Debian (glibc) required: PyTorch CPU wheels are manylinux (glibc), not compatible with Alpine (musl)
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm
 
 ENV ENV_MODE production
 WORKDIR /app
 
-RUN apk add --no-cache curl git \
-    # Dependencies for Python package compilation
-    freetype-dev \
-    gcc \
-    linux-headers \
-    musl-dev \
-    python3-dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    build-essential \
+    libfreetype6-dev \
+    libgl1 \
+    libglib2.0-0 \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 COPY pyproject.toml ./
@@ -19,6 +22,12 @@ RUN --mount=type=cache,target=/root/.cache/uv uv sync
 # Ensure the uv-managed virtualenv is used by default for all commands
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Download PDF editor model during build
+RUN mkdir -p /app/models && \
+    python -c "from huggingface_hub import hf_hub_download; \
+    hf_hub_download(repo_id='jbarrow/FFDNet-L', filename='FFDNet-L.pt', local_dir='/app/models')" && \
+    echo "PDF editor model downloaded successfully"
 
 # Copy application code
 COPY . .
