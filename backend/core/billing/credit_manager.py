@@ -162,11 +162,49 @@ class CreditManager:
                     current_non_expiring = max(Decimal('0'), current_non_expiring - remainder)
         
         if current_total < amount:
+            # Close billing loop: deduct whatever is available so balance goes to 0 and
+            # next pre-flight fails. Otherwise a user with e.g. $0.14 could pass the $0.10
+            # pre-flight every time, get an LLM response, fail deduction, and keep balance.
+            if current_total > 0:
+                amount_from_expiring = min(current_expiring, current_total)
+                amount_from_non_expiring = current_total - amount_from_expiring
+                new_expiring = current_expiring - amount_from_expiring
+                new_non_expiring = current_non_expiring - amount_from_non_expiring
+                new_total = Decimal('0')
+                partial_desc = (description or '') + ' (partial - insufficient for full cost)'
+                await client.from_('credit_accounts').update({
+                    'expiring_credits': float(new_expiring),
+                    'non_expiring_credits': float(new_non_expiring),
+                    'balance': float(new_total),
+                    'updated_at': datetime.now(timezone.utc).isoformat()
+                }).eq('account_id', account_id).execute()
+                await client.from_('credit_ledger').insert({
+                    'account_id': account_id,
+                    'amount': float(-current_total),
+                    'balance_after': float(new_total),
+                    'type': 'usage',
+                    'description': partial_desc,
+                    'reference_id': thread_id or message_id,
+                    'metadata': {
+                        'thread_id': thread_id,
+                        'message_id': message_id,
+                        'from_expiring': float(amount_from_expiring),
+                        'from_non_expiring': float(amount_from_non_expiring),
+                        'partial_deduction': True,
+                        'requested_amount': float(amount)
+                    }
+                }).execute()
+                await Cache.invalidate(f"credit_balance:{account_id}")
+                logger.warning(
+                    f"[BILLING] Partial deduction for {account_id}: deducted ${current_total} (requested ${amount}). Balance zeroed to close billing loop."
+                )
             return {
                 'success': False,
                 'error': 'Insufficient credits',
                 'required': float(amount),
-                'available': float(current_total)
+                'available': float(current_total),
+                'partial_deducted': float(current_total) if current_total > 0 else 0,
+                'new_total': 0.0 if current_total > 0 else float(current_total)
             }
         
         if current_expiring >= amount:

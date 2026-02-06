@@ -416,7 +416,7 @@ class ThreadManager:
                 if thread_row.data and len(thread_row.data) > 0:
                     account_id = thread_row.data[0]['account_id']
                     
-                    # Check if user can proceed (with $5 threshold)
+                    # Check if user can proceed (min balance threshold, e.g. ~$0.25 per run)
                     can_run, message, reservation_id = await billing_integration.check_and_reserve_credits(account_id)
                     
                     if not can_run:

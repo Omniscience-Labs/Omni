@@ -108,9 +108,9 @@ class SimplifiedEnterpriseBillingService:
             
             # Check if enterprise has credits
             credit_balance = enterprise['credit_balance']
-            logger.debug(f"Enterprise credit balance: {credit_balance}, required minimum: 0.01")
+            logger.debug(f"Enterprise credit balance: {credit_balance}, required minimum: 1.00")
             
-            if credit_balance < 0.01:  # Minimum to start
+            if credit_balance < 1.00:  # Minimum $1 to start
                 logger.warning(f"Enterprise billing failed for {account_id}: insufficient credits (${credit_balance})")
                 return False, "Insufficient enterprise credits. Contact admin to load credits.", {
                     'enterprise_balance': credit_balance,
