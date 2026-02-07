@@ -26,6 +26,7 @@ SANDBOX_TOOLS = [
     ('sb_files_tool', 'core.tools.sb_files_tool', 'SandboxFilesTool'),
     ('sb_expose_tool', 'core.tools.sb_expose_tool', 'SandboxExposeTool'),
     ('sb_vision_tool', 'core.tools.sb_vision_tool', 'SandboxVisionTool'),
+    ('sb_pdf_to_images_tool', 'core.tools.sb_pdf_to_images_tool', 'SandboxPdfToImagesTool'),
     ('sb_image_edit_tool', 'core.tools.sb_image_edit_tool', 'SandboxImageEditTool'),
     ('sb_kb_tool', 'core.tools.sb_kb_tool', 'SandboxKbTool'),
     # ('sb_design_tool', 'core.tools.sb_designer_tool', 'SandboxDesignerTool'),

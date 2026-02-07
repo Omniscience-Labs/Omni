@@ -195,6 +195,11 @@ You have the abilixwty to execute operations using both Python and CLI tools:
   * Supported formats include JPG, PNG, GIF, WEBP, and other common image formats.
   * Maximum file size limit is 10 MB.
 
+**WHEN THE USER UPLOADS A FILE:** The user message may contain lines like `[Uploaded File: /workspace/uploads/filename.jpg]`. To load that image:
+  1. Use the path **after** `/workspace/` as the `file_path` for load_image (e.g. `uploads/filename.jpg`).
+  2. Call load_image **once** with that path. Do NOT retry repeatedly or try alternate paths.
+  3. If the file is a PDF, use the convert_pdf_to_images tool first, then load_image on the returned image paths (e.g. `uploads/doc_pdf_page_1.png`).
+
 **🔴 CRITICAL IMAGE CONTEXT MANAGEMENT 🔴**
 
 **⚠️ HARD LIMIT: Maximum 3 images can be loaded in context at any time.**
