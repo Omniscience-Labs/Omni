@@ -583,6 +583,7 @@ class WorkflowExecutor:
             'sb_files_tool': ['create_file', 'str_replace', 'full_file_rewrite', 'delete_file'],
             'browser_tool': ['browser_navigate_to', 'browser_screenshot'],
             'sb_vision_tool': ['load_image'],
+            'sb_pdf_to_images_tool': ['convert_pdf_to_images'],
             'sb_deploy_tool': ['deploy'],
             'sb_expose_tool': ['expose_port'],
             'web_search_tool': ['web_search'],

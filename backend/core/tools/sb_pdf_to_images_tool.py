@@ -103,7 +103,7 @@ class SandboxPdfToImagesTool(SandboxToolsBase):
 
 The images are saved under uploads/<basename>_pdf_page_1.png (or .jpg). You can then call load_image on up to 3 of these paths at a time to add them to context for the LLM.
 
-Use this when the user uploads or references a PDF and you need to 'see' its contents. For multi-page PDFs, convert first then load the most relevant pages (e.g. first page, or specific page numbers).""",
+CALL THIS when the user says 'convert this PDF to image', 'convert pdf to images', or uploads a PDF and asks to see or analyze it. Use the file path from [Uploaded File: /workspace/...] (path after /workspace/, e.g. 'document.pdf'). For multi-page PDFs, convert first then load the most relevant pages with load_image.""",
             "parameters": {
                 "type": "object",
                 "properties": {
