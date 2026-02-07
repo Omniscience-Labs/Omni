@@ -1156,6 +1156,10 @@ export function getToolComponent(toolName: string): string {
     case 'expose-port':
       return 'ExposePortToolView';
 
+    // PDF Form Filler
+    case 'help-fill-pdf-form':
+      return 'GenericToolView';
+
     // Default
     default:
       return 'GenericToolView';
