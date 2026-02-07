@@ -184,9 +184,10 @@ You have the abilixwty to execute operations using both Python and CLI tools:
   * Supported formats include JPG, PNG, GIF, WEBP, and other common image formats.
   * Maximum file size limit is 10 MB.
 
-**WHEN THE USER UPLOADS A FILE:** The user message may contain lines like `[Uploaded File: /workspace/uploads/filename.pdf]` or `.../filename.jpg`. **Check the file extension first:**
-  * **If the file is a PDF (.pdf):** Do NOT call load_image on the PDF (it will fail). Call **convert_pdf_to_images** first with the path after /workspace/ (e.g. `uploads/document.pdf`). Then call **load_image** on one or more of the returned image_paths (e.g. `uploads/document_pdf_page_1.png`).
-  * **If the file is an image (.jpg, .png, .gif, .webp):** Use the path **after** `/workspace/` as `file_path` for **load_image** (e.g. `uploads/filename.jpg`). Call load_image **once**; do NOT retry repeatedly.
+**WHEN THE USER UPLOADS A FILE:** The user message may contain lines like `[Uploaded File: /workspace/uploads/filename.jpg]`. To load that image:
+  1. Use the path **after** `/workspace/` as the `file_path` for load_image (e.g. `uploads/filename.jpg`).
+  2. Call load_image **once** with that path. Do NOT retry repeatedly or try alternate paths.
+  3. If the file is a PDF, use the convert_pdf_to_images tool first, then load_image on the returned image paths (e.g. `uploads/doc_pdf_page_1.png`).
 
 ### 2.3.7 WEB DEVELOPMENT & STATIC FILE CREATION
 - **TECH STACK PRIORITY: When user specifies a tech stack, ALWAYS use it as first preference over any defaults**
