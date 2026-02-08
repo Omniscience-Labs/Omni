@@ -73,14 +73,11 @@ class ImageContextManager:
                 logger.debug(f"Added image to context: {file_path}")
                 return result
             else:
-                logger.error("Failed to insert image message (insert returned no data)")
+                logger.error("Failed to insert image message")
                 return None
-
+                
         except Exception as e:
-            logger.error(
-                f"Failed to add image to context: {type(e).__name__}: {e}",
-                exc_info=True,
-            )
+            logger.error(f"Failed to add image to context: {str(e)}", exc_info=True)
             return None
     
     async def clear_images_from_context(self, thread_id: str) -> int:

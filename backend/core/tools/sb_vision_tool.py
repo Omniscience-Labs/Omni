@@ -109,44 +109,37 @@ class SandboxVisionTool(SandboxToolsBase):
         return parsed_url.scheme in ('http', 'https')
     
     def download_image_from_url(self, url: str) -> Tuple[bytes, str]:
-        """Download image from a URL. Raises on failure so caller can return a proper fail_response."""
-        headers = {
-            "User-Agent": "Mozilla/5.0"  # Some servers block default Python
-        }
+        """Download image from a URL"""
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0"  # Some servers block default Python
+            }
 
-        # HEAD request to get the image size (optional - some servers omit Content-Length)
-        head_response = requests.head(url, timeout=10, headers=headers, stream=True)
-        head_response.raise_for_status()
+            # HEAD request to get the image size
+            head_response = requests.head(url, timeout=10, headers=headers, stream=True)
+            head_response.raise_for_status()
+            
+            # Check content length
+            content_length = int(head_response.headers.get('Content-Length'))
+            if content_length and content_length > MAX_IMAGE_SIZE:
+                raise Exception(f"Image is too large ({(content_length)/(1024*1024):.2f}MB) for the maximum allowed size of {MAX_IMAGE_SIZE/(1024*1024):.2f}MB")
+            
+            # Download the image
+            response = requests.get(url, timeout=10, headers=headers, stream=True)
+            response.raise_for_status()
 
-        content_length_header = head_response.headers.get("Content-Length")
-        if content_length_header is not None:
-            try:
-                content_length = int(content_length_header)
-                if content_length > MAX_IMAGE_SIZE:
-                    raise Exception(
-                        f"Image is too large ({content_length / (1024*1024):.2f}MB) for the maximum allowed size of {MAX_IMAGE_SIZE / (1024*1024):.0f}MB"
-                    )
-            except ValueError:
-                pass  # Ignore invalid Content-Length
+            image_bytes = response.content
+            if len(image_bytes) > MAX_IMAGE_SIZE:
+                raise Exception(f"Downloaded image is too large ({(len(image_bytes))/(1024*1024):.2f}MB). Maximum allowed size of {MAX_IMAGE_SIZE/(1024*1024):.2f}MB")
 
-        # Download the image
-        response = requests.get(url, timeout=10, headers=headers, stream=True)
-        response.raise_for_status()
-
-        image_bytes = response.content
-        if len(image_bytes) > MAX_IMAGE_SIZE:
-            raise Exception(
-                f"Downloaded image is too large ({len(image_bytes) / (1024*1024):.2f}MB). Maximum allowed size is {MAX_IMAGE_SIZE / (1024*1024):.0f}MB"
-            )
-
-        # Get MIME type
-        mime_type = response.headers.get("Content-Type") or ""
-        if ";" in mime_type:
-            mime_type = mime_type.split(";")[0].strip()
-        if not mime_type.startswith("image/"):
-            raise Exception(f"URL does not point to an image (Content-Type: {mime_type}): {url}")
-
-        return image_bytes, mime_type
+            # Get MIME type
+            mime_type = response.headers.get('Content-Type')
+            if not mime_type or not mime_type.startswith('image/'):
+                raise Exception(f"URL does not point to an image (Content-Type: {mime_type}): {url}")
+            
+            return image_bytes, mime_type
+        except Exception as e:
+            return self.fail_response(f"Failed to download image from URL: {str(e)}")
     
     @openapi_schema({
         "type": "function",
@@ -238,14 +231,6 @@ class SandboxVisionTool(SandboxToolsBase):
             # Check if compressed image is still too large
             if len(compressed_bytes) > MAX_COMPRESSED_SIZE:
                 return self.fail_response(f"Image file '{cleaned_path}' is still too large after compression ({len(compressed_bytes) / (1024*1024):.2f}MB). Maximum compressed size is {MAX_COMPRESSED_SIZE / (1024*1024)}MB.")
-
-            # Enforce 3-image limit (same as other branch)
-            current_count = await self.image_context_manager.get_image_count_in_context(self.thread_id)
-            if current_count >= 3:
-                return self.fail_response(
-                    f"Cannot load image '{cleaned_path}': Maximum limit of 3 images in context reached. "
-                    f"You currently have {current_count} images loaded. Use clear_images_from_context first."
-                )
 
             # Convert to base64
             base64_image = base64.b64encode(compressed_bytes).decode('utf-8')
