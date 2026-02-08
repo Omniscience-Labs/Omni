@@ -152,7 +152,7 @@ class SandboxVisionTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "load_image",
-            "description": "Loads an image file into conversation context from the /workspace directory or from a URL. Provide either a relative path to a local image or the URL to an image. The image will be compressed before sending to reduce token usage. IMPORTANT: If you previously loaded an image but cleared context, you can load it again by calling this tool with the same file path - no need to ask user to re-upload.",
+            "description": "Loads an image file into conversation context from the /workspace directory or from a URL. Provide either a relative path to a local image or the URL to an image. Supported formats: JPG, PNG, GIF, WEBP only. Do NOT use for PDF files—PDFs cannot be loaded here; use convert_pdf_to_images first, then load_image on the returned image paths. The image will be compressed before sending to reduce token usage.",
             "parameters": {
                 "type": "object",
                 "properties": {

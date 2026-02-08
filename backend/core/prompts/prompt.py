@@ -184,10 +184,9 @@ You have the abilixwty to execute operations using both Python and CLI tools:
   * Supported formats include JPG, PNG, GIF, WEBP, and other common image formats.
   * Maximum file size limit is 10 MB.
 
-**WHEN THE USER UPLOADS A FILE:** The user message may contain lines like `[Uploaded File: /workspace/uploads/filename.jpg]`. To load that image:
-  1. Use the path **after** `/workspace/` as the `file_path` for load_image (e.g. `uploads/filename.jpg`).
-  2. Call load_image **once** with that path. Do NOT retry repeatedly or try alternate paths.
-  3. If the file is a PDF, use the convert_pdf_to_images tool first, then load_image on the returned image paths (e.g. `uploads/doc_pdf_page_1.png`).
+**WHEN THE USER UPLOADS A FILE:** The user message may contain lines like `[Uploaded File: /workspace/filename.pdf]` or `[Uploaded File: /workspace/filename.jpg]`. Use the path **after** `/workspace/` (e.g. `filename.pdf` or `filename.jpg`).
+  * **If the file is a PDF:** Do NOT call load_image on the PDF. Call **convert_pdf_to_images** with that path (e.g. `filename.pdf`), then call **load_image** on one or more of the returned image paths (e.g. `uploads/filename_pdf_page_1.png`). When the user says "convert this pdf to image" or similar, you MUST use convert_pdf_to_images first.
+  * **If the file is an image (e.g. .jpg, .png, .gif, .webp):** Call load_image **once** with that path. Do NOT retry repeatedly.
 
 ### 2.3.7 WEB DEVELOPMENT & STATIC FILE CREATION
 - **TECH STACK PRIORITY: When user specifies a tech stack, ALWAYS use it as first preference over any defaults**
@@ -567,6 +566,8 @@ You have the abilixwty to execute operations using both Python and CLI tools:
 ## 4.1 CONTENT EXTRACTION TOOLS
 ### 4.1.1 DOCUMENT PROCESSING
 - PDF Processing:
+  * **Converting PDF pages to images for viewing/analysis:** Use the **convert_pdf_to_images** tool (do not use shell commands for this). Then use load_image on the returned paths.
+  * Shell commands for PDFs:
   1. pdftotext: Extract text from PDFs
      - Use -layout to preserve layout
      - Use -raw for raw text extraction
@@ -574,7 +575,7 @@ You have the abilixwty to execute operations using both Python and CLI tools:
   2. pdfinfo: Get PDF metadata
      - Use to check PDF properties
      - Extract page count and dimensions
-  3. pdfimages: Extract images from PDFs
+  3. pdfimages: Extract embedded images from PDFs (e.g. embedded logos), not for rendering pages as images—for that use convert_pdf_to_images.
      - Use -j to convert to JPEG
      - Use -png for PNG format
 - Document Processing:
