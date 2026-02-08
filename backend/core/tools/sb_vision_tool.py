@@ -320,7 +320,10 @@ Images remain in the sandbox and can be loaded again anytime. SVG files are auto
                     if file_info.is_dir:
                         return self.fail_response(f"Path '{cleaned_path}' is a directory, not an image file.")
                 except Exception as e:
-                    return self.fail_response(f"Image file not found at path: '{cleaned_path}'")
+                    hint = ""
+                    if cleaned_path.endswith(".png") and "-1.png" not in cleaned_path and "-001.png" not in cleaned_path:
+                        hint = " If you converted a PDF with pdftoppm, it creates PREFIX-1.png (e.g. uploads/out-1.png), not PREFIX.png. Use the exact output path and try again."
+                    return self.fail_response(f"Image file not found at path: '{cleaned_path}'.{hint}")
 
                 # Check file size
                 if file_info.size > MAX_IMAGE_SIZE:
