@@ -844,21 +844,17 @@ class ContextManager:
         
         return result
     
-    def compress_message(self, msg_content: Union[str, dict, list], message_id: Optional[str] = None, max_length: int = 3000) -> Union[str, dict, list]:
-        """Compress the message content. Preserves multimodal (list) content unchanged."""
-        if isinstance(msg_content, list):
-            return msg_content  # Multimodal (e.g. image_url blocks): do not compress
+    def compress_message(self, msg_content: Union[str, dict], message_id: Optional[str] = None, max_length: int = 3000) -> Union[str, dict]:
+        """Compress the message content."""
         if isinstance(msg_content, str):
             if len(msg_content) > max_length:
                 return msg_content[:max_length] + "... (truncated)" + f"\n\nmessage_id \"{message_id}\"\nUse expand-message tool to see contents"
             else:
                 return msg_content
         
-    def safe_truncate(self, msg_content: Union[str, dict, list], max_length: int = 100000) -> Union[str, dict, list]:
-        """Truncate the message content safely by removing the middle portion. Preserves multimodal (list) content unchanged."""
+    def safe_truncate(self, msg_content: Union[str, dict], max_length: int = 100000) -> Union[str, dict]:
+        """Truncate the message content safely by removing the middle portion."""
         max_length = min(max_length, 100000)
-        if isinstance(msg_content, list):
-            return msg_content  # Multimodal (e.g. image_url blocks): do not truncate
         if isinstance(msg_content, str):
             if len(msg_content) > max_length:
                 # Calculate how much to keep from start and end
@@ -934,9 +930,6 @@ class ContextManager:
                 if not isinstance(msg, dict):
                     continue  # Skip non-dict messages
                 if msg.get('role') == 'user':  # Only compress User messages
-                    content = msg.get('content')
-                    if isinstance(content, list):
-                        continue  # Multimodal (e.g. image_url): never compress or truncate
                     _i += 1  # Count the number of User messages
                     msg_token_count = token_counter(messages=[msg])  # Count the number of tokens in the message
                     if msg_token_count > token_threshold:  # If the message is too long

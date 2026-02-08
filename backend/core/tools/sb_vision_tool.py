@@ -398,17 +398,16 @@ Images remain in the sandbox and can be loaded again anytime. SVG files are auto
                 base_filename = os.path.splitext(os.path.basename(cleaned_path))[0]
                 storage_filename = f"loaded_images/{base_filename}_{timestamp}_{unique_id}.{ext}"
                 
-                # Upload to existing public bucket (agent-profile-images) so the LLM provider can fetch the image URL.
-                # Path prefix loaded_images/ keeps vision images separate from profile avatars.
+                # Upload to Supabase storage (public bucket for LLM access)
                 client = await self.db.client
-                storage_response = await client.storage.from_('agent-profile-images').upload(
+                storage_response = await client.storage.from_('image-uploads').upload(
                     storage_filename,
                     compressed_bytes,
                     {"content-type": compressed_mime_type}
                 )
                 
                 # Get public URL
-                public_url = await client.storage.from_('agent-profile-images').get_public_url(storage_filename)
+                public_url = await client.storage.from_('image-uploads').get_public_url(storage_filename)
                 
                 print(f"[LoadImage] Uploaded image to cloud storage: {public_url}")
                 
