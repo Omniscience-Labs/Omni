@@ -1,7 +1,7 @@
 import os
 import base64
 import mimetypes
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple
 from io import BytesIO
 from PIL import Image
 from urllib.parse import urlparse
@@ -11,11 +11,6 @@ from core.agentpress.thread_manager import ThreadManager
 from core.tools.image_context_manager import ImageContextManager
 import json
 import requests
-
-try:
-    import fitz  # PyMuPDF
-except ImportError:
-    fitz = None  # type: ignore
 
 # Add common image MIME types if mimetypes module is limited
 mimetypes.add_type("image/webp", ".webp")
@@ -34,9 +29,6 @@ DEFAULT_MAX_HEIGHT = 1080
 DEFAULT_JPEG_QUALITY = 85
 DEFAULT_PNG_COMPRESS_LEVEL = 6
 
-PDF_MIME = "application/pdf"
-
-
 class SandboxVisionTool(SandboxToolsBase):
     """Tool for allowing the agent to 'see' images within the sandbox."""
 
@@ -46,34 +38,6 @@ class SandboxVisionTool(SandboxToolsBase):
         # Make thread_manager accessible within the tool instance
         self.thread_manager = thread_manager
         self.image_context_manager = ImageContextManager(thread_manager)
-
-    def _is_pdf(self, mime_type: Optional[str], file_path: str) -> bool:
-        """Return True if the file is a PDF (by MIME type or extension)."""
-        if mime_type == PDF_MIME:
-            return True
-        ext = os.path.splitext(file_path)[1].lower()
-        return ext == ".pdf"
-
-    def _pdf_to_images(self, pdf_bytes: bytes) -> List[Tuple[bytes, str]]:
-        """Convert a PDF to a list of (image_bytes, mime_type) per page. Uses PNG for each page."""
-        if fitz is None:
-            return []
-        result: List[Tuple[bytes, str]] = []
-        try:
-            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            try:
-                for page_num in range(len(doc)):
-                    page = doc.load_page(page_num)
-                    # Render at 2x for better quality; scale 2.0
-                    mat = fitz.Matrix(2.0, 2.0)
-                    pix = page.get_pixmap(matrix=mat, alpha=False)
-                    img_bytes = pix.tobytes(output="png")
-                    result.append((img_bytes, "image/png"))
-            finally:
-                doc.close()
-        except Exception:
-            return []
-        return result
 
     def compress_image(self, image_bytes: bytes, mime_type: str, file_path: str) -> Tuple[bytes, str]:
         """Compress an image to reduce its size while maintaining reasonable quality.
@@ -168,13 +132,11 @@ class SandboxVisionTool(SandboxToolsBase):
             if len(image_bytes) > MAX_IMAGE_SIZE:
                 raise Exception(f"Downloaded image is too large ({(len(image_bytes))/(1024*1024):.2f}MB). Maximum allowed size of {MAX_IMAGE_SIZE/(1024*1024):.2f}MB")
 
-            # Get MIME type (allow image/* and application/pdf)
-            raw_mime = (response.headers.get("Content-Type") or "").strip()
-            base_mime = raw_mime.split(";")[0].strip().lower()
-            if not base_mime.startswith("image/") and base_mime != PDF_MIME:
-                raise Exception(f"URL does not point to an image or PDF (Content-Type: {raw_mime}): {url}")
-            mime_type = PDF_MIME if base_mime == PDF_MIME else raw_mime.split(";")[0].strip()
-
+            # Get MIME type
+            mime_type = response.headers.get('Content-Type')
+            if not mime_type or not mime_type.startswith('image/'):
+                raise Exception(f"URL does not point to an image (Content-Type: {mime_type}): {url}")
+            
             return image_bytes, mime_type
         except Exception as e:
             return self.fail_response(f"Failed to download image from URL: {str(e)}")
@@ -183,13 +145,13 @@ class SandboxVisionTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "load_image",
-            "description": "Loads an image file into conversation context from the /workspace directory or from a URL. Provide either a relative path to a local image or the URL to an image. PDFs are converted to images (one per page) when loaded. The image will be compressed before sending to reduce token usage. IMPORTANT: If you previously loaded an image but cleared context, you can load it again by calling this tool with the same file path - no need to ask user to re-upload.",
+            "description": "Loads an image file into conversation context from the /workspace directory or from a URL. Provide either a relative path to a local image or the URL to an image. The image will be compressed before sending to reduce token usage. IMPORTANT: If you previously loaded an image but cleared context, you can load it again by calling this tool with the same file path - no need to ask user to re-upload.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "file_path": {
                         "type": "string",
-                        "description": "Either a relative path to the image or PDF within the /workspace directory (e.g., 'screenshots/image.png', 'docs/report.pdf') or a URL. Supported formats: JPG, PNG, GIF, WEBP, PDF. Max size: 10MB."
+                        "description": "Either a relative path to the image file within the /workspace directory (e.g., 'screenshots/image.png') or a URL to an image (e.g., 'https://example.com/image.jpg'). Supported formats: JPG, PNG, GIF, WEBP. Max size: 10MB."
                     }
                 },
                 "required": ["file_path"]
@@ -208,13 +170,6 @@ class SandboxVisionTool(SandboxToolsBase):
         <function_calls>
         <invoke name="load_image">
         <parameter name="file_path">https://example.com/image.jpg</parameter>
-        </invoke>
-        </function_calls>
-
-        <!-- Example: Load a PDF (converted to one image per page) -->
-        <function_calls>
-        <invoke name="load_image">
-        <parameter name="file_path">docs/report.pdf</parameter>
         </invoke>
         </function_calls>
         ''')
@@ -257,48 +212,18 @@ class SandboxVisionTool(SandboxToolsBase):
 
                 # Determine MIME type
                 mime_type, _ = mimetypes.guess_type(full_path)
-                if not mime_type or (not mime_type.startswith('image/') and mime_type != PDF_MIME):
+                if not mime_type or not mime_type.startswith('image/'):
                     # Basic fallback based on extension if mimetypes fails
                     ext = os.path.splitext(cleaned_path)[1].lower()
                     if ext == '.jpg' or ext == '.jpeg': mime_type = 'image/jpeg'
                     elif ext == '.png': mime_type = 'image/png'
                     elif ext == '.gif': mime_type = 'image/gif'
                     elif ext == '.webp': mime_type = 'image/webp'
-                    elif ext == '.pdf': mime_type = PDF_MIME
                     else:
-                        return self.fail_response(f"Unsupported or unknown image format for file: '{cleaned_path}'. Supported: JPG, PNG, GIF, WEBP, PDF.")
+                        return self.fail_response(f"Unsupported or unknown image format for file: '{cleaned_path}'. Supported: JPG, PNG, GIF, WEBP.")
                 
                 original_size = file_info.size
-
-            # PDF: convert to images and add each page to context (only when vision tool is used)
-            if self._is_pdf(mime_type, cleaned_path):
-                if fitz is None:
-                    return self.fail_response("PDF support is not available (PyMuPDF not installed).")
-                page_images = self._pdf_to_images(image_bytes)
-                if not page_images:
-                    return self.fail_response(f"Could not convert PDF '{cleaned_path}' to images (invalid or empty PDF).")
-                added = 0
-                for i, (page_bytes, page_mime) in enumerate(page_images):
-                    page_label = f"{cleaned_path} (page {i + 1})"
-                    compressed_bytes, compressed_mime_type = self.compress_image(page_bytes, page_mime, page_label)
-                    if len(compressed_bytes) > MAX_COMPRESSED_SIZE:
-                        continue  # skip oversized pages
-                    base64_image = base64.b64encode(compressed_bytes).decode("utf-8")
-                    result = await self.image_context_manager.add_image_to_context(
-                        thread_id=self.thread_id,
-                        base64_data=base64_image,
-                        mime_type=compressed_mime_type,
-                        file_path=page_label,
-                        original_size=len(page_bytes),
-                        compressed_size=len(compressed_bytes),
-                    )
-                    if result:
-                        added += 1
-                if added == 0:
-                    return self.fail_response(f"Failed to add any page from PDF '{cleaned_path}' to context (pages may be too large).")
-                return self.success_response(
-                    f"Successfully loaded PDF '{cleaned_path}' as {added} page(s)."
-                )
+            
 
             # Compress the image
             compressed_bytes, compressed_mime_type = self.compress_image(image_bytes, mime_type, cleaned_path)
