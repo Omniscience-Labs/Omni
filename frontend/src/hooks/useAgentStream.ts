@@ -593,20 +593,26 @@ export function useAgentStream(
         }
 
         const errorMessage = err instanceof Error ? err.message : String(err);
-        console.error(
-          `[useAgentStream] Error checking agent status for ${runId} after stream close: ${errorMessage}`,
-        );
-
+        const isAgentNotRunning =
+          errorMessage.includes('is not running') ||
+          errorMessage.includes('not running');
         const isNotFoundError =
           errorMessage.includes('not found') ||
           errorMessage.includes('404') ||
           errorMessage.includes('does not exist');
 
-        if (isNotFoundError) {
-          // Revert to agent_not_running for this specific case
+        if (isAgentNotRunning || isNotFoundError) {
+          // Expected when stream closed because agent already finished; not an error
+          if (!isAgentNotRunning) {
+            console.error(
+              `[useAgentStream] Error checking agent status for ${runId} after stream close: ${errorMessage}`,
+            );
+          }
           finalizeStream('agent_not_running', runId);
         } else {
-          // For other errors checking status, finalize with generic error
+          console.error(
+            `[useAgentStream] Error checking agent status for ${runId} after stream close: ${errorMessage}`,
+          );
           finalizeStream('error', runId);
         }
       });
