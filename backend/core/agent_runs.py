@@ -588,10 +588,9 @@ async def stream_agent_run(
                         break
 
                     elif queue_item["type"] == "error":
-                        error_msg = queue_item.get("data", "Stream error")
-                        logger.error(f"Listener error for {agent_run_id}: {error_msg}")
+                        logger.error(f"Listener error for {agent_run_id}: {queue_item['data']}")
                         terminate_stream = True
-                        yield f"data: {json.dumps({'type': 'status', 'status': 'error', 'message': str(error_msg)})}\n\n"
+                        yield f"data: {json.dumps({'type': 'status', 'status': 'error'})}\n\n"
                         break
 
                 except asyncio.CancelledError:

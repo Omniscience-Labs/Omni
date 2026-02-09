@@ -126,7 +126,6 @@ export function useAgentStream(
   const currentRunIdRef = useRef<string | null>(null); // Ref to track the run ID being processed
   const threadIdRef = useRef(threadId); // Ref to hold the current threadId
   const setMessagesRef = useRef(setMessages); // Ref to hold the setMessages function
-  const errorHandledForRunRef = useRef<string | null>(null); // Prevent duplicate error handling (avoids React #185)
 
   const orderedTextContent = useMemo(() => {
     // Use a more efficient approach for streaming performance
@@ -175,7 +174,6 @@ export function useAgentStream(
       setToolCall(null);
       setAgentRunId(null);
       currentRunIdRef.current = null;
-      errorHandledForRunRef.current = null;
     }
     threadIdRef.current = threadId;
   }, [threadId]);
@@ -350,20 +348,11 @@ export function useAgentStream(
       try {
         const jsonData = JSON.parse(processedData);
         if (jsonData.status === 'error') {
-          const runId = currentRunIdRef.current;
-          if (runId && errorHandledForRunRef.current === runId) {
-            return; // Already handled error for this run (avoid duplicate setState → React #185)
-          }
-          if (runId) errorHandledForRunRef.current = runId;
           console.error(
             '[useAgentStream] Received error status message:',
             jsonData,
           );
-          const errorMessage =
-            jsonData.message ??
-            jsonData.detail ??
-            (typeof jsonData.data === 'string' ? jsonData.data : null) ??
-            'Stream error';
+          const errorMessage = jsonData.message || 'Unknown error occurred';
           setError(errorMessage);
           toast.error(errorMessage, { duration: 15000 });
           callbacks.onError?.(errorMessage);
@@ -487,19 +476,14 @@ export function useAgentStream(
     (err: Error | string | Event) => {
       if (!isMountedRef.current) return;
 
-      const runId = currentRunIdRef.current;
-      if (runId && errorHandledForRunRef.current === runId) {
-        return; // Already handled error for this run (avoid duplicate setState → React #185)
-      }
-      if (runId) errorHandledForRunRef.current = runId;
-
       // Extract error message
-      let errorMessage = 'Stream connection error';
+      let errorMessage = 'Unknown streaming error';
       if (typeof err === 'string') {
         errorMessage = err;
       } else if (err instanceof Error) {
         errorMessage = err.message;
       } else if (err instanceof Event && err.type === 'error') {
+        // Standard EventSource errors don't have much detail, might need status check
         errorMessage = 'Stream connection error';
       }
 
@@ -512,14 +496,16 @@ export function useAgentStream(
       } else {
         console.error('[useAgentStream] Streaming error:', errorMessage, err);
         setError(errorMessage);
+        // Show error toast with longer duration
         toast.error(errorMessage, { duration: 15000 });
       }
 
+      const runId = currentRunIdRef.current;
       if (!runId) {
         console.warn(
           '[useAgentStream] Stream error occurred but no agentRunId is active.',
         );
-        finalizeStream('error');
+        finalizeStream('error'); // Finalize with generic error if no runId
         return;
       }
     },
@@ -688,7 +674,6 @@ export function useAgentStream(
         setTextContent([]);
         setToolCall(null);
         setError(null);
-        errorHandledForRunRef.current = null; // Allow error handling for this run
         updateStatus('connecting');
         setAgentRunId(runId);
         currentRunIdRef.current = runId; // Set the ref immediately
