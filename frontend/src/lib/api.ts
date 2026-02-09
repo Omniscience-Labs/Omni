@@ -1248,31 +1248,26 @@ export const streamAgent = (
             }
           })
           .catch((err) => {
+            console.error(
+              `[STREAM] Error checking agent status after stream error:`,
+              err,
+            );
+
+            // Check if this is a "not found" error
             const errMsg = err instanceof Error ? err.message : String(err);
-            const isAgentNotRunning =
-              errMsg.includes('is not running') || errMsg.includes('not running');
             const isNotFoundErr =
               errMsg.includes('not found') ||
               errMsg.includes('404') ||
               errMsg.includes('does not exist');
 
-            if (isAgentNotRunning || isNotFoundErr) {
-              if (isNotFoundErr) {
-                nonRunningAgentRuns.add(agentRunId);
-              }
-              cleanupEventSource(
-                agentRunId,
-                isAgentNotRunning ? 'agent not running' : 'agent not found',
-              );
+            if (isNotFoundErr) {
+              nonRunningAgentRuns.add(agentRunId);
+              cleanupEventSource(agentRunId, 'agent not found');
               callbacks.onClose();
             } else {
-              console.error(
-                `[STREAM] Error checking agent status after stream error:`,
-                err,
-              );
-              console.warn(
-                `[STREAM] Cleaning up stream for ${agentRunId} due to persistent error`,
-              );
+              // For other errors, still clean up the stream to prevent memory leaks
+              // but don't add to nonRunningAgentRuns as it might be a temporary network issue
+              console.warn(`[STREAM] Cleaning up stream for ${agentRunId} due to persistent error`);
               cleanupEventSource(agentRunId, 'persistent error');
               callbacks.onError(errMsg);
               callbacks.onClose();

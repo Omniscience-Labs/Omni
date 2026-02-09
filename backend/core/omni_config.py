@@ -17,7 +17,6 @@ OMNI_CONFIG = {
         "sb_expose_tool": True,
         "web_search_tool": True,
         "sb_vision_tool": True,
-        "sb_pdf_to_image_tool": True,
         "sb_image_edit_tool": True,
         "sb_presentation_outline_tool": False,
         "sb_presentation_tool": False,

@@ -53,7 +53,6 @@ from core.tools.sb_upload_file_tool import SandboxUploadFileTool
 from core.tools.sb_custom_automation_tool import SandboxCustomAutomationTool
 from core.tools.podcast_tool import SandboxPodcastTool
 from core.tools.sb_docs_tool import SandboxDocsTool
-from core.tools.sb_pdf_to_image_tool import SandboxPdfToImageTool
 from core.ai_models.manager import model_manager
 
 load_dotenv()
@@ -140,7 +139,6 @@ class ToolManager:
             ('sb_custom_automation_tool', SandboxCustomAutomationTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('podcast_tool', SandboxPodcastTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
             ('sb_docs_tool', SandboxDocsTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
-            ('sb_pdf_to_image_tool', SandboxPdfToImageTool, {'project_id': self.project_id, 'thread_manager': self.thread_manager}),
 
         ]
         
@@ -655,7 +653,7 @@ class AgentRunner:
         all_tools = [
             'sb_shell_tool', 'sb_files_tool', 'sb_deploy_tool', 'sb_expose_tool',
             'web_search_tool', 'image_search_tool', 'sb_vision_tool', 'sb_presentation_tool', 'sb_image_edit_tool',
-            'sb_sheets_tool', 'sb_web_dev_tool', 'sb_pdf_to_image_tool', 'data_providers_tool', 'browser_tool',
+            'sb_sheets_tool', 'sb_web_dev_tool', 'data_providers_tool', 'browser_tool',
             'agent_config_tool', 'mcp_search_tool', 'credential_profile_tool', 
             'workflow_tool', 'trigger_tool'
         ]
