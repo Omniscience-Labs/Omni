@@ -23,11 +23,11 @@ RUN --mount=type=cache,target=/root/.cache/uv uv sync
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Download PDF editor model during build
+# Download form-field detection model (in-chat tool) during build
 RUN mkdir -p /app/models && \
     python -c "from huggingface_hub import hf_hub_download; \
     hf_hub_download(repo_id='jbarrow/FFDNet-L', filename='FFDNet-L.pt', local_dir='/app/models')" && \
-    echo "PDF editor model downloaded successfully"
+    echo "Form-field detection model downloaded successfully"
 
 # Copy application code
 COPY . .

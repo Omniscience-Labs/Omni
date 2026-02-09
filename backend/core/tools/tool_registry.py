@@ -31,6 +31,10 @@ SANDBOX_TOOLS = [
     # ('sb_design_tool', 'core.tools.sb_designer_tool', 'SandboxDesignerTool'),
     ('sb_presentation_tool', 'core.tools.sb_presentation_tool', 'SandboxPresentationTool'),
     ('sb_upload_file_tool', 'core.tools.sb_upload_file_tool', 'SandboxUploadFileTool'),
+    ('sb_blank_detector_tool', 'core.tools.sb_blank_detector_tool', 'SandboxBlankDetectorTool'),
+    ('sb_read_form_mapping_tool', 'core.tools.sb_blank_detector_tool', 'SandboxFormReadMappingTool'),
+    ('sb_edit_form_mapping_tool', 'core.tools.sb_blank_detector_tool', 'SandboxFormEditMappingTool'),
+    ('sb_form_fill_tool', 'core.tools.sb_blank_detector_tool', 'SandboxFormFillTool'),
     # ('sb_docs_tool', 'core.tools.sb_docs_tool', 'SandboxDocsTool'),
 ]
 

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bot, Menu, Plus, Zap, MessageCircle, PanelLeftOpen, PanelLeftClose, FileText } from 'lucide-react';
+import { Bot, Menu, Plus, Zap, MessageCircle, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
@@ -350,31 +350,6 @@ export function SidebarLeft({
                         <Kbd>⌘</Kbd>
                         <Kbd>J</Kbd>
                       </KbdGroup>
-                      </div>
-                    </Link>
-                  </Button>
-                </div>
-
-                {/* PDF Editor button */}
-                <div className="w-full">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      "w-full shadow-none justify-between h-10 px-4",
-                      pathname?.includes('/tools/pdf-editor') && "bg-muted"
-                    )}
-                    asChild
-                  >
-                    <Link
-                      href="/tools/pdf-editor"
-                      onClick={() => {
-                        if (isMobile) setOpenMobile(false);
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        <span>PDF Editor</span>
                       </div>
                     </Link>
                   </Button>

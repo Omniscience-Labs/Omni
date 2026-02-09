@@ -1971,8 +1971,9 @@ class ResponseProcessor:
                     # Fallback to string representation
                     content = str(result)
                 
-                logger.debug(f"Formatted tool result content: {content[:100]}...")
-                self.trace.event(name="formatted_tool_result_content", level="DEFAULT", status_message=(f"Formatted tool result content: {content[:100]}..."))
+                content_preview = (content[:100] + "...") if isinstance(content, str) else (str(content)[:100] + "...")
+                logger.debug(f"Formatted tool result content: {content_preview}")
+                self.trace.event(name="formatted_tool_result_content", level="DEFAULT", status_message=(f"Formatted tool result content: {content_preview}"))
                 
                 # Create the tool response message with proper format
                 tool_message = {
