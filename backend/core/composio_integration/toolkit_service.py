@@ -139,7 +139,14 @@ class ToolkitService:
                 auth_schemes = toolkit_data.get("auth_schemes", [])
                 composio_managed_auth_schemes = toolkit_data.get("composio_managed_auth_schemes", [])
 
-                if "OAUTH2" not in auth_schemes or "OAUTH2" not in composio_managed_auth_schemes:
+                if toolkit_data.get("slug", "").lower() == "canvas":
+                    logger.info(f"DEBUG: Found canvas toolkit. Auth schemes: {auth_schemes}, Managed: {composio_managed_auth_schemes}")
+
+                # Allow Canvas (uses API_KEY) or OAUTH2 toolkits
+                is_canvas = toolkit_data.get("slug", "").lower() == "canvas"
+                has_oauth = "OAUTH2" in auth_schemes and "OAUTH2" in composio_managed_auth_schemes
+                
+                if not has_oauth and not is_canvas:
                     continue
                 
                 logo_url = None

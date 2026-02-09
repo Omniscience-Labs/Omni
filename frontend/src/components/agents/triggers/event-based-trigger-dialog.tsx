@@ -300,14 +300,14 @@ const DynamicConfigForm: React.FC<{
     );
 };
 
-export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = ({ 
-    open, 
-    onOpenChange, 
-    agentId, 
-    onTriggerCreated, 
-    isEditMode = false, 
+export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = ({
+    open,
+    onOpenChange,
+    agentId,
+    onTriggerCreated,
+    isEditMode = false,
     existingTrigger,
-    onTriggerUpdated 
+    onTriggerUpdated
 }) => {
     const [step, setStep] = useState<'apps' | 'triggers' | 'config'>(isEditMode ? 'config' : 'apps');
     const [search, setSearch] = useState('');
@@ -379,14 +379,15 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
         setProfileId('');
     }, [selectedApp?.slug]);
 
-    useEffect(() => {
-        if (profiles && profiles.length > 0 && !profileId) {
-            const connectedProfiles = profiles.filter(p => p.is_connected);
-            if (connectedProfiles.length > 0) {
-                setProfileId(connectedProfiles[0].profile_id);
-            }
-        }
-    }, [profiles, profileId]);
+    // Auto-selection of profile removed to prevent confusion between agents
+    // useEffect(() => {
+    //     if (profiles && profiles.length > 0 && !profileId) {
+    //         const connectedProfiles = profiles.filter(p => p.is_connected);
+    //         if (connectedProfiles.length > 0) {
+    //             setProfileId(connectedProfiles[0].profile_id);
+    //         }
+    //     }
+    // }, [profiles, profileId]);
 
     useEffect(() => {
         if (isEditMode && existingTrigger && open) {
@@ -406,7 +407,7 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                     toolkitSlug = triggerConfig.qualified_name.replace(/^composio\./, '').toLowerCase();
                     console.log('Edit mode - extracted from qualified_name:', toolkitSlug);
                 }
-                
+
                 if (!toolkitSlug && triggerConfig.trigger_slug) {
                     const slugParts = triggerConfig.trigger_slug.toLowerCase().split('_');
                     if (slugParts.length > 0) {
@@ -509,7 +510,7 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                 const payload = executionType === 'agent'
                     ? { ...base, route: 'agent' as const, agent_prompt: (prompt || 'Read this') }
                     : { ...base, route: 'agent' as const };
-                
+
                 const result = await createTrigger.mutateAsync(payload);
                 toast.success('Task created');
 
@@ -714,123 +715,123 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                                                 className="flex-1 overflow-y-auto p-6"
                                                 style={{ maxHeight: 'calc(90vh - 250px)' }}
                                             >
-                                        <div className="max-w-2xl mx-auto space-y-6">
-                                            {selectedTrigger.instructions && (
-                                                <Markdown className="text-sm w-full text-muted-foreground">
-                                                    {selectedTrigger.instructions}
-                                                </Markdown>
-                                            )}
+                                                <div className="max-w-2xl mx-auto space-y-6">
+                                                    {selectedTrigger.instructions && (
+                                                        <Markdown className="text-sm w-full text-muted-foreground">
+                                                            {selectedTrigger.instructions}
+                                                        </Markdown>
+                                                    )}
 
-                                            {(!loadingProfiles && (profiles || []).filter(p => p.is_connected).length === 0) ? (
-                                                <div className="text-center py-8">
-                                                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center mb-3 mx-auto">
-                                                        <Info className="h-6 w-6 text-muted-foreground" />
-                                                    </div>
-                                                    <h3 className="font-medium mb-2">No Connected Profile</h3>
-                                                    <p className="text-sm text-muted-foreground mb-4">
-                                                        Connect {selectedApp?.name} first to create triggers.
-                                                    </p>
-                                                    <Button variant="outline" onClick={() => setStep('apps')}>
-                                                        Back to Apps
-                                                    </Button>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-6">
-                                                    <div className="border rounded-lg p-4 space-y-4">
-                                                        <div>
-                                                            <h3 className="font-medium mb-1">{selectedTrigger.name}</h3>
-                                                            <p className="text-sm text-muted-foreground">Configure this trigger</p>
+                                                    {(!loadingProfiles && (profiles || []).filter(p => p.is_connected).length === 0) ? (
+                                                        <div className="text-center py-8">
+                                                            <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center mb-3 mx-auto">
+                                                                <Info className="h-6 w-6 text-muted-foreground" />
+                                                            </div>
+                                                            <h3 className="font-medium mb-2">No Connected Profile</h3>
+                                                            <p className="text-sm text-muted-foreground mb-4">
+                                                                Connect {selectedApp?.name} first to create triggers.
+                                                            </p>
+                                                            <Button variant="outline" onClick={() => setStep('apps')}>
+                                                                Back to Apps
+                                                            </Button>
                                                         </div>
-                                                        <DynamicConfigForm schema={selectedTrigger.config as any} value={config} onChange={setConfig} />
-                                                    </div>
+                                                    ) : (
+                                                        <div className="space-y-6">
+                                                            <div className="border rounded-lg p-4 space-y-4">
+                                                                <div>
+                                                                    <h3 className="font-medium mb-1">{selectedTrigger.name}</h3>
+                                                                    <p className="text-sm text-muted-foreground">Configure this trigger</p>
+                                                                </div>
+                                                                <DynamicConfigForm schema={selectedTrigger.config as any} value={config} onChange={setConfig} />
+                                                            </div>
 
-                                                    <div className="border rounded-lg p-4 space-y-4">
-                                                        <div>
-                                                            <h3 className="font-medium mb-1">Execution Settings</h3>
-                                                            <p className="text-sm text-muted-foreground">Choose how to handle this event</p>
-                                                        </div>
+                                                            <div className="border rounded-lg p-4 space-y-4">
+                                                                <div>
+                                                                    <h3 className="font-medium mb-1">Execution Settings</h3>
+                                                                    <p className="text-sm text-muted-foreground">Choose how to handle this event</p>
+                                                                </div>
 
-                                                        <div className="space-y-4">
-                                                            <div className="space-y-2">
-                                                                <Label className="text-sm">Connection Profile</Label>
-                                                                <Select
-                                                                    value={profileId}
-                                                                    onValueChange={(value) => {
-                                                                        if (value === '__create_new__') {
-                                                                            setShowComposioConnector(true);
-                                                                        } else {
-                                                                            setProfileId(value);
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <SelectTrigger>
-                                                                        <SelectValue placeholder="Select a profile..." />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent>
-                                                                        {loadingProfiles ? (
-                                                                            <SelectItem value="__loading__" disabled>
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                                                                    <span>Loading...</span>
-                                                                                </div>
-                                                                            </SelectItem>
-                                                                        ) : (
-                                                                            <>
-                                                                                {(profiles || []).filter(p => p.is_connected).map((profile) => (
-                                                                                    <SelectItem key={profile.profile_id} value={profile.profile_id}>
+                                                                <div className="space-y-4">
+                                                                    <div className="space-y-2">
+                                                                        <Label className="text-sm">Connection Profile</Label>
+                                                                        <Select
+                                                                            value={profileId}
+                                                                            onValueChange={(value) => {
+                                                                                if (value === '__create_new__') {
+                                                                                    setShowComposioConnector(true);
+                                                                                } else {
+                                                                                    setProfileId(value);
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <SelectTrigger>
+                                                                                <SelectValue placeholder="Select a profile..." />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                {loadingProfiles ? (
+                                                                                    <SelectItem value="__loading__" disabled>
                                                                                         <div className="flex items-center gap-2">
-                                                                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                                                                            <span>{profile.profile_name}</span>
+                                                                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                                                                            <span>Loading...</span>
                                                                                         </div>
                                                                                     </SelectItem>
-                                                                                ))}
-                                                                                <Separator className="my-1" />
-                                                                                <SelectItem value="__create_new__">
-                                                                                    <div className="flex items-center gap-2 text-primary">
-                                                                                        <Plus className="h-3 w-3" />
-                                                                                        <span>Create New Connection</span>
-                                                                                    </div>
-                                                                                </SelectItem>
-                                                                            </>
-                                                                        )}
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            </div>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        {(profiles || []).filter(p => p.is_connected).map((profile) => (
+                                                                                            <SelectItem key={profile.profile_id} value={profile.profile_id}>
+                                                                                                <div className="flex items-center gap-2">
+                                                                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                                                                                    <span>{profile.profile_name}</span>
+                                                                                                </div>
+                                                                                            </SelectItem>
+                                                                                        ))}
+                                                                                        <Separator className="my-1" />
+                                                                                        <SelectItem value="__create_new__">
+                                                                                            <div className="flex items-center gap-2 text-primary">
+                                                                                                <Plus className="h-3 w-3" />
+                                                                                                <span>Create New Connection</span>
+                                                                                            </div>
+                                                                                        </SelectItem>
+                                                                                    </>
+                                                                                )}
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                    </div>
 
-                                                            <div className="space-y-2">
-                                                                <Label className="text-sm">Trigger Name</Label>
-                                                                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Gmail → Agent" />
-                                                            </div>
+                                                                    <div className="space-y-2">
+                                                                        <Label className="text-sm">Trigger Name</Label>
+                                                                        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Gmail → Agent" />
+                                                                    </div>
 
-                                                            <div className="space-y-2">
-                                                                <Label className="text-sm">Agent Instructions</Label>
-                                                                <Textarea
-                                                                    rows={3}
-                                                                    value={prompt}
-                                                                    onChange={(e) => setPrompt(e.target.value)}
-                                                                    placeholder="What should the agent do when this event occurs?"
-                                                                />
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    Use <code className="text-xs bg-muted px-1 rounded">{'{{variable_name}}'}</code> to add variables to the prompt
-                                                                </p>
-                                                            </div>
+                                                                    <div className="space-y-2">
+                                                                        <Label className="text-sm">Agent Instructions</Label>
+                                                                        <Textarea
+                                                                            rows={3}
+                                                                            value={prompt}
+                                                                            onChange={(e) => setPrompt(e.target.value)}
+                                                                            placeholder="What should the agent do when this event occurs?"
+                                                                        />
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            Use <code className="text-xs bg-muted px-1 rounded">{'{{variable_name}}'}</code> to add variables to the prompt
+                                                                        </p>
+                                                                    </div>
 
-                                                            <div className="space-y-2">
-                                                                <Label className="text-sm">Model</Label>
-                                                                <AgentModelSelector
-                                                                    value={model}
-                                                                    onChange={setModel}
-                                                                />
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    Choose which model to use when this event triggers
-                                                                </p>
+                                                                    <div className="space-y-2">
+                                                                        <Label className="text-sm">Model</Label>
+                                                                        <AgentModelSelector
+                                                                            value={model}
+                                                                            onChange={setModel}
+                                                                        />
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            Choose which model to use when this event triggers
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
-                                    </div>
+                                            </div>
 
                                             {/* Fixed Footer */}
                                             {(!loadingProfiles && (profiles || []).filter(p => p.is_connected).length > 0) && (

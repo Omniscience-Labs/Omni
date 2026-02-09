@@ -279,16 +279,16 @@ class AgentLoader:
         
         # Fetch creator name if requested
         creator_name = None
-        if fetch_creator_name and template_row.get('creator_id'):
-            try:
-                client = await self.db.client
-                creator_result = await client.schema('basejump').from_('accounts').select(
-                    'name, slug'
-                ).eq('id', template_row['creator_id']).single().execute()
-                if creator_result.data:
-                    creator_name = creator_result.data.get('name') or creator_result.data.get('slug')
-            except Exception as e:
-                logger.warning(f"Failed to fetch creator name: {e}")
+        # if fetch_creator_name and template_row.get('creator_id'):
+        #     try:
+        #         client = await self.db.client
+        #         creator_result = await client.schema('basejump').from_('accounts').select(
+        #             'name, slug'
+        #         ).eq('id', template_row['creator_id']).single().execute()
+        #         if creator_result.data:
+        #             creator_name = creator_result.data.get('name') or creator_result.data.get('slug')
+        #     except Exception as e:
+        #         logger.warning(f"Failed to fetch creator name: {e}")
         
         # Update metadata
         metadata['is_template'] = True

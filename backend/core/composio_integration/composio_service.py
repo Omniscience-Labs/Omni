@@ -80,11 +80,37 @@ class ComposioIntegrationService:
             #     )
             #     logger.debug(f"Step 2 complete: Created auth config {auth_config.id}")
 
+            # Determine auth scheme
+            auth_scheme = "OAUTH2" # Default
+            if use_custom_auth and custom_auth_config:
+                auth_schemes = getattr(toolkit, 'auth_schemes', [])
+                
+                # Heuristics
+                keys_lower = [k.lower() for k in custom_auth_config.keys()]
+                has_client_id = any('client_id' in k for k in keys_lower)
+                has_client_secret = any('client_secret' in k for k in keys_lower)
+                
+                has_api_key = any(k in keys_lower for k in ['api_key', 'apikey', 'generic_api_key', 'access_token', 'token'])
+                
+                # Canvas specifically uses 'generic_api_key' often
+                if 'generic_api_key' in keys_lower and "API_KEY" in auth_schemes:
+                    auth_scheme = "API_KEY"
+                elif has_api_key and "API_KEY" in auth_schemes and not has_client_id:
+                     auth_scheme = "API_KEY"
+                elif has_client_id and "OAUTH2" in auth_schemes:
+                    auth_scheme = "OAUTH2"
+                elif "API_KEY" in auth_schemes and "OAUTH2" not in auth_schemes:
+                    # If strictly only API_KEY is supported
+                    auth_scheme = "API_KEY"
+            
+            logger.debug(f"Determined auth scheme: {auth_scheme} for toolkit {toolkit_slug}")
+
             auth_config = await self.auth_config_service.create_auth_config(
                 toolkit_slug, 
                 initiation_fields=initiation_fields,
                 custom_auth_config=custom_auth_config,
-                use_custom_auth=use_custom_auth
+                use_custom_auth=use_custom_auth,
+                auth_scheme=auth_scheme
             )
             logger.debug(f"Step 2 complete: Created {'custom' if use_custom_auth else 'managed'} auth config {auth_config.id}")
             

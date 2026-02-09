@@ -38,35 +38,10 @@ interface ConfiguredTriggersListProps {
   onRemove: (trigger: TriggerConfiguration) => void;
   onToggle: (trigger: TriggerConfiguration) => void;
   isLoading?: boolean;
+  readOnly?: boolean;
 }
 
-const copyToClipboard = async (text: string) => {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch (err) {
-    console.error('Failed to copy text: ', err);
-  }
-};
-
-const getCronDescription = (cron: string): string => {
-  const cronDescriptions: Record<string, string> = {
-    '0 9 * * *': 'Daily at 9:00 AM',
-    '0 18 * * *': 'Daily at 6:00 PM',
-    '0 9 * * 1-5': 'Weekdays at 9:00 AM',
-    '0 10 * * 1-5': 'Weekdays at 10:00 AM',
-    '0 9 * * 1': 'Every Monday at 9:00 AM',
-    '0 9 1 * *': 'Monthly on the 1st at 9:00 AM',
-    '0 9 1 1 *': 'Yearly on Jan 1st at 9:00 AM',
-    '0 */2 * * *': 'Every 2 hours',
-    '*/30 * * * *': 'Every 30 minutes',
-    '0 0 * * *': 'Daily at midnight',
-    '0 12 * * *': 'Daily at noon',
-    '0 9 * * 0': 'Every Sunday at 9:00 AM',
-    '0 9 * * 6': 'Every Saturday at 9:00 AM',
-  };
-
-  return cronDescriptions[cron] || cron;
-};
+// ... helper functions ...
 
 export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
   triggers,
@@ -74,6 +49,7 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
   onRemove,
   onToggle,
   isLoading = false,
+  readOnly = false,
 }) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [triggerToDelete, setTriggerToDelete] = React.useState<TriggerConfiguration | null>(null);
@@ -147,7 +123,7 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
                     <Switch
                       checked={trigger.is_active}
                       onCheckedChange={() => onToggle(trigger)}
-                      disabled={isLoading}
+                      disabled={isLoading || readOnly}
                     />
                   </div>
                 </TooltipTrigger>
@@ -163,7 +139,7 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
                     onClick={() => onEdit(trigger)}
                     className={`h-8 w-8 p-0 transition-opacity ${trigger.is_active ? "" : "opacity-70"
                       }`}
-                    disabled={isLoading}
+                    disabled={isLoading || readOnly}
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -181,7 +157,7 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
                     onClick={() => handleDeleteClick(trigger)}
                     className={`h-8 w-8 p-0 text-destructive hover:text-destructive transition-opacity ${trigger.is_active ? "" : "opacity-70"
                       }`}
-                    disabled={isLoading}
+                    disabled={isLoading || readOnly}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

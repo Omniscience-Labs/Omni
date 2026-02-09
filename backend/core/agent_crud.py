@@ -207,9 +207,46 @@ async def update_agent(
             needs_new_version = True
             version_changes['agentpress_tools'] = agent_data.agentpress_tools
         
+        # Enforce Read-Only restrictions for Managed Agents (installed from templates)
+        source_template_id = agent_metadata.get('source_template_id')
+        if source_template_id:
+            restricted_changes = []
+            if 'system_prompt' in version_changes:
+                restricted_changes.append('System Prompt')
+            if 'agentpress_tools' in version_changes:
+                restricted_changes.append('Tools')
+            if 'configured_mcps' in version_changes or 'custom_mcps' in version_changes:
+                restricted_changes.append('Integrations')
+            
+            # Enforce strict read-only for Name, Description, Model, and Icon
+            if agent_data.name is not None and agent_data.name != existing_data.get('name'):
+                restricted_changes.append('Name')
+            if agent_data.description is not None and agent_data.description != existing_data.get('description'):
+                restricted_changes.append('Description')
+            if 'model' in version_changes:
+                restricted_changes.append('Model')
+            
+            # Check icon fields
+            if (agent_data.icon_name is not None and agent_data.icon_name != existing_data.get('icon_name')) or \
+               (agent_data.icon_color is not None and agent_data.icon_color != existing_data.get('icon_color')) or \
+               (agent_data.icon_background is not None and agent_data.icon_background != existing_data.get('icon_background')):
+                restricted_changes.append('Appearance')
+
+            if restricted_changes:
+                # We are relaxing the restrictions for now to allow full customization
+                # of installed agents. The user should be able to diverge from the template.
+                pass
+                # logger.warning(f"User {user_id} attempted to modify restricted fields {restricted_changes} of managed agent {agent_id}")
+                # raise HTTPException(
+                #     status_code=403,
+                #     detail=f"This agent is installed from a template. The following configurations cannot be modified: {', '.join(restricted_changes)}."
+                # )
+        
         update_data = {}
         if agent_data.name is not None:
             update_data["name"] = agent_data.name
+        if agent_data.description is not None:
+            update_data["description"] = agent_data.description
         if agent_data.is_default is not None:
             update_data["is_default"] = agent_data.is_default
             if agent_data.is_default:

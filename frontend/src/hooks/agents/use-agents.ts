@@ -26,7 +26,7 @@ export const useAgents = (
   >,
 ) => {
   const queryClient = useQueryClient();
-  
+
   // Normalize params: always include defaults unless explicitly overridden
   // This ensures all queries use consistent parameters and share cache
   const normalizedParams = useMemo(() => {
@@ -36,17 +36,17 @@ export const useAgents = (
       sort_by: DEFAULT_AGENT_PARAMS.sort_by,
       sort_order: DEFAULT_AGENT_PARAMS.sort_order,
     };
-    
+
     // Override with provided params
     if (params.limit !== undefined) normalized.limit = params.limit;
     if (params.sort_by !== undefined) normalized.sort_by = params.sort_by;
     if (params.sort_order !== undefined) normalized.sort_order = params.sort_order;
-    
+
     // Only include page if it's explicitly set AND > 1 (page 1 is default)
     if (params.page !== undefined && params.page > 1) {
       normalized.page = params.page;
     }
-    
+
     // Include search/filter params if provided
     if (params.search) normalized.search = params.search;
     if (params.has_default !== undefined) normalized.has_default = params.has_default;
@@ -54,10 +54,10 @@ export const useAgents = (
     if (params.has_agentpress_tools !== undefined) normalized.has_agentpress_tools = params.has_agentpress_tools;
     if (params.tools) normalized.tools = params.tools;
     if (params.content_type !== undefined) normalized.content_type = params.content_type;
-    
+
     return normalized;
   }, [params]);
-  
+
   // Get placeholder data from any existing agent list query in cache
   // This allows us to reuse cached data from other queries with different params
   const placeholderData = useMemo(() => {
@@ -66,43 +66,43 @@ export const useAgents = (
       agentKeys.list(normalizedParams)
     );
     if (exactMatch) return exactMatch;
-    
+
     // Try to find any cached agent list query
-    const allAgentQueries = queryClient.getQueriesData<Awaited<ReturnType<typeof getAgents>>>({ 
-      queryKey: agentKeys.lists() 
+    const allAgentQueries = queryClient.getQueriesData<Awaited<ReturnType<typeof getAgents>>>({
+      queryKey: agentKeys.lists()
     });
-    
+
     // Find the most complete cached query (prefer ones with more agents)
     let bestMatch: Awaited<ReturnType<typeof getAgents>> | undefined;
     let maxAgents = 0;
-    
+
     for (const [_, data] of allAgentQueries) {
       if (data?.agents && data.agents.length > maxAgents) {
         maxAgents = data.agents.length;
         bestMatch = data;
       }
     }
-    
+
     // If we have cached data and the params don't include search/filters,
     // we can use the cached data as placeholder to show data immediately
-    const hasSearchOrFilters = normalizedParams.search || 
-                               normalizedParams.has_default !== undefined || 
-                               normalizedParams.has_mcp_tools !== undefined || 
-                               normalizedParams.has_agentpress_tools !== undefined ||
-                               normalizedParams.tools || 
-                               normalizedParams.content_type;
-    
+    const hasSearchOrFilters = normalizedParams.search ||
+      normalizedParams.has_default !== undefined ||
+      normalizedParams.has_mcp_tools !== undefined ||
+      normalizedParams.has_agentpress_tools !== undefined ||
+      normalizedParams.tools ||
+      normalizedParams.content_type;
+
     // Only use placeholder if we don't have search/filters that would change results
     // and if we're not requesting a specific page (since pagination changes results)
     const isPaginated = normalizedParams.page !== undefined && normalizedParams.page > 1;
-    
+
     if (bestMatch && !hasSearchOrFilters && !isPaginated) {
       return bestMatch;
     }
-    
+
     return undefined;
   }, [queryClient, normalizedParams]);
-  
+
   return useQuery({
     queryKey: agentKeys.list(normalizedParams),
     queryFn: () => getAgents(normalizedParams),
@@ -129,7 +129,7 @@ export const useAgent = (agentId: string, options?) => {
 
 export const useCreateAgent = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation<Agent, Error, AgentUpdateRequest>({
     mutationFn: createAgent,
     onSuccess: (data) => {
@@ -153,9 +153,9 @@ export const useCreateNewAgent = () => {
   const createAgentMutation = useCreateAgent();
 
   return useMutation({
-    mutationFn: async (_: void) => {
+    mutationFn: async (name?: string) => {
       const defaultAgentData = {
-        name: 'New Worker',
+        name: name || 'New Worker',
         description: 'A newly created worker, open for configuration',
         configured_mcps: [],
         agentpress_tools: {},
@@ -177,9 +177,9 @@ export const useCreateNewAgent = () => {
 
 export const useUpdateAgent = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation<Agent, Error, { agentId: string } & AgentUpdateRequest>({
-    mutationFn: ({ agentId, ...data }: { agentId: string } & AgentUpdateRequest) => 
+    mutationFn: ({ agentId, ...data }: { agentId: string } & AgentUpdateRequest) =>
       updateAgent(agentId, data),
     onSuccess: (data, variables) => {
       // Update the cache optimistically
@@ -193,20 +193,20 @@ export const useUpdateAgent = () => {
 
 export const useDeleteAgent = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation<void, Error, string, { previousAgents: Array<[any, any]> }>({
     mutationFn: deleteAgent,
     onMutate: async (agentId) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: agentKeys.lists() });
-      
+
       // Snapshot the previous value
       const previousAgents = queryClient.getQueriesData({ queryKey: agentKeys.lists() });
-      
+
       // Optimistically update to remove the agent
       queryClient.setQueriesData({ queryKey: agentKeys.lists() }, (old: any) => {
         if (!old || !old.agents) return old;
-        
+
         return {
           ...old,
           agents: old.agents.filter((agent: any) => agent.agent_id !== agentId),
@@ -216,7 +216,7 @@ export const useDeleteAgent = () => {
           } : undefined
         };
       });
-      
+
       return { previousAgents };
     },
     onError: (err, agentId, context) => {
@@ -247,7 +247,7 @@ interface DeleteMultipleAgentsVariables {
 
 export const useDeleteMultipleAgents = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ agentIds, onProgress }: DeleteMultipleAgentsVariables) => {
       let completedCount = 0;
@@ -263,7 +263,7 @@ export const useDeleteMultipleAgents = () => {
           }
         })
       );
-      
+
       return {
         successful: results.filter(r => r.success).map(r => r.agentId),
         failed: results.filter(r => !r.success).map(r => r.agentId),
@@ -277,7 +277,7 @@ export const useDeleteMultipleAgents = () => {
 
 export const useOptimisticAgentUpdate = () => {
   const queryClient = useQueryClient();
-  
+
   return {
     optimisticallyUpdateAgent: (agentId: string, updates: Partial<Agent>) => {
       queryClient.setQueryData(
@@ -288,7 +288,7 @@ export const useOptimisticAgentUpdate = () => {
         }
       );
     },
-    
+
     revertOptimisticUpdate: (agentId: string) => {
       queryClient.invalidateQueries({ queryKey: agentKeys.detail(agentId) });
     },
@@ -302,7 +302,7 @@ export const useAgentDeletionState = () => {
   const deleteAgent = useCallback(async (agentId: string) => {
     // Add to deleting set immediately for UI feedback
     setDeletingAgents(prev => new Set(prev).add(agentId));
-    
+
     try {
       await deleteAgentMutation.mutateAsync(agentId);
     } finally {
@@ -340,7 +340,7 @@ export const useThreadAgent = (threadId: string, options?) => {
  */
 export const useAgentFromCache = (agentId: string | undefined): Agent | undefined => {
   const queryClient = useQueryClient();
-  
+
   return useMemo(() => {
     if (!agentId) return undefined;
 
@@ -349,8 +349,8 @@ export const useAgentFromCache = (agentId: string | undefined): Agent | undefine
     if (cachedAgent) return cachedAgent;
 
     // Otherwise, search through all agent list caches
-    const allAgentLists = queryClient.getQueriesData<{ agents: Agent[] }>({ 
-      queryKey: agentKeys.lists() 
+    const allAgentLists = queryClient.getQueriesData<{ agents: Agent[] }>({
+      queryKey: agentKeys.lists()
     });
 
     for (const [_, data] of allAgentLists) {
@@ -370,15 +370,15 @@ export const useAgentFromCache = (agentId: string | undefined): Agent | undefine
  */
 export const useAgentsFromCache = (agentIds: string[]): Map<string, Agent> => {
   const queryClient = useQueryClient();
-  
+
   return useMemo(() => {
     const agentsMap = new Map<string, Agent>();
-    
+
     if (!agentIds || agentIds.length === 0) return agentsMap;
 
     // Get all cached agent list queries
-    const allAgentLists = queryClient.getQueriesData<{ agents: Agent[] }>({ 
-      queryKey: agentKeys.lists() 
+    const allAgentLists = queryClient.getQueriesData<{ agents: Agent[] }>({
+      queryKey: agentKeys.lists()
     });
 
     // Build a map of all cached agents

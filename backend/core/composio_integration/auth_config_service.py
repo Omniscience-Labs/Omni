@@ -37,13 +37,14 @@ class AuthConfigService:
         toolkit_slug: str, 
         initiation_fields: Optional[Dict[str, str]] = None,
         custom_auth_config: Optional[Dict[str, str]] = None,
-        use_custom_auth: bool = False
+        use_custom_auth: bool = False,
+        auth_scheme: str = "OAUTH2"
     ) -> AuthConfig:
         try:
             logger.debug(f"Creating auth config for toolkit: {toolkit_slug}")
             logger.debug(f"Initiation fields: {initiation_fields}")
             logger.debug(f"Custom auth config provided: {bool(custom_auth_config)}")
-            logger.debug(f"Use custom auth: {use_custom_auth}")
+            logger.debug(f"Use custom auth: {use_custom_auth}, Auth scheme: {auth_scheme}")
             
             # If custom auth config is provided, use it for credentials
             if use_custom_auth and custom_auth_config:
@@ -64,7 +65,7 @@ class AuthConfigService:
                     auth_config={
                         "type": "use_custom_auth",
                         "credentials": credentials,
-                        "authScheme": "OAUTH2"
+                        "authScheme": auth_scheme
                     }
                 )
             else:

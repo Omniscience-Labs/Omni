@@ -6,9 +6,10 @@ import { KnowledgeBaseManager } from '@/components/knowledge-base/knowledge-base
 interface AgentKnowledgeBaseManagerProps {
     agentId: string;
     agentName: string;
+    readOnly?: boolean;
 }
 
-export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledgeBaseManagerProps) => {
+export const AgentKnowledgeBaseManager = ({ agentId, agentName, readOnly }: AgentKnowledgeBaseManagerProps) => {
     return (
         <KnowledgeBaseManager
             agentId={agentId}
@@ -18,6 +19,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
             enableAssignments={true}
             maxHeight="400px"
             emptyStateMessage={`Create folders and upload files to provide ${agentName} with searchable knowledge`}
+            readOnly={readOnly}
         />
     );
 };

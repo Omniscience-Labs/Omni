@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Check, AlertCircle, Plus, ExternalLink, ChevronRight, Search, Save, Loader2, User, Settings, Info, Eye, Zap, Wrench, X, Shield } from 'lucide-react';
+import { ArrowLeft, Check, AlertCircle, Plus, ExternalLink, ChevronRight, Search, Save, Loader2, User, Settings, Info, Eye, Zap, Wrench, X, Shield, Globe, Key, Lock } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useCreateComposioProfile, useComposioTools, useCheckProfileNameAvailability } from '@/hooks/composio/use-composio';
 import { useComposioProfiles } from '@/hooks/composio/use-composio-profiles';
 import { useComposioToolkitDetails } from '@/hooks/composio/use-composio';
@@ -239,8 +240,10 @@ const InitiationFieldInput = ({ field, value, onChange, error }: {
 
 import type { ComposioTool } from '@/hooks/composio/utils';
 
+// Apps that strictly require custom OAuth (user must provide client id/secret)
 const CUSTOM_OAUTH_REQUIRED_APPS = [
   'zendesk',
+  // 'canvas' - Removed to allow optional custom auth or managed auth
 ];
 
 const ToolPreviewCard = ({ tool, searchTerm }: {
@@ -319,6 +322,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
 }) => {
   const [currentStep, setCurrentStep] = useState<Step>(Step.ProfileSelect);
   const [profileName, setProfileName] = useState(`${app.name} Profile`);
+  const [authMethod, setAuthMethod] = useState<'oauth' | 'api_key'>('oauth');
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const [createdProfileId, setCreatedProfileId] = useState<string | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<ComposioProfile | null>(null);
@@ -385,11 +389,16 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
       setSelectedTools([]);
       setInitiationFields({});
       setInitiationFieldsErrors({});
+      setInitiationFieldsErrors({});
       setUseCustomAuth(requiresCustomAuth);
       setCustomAuthConfig({});
       setCustomAuthConfigErrors({});
+
+      // Default auth method logic
+      const hasInitiationFields = toolkitDetails?.toolkit.connected_account_initiation_fields?.required?.length > 0;
+      setAuthMethod(hasInitiationFields && !requiresCustomAuth ? 'api_key' : 'oauth');
     }
-  }, [open, app.name, app.slug, mode]);
+  }, [open, app.name, app.slug, mode, toolkitDetails]);
 
 
 
@@ -532,6 +541,18 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
       return;
     }
 
+    // Opens window immediately to bypass popup blockers
+    let authWindow: Window | null = null;
+    if (authMethod === 'oauth' && !useCustomAuth) {
+      authWindow = window.open('', '_blank', 'width=600,height=700');
+      if (authWindow) {
+        authWindow.document.write('<html><head><title>Authenticating...</title><style>body{font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#f5f5f5;}.loader{border:4px solid #f3f3f3;border-top:4px solid #3498db;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;}@keyframes spin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}</style></head><body><div style="text-align:center"><div><div class="loader" style="margin:0 auto 20px;"></div></div><h3>Contacting {app.name}...</h3><p>Please wait while we redirect you to the login page.</p></div></body></html>');
+      } else {
+        toast.error('Popup blocked. Please allow popups for this site.');
+        return;
+      }
+    }
+
     createProfile({
       toolkit_slug: app.slug,
       profile_name: profileName,
@@ -544,8 +565,14 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
         if (response.redirect_url) {
           setRedirectUrl(response.redirect_url);
           navigateToStep(Step.Connecting);
-          window.open(response.redirect_url, '_blank', 'width=600,height=700');
+          if (authWindow) {
+            authWindow.location.href = response.redirect_url;
+          } else {
+            // Fallback if window failed to open initially
+            window.open(response.redirect_url, '_blank', 'width=600,height=700');
+          }
         } else {
+          if (authWindow) authWindow.close();
           if (mode === 'full' && agentId) {
             const newProfile = {
               profile_id: response.profile_id,
@@ -570,6 +597,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
         }
       },
       onError: (error: any) => {
+        if (authWindow) authWindow.close();
         toast.error(error.message || 'Failed to create profile');
       }
     });
@@ -964,10 +992,26 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                         )}
                       </div>
 
-                      {!isLoadingToolkitDetails &&
+                    </div>
+
+                    <div className="space-y-4">
+                      <Tabs value={authMethod} onValueChange={(v) => setAuthMethod(v as 'oauth' | 'api_key')} className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="oauth" disabled={CUSTOM_OAUTH_REQUIRED_APPS.includes(app.slug)}>
+                            <Globe className="w-3.5 h-3.5 mr-2" />
+                            OAuth 2.0
+                          </TabsTrigger>
+                          <TabsTrigger value="api_key">
+                            <Key className="w-3.5 h-3.5 mr-2" />
+                            API Key
+                          </TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+
+                      {authMethod === 'api_key' && !isLoadingToolkitDetails &&
                         toolkitDetails?.toolkit.connected_account_initiation_fields?.required?.length > 0 && (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-1.5">
+                          <div className="space-y-3 border rounded-lg p-3 bg-muted/20">
+                            <div className="flex items-center gap-1.5 mb-2">
                               <Settings className="h-3.5 w-3.5 text-muted-foreground" />
                               <Label className="text-sm font-medium">Connection Details</Label>
                             </div>
@@ -975,6 +1019,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                               const fieldType = field.type?.toLowerCase() || 'string';
                               const isBoolean = fieldType === 'boolean';
                               const isNumber = fieldType === 'number' || fieldType === 'double';
+                              const isPassword = fieldType === 'password' || field.name.toLowerCase().includes('key') || field.name.toLowerCase().includes('token');
 
                               return (
                                 <div key={field.name} className="space-y-1">
@@ -998,21 +1043,23 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                                     </div>
                                   ) : (
                                     <>
-                                      <Input
-                                        id={field.name}
-                                        type={fieldType === 'password' ? 'password' :
-                                          fieldType === 'email' ? 'email' :
-                                            fieldType === 'url' ? 'url' :
-                                              isNumber ? 'number' : 'text'}
-                                        value={initiationFields[field.name] || ''}
-                                        onChange={(e) => handleInitiationFieldChange(field.name, e.target.value)}
-                                        placeholder={field.default || field.description || `Enter ${field.displayName.toLowerCase()}`}
-                                        className={cn(
-                                          "h-8",
-                                          initiationFieldsErrors[field.name] && "border-destructive"
-                                        )}
-                                        step={isNumber ? "any" : undefined}
-                                      />
+                                      <div className="relative">
+                                        <Input
+                                          id={field.name}
+                                          type={isPassword ? 'password' :
+                                            fieldType === 'email' ? 'email' :
+                                              fieldType === 'url' ? 'url' :
+                                                isNumber ? 'number' : 'text'}
+                                          value={initiationFields[field.name] || ''}
+                                          onChange={(e) => handleInitiationFieldChange(field.name, e.target.value)}
+                                          placeholder={field.default || field.description || `Enter ${field.displayName.toLowerCase()}`}
+                                          className={cn(
+                                            "h-8",
+                                            initiationFieldsErrors[field.name] && "border-destructive"
+                                          )}
+                                          step={isNumber ? "any" : undefined}
+                                        />
+                                      </div>
                                       {field.description && !isBoolean && (
                                         <p className="text-[10px] text-muted-foreground">{field.description}</p>
                                       )}
@@ -1027,148 +1074,164 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                             })}
                           </div>
                         )}
-                      {toolkitDetails?.toolkit.auth_config_details?.[0]?.fields?.auth_config_creation && (
-                        <div className="space-y-3 border rounded-lg p-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Shield className="h-3.5 w-3.5 text-primary" />
-                              <div>
-                                <Label htmlFor="custom-auth" className="text-sm font-medium cursor-pointer">
-                                  Custom OAuth App
-                                  {CUSTOM_OAUTH_REQUIRED_APPS.includes(app.slug) && (
-                                    <Badge variant="secondary" className="ml-2 text-xs">Required</Badge>
-                                  )}
-                                </Label>
-                                <p className="text-xs text-muted-foreground">
-                                  {CUSTOM_OAUTH_REQUIRED_APPS.includes(app.slug)
-                                    ? `${app.name} requires your own OAuth credentials`
-                                    : 'Use your own OAuth credentials'
-                                  }
-                                </p>
-                              </div>
-                            </div>
-                            <Switch
-                              id="custom-auth"
-                              checked={useCustomAuth}
-                              disabled={CUSTOM_OAUTH_REQUIRED_APPS.includes(app.slug)}
-                              onCheckedChange={(checked) => {
-                                if (CUSTOM_OAUTH_REQUIRED_APPS.includes(app.slug)) return;
-                                setUseCustomAuth(checked);
-                                if (checked && toolkitDetails?.toolkit.auth_config_details?.[0]?.fields?.auth_config_creation?.optional) {
-                                  const defaults: Record<string, string> = {};
-                                  for (const field of toolkitDetails.toolkit.auth_config_details[0].fields.auth_config_creation.optional) {
-                                    if (field.default) {
-                                      defaults[field.name] = field.default;
-                                    }
-                                  }
-                                  setCustomAuthConfig(prev => ({ ...prev, ...defaults }));
-                                }
-                              }}
-                            />
-                          </div>
-                          <AnimatePresence>
-                            {useCustomAuth && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="space-y-2 pt-2 border-t">
-                                  <div className="grid gap-2 sm:grid-cols-2">
-                                    {toolkitDetails.toolkit.auth_config_details[0].fields.auth_config_creation.required?.map((field) => (
-                                      <div key={field.name} className="space-y-1">
-                                        <Label htmlFor={`auth-${field.name}`} className="text-xs">
-                                          {field.displayName}
-                                          <span className="text-destructive ml-1">*</span>
-                                        </Label>
-                                        <Input
-                                          id={`auth-${field.name}`}
-                                          type={field.name.includes('secret') ? 'password' : 'text'}
-                                          value={customAuthConfig[field.name] || ''}
-                                          onChange={(e) => handleCustomAuthFieldChange(field.name, e.target.value)}
-                                          placeholder={`Enter ${field.displayName.toLowerCase()}`}
-                                          className={cn(
-                                            "h-8 text-xs",
-                                            customAuthConfigErrors[field.name] && "border-destructive"
-                                          )}
-                                        />
-                                        {customAuthConfigErrors[field.name] && (
-                                          <p className="text-[10px] text-destructive">
-                                            {customAuthConfigErrors[field.name]}
-                                          </p>
-                                        )}
-                                      </div>
-                                    ))}
-                                    {toolkitDetails.toolkit.auth_config_details[0].fields.auth_config_creation.optional
-                                      ?.filter(field => !['bearer_token', 'access_token'].includes(field.name))
-                                      .map((field) => (
-                                        <div key={field.name} className={cn(
-                                          "space-y-1",
-                                          ['oauth_redirect_uri', 'scopes'].includes(field.name) ? 'sm:col-span-2' : ''
-                                        )}>
-                                          <Label htmlFor={`auth-opt-${field.name}`} className="text-xs">
-                                            {field.displayName}
-                                          </Label>
-                                          {field.name === 'oauth_redirect_uri' && field.default ? (
-                                            <div className="flex gap-1">
-                                              <Input
-                                                id={`auth-opt-${field.name}`}
-                                                value={field.default}
-                                                className="h-8 text-[10px] flex-1"
-                                                readOnly
-                                              />
-                                              <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-8 px-2 text-xs"
-                                                onClick={() => {
-                                                  navigator.clipboard.writeText(field.default || '');
-                                                  toast.success('Copied!');
-                                                }}
-                                              >
-                                                Copy
-                                              </Button>
-                                            </div>
-                                          ) : (
-                                            <Input
-                                              id={`auth-opt-${field.name}`}
-                                              type={field.name.includes('secret') ? 'password' : 'text'}
-                                              value={customAuthConfig[field.name] || field.default || ''}
-                                              onChange={(e) => handleCustomAuthFieldChange(field.name, e.target.value)}
-                                              placeholder={field.default || `Enter ${field.displayName.toLowerCase()}`}
-                                              className={cn(
-                                                "h-8 text-xs",
-                                                field.name === 'scopes' && "text-[10px]"
-                                              )}
-                                            />
-                                          )}
-                                          {field.description && (
-                                            <p className="text-[10px] text-muted-foreground">
-                                              {field.description}
-                                            </p>
-                                          )}
-                                        </div>
-                                      ))}
+
+                      {authMethod === 'oauth' && (
+                        <div className="space-y-3">
+                          {toolkitDetails?.toolkit.auth_config_details?.[0]?.fields?.auth_config_creation && (
+                            <div className="space-y-3 border rounded-lg p-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Shield className="h-3.5 w-3.5 text-primary" />
+                                  <div>
+                                    <Label htmlFor="custom-auth" className="text-sm font-medium cursor-pointer">
+                                      Custom OAuth App
+                                      {CUSTOM_OAUTH_REQUIRED_APPS.includes(app.slug) && (
+                                        <Badge variant="secondary" className="ml-2 text-xs">Required</Badge>
+                                      )}
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                      {CUSTOM_OAUTH_REQUIRED_APPS.includes(app.slug)
+                                        ? `${app.name} requires your own credentials`
+                                        : 'Use your own OAuth credentials'
+                                      }
+                                    </p>
                                   </div>
                                 </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      )}
+                                <Switch
+                                  id="custom-auth"
+                                  checked={useCustomAuth}
+                                  disabled={CUSTOM_OAUTH_REQUIRED_APPS.includes(app.slug)}
+                                  onCheckedChange={(checked) => {
+                                    if (CUSTOM_OAUTH_REQUIRED_APPS.includes(app.slug)) return;
+                                    setUseCustomAuth(checked);
+                                    if (checked && toolkitDetails?.toolkit.auth_config_details?.[0]?.fields?.auth_config_creation?.optional) {
+                                      const defaults: Record<string, string> = {};
+                                      for (const field of toolkitDetails.toolkit.auth_config_details[0].fields.auth_config_creation.optional) {
+                                        if (field.default) {
+                                          defaults[field.name] = field.default;
+                                        }
+                                      }
+                                      setCustomAuthConfig(prev => ({ ...prev, ...defaults }));
+                                    }
+                                  }}
+                                />
+                              </div>
+                              <AnimatePresence>
+                                {useCustomAuth && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="overflow-hidden"
+                                  >
+                                    <div className="space-y-2 pt-2 border-t">
+                                      <div className="grid gap-2 sm:grid-cols-2">
+                                        {toolkitDetails.toolkit.auth_config_details[0].fields.auth_config_creation.required?.map((field) => (
+                                          <div key={field.name} className="space-y-1">
+                                            <Label htmlFor={`auth-${field.name}`} className="text-xs">
+                                              {field.displayName}
+                                              <span className="text-destructive ml-1">*</span>
+                                            </Label>
+                                            <Input
+                                              id={`auth-${field.name}`}
+                                              type={field.name.includes('secret') ? 'password' : 'text'}
+                                              value={customAuthConfig[field.name] || ''}
+                                              onChange={(e) => handleCustomAuthFieldChange(field.name, e.target.value)}
+                                              placeholder={`Enter ${field.displayName.toLowerCase()}`}
+                                              className={cn(
+                                                "h-8 text-xs",
+                                                customAuthConfigErrors[field.name] && "border-destructive"
+                                              )}
+                                            />
+                                            {customAuthConfigErrors[field.name] && (
+                                              <p className="text-[10px] text-destructive">
+                                                {customAuthConfigErrors[field.name]}
+                                              </p>
+                                            )}
+                                          </div>
+                                        ))}
+                                        {toolkitDetails.toolkit.auth_config_details[0].fields.auth_config_creation.optional
+                                          ?.filter(field => !['bearer_token', 'access_token'].includes(field.name))
+                                          .map((field) => (
+                                            <div key={field.name} className={cn(
+                                              "space-y-1",
+                                              ['oauth_redirect_uri', 'scopes'].includes(field.name) ? 'sm:col-span-2' : ''
+                                            )}>
+                                              <Label htmlFor={`auth-opt-${field.name}`} className="text-xs">
+                                                {field.displayName}
+                                              </Label>
+                                              {field.name === 'oauth_redirect_uri' && field.default ? (
+                                                <div className="flex gap-1">
+                                                  <Input
+                                                    id={`auth-opt-${field.name}`}
+                                                    value={field.default}
+                                                    className="h-8 text-[10px] flex-1"
+                                                    readOnly
+                                                  />
+                                                  <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 px-2 text-xs"
+                                                    onClick={() => {
+                                                      navigator.clipboard.writeText(field.default || '');
+                                                      toast.success('Copied!');
+                                                    }}
+                                                  >
+                                                    Copy
+                                                  </Button>
+                                                </div>
+                                              ) : (
+                                                <Input
+                                                  id={`auth-opt-${field.name}`}
+                                                  type={field.name.includes('secret') ? 'password' : 'text'}
+                                                  value={customAuthConfig[field.name] || field.default || ''}
+                                                  onChange={(e) => handleCustomAuthFieldChange(field.name, e.target.value)}
+                                                  placeholder={field.default || `Enter ${field.displayName.toLowerCase()}`}
+                                                  className={cn(
+                                                    "h-8 text-xs",
+                                                    field.name === 'scopes' && "text-[10px]"
+                                                  )}
+                                                />
+                                              )}
+                                              {field.description && (
+                                                <p className="text-[10px] text-muted-foreground">
+                                                  {field.description}
+                                                </p>
+                                              )}
+                                            </div>
+                                          ))}
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          )}
 
-                      {/* Loading State */}
-                      {isLoadingToolkitDetails && (
-                        <div className="space-y-3">
-                          <Skeleton className="h-4 w-32" />
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
+                          {/* Standard OAuth Message */}
+                          {!useCustomAuth && (
+                            <div className="bg-muted/30 rounded-lg p-4 text-center border border-dashed">
+                              <Lock className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                              <h4 className="text-sm font-medium mb-1">Standard Authentication</h4>
+                              <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                                You will be redirected to {app.name} to authorize access securely.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
+
+                    {/* Loading State */}
+                    {isLoadingToolkitDetails && (
+                      <div className="space-y-3">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                      </div>
+                    )}
                   </div>
                   <div className='mt-4'>
                     <div className="flex gap-2">
@@ -1225,18 +1288,24 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                     </div>
                   </div>
                   {redirectUrl && (
-                    <Alert className="bg-muted/50 border-muted">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-sm">
-                        If the window didn't open,{' '}
-                        <button
-                          onClick={() => window.open(redirectUrl, '_blank')}
-                          className="underline font-medium hover:no-underline"
-                        >
-                          click here to authenticate
-                        </button>
-                      </AlertDescription>
-                    </Alert>
+                    <div className="space-y-4">
+                      <Button
+                        onClick={() => window.open(redirectUrl, '_blank', 'width=800,height=700')}
+                        size="lg"
+                        className="w-full h-12 text-base font-semibold shadow-lg hover:scale-[1.02] transition-transform"
+                      >
+                        Authenticate with {app.name}
+                        <ExternalLink className="h-5 w-5 ml-2" />
+                      </Button>
+
+                      <Alert className="bg-muted/50 border-muted">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription className="text-xs">
+                          Click the button above to open the login window.
+                          If nothing happens, check your popup blocker.
+                        </AlertDescription>
+                      </Alert>
+                    </div>
                   )}
                   <Button
                     onClick={handleAuthComplete}
@@ -1336,6 +1405,6 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
           </>
         )}
       </DialogContent>
-    </Dialog>
+    </Dialog >
   );
 };

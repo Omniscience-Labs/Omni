@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Trash2, Star, MessageCircle, Wrench, Globe, GlobeLock, Download, Shield, AlertTriangle, GitBranch } from 'lucide-react';
+import { Settings, Trash2, Star, MessageCircle, Wrench, Globe, GlobeLock, Download, Shield, AlertTriangle, GitBranch, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
@@ -71,21 +71,21 @@ interface AgentModalProps {
   isUnpublishing: boolean;
 }
 
-const AgentModal: React.FC<AgentModalProps> = ({ 
-  agent, 
-  isOpen, 
-  onClose, 
-  onCustomize, 
-  onChat, 
-  onPublish, 
-  onUnpublish, 
-  isPublishing, 
-  isUnpublishing 
+const AgentModal: React.FC<AgentModalProps> = ({
+  agent,
+  isOpen,
+  onClose,
+  onCustomize,
+  onChat,
+  onPublish,
+  onUnpublish,
+  isPublishing,
+  isUnpublishing
 }) => {
   if (!agent) return null;
 
   const isOmniAgent = agent.metadata?.is_suna_default || false;
-  
+
   const truncateDescription = (text?: string, maxLength = 120) => {
     if (!text || text.length <= maxLength) return text || 'Try out this agent';
     return text.substring(0, maxLength) + '...';
@@ -134,8 +134,17 @@ const AgentModal: React.FC<AgentModalProps> = ({
                 variant="outline"
                 className="flex-1 gap-2"
               >
-                <Wrench className="h-4 w-4" />
-                Customize
+                {(isOmniAgent) ? (
+                  <>
+                    <Eye className="h-4 w-4" />
+                    View
+                  </>
+                ) : (
+                  <>
+                    <Wrench className="h-4 w-4" />
+                    Customize
+                  </>
+                )}
               </Button>
               <Button
                 onClick={() => onChat(agent.agent_id)}
@@ -204,10 +213,10 @@ const AgentModal: React.FC<AgentModalProps> = ({
   );
 };
 
-export const AgentsGrid: React.FC<AgentsGridProps> = ({ 
-  agents, 
-  onEditAgent, 
-  onDeleteAgent, 
+export const AgentsGrid: React.FC<AgentsGridProps> = ({
+  agents,
+  onEditAgent,
+  onDeleteAgent,
   onToggleDefault,
   deleteAgentMutation,
   isDeletingAgent,
@@ -219,7 +228,7 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [configAgentId, setConfigAgentId] = useState<string | null>(null);
   const router = useRouter();
-  
+
   const unpublishAgentMutation = useUnpublishTemplate();
 
   const handleAgentClick = (agent: Agent) => {
@@ -261,111 +270,232 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {agents.map((agent) => {
-          const agentData = {
-            ...agent,
-            id: agent.agent_id
-          };
-          
-          const isDeleting = isDeletingAgent?.(agent.agent_id) || false;
-          const isGloballyDeleting = deleteAgentMutation?.isPending || false;
-          
-          return (
-            <div key={agent.agent_id} className="relative group flex flex-col h-full">
-              {isDeleting && (
-                <div className="absolute inset-0 bg-destructive/10 backdrop-blur-sm rounded-lg z-20 flex items-center justify-center">
-                  <div className="bg-background/95 backdrop-blur-sm rounded-lg px-4 py-3 flex items-center gap-2 shadow-lg border">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
-                    <span className="text-sm font-medium text-destructive">Deleting...</span>
+      <div className="space-y-8">
+        {/* User's Created Agents */}
+        <div>
+          {agents.some(a => !a.metadata?.source_template_id) && (
+            <h3 className="text-lg font-semibold mb-4 text-foreground">My Agents</h3>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {agents
+              .filter(agent => !agent.metadata?.source_template_id)
+              .map((agent) => {
+                const agentData = {
+                  ...agent,
+                  id: agent.agent_id
+                };
+
+                const isDeleting = isDeletingAgent?.(agent.agent_id) || false;
+                const isGloballyDeleting = deleteAgentMutation?.isPending || false;
+
+                return (
+                  <div key={agent.agent_id} className="relative group flex flex-col h-full">
+                    {isDeleting && (
+                      <div className="absolute inset-0 bg-destructive/10 backdrop-blur-sm rounded-lg z-20 flex items-center justify-center">
+                        <div className="bg-background/95 backdrop-blur-sm rounded-lg px-4 py-3 flex items-center gap-2 shadow-lg border">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
+                          <span className="text-sm font-medium text-destructive">Deleting...</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className={`transition-all duration-200 ${isDeleting ? 'opacity-60 scale-95' : ''}`}>
+                      <UnifiedAgentCard
+                        variant="agent"
+                        data={{
+                          id: agent.agent_id,
+                          name: agent.name,
+                          tags: agent.tags,
+                          created_at: agent.created_at,
+                          agent_id: agent.agent_id,
+                          is_default: agent.is_default,
+                          is_public: agent.is_public,
+                          marketplace_published_at: agent.marketplace_published_at,
+                          download_count: agent.download_count,
+                          current_version: agent.current_version,
+                          metadata: agent.metadata,
+                          icon_name: agent.icon_name,
+                          icon_color: agent.icon_color,
+                          icon_background: agent.icon_background,
+                        }}
+                        actions={{
+                          onClick: () => !isDeleting && handleAgentClick(agent),
+                        }}
+                      />
+                    </div>
+                    <div className={`absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity ${isDeleting ? 'pointer-events-none' : ''}`}>
+                      {!agent.is_default && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
+                              disabled={isDeleting || isGloballyDeleting}
+                              title="Delete agent"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {isDeleting ? (
+                                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
+                              ) : (
+                                <Trash2 className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="max-w-md">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="text-xl">Delete Agent</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete &quot;{agent.name}&quot;? This action cannot be undone.
+                                {agent.is_public && (
+                                  <span className="block mt-2 text-amber-600 dark:text-amber-400">
+                                    Note: This agent is currently published to the marketplace and will be removed from there as well.
+                                  </span>
+                                )}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
+                                Cancel
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteAgent(agent.agent_id);
+                                }}
+                                disabled={isDeleting || isGloballyDeleting}
+                                className="bg-destructive hover:bg-destructive/90 text-white"
+                              >
+                                {isDeleting ? (
+                                  <>
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                                    Deleting...
+                                  </>
+                                ) : (
+                                  'Delete'
+                                )}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-              
-              <div className={`transition-all duration-200 ${isDeleting ? 'opacity-60 scale-95' : ''}`}>
-                <UnifiedAgentCard
-                  variant="agent"
-                  data={{
-                    id: agent.agent_id,
-                    name: agent.name,
-                    tags: agent.tags,
-                    created_at: agent.created_at,
-                    agent_id: agent.agent_id,
-                    is_default: agent.is_default,
-                    is_public: agent.is_public,
-                    marketplace_published_at: agent.marketplace_published_at,
-                    download_count: agent.download_count,
-                    current_version: agent.current_version,
-                    metadata: agent.metadata,
-                    icon_name: agent.icon_name,
-                    icon_color: agent.icon_color,
-                    icon_background: agent.icon_background,
-                  }}
-                  actions={{
-                    onClick: () => !isDeleting && handleAgentClick(agent),
-                  }}
-                />
-              </div>
-              <div className={`absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity ${isDeleting ? 'pointer-events-none' : ''}`}>
-                {!agent.is_default && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="h-7 w-7 p-0 hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
-                        disabled={isDeleting || isGloballyDeleting}
-                        title="Delete agent"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {isDeleting ? (
-                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
-                        ) : (
-                          <Trash2 className="h-3.5 w-3.5" />
-                        )}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="max-w-md">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle className="text-xl">Delete Agent</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete &quot;{agent.name}&quot;? This action cannot be undone.
-                          {agent.is_public && (
-                            <span className="block mt-2 text-amber-600 dark:text-amber-400">
-                              Note: This agent is currently published to the marketplace and will be removed from there as well.
-                            </span>
-                          )}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
-                          Cancel
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteAgent(agent.agent_id);
+                );
+              })}
+          </div>
+        </div>
+
+        {/* Installed Agents */}
+        {agents.some(a => a.metadata?.source_template_id) && (
+          <div>
+            <h3 className="text-lg font-semibold mb-4 text-foreground">Installed Agents</h3>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {agents
+                .filter(agent => agent.metadata?.source_template_id)
+                .map((agent) => {
+                  const agentData = {
+                    ...agent,
+                    id: agent.agent_id
+                  };
+
+                  const isDeleting = isDeletingAgent?.(agent.agent_id) || false;
+                  // For installed agents, we use global deleting state if no specific agent ID is provided? 
+                  // or just reuse the logic. Installed agents CAN be deleted (uninstalled).
+                  const isGloballyDeleting = deleteAgentMutation?.isPending || false;
+
+                  return (
+                    <div key={agent.agent_id} className="relative group flex flex-col h-full">
+                      {isDeleting && (
+                        <div className="absolute inset-0 bg-destructive/10 backdrop-blur-sm rounded-lg z-20 flex items-center justify-center">
+                          <div className="bg-background/95 backdrop-blur-sm rounded-lg px-4 py-3 flex items-center gap-2 shadow-lg border">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
+                            <span className="text-sm font-medium text-destructive">Uninstalling...</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className={`transition-all duration-200 ${isDeleting ? 'opacity-60 scale-95' : ''}`}>
+                        <UnifiedAgentCard
+                          variant="agent"
+                          data={{
+                            id: agent.agent_id,
+                            name: agent.name,
+                            tags: agent.tags,
+                            created_at: agent.created_at,
+                            agent_id: agent.agent_id,
+                            is_default: agent.is_default,
+                            is_public: agent.is_public,
+                            marketplace_published_at: agent.marketplace_published_at,
+                            download_count: agent.download_count,
+                            current_version: agent.current_version,
+                            metadata: agent.metadata,
+                            icon_name: agent.icon_name,
+                            icon_color: agent.icon_color,
+                            icon_background: agent.icon_background,
                           }}
-                          disabled={isDeleting || isGloballyDeleting}
-                          className="bg-destructive hover:bg-destructive/90 text-white"
-                        >
-                          {isDeleting ? (
-                            <>
-                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
-                              Deleting...
-                            </>
-                          ) : (
-                            'Delete'
-                          )}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-              </div>
+                          actions={{
+                            onClick: () => !isDeleting && handleAgentClick(agent),
+                          }}
+                        />
+                      </div>
+                      <div className={`absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity ${isDeleting ? 'pointer-events-none' : ''}`}>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
+                              disabled={isDeleting || isGloballyDeleting}
+                              title="Uninstall Agent"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {isDeleting ? (
+                                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
+                              ) : (
+                                <Trash2 className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="max-w-md">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="text-xl">Uninstall Agent</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to uninstall &quot;{agent.name}&quot;?
+                                This will remove it from your Installed Agents.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
+                                Cancel
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteAgent(agent.agent_id);
+                                }}
+                                disabled={isDeleting || isGloballyDeleting}
+                                className="bg-destructive hover:bg-destructive/90 text-white"
+                              >
+                                {isDeleting ? (
+                                  <>
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                                    Uninstalling...
+                                  </>
+                                ) : (
+                                  'Uninstall'
+                                )}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
-          );
-        })}
+          </div>
+        )}
       </div>
 
       <AgentModal
@@ -379,7 +509,7 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
         isPublishing={externalPublishingId === selectedAgent?.agent_id}
         isUnpublishing={unpublishingId === selectedAgent?.agent_id}
       />
-      
+
       {configAgentId && (
         <AgentConfigurationDialog
           open={showConfigDialog}

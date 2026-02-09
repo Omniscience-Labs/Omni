@@ -89,8 +89,9 @@ export function KnowledgeBaseManager({
     emptyStateMessage,
     emptyStateContent,
     maxHeight,
-    enableAssignments = false
-}: KnowledgeBaseManagerProps) {
+    enableAssignments = false,
+    readOnly = false
+}: KnowledgeBaseManagerProps & { readOnly?: boolean }) {
     const [treeData, setTreeData] = useState<TreeItem[]>([]);
     const [folderEntries, setFolderEntries] = useState<{ [folderId: string]: Entry[] }>({});
     const [loadingFolders, setLoadingFolders] = useState<{ [folderId: string]: boolean }>({});
@@ -919,21 +920,23 @@ export function KnowledgeBaseManager({
                             {enableAssignments ? `Manage ${agentName}'s knowledge sources and access` : headerDescription}
                         </p>
                     </div>
-                    <UnifiedKbEntryModal
-                        folders={folders}
-                        onUploadComplete={() => {
-                            refetchFolders();
-                            if (enableAssignments) {
-                                loadAssignments();
+                    {!readOnly && (
+                        <UnifiedKbEntryModal
+                            folders={folders}
+                            onUploadComplete={() => {
+                                refetchFolders();
+                                if (enableAssignments) {
+                                    loadAssignments();
+                                }
+                            }}
+                            trigger={
+                                <Button size="sm" className="gap-2">
+                                    <PlusIcon className="h-4 w-4" />
+                                    Add Knowledge
+                                </Button>
                             }
-                        }}
-                        trigger={
-                            <Button size="sm" className="gap-2">
-                                <PlusIcon className="h-4 w-4" />
-                                Add Knowledge
-                            </Button>
-                        }
-                    />
+                        />
+                    )}
                 </div>
             )}
 
@@ -1008,21 +1011,23 @@ export function KnowledgeBaseManager({
                             <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
                                 {emptyStateMessage || defaultEmptyMessage}
                             </p>
-                            <UnifiedKbEntryModal
-                                folders={folders}
-                                onUploadComplete={() => {
-                                    refetchFolders();
-                                    if (enableAssignments) {
-                                        loadAssignments();
+                            {!readOnly && (
+                                <UnifiedKbEntryModal
+                                    folders={folders}
+                                    onUploadComplete={() => {
+                                        refetchFolders();
+                                        if (enableAssignments) {
+                                            loadAssignments();
+                                        }
+                                    }}
+                                    trigger={
+                                        <Button size="sm" className="gap-2">
+                                            <PlusIcon className="h-4 w-4" />
+                                            Add Knowledge
+                                        </Button>
                                     }
-                                }}
-                                trigger={
-                                    <Button size="sm" className="gap-2">
-                                        <PlusIcon className="h-4 w-4" />
-                                        Add Knowledge
-                                    </Button>
-                                }
-                            />
+                                />
+                            )}
                         </div>
                     )
                 ) : (
@@ -1068,9 +1073,9 @@ export function KnowledgeBaseManager({
                                             item={item}
                                             onExpand={handleExpand}
                                             onSelect={handleFileSelect}
-                                            enableDnd={true}
-                                            enableActions={true}
-                                            enableEdit={!enableAssignments} // Only allow editing in main KB page
+                                            enableDnd={!readOnly}
+                                            enableActions={!readOnly}
+                                            enableEdit={!readOnly && !enableAssignments} // Only allow editing in main KB page
                                             enableAssignment={enableAssignments}
                                             assignments={enableAssignments ? allAssignments : undefined}
                                             assignmentIndeterminate={enableAssignments ? allIndeterminateStates : undefined}

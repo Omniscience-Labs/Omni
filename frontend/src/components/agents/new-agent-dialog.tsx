@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Loader2, Plus, FileJson, Code } from 'lucide-react';
+import React, { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,11 +13,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useCreateNewAgent } from '@/hooks/agents/use-agents';
-import { JsonImportDialog } from './json-import-dialog';
 import { AgentCountLimitError } from '@/lib/api/errors';
 import { toast } from 'sonner';
-import { AgentCreationModal } from './agent-creation-modal';
-import { isLocalMode, isStagingMode } from '@/lib/config';
 
 interface NewAgentDialogProps {
   open: boolean;
@@ -26,36 +23,19 @@ interface NewAgentDialogProps {
 }
 
 export function NewAgentDialog({ open, onOpenChange, onSuccess }: NewAgentDialogProps) {
-  if (isLocalMode() || isStagingMode()) {
-    return (
-      <AgentCreationModal
-        open={open}
-        onOpenChange={onOpenChange}
-        onSuccess={onSuccess}
-      />
-    );
-  }
-
-  return (
-    <NewAgentDialogLegacy
-      open={open}
-      onOpenChange={onOpenChange}
-      onSuccess={onSuccess}
-    />
-  );
-}
-
-export function NewAgentDialogLegacy({ open, onOpenChange, onSuccess }: NewAgentDialogProps) {
-  const [showJsonImport, setShowJsonImport] = useState(false);
-  const [jsonImportText, setJsonImportText] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const [name, setName] = useState('');
   const createNewAgentMutation = useCreateNewAgent();
 
   const handleCreateNewAgent = () => {
-    createNewAgentMutation.mutate(undefined, {
+    if (!name.trim()) {
+      toast.error('Please enter a name for your worker');
+      return;
+    }
+
+    createNewAgentMutation.mutate(name, {
       onSuccess: (newAgent) => {
         onOpenChange(false);
+        setName(''); // Reset name
         onSuccess?.(newAgent.agent_id);
       },
       onError: (error) => {
@@ -68,40 +48,9 @@ export function NewAgentDialogLegacy({ open, onOpenChange, onSuccess }: NewAgent
     });
   };
 
-  const handleFileImport = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!file.name.endsWith('.json')) {
-      toast.error('Please select a JSON file');
-      return;
-    }
-
-    try {
-      const fileContent = await file.text();
-      setJsonImportText(fileContent);
-      setShowJsonImport(true);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    } catch (error) {
-      toast.error('Failed to read file');
-    }
-  };
-
   const handleDialogClose = (open: boolean) => {
     if (!open) {
-      setShowJsonImport(false);
-      setJsonImportText('');
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      setName('');
     }
     onOpenChange(open);
   };
@@ -110,70 +59,48 @@ export function NewAgentDialogLegacy({ open, onOpenChange, onSuccess }: NewAgent
 
   return (
     <AlertDialog open={open} onOpenChange={handleDialogClose}>
-      <AlertDialogContent className="max-w-lg">
-        <AlertDialogHeader className="space-y-3">
-          <AlertDialogTitle className="text-xl">Create New Worker</AlertDialogTitle>
-          <AlertDialogDescription className="text-base leading-relaxed">
-            Create a new worker with default settings that you can customize later, or{' '}
-            <button
-              onClick={handleFileImport}
-              className="text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={isLoading}
-            >
-              import from file
-            </button>
-            {' '}or{' '}
-            <button
-              onClick={() => !isLoading && setShowJsonImport(true)}
-              className="text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={isLoading}
-            >
-              import from JSON
-            </button>
-            .
+      <AlertDialogContent className="max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Create New Worker</AlertDialogTitle>
+          <AlertDialogDescription>
+            Give your new worker a name to get started. You can configure its capabilities later.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          onChange={handleFileChange}
-          className="hidden"
-        />
-        <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 space-y-2 space-y-reverse sm:space-y-0 pt-6">
-          <AlertDialogCancel disabled={isLoading} className="mt-2 sm:mt-0">
-            Cancel
-          </AlertDialogCancel>
+
+        <div className="py-4">
+          <input
+            type="text"
+            placeholder="e.g. Research Assistant"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !isLoading) {
+                handleCreateNewAgent();
+              }
+            }}
+            autoFocus
+          />
+        </div>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleCreateNewAgent}
-            disabled={isLoading}
-            className="min-w-[120px]"
+            disabled={isLoading || !name.trim()}
+            className="min-w-[100px]"
           >
-            {createNewAgentMutation.isPending ? (
+            {isLoading ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Creating...
               </>
             ) : (
-              <>
-                <Plus className="h-4 w-4" />
-                Create Agent
-              </>
+              'Create'
             )}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
-      <JsonImportDialog
-        open={showJsonImport}
-        onOpenChange={setShowJsonImport}
-        initialJsonText={jsonImportText}
-        onSuccess={(agentId) => {
-          setShowJsonImport(false);
-          onOpenChange(false);
-          onSuccess?.(agentId);
-        }}
-      />
-
     </AlertDialog>
   );
 }

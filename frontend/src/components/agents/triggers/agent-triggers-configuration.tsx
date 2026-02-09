@@ -6,24 +6,26 @@ import { Dialog } from '@/components/ui/dialog';
 import { ConfiguredTriggersList } from './configured-triggers-list';
 import { TriggerCreationDialog } from '../../triggers/trigger-creation-dialog';
 import { TriggerConfiguration, TriggerProvider } from './types';
-import { 
-  useAgentTriggers, 
-  useCreateTrigger, 
-  useUpdateTrigger, 
-  useDeleteTrigger, 
+import {
+  useAgentTriggers,
+  useCreateTrigger,
+  useUpdateTrigger,
+  useDeleteTrigger,
   useToggleTrigger,
-  useTriggerProviders 
+  useTriggerProviders
 } from '@/hooks/triggers';
 import { toast } from 'sonner';
 import { OneClickIntegrations } from './one-click-integrations';
 
 interface AgentTriggersConfigurationProps {
   agentId: string;
+  readOnly?: boolean;
 }
 
 
 export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProps> = ({
   agentId,
+  readOnly = false,
 }) => {
   const [configuringProvider, setConfiguringProvider] = useState<TriggerProvider | null>(null);
   const [editingTrigger, setEditingTrigger] = useState<TriggerConfiguration | null>(null);
@@ -36,8 +38,9 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
   const toggleTriggerMutation = useToggleTrigger();
 
   const handleEditTrigger = (trigger: TriggerConfiguration) => {
+    if (readOnly) return;
     setEditingTrigger(trigger);
-    
+
     const provider = providers.find(p => p.provider_id === trigger.provider_id);
     if (provider) {
       setConfiguringProvider(provider);
@@ -54,6 +57,7 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
   };
 
   const handleRemoveTrigger = async (trigger: TriggerConfiguration) => {
+    if (readOnly) return;
     try {
       await deleteTriggerMutation.mutateAsync({
         triggerId: trigger.trigger_id,
@@ -67,6 +71,7 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
   };
 
   const handleSaveTrigger = async (config: any) => {
+    if (readOnly) return;
     try {
       if (editingTrigger) {
         await updateTriggerMutation.mutateAsync({
@@ -96,6 +101,7 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
   };
 
   const handleToggleTrigger = async (trigger: TriggerConfiguration) => {
+    if (readOnly) return;
     try {
       await toggleTriggerMutation.mutateAsync({
         triggerId: trigger.trigger_id,
@@ -128,8 +134,8 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
 
   return (
     <div className="space-y-4">
-      <OneClickIntegrations agentId={agentId} />
-      
+      <OneClickIntegrations agentId={agentId} readOnly={readOnly} />
+
       {triggers.length > 0 && (
         <ConfiguredTriggersList
           triggers={triggers}
@@ -137,6 +143,7 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
           onRemove={handleRemoveTrigger}
           onToggle={handleToggleTrigger}
           isLoading={deleteTriggerMutation.isPending || toggleTriggerMutation.isPending}
+          readOnly={readOnly}
         />
       )}
 
@@ -153,7 +160,7 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
           </p>
         </div>
       )}
-      
+
       {configuringProvider && (
         <TriggerCreationDialog
           open={!!configuringProvider}

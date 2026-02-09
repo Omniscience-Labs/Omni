@@ -29,6 +29,8 @@ router.include_router(account_deletion_router)
 router.include_router(accounts_router)
 router.include_router(user_roles_router)
 router.include_router(feedback_router)
+from .templates.api import router as templates_router
+router.include_router(templates_router, prefix="/templates", tags=["templates"])
 
 # Re-export the initialize and cleanup functions
 __all__ = ['router', 'initialize', 'cleanup']

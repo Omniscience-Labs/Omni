@@ -30,6 +30,7 @@ import {
 
 interface OneClickIntegrationsProps {
   agentId: string;
+  readOnly?: boolean;
 }
 
 const OAUTH_PROVIDERS = {
@@ -43,18 +44,19 @@ const OAUTH_PROVIDERS = {
 type ProviderKey = keyof typeof OAUTH_PROVIDERS;
 
 export const OneClickIntegrations: React.FC<OneClickIntegrationsProps> = ({
-  agentId
+  agentId,
+  readOnly = false
 }) => {
   const [configuringSchedule, setConfiguringSchedule] = useState(false);
   const [showEventDialog, setShowEventDialog] = useState(false);
   const { data: accountState } = useAccountState();
   const { openPricingModal } = usePricingModalStore();
-  
+
   const isFreeTier = accountState && (
     accountState.subscription?.tier_key === 'free' ||
     accountState.tier?.name === 'free'
   ) && !isLocalMode();
-  
+
   // Schedule trigger form state
   const [scheduleConfig, setScheduleConfig] = useState<ScheduleTriggerConfig>({
     cron_expression: '',
@@ -224,7 +226,7 @@ export const OneClickIntegrations: React.FC<OneClickIntegrationsProps> = ({
                     isInstalled ? handleUninstall(provider, triggerId) : handleInstall(provider);
                   }
                 }}
-                disabled={isLoading}
+                disabled={isLoading || readOnly}
                 className="flex items-center"
               >
                 {isLoading ? (
@@ -261,13 +263,14 @@ export const OneClickIntegrations: React.FC<OneClickIntegrationsProps> = ({
               size='sm'
               onClick={() => setShowEventDialog(true)}
               className="flex items-center gap-2"
+              disabled={readOnly}
             >
               <PlugZap className="h-4 w-4" /> App-based Trigger
             </Button>
           )}
         </div>
         {isFreeTier && (
-          <div 
+          <div
             className="relative overflow-hidden rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-4 cursor-pointer hover:border-primary/50 hover:from-primary/15 transition-all group"
             onClick={() => openPricingModal()}
           >

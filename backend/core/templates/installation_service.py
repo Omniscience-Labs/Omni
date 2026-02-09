@@ -36,6 +36,7 @@ class TemplateInstallationRequest:
     custom_mcp_configs: Optional[Dict[QualifiedName, ConfigType]] = None
     trigger_configs: Optional[Dict[str, Dict[str, Any]]] = None
     trigger_variables: Optional[Dict[str, Dict[str, str]]] = None
+    knowledge_base_entry_ids: Optional[List[str]] = None
 
 @dataclass
 class TemplateInstallationResult:
@@ -175,10 +176,15 @@ class InstallationService:
             agent_id,
             request.account_id,
             agent_config,
-            request.custom_system_prompt or template.system_prompt
+            agent_config['system_prompt']
         )
         
         await self._restore_triggers(agent_id, request.account_id, template.config, request.profile_mappings, request.trigger_configs, request.trigger_variables)
+        
+        await self._restore_workflows(agent_id, template.config)
+        
+        if request.knowledge_base_entry_ids:
+            await self._restore_knowledge_base(agent_id, request.account_id, request.knowledge_base_entry_ids)
         
         await self._increment_download_count(template.template_id)
         
@@ -317,6 +323,11 @@ class InstallationService:
             'system_prompt': request.custom_system_prompt or template.system_prompt,
             'model': template.config.get('model')
         }
+
+        # If system prompt is empty (e.g. from a template with hidden prompt), use Suna default
+        if not agent_config['system_prompt']:
+            from core.suna_config import SUNA_CONFIG
+            agent_config['system_prompt'] = SUNA_CONFIG["system_prompt"]
         
         from core.credentials import get_profile_service
         profile_service = get_profile_service(self._db)
@@ -392,7 +403,8 @@ class InstallationService:
         
         metadata = {
             **template.metadata,
-            'created_from_template': template.template_id,
+            'source_template_id': template.template_id,
+            'created_from_template': template.template_id, # Keep for backward compatibility/tracking
             'template_name': template.name
         }
         
@@ -552,7 +564,7 @@ class InstallationService:
                     'trigger_type': trigger.get('trigger_type', 'webhook'),
                     'name': trigger.get('name', 'Unnamed Trigger'),
                     'description': trigger.get('description'),
-                    'is_active': trigger.get('is_active', True),
+                    'is_active': False, # Default to inactive for installed agents
                     'config': clean_config,
                     'created_at': datetime.now(timezone.utc).isoformat(),
                     'updated_at': datetime.now(timezone.utc).isoformat()
@@ -785,6 +797,40 @@ class InstallationService:
             }).execute()
         except Exception as e:
             logger.warning(f"Failed to increment download count for template {template_id}: {e}")
+
+    async def _restore_workflows(self, agent_id: str, config: Dict[str, Any]) -> None:
+        workflows = config.get('workflows', [])
+        if not workflows:
+            return
+
+        client = await self._db.client
+        for wf in workflows:
+            await client.table('agent_workflows').insert({
+                'agent_id': agent_id,
+                'name': wf.get('name', 'Untitled Workflow'),
+                'description': wf.get('description'),
+                'steps': wf.get('steps', []),
+                'is_active': wf.get('is_active', True),
+                'created_at': datetime.now(timezone.utc).isoformat(),
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }).execute()
+        
+        logger.debug(f"Restored {len(workflows)} workflows for agent {agent_id}")
+
+    async def _restore_knowledge_base(self, agent_id: str, account_id: str, entry_ids: List[str]) -> None:
+        if not entry_ids:
+            return
+            
+        client = await self._db.client
+        for entry_id in entry_ids:
+            await client.table('agent_knowledge_entry_assignments').insert({
+                'agent_id': agent_id,
+                'entry_id': entry_id,
+                'account_id': account_id,
+                'enabled': True
+            }).execute()
+            
+        logger.debug(f"Assigned {len(entry_ids)} knowledge base entries to agent {agent_id}")
 
 def get_installation_service(db_connection: DBConnection) -> InstallationService:
     return InstallationService(db_connection) 

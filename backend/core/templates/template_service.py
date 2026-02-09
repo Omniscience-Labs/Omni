@@ -51,6 +51,8 @@ class AgentTemplate:
     metadata: ConfigType = field(default_factory=dict)
     creator_name: Optional[str] = None
     usage_examples: List[Dict[str, Any]] = field(default_factory=list)
+    description: Optional[str] = None
+    sharing_preferences: Optional[ConfigType] = None
     
     def with_public_status(self, is_public: bool, published_at: Optional[datetime] = None) -> 'AgentTemplate':
         return AgentTemplate(
@@ -184,7 +186,8 @@ class TemplateService:
         creator_id: str,
         make_public: bool = False,
         tags: Optional[List[str]] = None,
-        usage_examples: Optional[List[Dict[str, Any]]] = None
+        usage_examples: Optional[List[Dict[str, Any]]] = None,
+        sharing_preferences: Optional[ConfigType] = None
     ) -> str:
         logger.debug(f"Creating template from agent {agent_id} for user {creator_id}")
         
@@ -202,7 +205,13 @@ class TemplateService:
         if not version_config:
             raise TemplateNotFoundError("Agent has no version configuration")
         
-        sanitized_config = await self._sanitize_config_for_template(version_config)
+        # Fetch workflows
+        client = await self._db.client
+        workflows_result = await client.table('agent_workflows').select('*').eq('agent_id', agent_id).eq('is_active', True).execute()
+        if workflows_result.data:
+            version_config['workflows'] = workflows_result.data
+
+        sanitized_config = await self._sanitize_config_for_template(version_config, sharing_preferences)
         
         template = AgentTemplate(
             template_id=str(uuid4()),
@@ -217,7 +226,9 @@ class TemplateService:
             icon_color=agent.get('icon_color'),
             icon_background=agent.get('icon_background'),
             metadata=agent.get('metadata', {}),
-            usage_examples=usage_examples or []
+            usage_examples=usage_examples or [],
+            description=agent.get('description'),
+            sharing_preferences=sharing_preferences
         )
         
         await self._save_template(template)
@@ -465,151 +476,203 @@ class TemplateService:
         
         return {}
     
-    async def _sanitize_config_for_template(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        return self._fallback_sanitize_config(config)
+    async def _sanitize_config_for_template(self, config: Dict[str, Any], sharing_preferences: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        return self._fallback_sanitize_config(config, sharing_preferences)
     
-    def _fallback_sanitize_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _fallback_sanitize_config(self, config: Dict[str, Any], sharing_preferences: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        prefs = sharing_preferences or {}
+        
+        # Default keys for sharing preferences
+        include_system_prompt = prefs.get('include_system_prompt', True)
+        include_model_settings = prefs.get('include_model_settings', True)
+        include_default_tools = prefs.get('include_default_tools', True)
+        include_integrations = prefs.get('include_integrations', True)
+        include_triggers = prefs.get('include_triggers', True)
+        include_workflows = prefs.get('include_playbooks', True) # Playbooks are workflows
+        
+        # 1. Sanitize AgentPress Tools
         agentpress_tools = config.get('tools', {}).get('agentpress', {})
         sanitized_agentpress = {}
         
-        for tool_name, tool_config in agentpress_tools.items():
-            if isinstance(tool_config, dict):
-                sanitized_agentpress[tool_name] = tool_config.get('enabled', False)
-            elif isinstance(tool_config, bool):
-                sanitized_agentpress[tool_name] = tool_config
-            else:
-                sanitized_agentpress[tool_name] = False
+        if include_default_tools:
+            for tool_name, tool_config in agentpress_tools.items():
+                if isinstance(tool_config, dict):
+                    sanitized_agentpress[tool_name] = tool_config.get('enabled', False)
+                elif isinstance(tool_config, bool):
+                    sanitized_agentpress[tool_name] = tool_config
+                else:
+                    sanitized_agentpress[tool_name] = False
         
+        # 2. Sanitize Triggers
         triggers = config.get('triggers', [])
         sanitized_triggers = []
-        for trigger in triggers:
-            if isinstance(trigger, dict):
-                trigger_config = trigger.get('config', {})
-                provider_id = trigger_config.get('provider_id', '')
-                
-                agent_prompt = trigger_config.get('agent_prompt', '')
-                
-                sanitized_config = {
-                    'provider_id': provider_id,
-                    'agent_prompt': agent_prompt,
-                }
-                
-                # Extract trigger variables if they exist in the prompt
-                trigger_variables = trigger_config.get('trigger_variables', [])
-                if not trigger_variables and agent_prompt:
-                    # Extract variables from the prompt using regex
-                    pattern = r'\{\{(\w+)\}\}'
-                    matches = re.findall(pattern, agent_prompt)
-                    if matches:
-                        trigger_variables = list(set(matches))
-                
-                if trigger_variables:
-                    sanitized_config['trigger_variables'] = trigger_variables
-                
-                if provider_id == 'schedule':
-                    sanitized_config['cron_expression'] = trigger_config.get('cron_expression', '')
-                    sanitized_config['timezone'] = trigger_config.get('timezone', 'UTC')
-                elif provider_id == 'composio':
-                    sanitized_config['trigger_slug'] = trigger_config.get('trigger_slug', '')
-                    if 'qualified_name' in trigger_config:
-                        sanitized_config['qualified_name'] = trigger_config['qualified_name']
+        
+        if include_triggers:
+            for trigger in triggers:
+                if isinstance(trigger, dict):
+                    trigger_config = trigger.get('config', {})
+                    provider_id = trigger_config.get('provider_id', '')
                     
-                    excluded_fields = {
-                        'profile_id', 'composio_trigger_id', 'provider_id', 
-                        'agent_prompt', 'trigger_slug', 'qualified_name', 'trigger_variables'
+                    agent_prompt = trigger_config.get('agent_prompt', '')
+                    
+                    sanitized_config = {
+                        'provider_id': provider_id,
+                        'agent_prompt': agent_prompt,
                     }
                     
-                    trigger_fields = {}
-                    for key, value in trigger_config.items():
-                        if key not in excluded_fields:
-                            if isinstance(value, bool):
-                                trigger_fields[key] = {'type': 'boolean', 'required': True}
-                            elif isinstance(value, (int, float)):
-                                trigger_fields[key] = {'type': 'number', 'required': True}
-                            elif isinstance(value, list):
-                                trigger_fields[key] = {'type': 'array', 'required': True}
-                            elif isinstance(value, dict):
-                                trigger_fields[key] = {'type': 'object', 'required': True}
-                            else:
-                                trigger_fields[key] = {'type': 'string', 'required': True}
+                    # Extract trigger variables if they exist in the prompt
+                    trigger_variables = trigger_config.get('trigger_variables', [])
+                    if not trigger_variables and agent_prompt:
+                        # Extract variables from the prompt using regex
+                        pattern = r'\{\{(\w+)\}\}'
+                        matches = re.findall(pattern, agent_prompt)
+                        if matches:
+                            trigger_variables = list(set(matches))
                     
-                    if trigger_fields:
-                        sanitized_config['trigger_fields'] = trigger_fields
-
-                sanitized_trigger = {
-                    'name': trigger.get('name'),
-                    'description': trigger.get('description'),
-                    'trigger_type': trigger.get('trigger_type'),
-                    'is_active': trigger.get('is_active', True),
-                    'config': sanitized_config
-                }
-                sanitized_triggers.append(sanitized_trigger)
+                    if trigger_variables:
+                        sanitized_config['trigger_variables'] = trigger_variables
+                    
+                    if provider_id == 'schedule':
+                        sanitized_config['cron_expression'] = trigger_config.get('cron_expression', '')
+                        sanitized_config['timezone'] = trigger_config.get('timezone', 'UTC')
+                    elif provider_id == 'composio':
+                        sanitized_config['trigger_slug'] = trigger_config.get('trigger_slug', '')
+                        if 'qualified_name' in trigger_config:
+                            sanitized_config['qualified_name'] = trigger_config['qualified_name']
+                        
+                        excluded_fields = {
+                            'profile_id', 'composio_trigger_id', 'provider_id', 
+                            'agent_prompt', 'trigger_slug', 'qualified_name', 'trigger_variables'
+                        }
+                        
+                        trigger_fields = {}
+                        for key, value in trigger_config.items():
+                            if key not in excluded_fields:
+                                if isinstance(value, bool):
+                                    trigger_fields[key] = {'type': 'boolean', 'required': True}
+                                elif isinstance(value, (int, float)):
+                                    trigger_fields[key] = {'type': 'number', 'required': True}
+                                elif isinstance(value, list):
+                                    trigger_fields[key] = {'type': 'array', 'required': True}
+                                elif isinstance(value, dict):
+                                    trigger_fields[key] = {'type': 'object', 'required': True}
+                                else:
+                                    trigger_fields[key] = {'type': 'string', 'required': True}
+                        
+                        if trigger_fields:
+                            sanitized_config['trigger_fields'] = trigger_fields
+                    
+                    sanitized_trigger = {
+                        'name': trigger.get('name'),
+                        'description': trigger.get('description'),
+                        'trigger_type': trigger.get('trigger_type'),
+                        'is_active': trigger.get('is_active', True),
+                        'config': sanitized_config
+                    }
+                    sanitized_triggers.append(sanitized_trigger)
         
+        # 3. Sanitize Workflows
+        sanitized_workflows = []
+        if include_workflows:
+            sanitized_workflows = self._sanitize_workflows(config.get('workflows', []))
+
+        # 4. Sanitize MCPs & Custom MCPs
+        sanitized_mcps = []
+        sanitized_custom_mcps = []
+        
+        if include_integrations:
+            # Regular MCPs
+            mcps = config.get('tools', {}).get('mcp', [])
+            for mcp in mcps:
+                if isinstance(mcp, dict):
+                    sanitized_mcp = {
+                        'name': mcp.get('name'),
+                        'qualifiedName': mcp.get('qualifiedName', mcp.get('name')),
+                        'display_name': mcp.get('display_name'),
+                        'enabledTools': mcp.get('enabledTools', [])
+                    }
+                    if 'requiredConfig' in mcp:
+                        sanitized_mcp['requiredConfig'] = mcp['requiredConfig']
+                    sanitized_mcps.append(sanitized_mcp)
+
+            # Custom MCPs
+            custom_mcps = config.get('tools', {}).get('custom_mcp', [])
+            for mcp in custom_mcps:
+                if isinstance(mcp, dict):
+                    mcp_name = mcp.get('name', '')
+                    mcp_type = mcp.get('type', 'sse')
+                    
+                    sanitized_mcp = {
+                        'name': mcp_name,
+                        'type': mcp_type,
+                        'display_name': mcp.get('display_name') or mcp_name,
+                        'enabledTools': mcp.get('enabledTools', [])
+                    }
+                    
+                    if mcp_type == 'composio':
+                        original_config = mcp.get('config', {})
+                        qualified_name = (
+                            mcp.get('mcp_qualified_name') or 
+                            original_config.get('mcp_qualified_name') or
+                            mcp.get('qualifiedName') or
+                            original_config.get('qualifiedName')
+                        )
+                        toolkit_slug = (
+                            mcp.get('toolkit_slug') or 
+                            original_config.get('toolkit_slug')
+                        )
+                        
+                        if not qualified_name:
+                            if not toolkit_slug:
+                                toolkit_slug = mcp_name.lower().replace(' ', '_')
+                            qualified_name = f"composio.{toolkit_slug}"
+                        else:
+                            if not toolkit_slug:
+                                if qualified_name.startswith('composio.'):
+                                    toolkit_slug = qualified_name[9:]
+                                else:
+                                    toolkit_slug = mcp_name.lower().replace(' ', '_')
+                        
+                        sanitized_mcp['mcp_qualified_name'] = qualified_name
+                        sanitized_mcp['toolkit_slug'] = toolkit_slug
+                        sanitized_mcp['config'] = {}
+                    
+                    else:
+                        qualified_name = mcp.get('qualifiedName')
+                        if not qualified_name:
+                            safe_name = mcp_name.replace(' ', '_').lower()
+                            qualified_name = f"custom_{mcp_type}_{safe_name}"
+                        
+                        sanitized_mcp['qualifiedName'] = qualified_name
+                        sanitized_mcp['config'] = {}
+                    
+                    sanitized_custom_mcps.append(sanitized_mcp)
+
         sanitized = {
-            'system_prompt': config.get('system_prompt', ''),
-            'model': config.get('model'),
+            'system_prompt': config.get('system_prompt', '') if include_system_prompt else '',
+            'model': config.get('model') if include_model_settings else None,
             'tools': {
                 'agentpress': sanitized_agentpress,
-                'mcp': config.get('tools', {}).get('mcp', []),
-                'custom_mcp': []
+                'mcp': sanitized_mcps,
+                'custom_mcp': sanitized_custom_mcps
             },
             'triggers': sanitized_triggers,
+            'workflows': sanitized_workflows,
             'metadata': {}
         }
         
-        custom_mcps = config.get('tools', {}).get('custom_mcp', [])
-        for mcp in custom_mcps:
-            if isinstance(mcp, dict):
-                mcp_name = mcp.get('name', '')
-                mcp_type = mcp.get('type', 'sse')
-                
-                sanitized_mcp = {
-                    'name': mcp_name,
-                    'type': mcp_type,
-                    'display_name': mcp.get('display_name') or mcp_name,
-                    'enabledTools': mcp.get('enabledTools', [])
-                }
-                
-                if mcp_type == 'composio':
-                    original_config = mcp.get('config', {})
-                    qualified_name = (
-                        mcp.get('mcp_qualified_name') or 
-                        original_config.get('mcp_qualified_name') or
-                        mcp.get('qualifiedName') or
-                        original_config.get('qualifiedName')
-                    )
-                    toolkit_slug = (
-                        mcp.get('toolkit_slug') or 
-                        original_config.get('toolkit_slug')
-                    )
-                    
-                    if not qualified_name:
-                        if not toolkit_slug:
-                            toolkit_slug = mcp_name.lower().replace(' ', '_')
-                        qualified_name = f"composio.{toolkit_slug}"
-                    else:
-                        if not toolkit_slug:
-                            if qualified_name.startswith('composio.'):
-                                toolkit_slug = qualified_name[9:]
-                            else:
-                                toolkit_slug = mcp_name.lower().replace(' ', '_')
-                    
-                    sanitized_mcp['mcp_qualified_name'] = qualified_name
-                    sanitized_mcp['toolkit_slug'] = toolkit_slug
-                    sanitized_mcp['config'] = {}
-                
-                else:
-                    qualified_name = mcp.get('qualifiedName')
-                    if not qualified_name:
-                        safe_name = mcp_name.replace(' ', '_').lower()
-                        qualified_name = f"custom_{mcp_type}_{safe_name}"
-                    
-                    sanitized_mcp['qualifiedName'] = qualified_name
-                    sanitized_mcp['config'] = {}
-                
-                sanitized['tools']['custom_mcp'].append(sanitized_mcp)
-        
         return sanitized
+
+    def _sanitize_workflows(self, workflows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        sanitized_workflows = []
+        for wf in workflows:
+            sanitized_workflows.append({
+                'name': wf.get('name'),
+                'description': wf.get('description'),
+                'steps': wf.get('steps', []),
+                'is_active': wf.get('is_active', True)
+            })
+        return sanitized_workflows
     
     def _is_suna_default_agent(self, agent: Dict[str, Any]) -> bool:
         metadata = agent.get('metadata', {})
@@ -634,7 +697,9 @@ class TemplateService:
             'icon_color': template.icon_color,
             'icon_background': template.icon_background,
             'metadata': template.metadata,
-            'usage_examples': template.usage_examples
+            'usage_examples': template.usage_examples,
+            'description': template.description,
+            'sharing_preferences': template.sharing_preferences
         }
         
         await client.table('agent_templates').insert(template_data).execute()
@@ -664,7 +729,8 @@ class TemplateService:
             icon_background=data.get('icon_background'),
             metadata=data.get('metadata', {}),
             creator_name=creator_name,
-            usage_examples=usage_examples
+            description=data.get('description'),
+            sharing_preferences=data.get('sharing_preferences')
         )
     
     # Share link functionality removed - now using direct template ID URLs for simplicity

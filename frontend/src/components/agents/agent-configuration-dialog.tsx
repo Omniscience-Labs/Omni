@@ -87,7 +87,7 @@ export function AgentConfigurationDialog({
   const queryClient = useQueryClient();
 
   const { agent, versionData, isViewingOldVersion, isLoading, error } = useAgentVersionData({ agentId });
-  const { data: agentsResponse, refetch: refetchAgents } = useAgents({}, { 
+  const { data: agentsResponse, refetch: refetchAgents } = useAgents({}, {
     enabled: !!onAgentChange,
     refetchOnWindowFocus: true,
     refetchOnMount: 'always'
@@ -97,10 +97,10 @@ export function AgentConfigurationDialog({
   const updateAgentMutation = useUpdateAgent();
   const updateAgentMCPsMutation = useUpdateAgentMCPs();
   const exportMutation = useExportAgent();
-  
+
   const { data: accountState } = useAccountState();
   const { openPricingModal } = usePricingModalStore();
-  
+
   const isFreeTier = accountState && (
     accountState.subscription?.tier_key === 'free' ||
     accountState.tier?.name === 'free'
@@ -110,7 +110,7 @@ export function AgentConfigurationDialog({
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState('');
   const [isIconEditorOpen, setIsIconEditorOpen] = useState(false);
-  
+
   // Debug state changes
   useEffect(() => {
     console.log('Icon editor open state changed:', isIconEditorOpen);
@@ -131,6 +131,7 @@ export function AgentConfigurationDialog({
     configured_mcps: [] as any[],
     custom_mcps: [] as any[],
     is_default: false,
+    description: '',
     icon_name: null as string | null,
     icon_color: '#000000',
     icon_background: '#e5e5e5',
@@ -162,6 +163,7 @@ export function AgentConfigurationDialog({
       configured_mcps: configSource.configured_mcps || [],
       custom_mcps: configSource.custom_mcps || [],
       is_default: configSource.is_default || false,
+      description: configSource.description || '',
       icon_name: configSource.icon_name || null,
       icon_color: configSource.icon_color || '#000000',
       icon_background: configSource.icon_background || '#e5e5e5',
@@ -172,6 +174,7 @@ export function AgentConfigurationDialog({
     setEditName(configSource.name || '');
   }, [agent, versionData]);
 
+  const isManaged = !!agent?.metadata?.source_template_id;
   const isOmniAgent = agent?.metadata?.is_suna_default || false;
   const restrictions = agent?.metadata?.restrictions || {};
   const isNameEditable = !isViewingOldVersion && (restrictions.name_editable !== false) && !isOmniAgent;
@@ -198,7 +201,9 @@ export function AgentConfigurationDialog({
       if (formData.icon_name !== undefined) updateData.icon_name = formData.icon_name;
       if (formData.icon_color !== undefined) updateData.icon_color = formData.icon_color;
       if (formData.icon_background !== undefined) updateData.icon_background = formData.icon_background;
+      if (formData.icon_background !== undefined) updateData.icon_background = formData.icon_background;
       if (formData.is_default !== undefined) updateData.is_default = formData.is_default;
+      if (formData.description !== undefined) updateData.description = formData.description;
 
       const updatedAgent = await updateAgentMutation.mutateAsync(updateData);
 
@@ -338,7 +343,7 @@ export function AgentConfigurationDialog({
       };
 
       await updateAgentMutation.mutateAsync(updateData);
-      
+
       // Update original form data to reflect the save
       setOriginalFormData(prev => ({
         ...prev,
@@ -350,12 +355,12 @@ export function AgentConfigurationDialog({
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['agents', 'detail', agentId] });
       queryClient.invalidateQueries({ queryKey: ['versions', 'list', agentId] });
-      
+
       toast.success('Agent icon updated successfully!');
     } catch (error) {
       console.error('Failed to update agent icon:', error);
       toast.error('Failed to update agent icon. Please try again.');
-      
+
       // Revert the local state on error
       setFormData(prev => ({
         ...prev,
@@ -383,7 +388,7 @@ export function AgentConfigurationDialog({
   }
 
   const tabItems = [
-    // { id: 'general', label: 'General', icon: Settings, disabled: false },
+    { id: 'general', label: 'General', icon: Settings, disabled: false },
     { id: 'instructions', label: 'Instructions', icon: Brain, disabled: false },
     { id: 'tools', label: 'Tools', icon: Wrench, disabled: false },
     { id: 'integrations', label: 'Integrations', icon: Server, disabled: false },
@@ -414,10 +419,10 @@ export function AgentConfigurationDialog({
                         e.preventDefault();
                         e.stopPropagation();
                         console.log('🎯 Icon clicked in config dialog - opening editor');
-                        console.log('Current formData:', { 
-                          icon_name: formData.icon_name, 
-                          icon_color: formData.icon_color, 
-                          icon_background: formData.icon_background 
+                        console.log('Current formData:', {
+                          icon_name: formData.icon_name,
+                          icon_color: formData.icon_color,
+                          icon_background: formData.icon_background
                         });
                         setIsIconEditorOpen(true);
                       }}
@@ -489,8 +494,8 @@ export function AgentConfigurationDialog({
                               <ChevronDown className="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                             </button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent 
-                            className="w-80 p-0" 
+                          <DropdownMenuContent
+                            className="w-80 p-0"
                             align="start"
                             sideOffset={4}
                           >
@@ -631,31 +636,39 @@ export function AgentConfigurationDialog({
                 </TabsList>
               </div>
               <div className="flex-1 overflow-auto">
-                {/* <TabsContent value="general" className="p-6 mt-0 flex flex-col h-full">
+                <TabsContent value="general" className="p-6 mt-0 flex flex-col h-full">
                   <div className="flex flex-col flex-1 gap-6">
                     <div className="flex-shrink-0">
                       <Label className="text-base font-semibold mb-3 block">Model</Label>
                       <AgentModelSelector
                         value={formData.model}
                         onChange={handleModelChange}
-                        disabled={isViewingOldVersion}
+                        disabled={isViewingOldVersion || isOmniAgent}
                         variant="default"
                       />
                     </div>
 
+                    <div className="flex-col flex-1 min-h-0 flex">
+                      <Label className="text-base font-semibold mb-3 block">Description</Label>
+                      <Textarea
+                        value={formData.description}
+                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="Describe what your agent does..."
+                        className="flex-1 resize-none"
+                        disabled={isViewingOldVersion || isOmniAgent}
+                      />
+                      {(isOmniAgent) && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Description is managed by the system and cannot be edited.
+                        </p>
+                      )}
+                    </div>
+
                   </div>
-                </TabsContent> */}
+                </TabsContent>
 
                 <TabsContent value="instructions" className="p-6 mt-0 flex flex-col h-full">
                   <div className="flex flex-col flex-1 min-h-0">
-                    {isOmniAgent && (
-                      <Alert className="mb-4 bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900">
-                        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                        <AlertDescription className="text-sm text-blue-800 dark:text-blue-300">
-                          You can't edit the main Kortix Super Worker, but you can create a new AI Worker that you can modify as you wish.
-                        </AlertDescription>
-                      </Alert>
-                    )}
                     <Label className="text-base font-semibold mb-3 block flex-shrink-0">System Prompt</Label>
                     <ExpandableMarkdownEditor
                       value={formData.system_prompt}
@@ -669,14 +682,6 @@ export function AgentConfigurationDialog({
 
                 <TabsContent value="tools" className="p-6 mt-0 flex flex-col h-full">
                   <div className="flex flex-col flex-1 min-h-0 h-full">
-                    {isOmniAgent && (
-                      <Alert className="mb-4 bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900">
-                        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                        <AlertDescription className="text-sm text-blue-800 dark:text-blue-300">
-                          You can't edit the main Kortix Super Worker, but you can create a new AI Worker that you can modify as you wish.
-                        </AlertDescription>
-                      </Alert>
-                    )}
                     <GranularToolConfiguration
                       tools={formData.agentpress_tools}
                       onToolsChange={handleToolsChange}
@@ -701,12 +706,13 @@ export function AgentConfigurationDialog({
                       }}
                       saveMode="callback"
                       isLoading={updateAgentMCPsMutation.isPending}
+                      readOnly={isOmniAgent}
                     />
                     {isFreeTier && (
                       <div className="absolute inset-0 z-10">
                         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
                         <div className="relative h-full flex flex-col items-center justify-center px-8">
-                          <div 
+                          <div
                             className="max-w-md w-full rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-background to-background p-8 cursor-pointer hover:border-primary/50 transition-all group shadow-lg"
                             onClick={() => openPricingModal()}
                           >
@@ -720,7 +726,7 @@ export function AgentConfigurationDialog({
                                   Connect Google Drive, Slack, Notion, and 100+ apps to supercharge your AI Workers
                                 </p>
                               </div>
-                              <Button 
+                              <Button
                                 variant="default"
                                 className="mt-2 gap-2"
                                 onClick={(e) => { e.stopPropagation(); openPricingModal(); }}
@@ -738,12 +744,16 @@ export function AgentConfigurationDialog({
 
                 <TabsContent value="knowledge" className="p-6 mt-0 flex flex-col h-full">
                   <div className="flex flex-col flex-1 min-h-0 h-full relative">
-                    <AgentKnowledgeBaseManager agentId={agentId} agentName={formData.name || 'Agent'} />
+                    <AgentKnowledgeBaseManager
+                      agentId={agentId}
+                      agentName={formData.name || 'Agent'}
+                      readOnly={isOmniAgent}
+                    />
                     {isFreeTier && (
                       <div className="absolute inset-0 z-10">
                         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
                         <div className="relative h-full flex flex-col items-center justify-center px-8">
-                          <div 
+                          <div
                             className="max-w-md w-full rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-background to-background p-8 cursor-pointer hover:border-primary/50 transition-all group shadow-lg"
                             onClick={() => openPricingModal()}
                           >
@@ -757,7 +767,7 @@ export function AgentConfigurationDialog({
                                   Upload documents, PDFs, and files to give your AI Workers custom knowledge and context
                                 </p>
                               </div>
-                              <Button 
+                              <Button
                                 variant="default"
                                 className="mt-2 gap-2"
                                 onClick={(e) => { e.stopPropagation(); openPricingModal(); }}
@@ -775,12 +785,15 @@ export function AgentConfigurationDialog({
 
                 <TabsContent value="triggers" className="p-6 mt-0 flex flex-col h-full">
                   <div className="flex flex-col flex-1 min-h-0 h-full relative">
-                    <AgentTriggersConfiguration agentId={agentId} />
+                    <AgentTriggersConfiguration
+                      agentId={agentId}
+                      readOnly={isOmniAgent}
+                    />
                     {isFreeTier && (
                       <div className="absolute inset-0 z-10">
                         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
                         <div className="relative h-full flex flex-col items-center justify-center px-8">
-                          <div 
+                          <div
                             className="max-w-md w-full rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-background to-background p-8 cursor-pointer hover:border-primary/50 transition-all group shadow-lg"
                             onClick={() => openPricingModal()}
                           >
@@ -794,7 +807,7 @@ export function AgentConfigurationDialog({
                                   Set up scheduled tasks and event-based triggers to automate your AI Workers 24/7
                                 </p>
                               </div>
-                              <Button 
+                              <Button
                                 variant="default"
                                 className="mt-2 gap-2"
                                 onClick={(e) => { e.stopPropagation(); openPricingModal(); }}

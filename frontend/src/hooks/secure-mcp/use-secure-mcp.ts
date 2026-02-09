@@ -124,6 +124,7 @@ export interface CreateTemplateRequest {
   make_public?: boolean;
   tags?: string[];
   usage_examples?: UsageExampleMessage[];
+  sharing_preferences?: Record<string, any>;
 }
 
 export function useUserCredentials() {
@@ -383,12 +384,12 @@ export function usePublishTemplate() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      template_id, 
+    mutationFn: async ({
+      template_id,
       tags,
-      usage_examples 
-    }: { 
-      template_id: string; 
+      usage_examples
+    }: {
+      template_id: string;
       tags?: string[];
       usage_examples?: UsageExampleMessage[];
     }): Promise<{ message: string }> => {
@@ -511,7 +512,7 @@ export function useKortixTeamTemplates(options?: { enabled?: boolean }) {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
         throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       return response.json();
     },
     enabled: options?.enabled !== false,
@@ -541,16 +542,16 @@ export function useInstallTemplate() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
         const isAgentLimitError = (response.status === 402) && (
-          errorData.error_code === 'AGENT_LIMIT_EXCEEDED' || 
+          errorData.error_code === 'AGENT_LIMIT_EXCEEDED' ||
           errorData.detail?.error_code === 'AGENT_LIMIT_EXCEEDED'
         );
-        
+
         if (isAgentLimitError) {
           const { AgentCountLimitError } = await import('@/lib/api/errors');
           const errorDetail = errorData.detail || errorData;
           throw new AgentCountLimitError(response.status, errorDetail);
         }
-        
+
         throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 

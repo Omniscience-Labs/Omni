@@ -39,6 +39,7 @@ class CreateTemplateRequest(BaseModel):
     make_public: bool = False
     tags: Optional[List[str]] = None
     usage_examples: Optional[List[UsageExampleMessage]] = None
+    sharing_preferences: Optional[Dict[str, Any]] = None
 
 
 class InstallTemplateRequest(BaseModel):
@@ -78,6 +79,8 @@ class TemplateResponse(BaseModel):
     creator_name: Optional[str] = None
     usage_examples: Optional[List[UsageExampleMessage]] = None
     config: Optional[Dict[str, Any]] = None
+    description: Optional[str] = None
+    sharing_preferences: Optional[Dict[str, Any]] = None
 
 class InstallationResponse(BaseModel):
     status: str
@@ -160,7 +163,8 @@ async def create_template_from_agent(
             creator_id=user_id,
             make_public=request.make_public,
             tags=request.tags,
-            usage_examples=usage_examples
+            usage_examples=usage_examples,
+            sharing_preferences=request.sharing_preferences
         )
         
         logger.debug(f"Successfully created template {template_id} from agent {request.agent_id}")

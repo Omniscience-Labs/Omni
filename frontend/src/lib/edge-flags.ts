@@ -3,15 +3,15 @@ import { getAll } from '@vercel/edge-config';
 
 export type IMaintenanceNotice =
   | {
-      enabled: true;
-      startTime: string; // Date
-      endTime: string; // Date
-    }
+    enabled: true;
+    startTime: string; // Date
+    endTime: string; // Date
+  }
   | {
-      enabled: false;
-      startTime?: undefined;
-      endTime?: undefined;
-    };
+    enabled: false;
+    startTime?: undefined;
+    endTime?: undefined;
+  };
 
 export const maintenanceNoticeFlag = flag({
   key: 'maintenance-notice',
@@ -59,9 +59,9 @@ export const maintenanceNoticeFlag = flag({
         endTime: endTime.toISOString(),
       } as const;
     } catch (cause) {
-      console.error(
-        new Error('Failed to get maintenance notice flag', { cause }),
-      );
+      // console.error(
+      //   new Error('Failed to get maintenance notice flag', { cause }),
+      // );
       return { enabled: false } as const;
     }
   },

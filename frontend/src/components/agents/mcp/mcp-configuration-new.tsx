@@ -21,7 +21,8 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   versionData,
   saveMode = 'direct',
   versionId,
-  isLoading = false
+  isLoading = false,
+  readOnly = false
 }) => {
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [showRegistryDialog, setShowRegistryDialog] = useState(false);
@@ -31,10 +32,10 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   const [selectedMCPForTools, setSelectedMCPForTools] = useState<MCPConfigurationType | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(agentId);
   const queryClient = useQueryClient();
-  
+
   const { data: accountState } = useAccountState();
   const { openPricingModal } = usePricingModalStore();
-  
+
   const isFreeTier = accountState && (
     accountState.subscription?.tier_key === 'free' ||
     accountState.tier?.name === 'free'
@@ -113,22 +114,24 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          <Button 
-            onClick={() => setShowRegistryDialog(true)} 
-            size="sm" 
-            variant={isFreeTier ? "outline" : "default"} 
-            className={isFreeTier ? "gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground" : "gap-2"} 
-            type="button"
-          >
-            {isFreeTier ? <Lock className="h-4 w-4" /> : <Store className="h-4 w-4" />}
-            Browse Apps
-          </Button>
-          <Button onClick={() => setShowCustomDialog(true)} size="sm" variant="outline" className="gap-2" type="button">
-            <Server className="h-4 w-4" />
-            Custom MCP
-          </Button>
-        </div>
+        {!readOnly && (
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setShowRegistryDialog(true)}
+              size="sm"
+              variant={isFreeTier ? "outline" : "default"}
+              className={isFreeTier ? "gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground" : "gap-2"}
+              type="button"
+            >
+              {isFreeTier ? <Lock className="h-4 w-4" /> : <Store className="h-4 w-4" />}
+              Browse Apps
+            </Button>
+            <Button onClick={() => setShowCustomDialog(true)} size="sm" variant="outline" className="gap-2" type="button">
+              <Server className="h-4 w-4" />
+              Custom MCP
+            </Button>
+          </div>
+        )}
       </div>
 
       {configuredMCPs.length === 0 && (

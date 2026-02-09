@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bot, Menu, Plus, Zap, MessageCircle, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
+import { Bot, Menu, Plus, Zap, MessageCircle, PanelLeftOpen, PanelLeftClose, Store } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
@@ -123,10 +123,13 @@ export function SidebarLeft({
 
   // Update active view based on pathname
   useEffect(() => {
+    const tab = searchParams?.get('tab');
     if (pathname?.includes('/triggers') || pathname?.includes('/knowledge')) {
       setActiveView('starred');
+    } else if (pathname?.includes('/agents') || (pathname?.includes('/agents') && tab === 'marketplace')) {
+      setActiveView('agents');
     }
-  }, [pathname]);
+  }, [pathname, searchParams]);
 
   // Logout handler
   const handleLogout = async () => {
@@ -306,13 +309,19 @@ export function SidebarLeft({
                       activeView === view ? 'bg-card border-[1.5px] border-border' : ''
                     )}
                     onClick={() => {
-                      setActiveView(view);
-                      setOpen(true); // Expand sidebar when clicking state button
+                      if (view === 'agents') {
+                        router.push('/agents?tab=marketplace');
+                        setActiveView(view);
+                        setOpen(true);
+                      } else {
+                        setActiveView(view);
+                        setOpen(true); // Expand sidebar when clicking state button
+                      }
                     }}
                   >
                     <Icon className="!h-4 !w-4" />
                   </Button>
-                ))}
+                )) as any}
               </div>
             </motion.div>
           ) : (
@@ -346,10 +355,10 @@ export function SidebarLeft({
                         {t('newChat')}
                       </div>
                       <div className="flex items-center gap-1">
-                      <KbdGroup>
-                        <Kbd>⌘</Kbd>
-                        <Kbd>J</Kbd>
-                      </KbdGroup>
+                        <KbdGroup>
+                          <Kbd>⌘</Kbd>
+                          <Kbd>J</Kbd>
+                        </KbdGroup>
                       </div>
                     </Link>
                   </Button>
@@ -359,7 +368,7 @@ export function SidebarLeft({
                 <div className="flex justify-between items-center gap-2">
                   {[
                     { view: 'chats' as const, icon: MessageCircle, label: t('chats') },
-                    { view: 'agents' as const, icon: Bot, label: t('workers') },
+                    { view: 'agents' as const, icon: Bot, label: t('agents') }, // Changed label to 'Agents'
                     { view: 'starred' as const, icon: Zap, label: t('triggers') }
                   ].map(({ view, icon: Icon, label }) => (
                     <button
@@ -369,7 +378,14 @@ export function SidebarLeft({
                         "hover:bg-muted/60 hover:border-[1.5px] hover:border-border",
                         activeView === view ? 'bg-card border-[1.5px] border-border' : 'border-[1.5px] border-transparent'
                       )}
-                      onClick={() => setActiveView(view)}
+                      onClick={() => {
+                        if (view === 'agents') {
+                          router.push('/agents?tab=marketplace');
+                          setActiveView(view);
+                        } else {
+                          setActiveView(view);
+                        }
+                      }}
                     >
                       <Icon className="!h-4 !w-4" />
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -439,7 +455,7 @@ export function SidebarLeft({
         open={showSearchModal}
         onOpenChange={setShowSearchModal}
       />
-    </Sidebar>
+    </Sidebar >
   );
 }
 
