@@ -155,11 +155,20 @@ class ContextManager:
                 bedrock_client = self._get_bedrock_client()
                 if bedrock_client:
                     # Map profile IDs to model IDs
-                    model_id_mapping = {
-                        "heol2zyy5v48": "anthropic.claude-3-5-haiku-20241022-v1:0",
-                        "few7z4l830xh": "anthropic.claude-3-5-sonnet-20241022-v2:0",
-                        "tyj1ks3nj9qf": "anthropic.claude-sonnet-4-20250514-v1:0",
-                    }
+                    # Dynamic mapping for client-specific application inference profiles
+                    from core.utils.config import config
+                    model_id_mapping = {}
+                    
+                    # Register client-specific profile IDs from environment (Haiku 4.5 and Sonnet 4.5)
+                    if config.BEDROCK_HAIKU_ARN:
+                        haiku_profile_id = config.BEDROCK_HAIKU_ARN.split("/")[-1]
+                        model_id_mapping[haiku_profile_id] = "anthropic.claude-haiku-4-5-20251001-v1:0"
+                        logger.debug(f"Registered Haiku 4.5 profile ID for token counting: {haiku_profile_id}")
+                    
+                    if config.BEDROCK_SONNET_ARN:
+                        sonnet_profile_id = config.BEDROCK_SONNET_ARN.split("/")[-1]
+                        model_id_mapping[sonnet_profile_id] = "anthropic.claude-sonnet-4-5-20250929-v1:0"
+                        logger.debug(f"Registered Sonnet 4.5 profile ID for token counting: {sonnet_profile_id}")
                     
                     # Extract profile ID from ARN
                     bedrock_model_id = None
@@ -168,7 +177,8 @@ class ContextManager:
                         bedrock_model_id = model_id_mapping.get(profile_id)
                     
                     if not bedrock_model_id:
-                        bedrock_model_id = "anthropic.claude-3-5-haiku-20241022-v1:0"
+                        # Default fallback for non-ARN Bedrock models (Haiku 4.5)
+                        bedrock_model_id = "anthropic.claude-haiku-4-5-20251001-v1:0"
                     
                     # Clean content blocks for Bedrock Converse API
                     def clean_content_for_bedrock(content):
