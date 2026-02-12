@@ -14,8 +14,17 @@ from core.utils.logger import logger
 # OLD: _POWER_MODEL_ID = "claude-sonnet-4-5-20250929" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 # Use client-specific Bedrock ARNs for usage tracking, fallback to direct Bedrock model IDs
-_BASIC_MODEL_ID = config.BEDROCK_HAIKU_ARN or "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
-_POWER_MODEL_ID = config.BEDROCK_SONNET_ARN or "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+# Automatically prepend 'bedrock/converse/' prefix if ARN is provided without it
+def _format_bedrock_arn(arn: str) -> str:
+    """Ensure ARN has the bedrock/converse/ prefix for LiteLLM."""
+    if not arn:
+        return arn
+    if arn.startswith("arn:aws:bedrock:"):
+        return f"bedrock/converse/{arn}"
+    return arn
+
+_BASIC_MODEL_ID = _format_bedrock_arn(config.BEDROCK_HAIKU_ARN) if config.BEDROCK_HAIKU_ARN else "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
+_POWER_MODEL_ID = _format_bedrock_arn(config.BEDROCK_SONNET_ARN) if config.BEDROCK_SONNET_ARN else "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 # Default model IDs (these are aliases that resolve to actual IDs)
 FREE_MODEL_ID = "kortix/basic"
 PREMIUM_MODEL_ID = "kortix/power"
