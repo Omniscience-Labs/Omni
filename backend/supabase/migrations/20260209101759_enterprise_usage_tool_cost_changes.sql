@@ -120,8 +120,10 @@ GRANT EXECUTE ON FUNCTION get_default_monthly_limit() TO authenticated;
 -- ============================================================================
 -- Tool costs table
 -- ============================================================================
+-- Drop and recreate so schema always matches this migration (seed data only).
+DROP TABLE IF EXISTS tool_costs;
 
-CREATE TABLE IF NOT EXISTS tool_costs (
+CREATE TABLE tool_costs (
     tool_name VARCHAR(255) PRIMARY KEY,
     cost NUMERIC(10, 6) NOT NULL DEFAULT 0 CHECK (cost >= 0::NUMERIC),
     description TEXT,
