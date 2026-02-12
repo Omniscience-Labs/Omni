@@ -106,53 +106,53 @@ def setup_provider_router(openai_compatible_api_key: str = None, openai_compatib
         },
     ]
     
-    fallbacks = [
-        # MAP-tagged Haiku 4.5 (default) -> Sonnet 4 -> Sonnet 4.5
-        {
-            "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/heol2zyy5v48": [
-                "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/tyj1ks3nj9qf",
-                "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh",
-            ]
-        },
-        # MAP-tagged Sonnet 4.5 -> Sonnet 4 -> Haiku 4.5
-        {
-            "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh": [
-                "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/tyj1ks3nj9qf",
-                "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/heol2zyy5v48",
-            ]
-        },
-        # MAP-tagged Sonnet 4 -> Haiku 4.5
-        {
-            "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/tyj1ks3nj9qf": [
-                "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/heol2zyy5v48",
-            ]
-        }
-    ]
+    # Fallbacks disabled - using client-specific application inference profiles
+    # Each client has dedicated ARNs for usage tracking, so no cross-profile fallbacks
+    fallbacks = []
     
-    # Context window fallbacks: When context window is exceeded, fallback to models with larger context windows
-    # Order: Smaller context models -> Larger context models
-    # Note: All Bedrock models here have 1M context, but this allows LiteLLM to handle the error gracefully
-    context_window_fallbacks = [
-        # Haiku 4.5 (200k) -> Sonnet 4 (1M) -> Sonnet 4.5 (1M)
-        {
-            "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/heol2zyy5v48": [
-                "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/tyj1ks3nj9qf",
-                "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh",
-            ]
-        },
-        # Sonnet 4.5 (1M) -> Sonnet 4 (1M) - both have same context, but allows retry
-        {
-            "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh": [
-                "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/tyj1ks3nj9qf",
-            ]
-        },
-        # Sonnet 4 (1M) -> Sonnet 4.5 (1M) - both have same context, but allows retry
-        {
-            "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/tyj1ks3nj9qf": [
-                "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh",
-            ]
-        }
-    ]
+    # # OLD: MAP-tagged Haiku 4.5 (default) -> Sonnet 4 -> Sonnet 4.5
+    # {
+    #     "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/heol2zyy5v48": [
+    #         "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/tyj1ks3nj9qf",
+    #         "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh",
+    #     ]
+    # },
+    # # MAP-tagged Sonnet 4.5 -> Sonnet 4 -> Haiku 4.5
+    # {
+    #     "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh": [
+    #         "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/tyj1ks3nj9qf",
+    #         "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/heol2zyy5v48",
+    #     ]
+    # },
+    # # MAP-tagged Sonnet 4 -> Haiku 4.5
+    # {
+    #     "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/tyj1ks3nj9qf": [
+    #         "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/heol2zyy5v48",
+    #     ]
+    # }
+    
+    # Context window fallbacks disabled - using client-specific profiles
+    context_window_fallbacks = []
+    
+    # # OLD: Haiku 4.5 (200k) -> Sonnet 4 (1M) -> Sonnet 4.5 (1M)
+    # {
+    #     "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/heol2zyy5v48": [
+    #         "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/tyj1ks3nj9qf",
+    #         "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh",
+    #     ]
+    # },
+    # # Sonnet 4.5 (1M) -> Sonnet 4 (1M) - both have same context, but allows retry
+    # {
+    #     "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh": [
+    #         "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/tyj1ks3nj9qf",
+    #     ]
+    # },
+    # # Sonnet 4 (1M) -> Sonnet 4.5 (1M) - both have same context, but allows retry
+    # {
+    #     "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/tyj1ks3nj9qf": [
+    #         "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh",
+    #     ]
+    # }
     
     # Configure Router with specific retry settings:
     # - num_retries=0: Disable router-level retries - we handle errors at our layer
@@ -169,7 +169,7 @@ def setup_provider_router(openai_compatible_api_key: str = None, openai_compatib
         # context_window_fallbacks are separate and only triggered by context length issues
     )
     
-    logger.info(f"Configured LiteLLM Router with {len(fallbacks)} Bedrock-only fallback rules")
+    logger.info(f"Configured LiteLLM Router with {len(fallbacks)} fallback rules (fallbacks disabled for client-specific profiles)")
 
 def _configure_openai_compatible(params: Dict[str, Any], model_name: str, api_key: Optional[str], api_base: Optional[str]) -> None:
     """Configure OpenAI-compatible provider setup."""
