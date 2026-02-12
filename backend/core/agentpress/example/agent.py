@@ -2,6 +2,7 @@ import asyncio
 from core.agentpress.thread_manager import ThreadManager
 from core.agentpress.tool import Tool, ToolResult, openapi_schema
 from core.agentpress.response_processor import ProcessorConfig
+from core.agentpress.context_manager import ContextManager  # Import ContextManager
 
 class CalculatorTool(Tool):
     @openapi_schema({
@@ -102,15 +103,16 @@ def render_conversation(messages):
     print("\n" + "="*60)
 
 async def main():
-    # Initialize thread manager and add tools
+    # 1. Initialize Managers
     thread_manager = ThreadManager()
+    context_manager = ContextManager() # Initialize our updated ContextManager
     thread_manager.add_tool(CalculatorTool)
     
-    # Define system prompt
-    system_prompt = {
-        "role": "system",
-        "content": """You are a helpful mathematical assistant agent. You can:
-
+    # Define a generic user_id (In production, get this from your auth/session)
+    user_id = "example_user_id" 
+    
+    # Base system prompt
+    base_system_content = """You are a helpful mathematical assistant agent. You can:
 1. Perform basic mathematical calculations (addition, subtraction, multiplication, division)
 2. Provide help information about available operations
 3. Explain mathematical concepts in simple terms
@@ -120,9 +122,7 @@ Always be friendly and explain your reasoning when solving problems.
 
 Available tools:
 - calculate: Perform mathematical operations
-
 """
-    }
     
     # Create thread
     thread_id = await thread_manager.create_thread()
@@ -134,6 +134,16 @@ Available tools:
     ]
     
     for message in messages:
+        # --- SUPERMEMORY STEP 1: RETRIEVAL ---
+        # Get long-term memories relevant to this specific message
+        long_term_context = await context_manager.get_long_term_context(user_id=user_id, query=message)
+        
+        # Inject long-term memory into a temporary system prompt for this run
+        current_system_prompt = {
+            "role": "system",
+            "content": base_system_content + long_term_context
+        }
+
         await thread_manager.add_message(
             thread_id=thread_id,
             type="user",
@@ -143,7 +153,7 @@ Available tools:
         
         response_stream = await thread_manager.run_thread(
             thread_id=thread_id,
-            system_prompt=system_prompt,
+            system_prompt=current_system_prompt,
             stream=True,
             llm_model="gpt-5",
             processor_config=ProcessorConfig(
@@ -153,10 +163,21 @@ Available tools:
             ),
         )        
 
+        full_assistant_response = ""
         async for chunk in response_stream:
             if isinstance(chunk, dict) and chunk.get('type') == 'content':
-                print(chunk.get('content', ''), end='', flush=True)
+                content_chunk = chunk.get('content', '')
+                print(content_chunk, end='', flush=True)
+                full_assistant_response += content_chunk
         print()
+
+        # --- SUPERMEMORY STEP 2: INGESTION ---
+        # Save the interaction into the Knowledge Graph so it can be retrieved next time
+        await context_manager.save_conversation_turn(
+            user_id=user_id, 
+            user_message=message, 
+            assistant_response=full_assistant_response
+        )
     
     try:
         conversation_history = await thread_manager.get_llm_messages(thread_id)

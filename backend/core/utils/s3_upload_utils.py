@@ -5,6 +5,7 @@ Utility functions for handling image operations.
 import base64
 import uuid
 from datetime import datetime
+from typing import Optional
 from core.utils.logger import logger
 from core.services.supabase import DBConnection
 
@@ -77,3 +78,45 @@ async def upload_image_bytes(image_bytes: bytes, content_type: str = "image/png"
     except Exception as e:
         logger.error(f"Error uploading image bytes: {e}")
         raise RuntimeError(f"Failed to upload image: {str(e)}") 
+
+# --- NEW SUPERMEMORY UPLOAD FUNCTION ---
+
+async def upload_supermemory_image(base64_string: str, bucket_name: str = "customer-request-images") -> Optional[str]:
+    """
+    Decodes a base64 image string and uploads it to Supabase Storage.
+    Returns the public URL of the uploaded file.
+    
+    ISOLATED CHANGE: This function handles specific upload requirements for Supermemory features,
+    distinct from the legacy upload_base64_image function.
+    """
+    try:
+        # Check if string has header (data:image/png;base64,...) and strip it
+        if "," in base64_string:
+            header, encoded = base64_string.split(",", 1)
+        else:
+            encoded = base64_string
+            
+        # Decode base64
+        file_data = base64.b64decode(encoded)
+        
+        # Generate unique filename (simple UUID.png format as preferred by new feature)
+        filename = f"{uuid.uuid4()}.png"
+        
+        db = DBConnection()
+        client = await db.client
+        
+        # Upload to Supabase Storage
+        res = await client.storage.from_(bucket_name).upload(
+            path=filename,
+            file=file_data,
+            file_options={"content-type": "image/png"}
+        )
+        
+        # Get public URL
+        public_url_res = client.storage.from_(bucket_name).get_public_url(filename)
+        
+        return public_url_res
+        
+    except Exception as e:
+        logger.error(f"Failed to upload supermemory image: {e}")
+        return None
