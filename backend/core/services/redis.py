@@ -135,15 +135,7 @@ async def publish(channel: str, message: str):
 async def create_pubsub():
     """Create a Redis pubsub object."""
     redis_client = await get_client()
-    pubsub = redis_client.pubsub()
-    # Set pubsub specific options for better stability
-    pubsub.connection_pool.connection_kwargs.update({
-        'socket_timeout': 30.0,
-        'socket_connect_timeout': 10.0,
-        'socket_keepalive': True,
-        'retry_on_timeout': True
-    })
-    return pubsub
+    return redis_client.pubsub()
 
 
 # List operations

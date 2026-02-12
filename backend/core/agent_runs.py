@@ -14,7 +14,7 @@ from core.utils.logger import logger, structlog
 from core.billing.billing_integration import billing_integration
 from core.utils.config import config, EnvMode
 from core.services import redis
-import redis.exceptions as redis_exceptions
+from redis.exceptions import ConnectionError as RedisConnectionError, TimeoutError as RedisTimeoutError
 from core.sandbox.sandbox import create_sandbox, delete_sandbox
 from run_agent_background import run_agent_background
 from core.ai_models import model_manager
@@ -542,7 +542,7 @@ async def stream_agent_run(
                             logger.warning(f"Listener stopped for {agent_run_id}.")
                             await message_queue.put({"type": "error", "data": "Listener stopped unexpectedly"})
                             return
-                        except (ConnectionError, redis_exceptions.ConnectionError, redis_exceptions.TimeoutError) as e:
+                        except (ConnectionError, RedisConnectionError, RedisTimeoutError) as e:
                             logger.warning(f"Redis connection error in listener for {agent_run_id}: {e}")
                             await message_queue.put({"type": "error", "data": "Redis connection lost"})
                             return
@@ -610,14 +610,8 @@ async def stream_agent_run(
                  yield f"data: {json.dumps({'type': 'status', 'status': 'error', 'message': f'Failed to start stream: {e}'})}\n\n"
         finally:
             terminate_stream = True
-            # Graceful shutdown order: unsubscribe → close → cancel
-            try:
-                if 'pubsub' in locals() and pubsub:
-                    await pubsub.unsubscribe(response_channel, control_channel)
-                    await pubsub.aclose()
-            except Exception as e:
-                logger.debug(f"Error during pubsub cleanup for {agent_run_id}: {e}")
-
+            # Graceful shutdown order: cancel task → close connection
+            # Cancel listener task FIRST, before closing the connection it's using
             if listener_task:
                 listener_task.cancel()
                 try:
@@ -629,6 +623,16 @@ async def stream_agent_run(
                     logger.warning(f"Listener task did not cancel within timeout for {agent_run_id}")
                 except Exception as e:
                     logger.debug(f"listener_task ended with: {e}")
+
+            # NOW close the pubsub connection after task is cancelled
+            try:
+                if 'pubsub' in locals() and pubsub:
+                    await pubsub.unsubscribe(response_channel, control_channel)
+                    await pubsub.aclose()
+                    logger.debug(f"PubSub cleaned up for {agent_run_id}")
+            except Exception as e:
+                logger.debug(f"Error during pubsub cleanup for {agent_run_id}: {e}")
+
             # Wait briefly for any remaining cleanup
             await asyncio.sleep(0.1)
             logger.debug(f"Streaming cleanup complete for agent run: {agent_run_id}")
