@@ -1,43 +1,222 @@
-"""
-AI Word document tool: create and modify DOCX files with unique section IDs.
+"""DOCX tool: JSON document model → .docx (in-memory only). Full regen per call; only .docx is written."""
 
-DocumentManager: createDocument, addParagraph, addHeading, addTable,
-saveDocument, getDocumentStructure, deleteSection, addHyperlink.
+from __future__ import annotations
 
-ContentModifier: modifyText, modifyFontSize, modifyFontStyle, modifyAlignment.
+import io
+from typing import Any, Dict, List, Optional, Tuple
 
-Unique ID plan: global nextId; each add* returns id and stores in element_map
-{id: {type, element, content, metadata}}. getDocumentStructure returns IDs with types and preview.
-"""
+import jsonschema
+from docx import Document
+from docx.enum.section import WD_ORIENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Inches, Pt
 
+from core.agentpress.thread_manager import ThreadManager
 from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
 from core.sandbox.tool_base import SandboxToolsBase
-from core.agentpress.thread_manager import ThreadManager
 from core.utils.logger import logger
-from typing import List, Dict, Optional, Any
-import json
-import io
-import re
-from docx import Document
-from docx.shared import Pt
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
-from docx.oxml import OxmlElement
-from docx.oxml.table import CT_Tbl
-from docx.oxml.text.paragraph import CT_P
-from docx.text.paragraph import Paragraph
-from docx.table import Table
+
+TWIPS_PER_POINT = 20
+_PAGE_SIZES = {"LETTER": (8.5, 11.0), "A4": (8.27, 11.69)}
+
+DOCX_DOCUMENT_SCHEMA = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://example.com/schemas/min-ai-docx.schema.json",
+    "title": "Minimal AI DOCX Document Schema (Foundational v1)",
+    "description": "Spacing and margins in twips (1 pt = 20 twips). Font sizes in points.",
+    "type": "object",
+    "required": ["doc"],
+    "additionalProperties": True,
+    "properties": {
+        "version": {"type": "string", "default": "1.0"},
+        "doc": {
+            "type": "object",
+            "required": ["page"],
+            "additionalProperties": True,
+            "properties": {
+                "page": {
+                    "type": "object",
+                    "additionalProperties": True,
+                    "properties": {
+                        "size": {"type": "string", "enum": ["LETTER", "A4"], "default": "LETTER"},
+                        "orientation": {"type": "string", "enum": ["portrait", "landscape"], "default": "portrait"},
+                        "margins": {"$ref": "#/$defs/Margins"},
+                    },
+                }
+            },
+        },
+        "styles": {
+            "type": "object",
+            "additionalProperties": {"$ref": "#/$defs/Style"},
+            "default": {},
+        },
+        "content": {
+            "type": "array",
+            "minItems": 0,
+            "default": [],
+            "items": {"$ref": "#/$defs/Block"},
+        },
+    },
+    "$defs": {
+        "Margins": {
+            "type": "object",
+            "additionalProperties": True,
+            "properties": {
+                "top": {"type": "number", "minimum": 0},
+                "left": {"type": "number", "minimum": 0},
+                "right": {"type": "number", "minimum": 0},
+                "bottom": {"type": "number", "minimum": 0},
+            },
+        },
+        "Spacing": {
+            "type": "object",
+            "additionalProperties": True,
+            "properties": {
+                "after": {"type": "number", "minimum": 0},
+                "before": {"type": "number", "minimum": 0},
+            },
+        },
+        "Style": {
+            "type": "object",
+            "additionalProperties": True,
+            "properties": {
+                "font": {"type": "string"},
+                "fontFamily": {"type": "string"},
+                "size_pt": {"type": "number", "minimum": 1},
+                "fontSize": {"type": "number", "minimum": 1},
+                "bold": {"type": "boolean"},
+                "italic": {"type": "boolean"},
+                "underline": {"type": "boolean"},
+            },
+        },
+        "Inline": {
+            "type": "object",
+            "required": ["text"],
+            "additionalProperties": True,
+            "properties": {
+                "text": {"type": "string"},
+                "bold": {"type": "boolean"},
+                "italic": {"type": "boolean"},
+                "underline": {"type": "boolean"},
+            },
+        },
+        "Inlines": {
+            "type": "array",
+            "items": {"$ref": "#/$defs/Inline"},
+            "minItems": 1,
+        },
+        "BaseBlock": {
+            "type": "object",
+            "required": ["type"],
+            "additionalProperties": True,
+            "properties": {
+                "id": {"type": "string"},
+                "type": {"type": "string", "enum": ["heading", "paragraph", "list", "table", "page_break"]},
+                "style": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]},
+            },
+        },
+        "HeadingBlock": {
+            "allOf": [
+                {"$ref": "#/$defs/BaseBlock"},
+                {
+                    "type": "object",
+                    "required": ["level", "text"],
+                    "properties": {
+                        "type": {"const": "heading"},
+                        "level": {"type": "integer", "minimum": 1, "maximum": 3},
+                        "text": {"type": "string"},
+                    },
+                },
+            ],
+        },
+        "ParagraphBlock": {
+            "allOf": [
+                {"$ref": "#/$defs/BaseBlock"},
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {"const": "paragraph"},
+                        "text": {"type": "string"},
+                        "inlines": {"$ref": "#/$defs/Inlines"},
+                        "bold": {"type": "boolean"},
+                        "italic": {"type": "boolean"},
+                        "underline": {"type": "boolean"},
+                        "alignment": {"type": "string", "enum": ["left", "center", "right", "justify"]},
+                        "spacing": {"$ref": "#/$defs/Spacing"},
+                    },
+                },
+            ],
+        },
+        "ListBlock": {
+            "allOf": [
+                {"$ref": "#/$defs/BaseBlock"},
+                {
+                    "type": "object",
+                    "required": ["list_type", "items"],
+                    "properties": {
+                        "type": {"const": "list"},
+                        "list_type": {"type": "string", "enum": ["bullet", "number"]},
+                        "items": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/Inlines"}},
+                    },
+                },
+            ],
+        },
+        "TableBlock": {
+            "allOf": [
+                {"$ref": "#/$defs/BaseBlock"},
+                {
+                    "type": "object",
+                    "required": ["rows"],
+                    "properties": {
+                        "type": {"const": "table"},
+                        "rows": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": {"$ref": "#/$defs/Inlines"},
+                            },
+                        },
+                    },
+                },
+            ],
+        },
+        "PageBreakBlock": {
+            "allOf": [
+                {"$ref": "#/$defs/BaseBlock"},
+                {"type": "object", "properties": {"type": {"const": "page_break"}}},
+            ],
+        },
+        "Block": {
+            "oneOf": [
+                {"$ref": "#/$defs/HeadingBlock"},
+                {"$ref": "#/$defs/ParagraphBlock"},
+                {"$ref": "#/$defs/ListBlock"},
+                {"$ref": "#/$defs/TableBlock"},
+                {"$ref": "#/$defs/PageBreakBlock"},
+            ],
+        },
+    },
+}
 
 
-def _validate_and_normalize_path(workspace_path: str, path: str) -> tuple:
-    """Validate and normalize path under /workspace. Returns (cleaned_relative_path, full_path)."""
+def _validate_content_semantics(content: List[Dict[str, Any]]) -> Optional[str]:
+    for i, block in enumerate(content):
+        if block.get("type") == "paragraph":
+            if not ("text" in block or block.get("inlines")):
+                return f"Paragraph block at index {i} must have 'text' or 'inlines'."
+    return None
+
+
+def _validate_and_normalize_path(workspace_path: str, path: str) -> Tuple[str, str]:
     if not path or not isinstance(path, str):
         raise ValueError("Path must be a non-empty string")
     path = path.replace("\\", "/").strip()
     if path.startswith("/workspace/"):
         path = path[len("/workspace/"):].lstrip("/")
     parts = path.split("/")
-    normalized = []
+    normalized: List[str] = []
     for part in parts:
         if part == "..":
             if normalized:
@@ -47,586 +226,301 @@ def _validate_and_normalize_path(workspace_path: str, path: str) -> tuple:
     cleaned = "/".join(normalized)
     if ".." in cleaned or "\\" in cleaned:
         raise ValueError("Path cannot contain '..' or backslashes")
-    full = f"{workspace_path}/{cleaned}"
-    return cleaned, full
+    return cleaned, f"{workspace_path}/{cleaned}"
 
 
-def _preview_text(text: str, max_len: int = 60) -> str:
-    """Short preview for structure listing."""
-    if not text:
-        return "(empty)"
-    text = re.sub(r"\s+", " ", text).strip()
-    return text[:max_len] + "..." if len(text) > max_len else text
+def _sanitize_filename(name: str) -> str:
+    base = "document"
+    if name:
+        safe = "".join(c for c in name if c.isalnum() or c in "-_.").strip()
+        if safe and not safe.startswith("."):
+            base = safe
+    if not base.lower().endswith(".docx"):
+        base = base.rstrip(".") + ".docx"
+    return base
 
 
-def _parse_alignment(alignment: str):
-    """Map string to WD_ALIGN_PARAGRAPH. Supports: left, center, right, justify."""
+def _twips_to_pt(twips: Any) -> Optional[float]:
+    if twips is None:
+        return None
+    try:
+        return float(twips) / TWIPS_PER_POINT
+    except (TypeError, ValueError):
+        return None
+
+
+def _twips_to_inches(twips: Any) -> Optional[float]:
+    pt = _twips_to_pt(twips)
+    return (pt / 72.0) if pt is not None else None
+
+
+def _apply_page_setup(doc: Document, size: str, orientation: str, margins: Optional[Dict[str, Any]] = None) -> None:
+    section = doc.sections[0]
+    w, h = _PAGE_SIZES.get(size.upper(), _PAGE_SIZES["LETTER"])
+    if orientation and str(orientation).lower() == "landscape":
+        section.page_width = Inches(h)
+        section.page_height = Inches(w)
+        section.orientation = WD_ORIENT.LANDSCAPE
+    else:
+        section.page_width = Inches(w)
+        section.page_height = Inches(h)
+        section.orientation = WD_ORIENT.PORTRAIT
+    if margins and isinstance(margins, dict):
+        for key, attr in (("top", "top_margin"), ("left", "left_margin"), ("right", "right_margin"), ("bottom", "bottom_margin")):
+            inch = _twips_to_inches(margins.get(key))
+            if inch is not None:
+                setattr(section, attr, Inches(inch))
+
+
+def _set_default_paragraph_spacing(doc: Document) -> None:
+    try:
+        normal = doc.styles["Normal"]
+        normal.paragraph_format.space_before = Pt(0)
+        normal.paragraph_format.space_after = Pt(0)
+    except (KeyError, AttributeError):
+        pass
+
+
+def _apply_style_to_run(run: Any, style_def: Optional[Dict[str, Any]]) -> None:
+    if not style_def or not isinstance(style_def, dict):
+        return
+    font = style_def.get("font") or style_def.get("fontFamily")
+    if font:
+        run.font.name = str(font)
+    size = style_def.get("size_pt") if style_def.get("size_pt") is not None else style_def.get("fontSize")
+    if size is not None:
+        run.font.size = Pt(float(size))
+    if style_def.get("bold") is not None:
+        run.font.bold = bool(style_def["bold"])
+    if style_def.get("italic") is not None:
+        run.font.italic = bool(style_def["italic"])
+    if style_def.get("underline") is not None:
+        run.font.underline = bool(style_def["underline"])
+
+
+def _alignment_enum(alignment: Optional[str]) -> Optional[WD_ALIGN_PARAGRAPH]:
     if not alignment:
-        return WD_ALIGN_PARAGRAPH.LEFT
-    a = alignment.strip().lower()
+        return None
     return {
         "left": WD_ALIGN_PARAGRAPH.LEFT,
         "center": WD_ALIGN_PARAGRAPH.CENTER,
         "right": WD_ALIGN_PARAGRAPH.RIGHT,
         "justify": WD_ALIGN_PARAGRAPH.JUSTIFY,
-    }.get(a, WD_ALIGN_PARAGRAPH.LEFT)
+    }.get(str(alignment).strip().lower())
+
+
+def _apply_paragraph_spacing(paragraph: Any, style_obj: Optional[Dict[str, Any]]) -> None:
+    if not style_obj or not isinstance(style_obj, dict):
+        return
+    spacing = style_obj.get("spacing")
+    if not isinstance(spacing, dict):
+        return
+    after_pt = _twips_to_pt(spacing.get("after"))
+    if after_pt is not None:
+        paragraph.paragraph_format.space_after = Pt(after_pt)
+    before_pt = _twips_to_pt(spacing.get("before"))
+    if before_pt is not None:
+        paragraph.paragraph_format.space_before = Pt(before_pt)
+
+
+def _add_inlines_to_paragraph(
+    doc: Document,
+    paragraph: Any,
+    inlines: List[Dict[str, Any]],
+    styles: Dict[str, Dict[str, Any]],
+    block_style: Any,
+) -> None:
+    style_def = block_style if isinstance(block_style, dict) else (styles.get(block_style) if isinstance(block_style, str) else None)
+    for inline in inlines:
+        run = paragraph.add_run(inline.get("text") or "")
+        _apply_style_to_run(run, style_def)
+        if inline.get("bold"):
+            run.font.bold = True
+        if inline.get("italic"):
+            run.font.italic = True
+        if inline.get("underline"):
+            run.font.underline = True
+
+
+def _render_blocks(doc: Document, content: List[Dict[str, Any]], styles: Dict[str, Dict[str, Any]]) -> int:
+    block_count = 0
+    for block in content:
+        block_type = block.get("type")
+        block_style = block.get("style")
+
+        if block_type == "heading":
+            level = min(3, max(1, int(block.get("level", 1))))
+            doc.add_heading(block.get("text") or "", level=level)
+            block_count += 1
+
+        elif block_type == "paragraph":
+            inlines = block.get("inlines")
+            if not inlines and "text" in block:
+                run_opts: Dict[str, Any] = {"text": block.get("text") or ""}
+                if block.get("bold") is not None:
+                    run_opts["bold"] = block["bold"]
+                if block.get("italic") is not None:
+                    run_opts["italic"] = block["italic"]
+                if block.get("underline") is not None:
+                    run_opts["underline"] = block["underline"]
+                inlines = [run_opts]
+            if not inlines:
+                inlines = [{"text": ""}]
+            p = doc.add_paragraph()
+            _add_inlines_to_paragraph(doc, p, inlines, styles, block_style)
+            block_spacing = block.get("spacing")
+            if isinstance(block_spacing, dict):
+                _apply_paragraph_spacing(p, {"spacing": block_spacing})
+            elif isinstance(block_style, dict):
+                _apply_paragraph_spacing(p, block_style)
+            alignment = _alignment_enum(block.get("alignment") or (block_style.get("alignment") if isinstance(block_style, dict) else None))
+            if alignment is not None:
+                p.paragraph_format.alignment = alignment
+            block_count += 1
+
+        elif block_type == "list":
+            style_name = "List Bullet" if (block.get("list_type") or "bullet") == "bullet" else "List Number"
+            for item_inlines in block.get("items") or []:
+                p = doc.add_paragraph(style=style_name)
+                _add_inlines_to_paragraph(doc, p, item_inlines or [{"text": ""}], styles, block_style)
+            block_count += 1
+
+        elif block_type == "table":
+            rows = block.get("rows") or []
+            if not rows:
+                raise ValueError("Table block must have at least one row")
+            col_count = len(rows[0])
+            for r in rows:
+                if len(r) != col_count:
+                    raise ValueError(f"Table rows must have uniform column count; expected {col_count}, got {len(r)}")
+            table = doc.add_table(rows=len(rows), cols=col_count)
+            for ri, row_inlines_list in enumerate(rows):
+                for ci, cell_inlines in enumerate(row_inlines_list):
+                    cell_para = table.rows[ri].cells[ci].paragraphs[0] if table.rows[ri].cells[ci].paragraphs else table.rows[ri].cells[ci].add_paragraph()
+                    cell_para.clear()
+                    _add_inlines_to_paragraph(doc, cell_para, cell_inlines or [{"text": ""}], styles, block_style)
+            block_count += 1
+
+        elif block_type == "page_break":
+            doc.add_page_break()
+            block_count += 1
+
+        else:
+            logger.debug("sb_docx_tool: unknown block type id=%s", (block.get("id") or "")[:32])
+    return block_count
+
+
+def _ensure_doc_styles(doc: Document, styles: Dict[str, Dict[str, Any]]) -> None:
+    for name, style_def in styles.items():
+        if not name or not isinstance(style_def, dict):
+            continue
+        try:
+            style = doc.styles.add_style(name, 1)
+        except ValueError:
+            style = doc.styles[name]
+        if style_def.get("font"):
+            style.font.name = style_def["font"]
+        if style_def.get("size_pt") is not None:
+            style.font.size = Pt(float(style_def["size_pt"]))
+        if style_def.get("bold") is not None:
+            style.font.bold = bool(style_def["bold"])
 
 
 @tool_metadata(
     display_name="Word Documents",
-    description="Create and edit Word (.docx) documents with paragraphs, headings, tables, and hyperlinks",
+    description="Generate Word (.docx) documents from a JSON document model (single render per request)",
     icon="FileText",
     color="bg-indigo-100 dark:bg-indigo-800/50",
     weight=75,
     visible=True,
 )
 class SandboxDocxTool(SandboxToolsBase):
-    """
-    Word document tool: build a DOCX in memory with section IDs, then save to the sandbox.
-    DocumentManager APIs add content and return section IDs; ContentModifier APIs change existing sections.
-    """
-
-    # File in sandbox storing path to the "current" document (so we can reload it in new requests)
-    CURRENT_DOCX_PATH_FILE = "documents/.current_docx_path"
-
     def __init__(self, project_id: str, thread_manager: ThreadManager):
         super().__init__(project_id, thread_manager)
         self.documents_dir = "documents"
-        self._doc: Optional[Document] = None
-        self._element_map: Dict[int, Dict[str, Any]] = {}
-        self._order: List[int] = []
-        self._next_id: int = 1
 
     async def _ensure_documents_dir(self) -> None:
-        full_path = f"{self.workspace_path}/{self.documents_dir}"
         try:
-            await self.sandbox.fs.create_folder(full_path, "755")
+            await self.sandbox.fs.create_folder(f"{self.workspace_path}/{self.documents_dir}", "755")
         except Exception:
             pass
 
-    def _iter_block_items(self, parent: Document) -> Any:
-        """Iterate block-level items (paragraphs, tables) in document order."""
-        body = parent.element.body
-        for child in body.iterchildren():
-            if isinstance(child, CT_P):
-                yield Paragraph(child, parent)
-            elif isinstance(child, CT_Tbl):
-                yield Table(child, parent)
-
-    async def _load_document_from_sandbox(self) -> bool:
-        """Load the current document from sandbox using stored path. Rebuilds _element_map and _order. Returns True if loaded."""
-        try:
-            path_file = f"{self.workspace_path}/{self.CURRENT_DOCX_PATH_FILE}"
-            path_content = await self.sandbox.fs.download_file(path_file)
-            rel_path = path_content.decode().strip()
-            if not rel_path:
-                return False
-            full_path = f"{self.workspace_path}/{rel_path}"
-            doc_bytes = await self.sandbox.fs.download_file(full_path)
-            self._doc = Document(io.BytesIO(doc_bytes))
-            self._element_map = {}
-            self._order = []
-            self._next_id = 1
-            for block in self._iter_block_items(self._doc):
-                content = block.text if hasattr(block, "text") else ""
-                if hasattr(block, "style") and block.style and "Heading" in str(block.style.name):
-                    section_type = "heading"
-                    level = 1
-                    if hasattr(block.style, "builtin") and "Heading" in str(block.style.name):
-                        try:
-                            level = int("".join(c for c in str(block.style.name) if c.isdigit()) or "1")
-                        except Exception:
-                            level = 1
-                    metadata = {"level": level}
-                elif isinstance(block, Table):
-                    section_type = "table"
-                    rows, cols = len(block.rows), len(block.columns)
-                    metadata = {"rows": rows, "columns": cols}
-                else:
-                    section_type = "paragraph"
-                    metadata = {}
-                self._register(section_type, block, content, metadata)
-            return True
-        except Exception as e:
-            logger.debug(f"Could not load current docx from sandbox: {e}")
-            return False
-
-    async def _ensure_document(self) -> Document:
-        """Return the active document, loading from sandbox if we have a saved current path and no in-memory doc."""
-        if self._doc is not None:
-            return self._doc
-        loaded = await self._load_document_from_sandbox()
-        if loaded and self._doc is not None:
-            return self._doc
-        raise ValueError("No active document. Call create_document first, then add content and save_document. If you already saved a document, modify tools will load it automatically.")
-
-    def _require_document(self) -> Document:
-        """Sync version for use when sandbox/document is already ensured (e.g. after _ensure_document)."""
-        if self._doc is None:
-            raise ValueError("No active document. Call create_document first.")
-        return self._doc
-
-    def _register(self, section_type: str, element: Any, content: str = "", metadata: Optional[Dict] = None) -> int:
-        sid = self._next_id
-        self._next_id += 1
-        self._element_map[sid] = {
-            "type": section_type,
-            "element": element,
-            "content": content,
-            "metadata": metadata or {},
-        }
-        self._order.append(sid)
-        return sid
-
-    def _remove_from_document(self, element: Any) -> None:
-        parent = element._element.getparent()
-        if parent is not None:
-            parent.remove(element._element)
-        element._element = None
-        if hasattr(element, "_p"):
-            element._p = None
-
-    # ---------- DocumentManager ----------
-
     @openapi_schema({
         "type": "function",
         "function": {
-            "name": "create_document",
-            "description": "Create a new Word document in memory. Call this first; then use add_paragraph, add_heading, add_table, add_hyperlink to build content. Use save_document to write to a file path.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    })
-    async def create_document(self) -> ToolResult:
-        try:
-            await self._ensure_sandbox()
-            await self._ensure_documents_dir()
-            self._doc = Document()
-            self._element_map = {}
-            self._order = []
-            self._next_id = 1
-            return self.success_response({
-                "message": "New document created. Use add_paragraph, add_heading, add_table, add_hyperlink to add content, then save_document.",
-                "next_id": 1,
-            })
-        except Exception as e:
-            return self.fail_response(f"Failed to create document: {str(e)}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "add_paragraph",
-            "description": "Add a paragraph to the document. Returns section id for later modify or delete.",
+            "name": "render_docx",
+            "description": "Render a document from a JSON document model and save as .docx in the workspace. The JSON is not stored; only the generated .docx file is written.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "text": {"type": "string", "description": "Paragraph text"},
-                    "font_size": {"type": "integer", "description": "Font size in points", "default": 11},
-                    "bold": {"type": "boolean", "description": "Bold", "default": False},
-                    "italic": {"type": "boolean", "description": "Italic", "default": False},
-                    "alignment": {"type": "string", "description": "Text alignment: left, center, right, or justify", "default": "left", "enum": ["left", "center", "right", "justify"]},
+                    "document_json": {"type": "object", "description": "The document model (doc.page, optional content, optional styles)."},
+                    "output_filename": {"type": "string", "description": "Output filename.", "default": "document.docx"},
                 },
-                "required": ["text"],
+                "required": ["document_json"],
             },
         },
     })
-    async def add_paragraph(
+    async def render_docx(
         self,
-        text: str,
-        font_size: int = 11,
-        bold: bool = False,
-        italic: bool = False,
-        alignment: str = "left",
+        document_json: Dict[str, Any],
+        output_filename: str = "document.docx",
     ) -> ToolResult:
         try:
             await self._ensure_sandbox()
-            doc = await self._ensure_document()
-            p = doc.add_paragraph()
-            run = p.add_run(text or "")
-            run.font.size = Pt(font_size)
-            run.font.bold = bold
-            run.font.italic = italic
-            p.paragraph_format.alignment = _parse_alignment(alignment)
-            sid = self._register("paragraph", p, text, {"font_size": font_size, "bold": bold, "italic": italic, "alignment": alignment})
-            return self.success_response({"section_id": sid, "type": "paragraph", "preview": _preview_text(text)})
-        except ValueError as e:
-            return self.fail_response(str(e))
-        except Exception as e:
-            return self.fail_response(f"Failed to add paragraph: {str(e)}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "add_heading",
-            "description": "Add a heading to the document. Returns section id.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "text": {"type": "string", "description": "Heading text"},
-                    "level": {"type": "integer", "description": "Heading level 1-9 (1 = title)", "default": 1},
-                    "alignment": {"type": "string", "description": "Text alignment: left, center, right, or justify", "default": "left", "enum": ["left", "center", "right", "justify"]},
-                },
-                "required": ["text"],
-            },
-        },
-    })
-    async def add_heading(self, text: str, level: int = 1, alignment: str = "left") -> ToolResult:
-        try:
-            await self._ensure_sandbox()
-            doc = await self._ensure_document()
-            level = max(1, min(9, level))
-            p = doc.add_heading(text or "", level=level)
-            p.paragraph_format.alignment = _parse_alignment(alignment)
-            sid = self._register("heading", p, text, {"level": level, "alignment": alignment})
-            return self.success_response({"section_id": sid, "type": "heading", "level": level, "preview": _preview_text(text)})
-        except ValueError as e:
-            return self.fail_response(str(e))
-        except Exception as e:
-            return self.fail_response(f"Failed to add heading: {str(e)}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "add_table",
-            "description": "Add a table. data is a 2D list (rows of cells). Dimensions must match rows and columns.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "rows": {"type": "integer", "description": "Number of rows"},
-                    "columns": {"type": "integer", "description": "Number of columns"},
-                    "data": {
-                        "type": "array",
-                        "description": "2D array of cell text; length must equal rows, each row length must equal columns",
-                        "items": {"type": "array", "items": {"type": "string"}},
-                    },
-                },
-                "required": ["rows", "columns", "data"],
-            },
-        },
-    })
-    async def add_table(self, rows: int, columns: int, data: List[List[str]]) -> ToolResult:
-        try:
-            await self._ensure_sandbox()
-            doc = await self._ensure_document()
-            if rows < 1 or columns < 1:
-                return self.fail_response("rows and columns must be at least 1")
-            if len(data) != rows:
-                return self.fail_response(f"data must have {rows} rows, got {len(data)}")
-            for i, row in enumerate(data):
-                if len(row) != columns:
-                    return self.fail_response(f"Row {i + 1} must have {columns} cells, got {len(row)}")
-            table = doc.add_table(rows=rows, cols=columns)
-            table.style = "Table Grid"
-            for r, row_data in enumerate(data):
-                for c, cell_text in enumerate(row_data):
-                    table.rows[r].cells[c].text = str(cell_text) if cell_text is not None else ""
-            preview = _preview_text(str(data[0]) if data else "") if data else "(empty table)"
-            sid = self._register("table", table, json.dumps(data), {"rows": rows, "columns": columns})
-            return self.success_response({"section_id": sid, "type": "table", "rows": rows, "columns": columns, "preview": preview})
-        except ValueError as e:
-            return self.fail_response(str(e))
-        except Exception as e:
-            return self.fail_response(f"Failed to add table: {str(e)}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "add_hyperlink",
-            "description": "Add a hyperlink (clickable text linking to a URL).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "text": {"type": "string", "description": "Display text for the link"},
-                    "url": {"type": "string", "description": "URL to open when clicked"},
-                },
-                "required": ["text", "url"],
-            },
-        },
-    })
-    async def add_hyperlink(self, text: str, url: str) -> ToolResult:
-        try:
-            await self._ensure_sandbox()
-            doc = await self._ensure_document()
-            p = doc.add_paragraph()
-            part = doc.part
-            rId = part.relate_to(
-                url,
-                "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
-                is_external=True,
-            )
-            hyperlink = OxmlElement("w:hyperlink")
-            hyperlink.set(qn("r:id"), rId)
-            run = OxmlElement("w:r")
-            rPr = OxmlElement("w:rPr")
-            u = OxmlElement("w:u")
-            u.set(qn("w:val"), "single")
-            color = OxmlElement("w:color")
-            color.set(qn("w:val"), "0000FF")
-            rPr.append(u)
-            rPr.append(color)
-            run.append(rPr)
-            t = OxmlElement("w:t")
-            t.text = text or url
-            run.append(t)
-            hyperlink.append(run)
-            p._element.append(hyperlink)
-            sid = self._register("hyperlink", p, text, {"url": url})
-            return self.success_response({"section_id": sid, "type": "hyperlink", "preview": _preview_text(text)})
-        except ValueError as e:
-            return self.fail_response(str(e))
-        except Exception as e:
-            return self.fail_response(f"Failed to add hyperlink: {str(e)}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "save_document",
-            "description": "Save the current document to a file path under /workspace (e.g. /workspace/documents/report.docx).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "file_path": {
-                        "type": "string",
-                        "description": "Path under /workspace (e.g. documents/report.docx)",
-                        "default": "documents/document.docx",
-                    },
-                },
-                "required": [],
-            },
-        },
-    })
-    async def save_document(self, file_path: Optional[str] = None) -> ToolResult:
-        try:
-            await self._ensure_sandbox()
             await self._ensure_documents_dir()
-            doc = await self._ensure_document()
-            if not file_path:
-                file_path = f"{self.documents_dir}/document.docx"
-            cleaned, full_path = _validate_and_normalize_path(self.workspace_path, file_path)
-            if not full_path.lower().endswith(".docx"):
-                full_path = full_path.rstrip("/") + ".docx"
-                cleaned = (cleaned.rstrip("/") + ".docx") if cleaned else "document.docx"
-            parent = "/".join(full_path.split("/")[:-1])
-            if parent and parent != self.workspace_path:
-                try:
-                    await self.sandbox.fs.create_folder(parent, "755")
-                except Exception:
-                    pass
-            buffer = io.BytesIO()
-            doc.save(buffer)
-            buffer.seek(0)
-            await self.sandbox.fs.upload_file(buffer.getvalue(), full_path)
-            # Persist current document path so modify/add/delete can load it in a new request
-            path_file = f"{self.workspace_path}/{self.CURRENT_DOCX_PATH_FILE}"
-            await self.sandbox.fs.upload_file(cleaned.encode(), path_file)
-            logger.info(f"Saved document to {full_path}")
+
+            try:
+                jsonschema.validate(instance=document_json, schema=DOCX_DOCUMENT_SCHEMA)
+            except jsonschema.ValidationError as e:
+                return self.fail_response(f"Document model validation failed: {e.message or str(e)}")
+
+            content = document_json.get("content") or []
+            semantic_err = _validate_content_semantics(content)
+            if semantic_err:
+                return self.fail_response(f"Document model invalid: {semantic_err}")
+
+            doc_config = document_json.get("doc") or {}
+            page_config = doc_config.get("page") or {}
+            size = page_config.get("size", "LETTER")
+            orientation = page_config.get("orientation", "portrait")
+            styles = document_json.get("styles") or {}
+
+            for block in content:
+                if block.get("type") == "table":
+                    rows = block.get("rows") or []
+                    if not rows:
+                        return self.fail_response("Table block must have at least one row")
+                    col_count = len(rows[0])
+                    for r in rows:
+                        if len(r) != col_count:
+                            return self.fail_response(f"Table rows must have uniform column count; expected {col_count}, got {len(r)}")
+
+            doc = Document()
+            _apply_page_setup(doc, size, orientation, page_config.get("margins"))
+            _set_default_paragraph_spacing(doc)
+            _ensure_doc_styles(doc, styles)
+            block_count = _render_blocks(doc, content, styles)
+
+            safe_name = _sanitize_filename(output_filename)
+            relative_path = f"{self.documents_dir}/{safe_name}"
+            cleaned, full_path = _validate_and_normalize_path(self.workspace_path, relative_path)
+            try:
+                await self.sandbox.fs.delete_file(full_path)
+            except Exception:
+                pass
+            buf = io.BytesIO()
+            doc.save(buf)
+            buf.seek(0)
+            await self.sandbox.fs.upload_file(buf.getvalue(), full_path)
+
+            logger.info("sb_docx_tool render_docx: block_count=%s path=%s", block_count, full_path)
             return self.success_response({
-                "message": "Document saved successfully",
-                "file_path": full_path,
+                "saved_path": full_path,
                 "relative_path": f"/workspace/{cleaned}",
+                "block_count": block_count,
             })
         except ValueError as e:
             return self.fail_response(str(e))
         except Exception as e:
-            return self.fail_response(f"Failed to save document: {str(e)}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "get_document_structure",
-            "description": "Return the structure of the current document: all section IDs with type and preview.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    })
-    async def get_document_structure(self) -> ToolResult:
-        try:
-            await self._ensure_sandbox()
-            await self._ensure_document()
-            structure = []
-            for sid in self._order:
-                if sid not in self._element_map:
-                    continue
-                rec = self._element_map[sid]
-                structure.append({
-                    "id": sid,
-                    "type": rec["type"],
-                    "preview": _preview_text(rec.get("content") or rec.get("metadata", {}).get("url", "")),
-                    "metadata": rec.get("metadata", {}),
-                })
-            return self.success_response({
-                "message": f"Document has {len(structure)} sections",
-                "structure": structure,
-            })
-        except ValueError as e:
-            return self.fail_response(str(e))
-        except Exception as e:
-            return self.fail_response(f"Failed to get structure: {str(e)}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "delete_section",
-            "description": "Remove a section from the document by its section id.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "section_id": {"type": "integer", "description": "Section id returned by add_paragraph, add_heading, add_table, or add_hyperlink"},
-                },
-                "required": ["section_id"],
-            },
-        },
-    })
-    async def delete_section(self, section_id: int) -> ToolResult:
-        try:
-            await self._ensure_sandbox()
-            await self._ensure_document()
-            if section_id not in self._element_map:
-                return self.fail_response(f"Section id {section_id} not found. Use get_document_structure to list ids.")
-            rec = self._element_map[section_id]
-            el = rec["element"]
-            self._remove_from_document(el)
-            del self._element_map[section_id]
-            self._order = [i for i in self._order if i != section_id]
-            return self.success_response({"message": f"Section {section_id} deleted", "section_id": section_id})
-        except ValueError as e:
-            return self.fail_response(str(e))
-        except Exception as e:
-            return self.fail_response(f"Failed to delete section: {str(e)}")
-
-    # ---------- ContentModifier ----------
-
-    def _get_text_element(self, section_id: int):
-        """Return paragraph/heading element for modifier ops. Raises if not found or not text type."""
-        if section_id not in self._element_map:
-            raise ValueError(f"Section id {section_id} not found")
-        rec = self._element_map[section_id]
-        if rec["type"] not in ("paragraph", "heading"):
-            raise ValueError(f"Section {section_id} is type '{rec['type']}'; modify_text/modify_font_* apply only to paragraph or heading")
-        return rec["element"]
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "modify_text",
-            "description": "Change the text of a paragraph or heading section.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "section_id": {"type": "integer", "description": "Section id (paragraph or heading)"},
-                    "new_text": {"type": "string", "description": "New text content"},
-                },
-                "required": ["section_id", "new_text"],
-            },
-        },
-    })
-    async def modify_text(self, section_id: int, new_text: str) -> ToolResult:
-        try:
-            await self._ensure_sandbox()
-            await self._ensure_document()
-            p = self._get_text_element(section_id)
-            p.clear()
-            p.add_run(new_text or "")
-            self._element_map[section_id]["content"] = new_text or ""
-            return self.success_response({"message": f"Section {section_id} text updated", "section_id": section_id})
-        except ValueError as e:
-            return self.fail_response(str(e))
-        except Exception as e:
-            return self.fail_response(f"Failed to modify text: {str(e)}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "modify_font_size",
-            "description": "Set font size for a paragraph or heading section (in points).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "section_id": {"type": "integer", "description": "Section id (paragraph or heading)"},
-                    "font_size": {"type": "integer", "description": "Font size in points"},
-                },
-                "required": ["section_id", "font_size"],
-            },
-        },
-    })
-    async def modify_font_size(self, section_id: int, font_size: int) -> ToolResult:
-        try:
-            await self._ensure_sandbox()
-            await self._ensure_document()
-            p = self._get_text_element(section_id)
-            for run in p.runs:
-                run.font.size = Pt(font_size)
-            self._element_map[section_id].setdefault("metadata", {})["font_size"] = font_size
-            return self.success_response({"message": f"Section {section_id} font size set to {font_size}", "section_id": section_id})
-        except ValueError as e:
-            return self.fail_response(str(e))
-        except Exception as e:
-            return self.fail_response(f"Failed to modify font size: {str(e)}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "modify_font_style",
-            "description": "Set bold and/or italic for a paragraph or heading section.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "section_id": {"type": "integer", "description": "Section id (paragraph or heading)"},
-                    "bold": {"type": "boolean", "description": "Bold"},
-                    "italic": {"type": "boolean", "description": "Italic"},
-                },
-                "required": ["section_id"],
-            },
-        },
-    })
-    async def modify_font_style(
-        self,
-        section_id: int,
-        bold: Optional[bool] = None,
-        italic: Optional[bool] = None,
-    ) -> ToolResult:
-        try:
-            await self._ensure_sandbox()
-            await self._ensure_document()
-            p = self._get_text_element(section_id)
-            for run in p.runs:
-                if bold is not None:
-                    run.font.bold = bold
-                if italic is not None:
-                    run.font.italic = italic
-            meta = self._element_map[section_id].setdefault("metadata", {})
-            if bold is not None:
-                meta["bold"] = bold
-            if italic is not None:
-                meta["italic"] = italic
-            return self.success_response({"message": f"Section {section_id} font style updated", "section_id": section_id})
-        except ValueError as e:
-            return self.fail_response(str(e))
-        except Exception as e:
-            return self.fail_response(f"Failed to modify font style: {str(e)}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "modify_alignment",
-            "description": "Set paragraph alignment for a paragraph or heading section. Use left, center, right, or justify.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "section_id": {"type": "integer", "description": "Section id (paragraph or heading)"},
-                    "alignment": {"type": "string", "description": "Alignment: left, center, right, or justify", "enum": ["left", "center", "right", "justify"]},
-                },
-                "required": ["section_id", "alignment"],
-            },
-        },
-    })
-    async def modify_alignment(self, section_id: int, alignment: str) -> ToolResult:
-        try:
-            await self._ensure_sandbox()
-            await self._ensure_document()
-            p = self._get_text_element(section_id)
-            p.paragraph_format.alignment = _parse_alignment(alignment)
-            self._element_map[section_id].setdefault("metadata", {})["alignment"] = alignment.strip().lower()
-            return self.success_response({"message": f"Section {section_id} alignment set to {alignment}", "section_id": section_id})
-        except ValueError as e:
-            return self.fail_response(str(e))
-        except Exception as e:
-            return self.fail_response(f"Failed to modify alignment: {str(e)}")
+            logger.exception("sb_docx_tool render_docx failed")
+            return self.fail_response(f"Failed to render document: {str(e)}")
