@@ -41,6 +41,11 @@ class ThreadManager:
             trace=self.trace,
             agent_config=self.agent_config
         )
+        
+        # Initialize ContextManager for Supermemory integration and compression
+        self.context_manager = ContextManager()
+        self.current_user_id = None
+        self.current_enterprise_id = None
 
     def add_tool(self, tool_class: Type[Tool], function_names: Optional[List[str]] = None, **kwargs):
         """Add a tool to the ThreadManager."""
@@ -108,6 +113,29 @@ class ThreadManager:
             if result.data and len(result.data) > 0 and 'message_id' in result.data[0]:
                 saved_message = result.data[0]
                 
+                if self.current_user_id and type in ['user', 'assistant']:
+                    # Extract text content for memory
+                    msg_content = ""
+                    if isinstance(content, str):
+                        msg_content = content
+                    elif isinstance(content, dict):
+                         msg_content = content.get('content', '')
+                         if isinstance(msg_content, list): # e.g. complex blocks
+                             msg_content = " ".join([str(block.get('text', '')) for block in msg_content if isinstance(block, dict)])
+                    
+                    if msg_content and isinstance(msg_content, str) and msg_content.strip():
+                         # Save to memory in background using executor (since save_chat_turn is sync)
+                         loop = asyncio.get_running_loop()
+                         loop.run_in_executor(
+                             None,
+                             lambda: self.context_manager.memory_service.save_chat_turn(
+                                 user_id=self.current_user_id,
+                                 message=msg_content,
+                                 role=type,
+                                 enterprise_id=self.current_enterprise_id
+                             )
+                         )
+
                 if type == "llm_response_end" and isinstance(content, dict):
                     await self._handle_billing(thread_id, content, saved_message)
                 
@@ -293,6 +321,38 @@ class ThreadManager:
     ) -> Union[Dict[str, Any], AsyncGenerator]:
         """Run a conversation thread with LLM integration and tool execution."""
         logger.debug(f"🚀 Starting thread execution for {thread_id} with model {llm_model}")
+        logger.info(f"🔍 ThreadManager State - User: {self.current_user_id}, Enterprise: {self.current_enterprise_id}, Content Length: {len(latest_user_message_content) if latest_user_message_content else 0}")
+
+        # --- SUPERMEMORY INTEGRATION ---
+        # 1. Resolve user_id and enterprise_id if not cached
+        if not self.current_user_id:
+            try:
+                client = await self.db.client
+                thread_row = await client.table('threads').select('account_id').eq('thread_id', thread_id).maybe_single().execute()
+                if thread_row.data:
+                    self.current_user_id = thread_row.data.get('account_id')
+                    
+                    # Resolve enterprise_id from account
+                    if self.current_user_id:
+                         account_row = await client.table('accounts').select('enterprise_id').eq('account_id', self.current_user_id).maybe_single().execute()
+                         if account_row.data:
+                             self.current_enterprise_id = account_row.data.get('enterprise_id')
+            except Exception as e:
+                logger.warning(f"Failed to resolve user context for thread {thread_id}: {e}")
+
+        # 2. Inject Long-Term Context
+        if self.current_user_id and latest_user_message_content:
+             long_term_context = await self.context_manager.get_long_term_context(self.current_user_id, latest_user_message_content, self.current_enterprise_id)
+             if long_term_context and isinstance(system_prompt, dict):
+                 original_content = system_prompt.get('content', '')
+                 if isinstance(original_content, str):
+                    system_prompt['content'] = original_content + "\n" + long_term_context
+                    logger.info(f"🧠 Injected long-term memory into system prompt for user {self.current_user_id}")
+             else:
+                 logger.warning(f"⚠️ Memory retrieval returned empty context for user {self.current_user_id}")
+        else:
+             logger.info(f"⚠️ Skipping memory injection - Missing Requirements: UserID={bool(self.current_user_id)}, Content={bool(latest_user_message_content)}")
+        # -------------------------------
 
         # Ensure we have a valid ProcessorConfig object
         if processor_config is None:
@@ -491,8 +551,8 @@ class ThreadManager:
                     # We know we're over threshold, compress now
                     compress_start = time.time()
                     logger.info(f"Applying context compression on {len(messages)} messages")
-                    context_manager = ContextManager()
-                    compressed_messages = await context_manager.compress_messages(
+                    # Use self.context_manager instead of new instance
+                    compressed_messages = await self.context_manager.compress_messages(
                         messages, llm_model, max_tokens=llm_max_tokens, 
                         actual_total_tokens=estimated_total_tokens,  # Use estimated from fast check!
                         system_prompt=system_prompt,
@@ -504,8 +564,8 @@ class ThreadManager:
                     # First turn or no fast path data: Run compression check
                     compress_start = time.time()
                     logger.debug(f"Running compression check on {len(messages)} messages")
-                    context_manager = ContextManager()
-                    compressed_messages = await context_manager.compress_messages(
+                    # Use self.context_manager
+                    compressed_messages = await self.context_manager.compress_messages(
                         messages, llm_model, max_tokens=llm_max_tokens, 
                         actual_total_tokens=None,
                         system_prompt=system_prompt,
@@ -583,20 +643,20 @@ class ThreadManager:
             validation_start = time.time()
             
             # Ensure we have a ContextManager instance for validation (may not exist if compression was skipped)
-            if 'context_manager' not in locals():
-                context_manager = ContextManager()
+            # Ensure we have a ContextManager instance for validation (may not exist if compression was skipped)
+            # Use self.context_manager
             
-            is_valid, orphaned_ids, unanswered_ids = context_manager.validate_tool_call_pairing(prepared_messages)
+            is_valid, orphaned_ids, unanswered_ids = self.context_manager.validate_tool_call_pairing(prepared_messages)
             if not is_valid:
                 logger.warning(f"⚠️ PRE-SEND VALIDATION: Found pairing issues - attempting repair")
                 logger.warning(f"⚠️ Orphaned tool_results: {orphaned_ids}")
                 logger.warning(f"⚠️ Unanswered tool_calls: {unanswered_ids}")
                 
                 # Attempt to repair by fixing both directions
-                prepared_messages = context_manager.repair_tool_call_pairing(prepared_messages)
+                prepared_messages = self.context_manager.repair_tool_call_pairing(prepared_messages)
                 
                 # Re-validate after repair
-                is_valid_after, orphans_after, unanswered_after = context_manager.validate_tool_call_pairing(prepared_messages)
+                is_valid_after, orphans_after, unanswered_after = self.context_manager.validate_tool_call_pairing(prepared_messages)
                 if not is_valid_after:
                     logger.error(f"🚨 CRITICAL: Could not repair message structure. Orphaned: {len(orphans_after)}, Unanswered: {len(unanswered_after)}")
                 else:

@@ -841,6 +841,12 @@ class AgentRunner:
         # Run setup in parallel where possible for lower latency
         setup_start = time.time()
         await self.setup()  # Must run first (sets up client, account_id)
+        
+        # FIX: Explicitly set user_id on thread_manager to ensure memory retrieval works
+        if self.account_id and self.thread_manager:
+            self.thread_manager.current_user_id = self.account_id
+            logger.info(f"🔧 Explicitly set ThreadManager.current_user_id to {self.account_id}")
+
         logger.info(f"⏱️ [TIMING] AgentRunner.setup() completed in {(time.time() - setup_start) * 1000:.1f}ms")
         
         # Run tool setup and MCP setup in parallel
