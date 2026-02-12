@@ -10,7 +10,7 @@ import re
 import io
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import column_index_from_string
+from openpyxl.utils import column_index_from_string, get_column_letter
 from openpyxl.cell.cell import Cell
 from pathlib import Path
 
@@ -576,11 +576,11 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
                     },
                     "range": {
                         "type": "string",
-                        "description": "Cell range in A1:C3 format where data will be written"
+                        "description": "Cell range in A1:C3 format. The top-left cell of this range is where writing starts; data size can be any number of rows/columns."
                     },
                     "values": {
                         "type": "array",
-                        "description": "2D array of values (rows x cols) to write. Number of rows/columns should match the range.",
+                        "description": "2D array of values (rows x cols) to write. Writing starts at the top-left of the range and extends to fit all provided rows and columns.",
                         "items": {
                             "type": "array",
                             "items": {
@@ -622,19 +622,14 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
                 return self.fail_response(f"Sheet '{sheet_name}' not found. Available sheets: {', '.join(workbook.sheetnames)}")
             worksheet = workbook[sheet_name]
             
-            # Parse range
+            # Parse range (used as top-left anchor; data extent can be larger or smaller)
             start_row, start_col, end_row, end_col = self._parse_range(range)
             
-            # Validate dimensions
-            expected_rows = end_row - start_row + 1
-            expected_cols = end_col - start_col + 1
             actual_rows = len(values)
-            actual_cols = len(values[0]) if values else 0
+            actual_cols = max(len(row) for row in values) if values else 0
             
-            if actual_rows != expected_rows or actual_cols != expected_cols:
-                return self.fail_response(
-                    f"Data dimensions ({actual_rows}x{actual_cols}) don't match range dimensions ({expected_rows}x{expected_cols})"
-                )
+            if actual_rows == 0:
+                return self.fail_response("No data to write (values array is empty)")
             
             # Write data
             for row_idx, row_data in enumerate(values):
@@ -645,19 +640,77 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             # Save back
             await self._save_workbook_to_sandbox(workbook, full_path)
             
-            logger.info(f"Updated range {range} in {full_path}")
+            end_row_written = start_row + actual_rows - 1
+            end_col_written = start_col + actual_cols - 1
+            range_written = f"{get_column_letter(start_col)}{start_row}:{get_column_letter(end_col_written)}{end_row_written}"
+            logger.info(f"Updated range {range_written} in {full_path}")
             
             return self.success_response({
                 "ok": True,
                 "file_path": full_path,
-                "range_written": range,
-                "rows": len(values),
-                "cols": len(values[0]) if values else 0
+                "range_written": range_written,
+                "rows": actual_rows,
+                "cols": actual_cols
             })
             
         except Exception as e:
             logger.error(f"Error updating range: {str(e)}", exc_info=True)
             return self.fail_response(f"Failed to update range: {str(e)}")
+    
+    # ==================== clear_range ====================
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "clear_range",
+            "description": "Clear cell values in a range (set to empty). Use after read_range + update_range to complete a move, or to clear contents without deleting the sheet.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path to existing workbook file"},
+                    "sheet_name": {"type": "string", "description": "Name of the sheet"},
+                    "range": {"type": "string", "description": "Range to clear in A1:C3 format (e.g. A1:B10)"}
+                },
+                "required": ["path", "sheet_name", "range"]
+            }
+        }
+    })
+    async def clear_range(
+        self,
+        path: str,
+        sheet_name: str,
+        range: str
+    ) -> ToolResult:
+        """Clear cell values in a range."""
+        try:
+            await self._ensure_sandbox()
+            if not self._validate_range(range):
+                return self.fail_response(f"Invalid range format: {range}. Expected format: A1:C3")
+            try:
+                cleaned_path, full_path = self._validate_and_normalize_path(path, must_exist=True)
+            except ValueError as e:
+                return self.fail_response(f"Invalid path: {str(e)}. Paths must be relative to /workspace.")
+            workbook = await self._load_workbook_from_sandbox(full_path)
+            if sheet_name not in workbook.sheetnames:
+                return self.fail_response(f"Sheet '{sheet_name}' not found. Available sheets: {', '.join(workbook.sheetnames)}")
+            worksheet = workbook[sheet_name]
+            start_row, start_col, end_row, end_col = self._parse_range(range)
+            for r in range(start_row, end_row + 1):
+                for c in range(start_col, end_col + 1):
+                    worksheet.cell(row=r, column=c).value = None
+            await self._save_workbook_to_sandbox(workbook, full_path)
+            rows = end_row - start_row + 1
+            cols = end_col - start_col + 1
+            logger.info(f"Cleared range {range} in {full_path}")
+            return self.success_response({
+                "ok": True,
+                "file_path": full_path,
+                "range_cleared": range,
+                "rows": rows,
+                "cols": cols
+            })
+        except Exception as e:
+            logger.error(f"Error clearing range: {str(e)}", exc_info=True)
+            return self.fail_response(f"Failed to clear range: {str(e)}")
     
     # ==================== FUNCTION 6: read_cell ====================
     @openapi_schema({
@@ -1013,6 +1066,91 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             logger.error(f"Error setting formula: {str(e)}", exc_info=True)
             return self.fail_response(f"Failed to set formula: {str(e)}")
     
+    # ==================== merge_range ====================
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "merge_range",
+            "description": "Merge a range of cells into one. The top-left cell keeps its value; others are merged into it. Use A1:C1 format for the range.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path to existing workbook file"},
+                    "sheet_name": {"type": "string", "description": "Name of the sheet"},
+                    "range": {"type": "string", "description": "Cell range to merge in A1:C3 format (e.g. A1:N1)"}
+                },
+                "required": ["path", "sheet_name", "range"]
+            }
+        }
+    })
+    async def merge_range(self, path: str, sheet_name: str, range: str) -> ToolResult:
+        """Merge a range of cells into one."""
+        try:
+            await self._ensure_sandbox()
+            if not self._validate_range(range):
+                return self.fail_response(f"Invalid range format: {range}. Expected format: A1:C3")
+            try:
+                cleaned_path, full_path = self._validate_and_normalize_path(path, must_exist=True)
+            except ValueError as e:
+                return self.fail_response(f"Invalid path: {str(e)}. Paths must be relative to /workspace.")
+            workbook = await self._load_workbook_from_sandbox(full_path)
+            if sheet_name not in workbook.sheetnames:
+                return self.fail_response(f"Sheet '{sheet_name}' not found. Available sheets: {', '.join(workbook.sheetnames)}")
+            worksheet = workbook[sheet_name]
+            worksheet.merge_cells(range)
+            await self._save_workbook_to_sandbox(workbook, full_path)
+            logger.info(f"Merged range {range} in {full_path}")
+            return self.success_response({"ok": True, "file_path": full_path, "merged_range": range})
+        except Exception as e:
+            logger.error(f"Error merging range: {str(e)}", exc_info=True)
+            return self.fail_response(f"Failed to merge range: {str(e)}")
+
+    # ==================== unmerge_range ====================
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "unmerge_range",
+            "description": "Unmerge a previously merged range. Pass the exact range that was merged (e.g. A1:N1). After unmerge, only the top-left cell keeps the value.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path to existing workbook file"},
+                    "sheet_name": {"type": "string", "description": "Name of the sheet"},
+                    "range": {"type": "string", "description": "Merged range to unmerge in A1:C3 format (e.g. A1:N1)"}
+                },
+                "required": ["path", "sheet_name", "range"]
+            }
+        }
+    })
+    async def unmerge_range(self, path: str, sheet_name: str, range: str) -> ToolResult:
+        """Unmerge a range of cells."""
+        try:
+            await self._ensure_sandbox()
+            if not self._validate_range(range):
+                return self.fail_response(f"Invalid range format: {range}. Expected format: A1:C3")
+            try:
+                cleaned_path, full_path = self._validate_and_normalize_path(path, must_exist=True)
+            except ValueError as e:
+                return self.fail_response(f"Invalid path: {str(e)}. Paths must be relative to /workspace.")
+            workbook = await self._load_workbook_from_sandbox(full_path)
+            if sheet_name not in workbook.sheetnames:
+                return self.fail_response(f"Sheet '{sheet_name}' not found. Available sheets: {', '.join(workbook.sheetnames)}")
+            worksheet = workbook[sheet_name]
+            # openpyxl unmerge_cells expects the range string; raises if range is not merged
+            range_upper = range.upper()
+            merged_refs = [str(m).upper() for m in worksheet.merged_cells.ranges]
+            if range_upper not in merged_refs:
+                return self.fail_response(
+                    f"Range {range} is not merged. Merged ranges in this sheet: {merged_refs if merged_refs else 'none'}"
+                )
+            worksheet.unmerge_cells(range)
+            await self._save_workbook_to_sandbox(workbook, full_path)
+            logger.info(f"Unmerged range {range} in {full_path}")
+            return self.success_response({"ok": True, "file_path": full_path, "unmerged_range": range})
+        except Exception as e:
+            logger.error(f"Error unmerging range: {str(e)}", exc_info=True)
+            return self.fail_response(f"Failed to unmerge range: {str(e)}")
+    
     # ==================== FUNCTION 10: format_cells ====================
     @openapi_schema({
         "type": "function",
@@ -1134,17 +1272,26 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
                         cell.fill = fill
                         applied_keys.append("fill_color")
                     
-                    # Alignment
+                    # Alignment: set both horizontal and vertical explicitly so we fully override
+                    # existing alignment (otherwise None on one axis can leave Excel showing old value)
                     if "alignment" in format:
-                        align_map = {
-                            "left": Alignment(horizontal="left"),
-                            "center": Alignment(horizontal="center"),
-                            "right": Alignment(horizontal="right"),
-                            "top": Alignment(vertical="top"),
-                            "bottom": Alignment(vertical="bottom"),
-                            "middle": Alignment(vertical="center")
-                        }
-                        cell.alignment = align_map.get(format["alignment"], Alignment(horizontal="left"))
+                        current = cell.alignment
+                        h = getattr(current, "horizontal", None) if current else None
+                        v = getattr(current, "vertical", None) if current else None
+                        wrap = getattr(current, "wrap_text", False) if current else False
+                        want = format["alignment"]
+                        if want in ("left", "center", "right"):
+                            h = want
+                            if v is None:
+                                v = "center"
+                        elif want in ("top", "bottom", "middle"):
+                            v = "center" if want == "middle" else want
+                            if h is None:
+                                h = "left"
+                        else:
+                            h = h or "left"
+                            v = v or "center"
+                        cell.alignment = Alignment(horizontal=h, vertical=v, wrap_text=wrap)
                         applied_keys.append("alignment")
                     
                     # Wrap text
