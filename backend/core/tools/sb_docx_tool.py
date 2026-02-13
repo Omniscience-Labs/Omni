@@ -1,265 +1,41 @@
-"""DOCX tool: JSON document model → .docx (in-memory only). Full regen per call; only .docx is written."""
+"""DOCX tool: content + settings → .docx. Backend assembles standardized JSON; LLM provides content + overrides only."""
 
 from __future__ import annotations
 
 import io
 from typing import Any, Dict, List, Optional, Tuple
 
-import jsonschema
 from docx import Document
 from docx.enum.section import WD_ORIENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Inches, Pt
+from docx.shared import Inches, Pt, RGBColor
 
 from core.agentpress.thread_manager import ThreadManager
 from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
 from core.sandbox.tool_base import SandboxToolsBase
 from core.utils.logger import logger
 
-TWIPS_PER_POINT = 20
-_PAGE_SIZES = {"LETTER": (8.5, 11.0), "A4": (8.27, 11.69)}
+# ---------------------------------------------------------------------------
+# Constants & defaults
+# ---------------------------------------------------------------------------
 
-DOCX_DOCUMENT_SCHEMA = {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://example.com/schemas/min-ai-docx.schema.json",
-    "title": "Minimal AI DOCX Document Schema (Foundational v1)",
-    "description": "Margins are in inches. Spacing is in twips (1 pt = 20 twips). Font sizes are in points.",
-    "type": "object",
-    "required": ["doc"],
-    "additionalProperties": True,
-    "properties": {
-        "version": {"type": "string", "default": "1.0"},
-        "doc": {
-            "type": "object",
-            "required": ["page"],
-            "additionalProperties": True,
-            "properties": {
-                "page": {
-                    "type": "object",
-                    "additionalProperties": True,
-                    "properties": {
-                        "size": {"type": "string", "enum": ["LETTER", "A4"], "default": "LETTER"},
-                        "orientation": {"type": "string", "enum": ["portrait", "landscape"], "default": "portrait"},
-                        "margins": {"$ref": "#/$defs/Margins"},
-                    },
-                }
-            },
-        },
-        "styles": {
-            "type": "object",
-            "additionalProperties": {"$ref": "#/$defs/Style"},
-            "default": {},
-        },
-        "content": {
-            "type": "array",
-            "minItems": 0,
-            "default": [],
-            "items": {"$ref": "#/$defs/Block"},
-        },
-    },
-    "$defs": {
-        "Margins": {
-            "type": "object",
-            "additionalProperties": True,
-            "properties": {
-                "top": {"type": "number", "minimum": 0},
-                "left": {"type": "number", "minimum": 0},
-                "right": {"type": "number", "minimum": 0},
-                "bottom": {"type": "number", "minimum": 0},
-            },
-        },
-        "Spacing": {
-            "type": "object",
-            "additionalProperties": True,
-            "properties": {
-                "after": {"type": "number", "minimum": 0},
-                "before": {"type": "number", "minimum": 0},
-            },
-        },
-        "Style": {
-            "type": "object",
-            "additionalProperties": True,
-            "properties": {
-                "font": {"type": "string"},
-                "fontFamily": {"type": "string"},
-                "size_pt": {"type": "number", "minimum": 1},
-                "fontSize": {"type": "number", "minimum": 1},
-                "bold": {"type": "boolean"},
-                "italic": {"type": "boolean"},
-                "underline": {"type": "boolean"},
-            },
-        },
-        "Inline": {
-            "type": "object",
-            "required": ["text"],
-            "additionalProperties": True,
-            "properties": {
-                "text": {"type": "string"},
-                "bold": {"type": "boolean"},
-                "italic": {"type": "boolean"},
-                "underline": {"type": "boolean"},
-            },
-        },
-        "Inlines": {
-            "type": "array",
-            "items": {"$ref": "#/$defs/Inline"},
-            "minItems": 1,
-        },
-        "BaseBlock": {
-            "type": "object",
-            "required": ["type"],
-            "additionalProperties": True,
-            "properties": {
-                "id": {"type": "string"},
-                "type": {"type": "string", "enum": ["heading", "paragraph", "list", "table", "page_break"]},
-                "style": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]},
-            },
-        },
-        "HeadingBlock": {
-            "allOf": [
-                {"$ref": "#/$defs/BaseBlock"},
-                {
-                    "type": "object",
-                    "required": ["level", "text"],
-                    "properties": {
-                        "type": {"const": "heading"},
-                        "level": {"type": "integer", "minimum": 1, "maximum": 3},
-                        "text": {"type": "string"},
-                    },
-                },
-            ],
-        },
-        "ParagraphBlock": {
-            "allOf": [
-                {"$ref": "#/$defs/BaseBlock"},
-                {
-                    "type": "object",
-                    "properties": {
-                        "type": {"const": "paragraph"},
-                        "text": {"type": "string"},
-                        "inlines": {"$ref": "#/$defs/Inlines"},
-                        "bold": {"type": "boolean"},
-                        "italic": {"type": "boolean"},
-                        "underline": {"type": "boolean"},
-                        "alignment": {"type": "string", "enum": ["left", "center", "right", "justify"]},
-                        "spacing": {"$ref": "#/$defs/Spacing"},
-                    },
-                },
-            ],
-        },
-        "ListBlock": {
-            "allOf": [
-                {"$ref": "#/$defs/BaseBlock"},
-                {
-                    "type": "object",
-                    "required": ["list_type", "items"],
-                    "properties": {
-                        "type": {"const": "list"},
-                        "list_type": {"type": "string", "enum": ["bullet", "number"]},
-                        "items": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/Inlines"}},
-                    },
-                },
-            ],
-        },
-        "TableBlock": {
-            "allOf": [
-                {"$ref": "#/$defs/BaseBlock"},
-                {
-                    "type": "object",
-                    "required": ["rows"],
-                    "properties": {
-                        "type": {"const": "table"},
-                        "rows": {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": {
-                                "type": "array",
-                                "minItems": 1,
-                                "items": {"$ref": "#/$defs/Inlines"},
-                            },
-                        },
-                    },
-                },
-            ],
-        },
-        "PageBreakBlock": {
-            "allOf": [
-                {"$ref": "#/$defs/BaseBlock"},
-                {"type": "object", "properties": {"type": {"const": "page_break"}}},
-            ],
-        },
-        "Block": {
-            "oneOf": [
-                {"$ref": "#/$defs/HeadingBlock"},
-                {"$ref": "#/$defs/ParagraphBlock"},
-                {"$ref": "#/$defs/ListBlock"},
-                {"$ref": "#/$defs/TableBlock"},
-                {"$ref": "#/$defs/PageBreakBlock"},
-            ],
-        },
-    },
+_PAGE_SIZES = {"LETTER": (8.5, 11.0), "A4": (8.27, 11.69)}
+_HEADING_SIZES = {1: 16, 2: 14, 3: 12}
+
+# Default values for block fields.  Backend fills these for any missing field.
+_BLOCK_DEFAULTS: Dict[str, Any] = {
+    "alignment": "left",
+    "bold": False,
+    "italic": False,
+    "underline": False,
+    "color": "#000000",
+    "spacing": {"before": 0, "after": 0},
 }
 
 
-def _normalize_document_model(document_json: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Accept a couple of legacy/alternate input shapes and normalize to the schema:
-      - canonical: {"doc": {"page": {...}}, "content": [...], "styles": {...}}
-      - legacy:    {"page": {...}, "content": [...], "styles": {...}}
-      - alias:     {"doc": {...}, "blocks": [...]}  -> content
-    """
-    if not isinstance(document_json, dict):
-        raise ValueError("document_json must be an object")
-
-    normalized: Dict[str, Any] = dict(document_json)  # shallow copy; don't mutate caller data
-
-    # Alias: some callers use "blocks" instead of "content"
-    if "content" not in normalized and isinstance(normalized.get("blocks"), list):
-        normalized["content"] = normalized.pop("blocks")
-
-    # Legacy: allow doc/page config at top-level and wrap into {"doc": {"page": ...}}
-    doc_obj = normalized.get("doc")
-    if not isinstance(doc_obj, dict):
-        doc_obj = {}
-
-    if "page" not in doc_obj or not isinstance(doc_obj.get("page"), dict):
-        page_from_root = None
-        if isinstance(normalized.get("page"), dict):
-            page_from_root = normalized.pop("page")
-        else:
-            # Also support page fields directly on the root (size/orientation/margins).
-            page_keys = ("size", "orientation", "margins")
-            page_candidate: Dict[str, Any] = {}
-            for k in page_keys:
-                if k in normalized:
-                    page_candidate[k] = normalized.pop(k)
-            if page_candidate:
-                page_from_root = page_candidate
-
-        if page_from_root is None:
-            page_from_root = {}
-
-        doc_obj["page"] = page_from_root
-
-    normalized["doc"] = doc_obj
-
-    # Legacy: some callers place the blocks under doc.page.children (Lexical-ish)
-    # If top-level content is missing/empty, promote those children to content.
-    if not normalized.get("content"):
-        page_obj = doc_obj.get("page") if isinstance(doc_obj, dict) else None
-        if isinstance(page_obj, dict) and isinstance(page_obj.get("children"), list):
-            normalized["content"] = list(page_obj["children"])
-
-    return normalized
-
-
-def _validate_content_semantics(content: List[Dict[str, Any]]) -> Optional[str]:
-    for i, block in enumerate(content):
-        if block.get("type") == "paragraph":
-            if not ("text" in block or block.get("inlines")):
-                return f"Paragraph block at index {i} must have 'text' or 'inlines'."
-    return None
-
+# ---------------------------------------------------------------------------
+# Path / filename helpers
+# ---------------------------------------------------------------------------
 
 def _validate_and_normalize_path(workspace_path: str, path: str) -> Tuple[str, str]:
     if not path or not isinstance(path, str):
@@ -292,37 +68,167 @@ def _sanitize_filename(name: str) -> str:
     return base
 
 
-def _twips_to_pt(twips: Any) -> Optional[float]:
-    if twips is None:
-        return None
-    try:
-        return float(twips) / TWIPS_PER_POINT
-    except (TypeError, ValueError):
-        return None
-
+# ---------------------------------------------------------------------------
+# Margin helper
+# ---------------------------------------------------------------------------
 
 def _inches_value(value: Any, *, max_reasonable_inches: float = 5.0) -> Optional[float]:
-    """
-    Margins are always interpreted as inches.
-    A small sanity bound prevents old twips-based inputs (e.g. 1440) from producing absurd margins.
-    """
+    """Parse a margin value as inches with sanity bound."""
     if value is None:
         return None
     try:
         inches = float(value)
     except (TypeError, ValueError):
         return None
-    if inches < 0:
-        return None
-    if inches > max_reasonable_inches:
+    if inches < 0 or inches > max_reasonable_inches:
         return None
     return inches
 
 
-def _apply_page_setup(doc: Document, size: str, orientation: str, margins: Optional[Dict[str, Any]] = None) -> None:
+# ---------------------------------------------------------------------------
+# Document assembly — backend builds the full standardized JSON
+# ---------------------------------------------------------------------------
+
+def _build_item(item: Any, default_font: str, default_size: float, default_color: str) -> Dict[str, Any]:
+    """Normalize a list item or table cell (string or partial dict) into a full object with all fields."""
+    if isinstance(item, str):
+        obj: Dict[str, Any] = {"text": item}
+    elif isinstance(item, dict):
+        obj = dict(item)
+    else:
+        obj = {"text": str(item) if item is not None else ""}
+
+    obj.setdefault("text", "")
+    obj.setdefault("font", default_font)
+    obj.setdefault("size", default_size)
+    obj.setdefault("color", default_color)
+    obj.setdefault("bold", False)
+    obj.setdefault("italic", False)
+    obj.setdefault("underline", False)
+    obj.setdefault("alignment", "left")
+    return obj
+
+
+def _build_block(block: Dict[str, Any], default_font: str, default_size: float, default_color: str) -> Dict[str, Any]:
+    """Fill every missing field with defaults.  Returns a complete, standardized block."""
+    b: Dict[str, Any] = dict(block)
+    block_type = b.get("type", "paragraph")
+    b["type"] = block_type
+
+    # Page breaks need no formatting fields.
+    if block_type == "page_break":
+        return b
+
+    # ---- Common defaults for all non-break blocks ----
+    b.setdefault("font", default_font)
+    b.setdefault("color", default_color)
+    b.setdefault("alignment", _BLOCK_DEFAULTS["alignment"])
+    b.setdefault("italic", _BLOCK_DEFAULTS["italic"])
+    b.setdefault("underline", _BLOCK_DEFAULTS["underline"])
+
+    # Spacing — always a dict with both keys present
+    if "spacing" not in b or not isinstance(b.get("spacing"), dict):
+        b["spacing"] = dict(_BLOCK_DEFAULTS["spacing"])
+    else:
+        b["spacing"] = dict(b["spacing"])
+        b["spacing"].setdefault("before", 0)
+        b["spacing"].setdefault("after", 0)
+
+    # ---- Type-specific defaults ----
+    if block_type == "heading":
+        level = b.get("level", 1)
+        try:
+            level = min(3, max(1, int(level)))
+        except (TypeError, ValueError):
+            level = 1
+        b["level"] = level
+        b.setdefault("text", "")
+        b.setdefault("size", _HEADING_SIZES.get(level, 16))
+        b.setdefault("bold", True)  # headings bold by default
+
+    elif block_type == "paragraph":
+        b.setdefault("text", "")
+        b.setdefault("size", default_size)
+        b.setdefault("bold", _BLOCK_DEFAULTS["bold"])
+
+    elif block_type == "list":
+        b.setdefault("list_type", "bullet")
+        b.setdefault("size", default_size)
+        b.setdefault("bold", _BLOCK_DEFAULTS["bold"])
+        # Normalize each item (string → full object)
+        raw_items = b.get("items") or []
+        b["items"] = [_build_item(it, default_font, default_size, default_color) for it in raw_items]
+
+    elif block_type == "table":
+        b.setdefault("size", default_size)
+        b.setdefault("bold", _BLOCK_DEFAULTS["bold"])
+        # Normalize each cell (string → full object) and pad to uniform column count
+        raw_rows = b.get("rows") or []
+        built_rows = [
+            [_build_item(cell, default_font, default_size, default_color) for cell in (row if isinstance(row, list) else [])]
+            for row in raw_rows
+        ]
+        if built_rows:
+            max_cols = max((len(r) for r in built_rows), default=0)
+            for row in built_rows:
+                while len(row) < max_cols:
+                    row.append(_build_item("", default_font, default_size, default_color))
+        b["rows"] = built_rows
+
+    else:
+        # Unknown block type — fill common text defaults so rendering won't crash
+        b.setdefault("text", "")
+        b.setdefault("size", default_size)
+        b.setdefault("bold", _BLOCK_DEFAULTS["bold"])
+
+    return b
+
+
+def _assemble_document(
+    content: List[Dict[str, Any]],
+    page_size: str,
+    orientation: str,
+    margin_top: float,
+    margin_bottom: float,
+    margin_left: float,
+    margin_right: float,
+    default_font: str,
+    default_size: float,
+    default_color: str,
+) -> Dict[str, Any]:
+    """Build the full standardized document JSON from flat parameters."""
+    return {
+        "doc": {
+            "page": {
+                "size": (page_size or "LETTER").upper(),
+                "orientation": (orientation or "portrait").lower(),
+                "margins": {
+                    "top": margin_top,
+                    "left": margin_left,
+                    "right": margin_right,
+                    "bottom": margin_bottom,
+                },
+            },
+        },
+        "content": [
+            _build_block(b, default_font, default_size, default_color)
+            for b in (content or [])
+            if isinstance(b, dict)
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Page setup
+# ---------------------------------------------------------------------------
+
+def _apply_page_setup(doc: Document, page_config: Dict[str, Any]) -> None:
     section = doc.sections[0]
-    w, h = _PAGE_SIZES.get(size.upper(), _PAGE_SIZES["LETTER"])
-    if orientation and str(orientation).lower() == "landscape":
+    size = page_config.get("size", "LETTER")
+    orientation = page_config.get("orientation", "portrait")
+    w, h = _PAGE_SIZES.get(str(size).upper(), _PAGE_SIZES["LETTER"])
+
+    if str(orientation).lower() == "landscape":
         section.page_width = Inches(h)
         section.page_height = Inches(w)
         section.orientation = WD_ORIENT.LANDSCAPE
@@ -330,7 +236,9 @@ def _apply_page_setup(doc: Document, size: str, orientation: str, margins: Optio
         section.page_width = Inches(w)
         section.page_height = Inches(h)
         section.orientation = WD_ORIENT.PORTRAIT
-    if margins and isinstance(margins, dict):
+
+    margins = page_config.get("margins") or {}
+    if isinstance(margins, dict):
         for key, attr in (("top", "top_margin"), ("left", "left_margin"), ("right", "right_margin"), ("bottom", "bottom_margin")):
             inch = _inches_value(margins.get(key))
             if inch is not None:
@@ -346,124 +254,99 @@ def _set_default_paragraph_spacing(doc: Document) -> None:
         pass
 
 
-def _apply_style_to_run(run: Any, style_def: Optional[Dict[str, Any]]) -> None:
-    if not style_def or not isinstance(style_def, dict):
-        return
-    font = style_def.get("font") or style_def.get("fontFamily")
-    if font:
-        run.font.name = str(font)
-    size = style_def.get("size_pt") if style_def.get("size_pt") is not None else style_def.get("fontSize")
-    if size is not None:
-        run.font.size = Pt(float(size))
-    if style_def.get("bold") is not None:
-        run.font.bold = bool(style_def["bold"])
-    if style_def.get("italic") is not None:
-        run.font.italic = bool(style_def["italic"])
-    if style_def.get("underline") is not None:
-        run.font.underline = bool(style_def["underline"])
+# ---------------------------------------------------------------------------
+# Alignment helper
+# ---------------------------------------------------------------------------
+
+_ALIGNMENT_MAP = {
+    "left": WD_ALIGN_PARAGRAPH.LEFT,
+    "center": WD_ALIGN_PARAGRAPH.CENTER,
+    "right": WD_ALIGN_PARAGRAPH.RIGHT,
+    "justify": WD_ALIGN_PARAGRAPH.JUSTIFY,
+}
 
 
-def _alignment_enum(alignment: Optional[str]) -> Optional[WD_ALIGN_PARAGRAPH]:
+def _alignment_enum(alignment: str) -> Optional[WD_ALIGN_PARAGRAPH]:
     if not alignment:
         return None
-    return {
-        "left": WD_ALIGN_PARAGRAPH.LEFT,
-        "center": WD_ALIGN_PARAGRAPH.CENTER,
-        "right": WD_ALIGN_PARAGRAPH.RIGHT,
-        "justify": WD_ALIGN_PARAGRAPH.JUSTIFY,
-    }.get(str(alignment).strip().lower())
+    return _ALIGNMENT_MAP.get(str(alignment).strip().lower())
 
 
-def _apply_paragraph_spacing(paragraph: Any, style_obj: Optional[Dict[str, Any]]) -> None:
-    if not style_obj or not isinstance(style_obj, dict):
-        return
-    spacing = style_obj.get("spacing")
-    if not isinstance(spacing, dict):
-        return
-    after_pt = _twips_to_pt(spacing.get("after"))
-    if after_pt is not None:
-        paragraph.paragraph_format.space_after = Pt(after_pt)
-    before_pt = _twips_to_pt(spacing.get("before"))
-    if before_pt is not None:
-        paragraph.paragraph_format.space_before = Pt(before_pt)
+# ---------------------------------------------------------------------------
+# Run formatting — all fields guaranteed present by _build_block / _build_item
+# ---------------------------------------------------------------------------
+
+def _apply_run_formatting(run: Any, fmt: Dict[str, Any]) -> None:
+    """Apply all formatting fields to a single run."""
+    run.font.name = fmt["font"]
+    run.font.size = Pt(fmt["size"])
+    run.font.bold = fmt["bold"]
+    run.font.italic = fmt["italic"]
+    run.font.underline = fmt["underline"]
+    color_hex = str(fmt["color"]).lstrip("#")
+    if len(color_hex) == 6:
+        run.font.color.rgb = RGBColor.from_string(color_hex)
 
 
-def _add_inlines_to_paragraph(
-    doc: Document,
-    paragraph: Any,
-    inlines: List[Dict[str, Any]],
-    styles: Dict[str, Dict[str, Any]],
-    block_style: Any,
-) -> None:
-    style_def = block_style if isinstance(block_style, dict) else (styles.get(block_style) if isinstance(block_style, str) else None)
-    for inline in inlines:
-        run = paragraph.add_run(inline.get("text") or "")
-        _apply_style_to_run(run, style_def)
-        if inline.get("bold"):
-            run.font.bold = True
-        if inline.get("italic"):
-            run.font.italic = True
-        if inline.get("underline"):
-            run.font.underline = True
+# ---------------------------------------------------------------------------
+# Block rendering — simplified, every block has all fields guaranteed
+# ---------------------------------------------------------------------------
 
-
-def _render_blocks(doc: Document, content: List[Dict[str, Any]], styles: Dict[str, Dict[str, Any]]) -> int:
+def _render_blocks(doc: Document, content: List[Dict[str, Any]]) -> int:
+    """Render all blocks into the Document."""
     block_count = 0
+
     for block in content:
-        block_type = block.get("type")
-        block_style = block.get("style")
+        block_type = block["type"]
 
         if block_type == "heading":
-            level = min(3, max(1, int(block.get("level", 1))))
-            doc.add_heading(block.get("text") or "", level=level)
+            heading_para = doc.add_heading("", level=block["level"])
+            # Clear the default run (which inherits Word's blue heading style)
+            # and replace with our explicitly formatted run.
+            heading_para.clear()
+            run = heading_para.add_run(block["text"])
+            _apply_run_formatting(run, block)
+            alignment = _alignment_enum(block["alignment"])
+            if alignment is not None:
+                heading_para.paragraph_format.alignment = alignment
+            heading_para.paragraph_format.space_before = Pt(block["spacing"]["before"])
+            heading_para.paragraph_format.space_after = Pt(block["spacing"]["after"])
             block_count += 1
 
         elif block_type == "paragraph":
-            inlines = block.get("inlines")
-            if not inlines and "text" in block:
-                run_opts: Dict[str, Any] = {"text": block.get("text") or ""}
-                if block.get("bold") is not None:
-                    run_opts["bold"] = block["bold"]
-                if block.get("italic") is not None:
-                    run_opts["italic"] = block["italic"]
-                if block.get("underline") is not None:
-                    run_opts["underline"] = block["underline"]
-                inlines = [run_opts]
-            if not inlines:
-                inlines = [{"text": ""}]
             p = doc.add_paragraph()
-            _add_inlines_to_paragraph(doc, p, inlines, styles, block_style)
-            block_spacing = block.get("spacing")
-            if isinstance(block_spacing, dict):
-                _apply_paragraph_spacing(p, {"spacing": block_spacing})
-            elif isinstance(block_style, dict):
-                _apply_paragraph_spacing(p, block_style)
-            alignment = _alignment_enum(block.get("alignment") or (block_style.get("alignment") if isinstance(block_style, dict) else None))
+            run = p.add_run(block["text"])
+            _apply_run_formatting(run, block)
+            alignment = _alignment_enum(block["alignment"])
             if alignment is not None:
                 p.paragraph_format.alignment = alignment
+            p.paragraph_format.space_before = Pt(block["spacing"]["before"])
+            p.paragraph_format.space_after = Pt(block["spacing"]["after"])
             block_count += 1
 
         elif block_type == "list":
-            style_name = "List Bullet" if (block.get("list_type") or "bullet") == "bullet" else "List Number"
-            for item_inlines in block.get("items") or []:
+            style_name = "List Bullet" if block["list_type"] == "bullet" else "List Number"
+            for item in block["items"]:
                 p = doc.add_paragraph(style=style_name)
-                _add_inlines_to_paragraph(doc, p, item_inlines or [{"text": ""}], styles, block_style)
+                run = p.add_run(item["text"])
+                _apply_run_formatting(run, item)
             block_count += 1
 
         elif block_type == "table":
-            rows = block.get("rows") or []
+            rows = block["rows"]
             if not rows:
-                raise ValueError("Table block must have at least one row")
-            col_count = len(rows[0])
-            for r in rows:
-                if len(r) != col_count:
-                    raise ValueError(f"Table rows must have uniform column count; expected {col_count}, got {len(r)}")
+                continue
+            col_count = len(rows[0])  # guaranteed uniform by _build_block
             table = doc.add_table(rows=len(rows), cols=col_count)
-            for ri, row_inlines_list in enumerate(rows):
-                for ci, cell_inlines in enumerate(row_inlines_list):
-                    cell_para = table.rows[ri].cells[ci].paragraphs[0] if table.rows[ri].cells[ci].paragraphs else table.rows[ri].cells[ci].add_paragraph()
+            for ri, row in enumerate(rows):
+                for ci, cell in enumerate(row):
+                    cell_para = table.rows[ri].cells[ci].paragraphs[0]
                     cell_para.clear()
-                    _add_inlines_to_paragraph(doc, cell_para, cell_inlines or [{"text": ""}], styles, block_style)
+                    run = cell_para.add_run(cell["text"])
+                    _apply_run_formatting(run, cell)
+                    cell_alignment = _alignment_enum(cell.get("alignment", "left"))
+                    if cell_alignment is not None:
+                        cell_para.paragraph_format.alignment = cell_alignment
             block_count += 1
 
         elif block_type == "page_break":
@@ -471,29 +354,18 @@ def _render_blocks(doc: Document, content: List[Dict[str, Any]], styles: Dict[st
             block_count += 1
 
         else:
-            logger.debug("sb_docx_tool: unknown block type id=%s", (block.get("id") or "")[:32])
+            logger.debug("sb_docx_tool: skipping unknown block type=%s", str(block_type)[:32])
+
     return block_count
 
 
-def _ensure_doc_styles(doc: Document, styles: Dict[str, Dict[str, Any]]) -> None:
-    for name, style_def in styles.items():
-        if not name or not isinstance(style_def, dict):
-            continue
-        try:
-            style = doc.styles.add_style(name, 1)
-        except ValueError:
-            style = doc.styles[name]
-        if style_def.get("font"):
-            style.font.name = style_def["font"]
-        if style_def.get("size_pt") is not None:
-            style.font.size = Pt(float(style_def["size_pt"]))
-        if style_def.get("bold") is not None:
-            style.font.bold = bool(style_def["bold"])
-
+# ---------------------------------------------------------------------------
+# Tool class
+# ---------------------------------------------------------------------------
 
 @tool_metadata(
     display_name="Word Documents",
-    description="Generate Word (.docx) documents from a JSON document model (single render per request)",
+    description="Generate Word (.docx) documents from content blocks and formatting settings",
     icon="FileText",
     color="bg-indigo-100 dark:bg-indigo-800/50",
     weight=75,
@@ -514,61 +386,119 @@ class SandboxDocxTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "render_docx",
-            "description": "Render a document from a JSON document model and save as .docx in the workspace. The JSON is not stored; only the generated .docx file is written.",
+            "description": (
+                "Render a Word document from content blocks and save as .docx. "
+                "Provide content as an array of blocks (heading, paragraph, list, table, page_break). "
+                "The backend fills ALL missing formatting fields with defaults — only specify overrides "
+                "for what the user explicitly requested. List items and table cells can be plain strings."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "document_json": {"type": "object", "description": "The document model (doc.page, optional content, optional styles)."},
-                    "output_filename": {"type": "string", "description": "Output filename.", "default": "document.docx"},
+                    "content": {
+                        "type": "array",
+                        "description": (
+                            "Array of content blocks. Each block must have 'type' and type-specific fields. "
+                            "Types: heading (level 1-3, text), paragraph (text), list (list_type, items), "
+                            "table (rows), page_break. Optional per-block overrides: font, size (pt), "
+                            "color (hex e.g. '#FF0000'), bold, italic, underline, "
+                            "alignment (left|center|right|justify), spacing ({before, after} in pt). "
+                            "List items and table cells can be plain strings or {text, ...overrides}."
+                        ),
+                        "items": {
+                            "type": "object",
+                            "required": ["type"],
+                            "properties": {
+                                "type": {"type": "string", "enum": ["heading", "paragraph", "list", "table", "page_break"]},
+                                "text": {"type": "string"},
+                                "level": {"type": "integer", "minimum": 1, "maximum": 3},
+                                "alignment": {"type": "string", "enum": ["left", "center", "right", "justify"]},
+                                "font": {"type": "string"},
+                                "size": {"type": "number"},
+                                "color": {"type": "string"},
+                                "bold": {"type": "boolean"},
+                                "italic": {"type": "boolean"},
+                                "underline": {"type": "boolean"},
+                                "spacing": {
+                                    "type": "object",
+                                    "properties": {
+                                        "before": {"type": "number"},
+                                        "after": {"type": "number"},
+                                    },
+                                },
+                                "list_type": {"type": "string", "enum": ["bullet", "number"]},
+                                "items": {"type": "array", "description": "List items: strings or {text, font?, size?, bold?, italic?, underline?, color?}"},
+                                "rows": {"type": "array", "description": "Table rows: array of arrays. Each cell: string or {text, font?, size?, bold?, italic?, underline?, color?, alignment?}"},
+                            },
+                        },
+                    },
+                    "output_filename": {"type": "string", "description": "Output filename (e.g. 'report.docx').", "default": "document.docx"},
+                    "page_size": {"type": "string", "enum": ["LETTER", "A4"], "description": "Page size.", "default": "LETTER"},
+                    "orientation": {"type": "string", "enum": ["portrait", "landscape"], "description": "Page orientation.", "default": "portrait"},
+                    "margin_top": {"type": "number", "description": "Top margin in inches.", "default": 1.0},
+                    "margin_bottom": {"type": "number", "description": "Bottom margin in inches.", "default": 1.0},
+                    "margin_left": {"type": "number", "description": "Left margin in inches.", "default": 1.0},
+                    "margin_right": {"type": "number", "description": "Right margin in inches.", "default": 1.0},
+                    "default_font": {"type": "string", "description": "Default font for all blocks.", "default": "Calibri"},
+                    "default_font_size": {"type": "number", "description": "Default font size in points for paragraphs and lists.", "default": 11},
+                    "default_font_color": {"type": "string", "description": "Default font color as hex (e.g. '#000000').", "default": "#000000"},
                 },
-                "required": ["document_json"],
+                "required": ["content"],
             },
         },
     })
     async def render_docx(
         self,
-        document_json: Dict[str, Any],
+        content: List[Dict[str, Any]],
         output_filename: str = "document.docx",
+        page_size: str = "LETTER",
+        orientation: str = "portrait",
+        margin_top: float = 1.0,
+        margin_bottom: float = 1.0,
+        margin_left: float = 1.0,
+        margin_right: float = 1.0,
+        default_font: str = "Calibri",
+        default_font_size: float = 11.0,
+        default_font_color: str = "#000000",
     ) -> ToolResult:
         try:
             await self._ensure_sandbox()
             await self._ensure_documents_dir()
 
-            try:
-                normalized_document_json = _normalize_document_model(document_json)
-                jsonschema.validate(instance=normalized_document_json, schema=DOCX_DOCUMENT_SCHEMA)
-            except jsonschema.ValidationError as e:
-                return self.fail_response(f"Document model validation failed: {e.message or str(e)}")
-            except ValueError as e:
-                return self.fail_response(str(e))
+            if not content or not isinstance(content, list):
+                return self.fail_response("'content' must be a non-empty array of block objects.")
 
-            content = normalized_document_json.get("content") or []
-            semantic_err = _validate_content_semantics(content)
-            if semantic_err:
-                return self.fail_response(f"Document model invalid: {semantic_err}")
+            # --- Backend assembles the full standardized document JSON ---
+            assembled = _assemble_document(
+                content=content,
+                page_size=page_size,
+                orientation=orientation,
+                margin_top=margin_top,
+                margin_bottom=margin_bottom,
+                margin_left=margin_left,
+                margin_right=margin_right,
+                default_font=default_font,
+                default_size=default_font_size,
+                default_color=default_font_color,
+            )
 
-            doc_config = normalized_document_json.get("doc") or {}
-            page_config = doc_config.get("page") or {}
-            size = page_config.get("size", "LETTER")
-            orientation = page_config.get("orientation", "portrait")
-            styles = normalized_document_json.get("styles") or {}
+            doc_page = assembled["doc"]["page"]
+            assembled_content = assembled["content"]
 
-            for block in content:
-                if block.get("type") == "table":
+            # Validate tables have rows
+            for block in assembled_content:
+                if block["type"] == "table":
                     rows = block.get("rows") or []
                     if not rows:
-                        return self.fail_response("Table block must have at least one row")
-                    col_count = len(rows[0])
-                    for r in rows:
-                        if len(r) != col_count:
-                            return self.fail_response(f"Table rows must have uniform column count; expected {col_count}, got {len(r)}")
+                        return self.fail_response("Table block must have at least one row.")
 
+            # --- Build the .docx ---
             doc = Document()
-            _apply_page_setup(doc, size, orientation, page_config.get("margins"))
+            _apply_page_setup(doc, doc_page)
             _set_default_paragraph_spacing(doc)
-            _ensure_doc_styles(doc, styles)
-            block_count = _render_blocks(doc, content, styles)
+            block_count = _render_blocks(doc, assembled_content)
 
+            # --- Save to sandbox ---
             safe_name = _sanitize_filename(output_filename)
             relative_path = f"{self.documents_dir}/{safe_name}"
             cleaned, full_path = _validate_and_normalize_path(self.workspace_path, relative_path)
