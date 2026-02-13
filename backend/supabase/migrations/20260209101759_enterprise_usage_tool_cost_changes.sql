@@ -266,6 +266,7 @@ ALTER TABLE enterprise_usage ADD COLUMN IF NOT EXISTS tool_cost NUMERIC(10, 6) D
 ALTER TABLE enterprise_usage ADD COLUMN IF NOT EXISTS usage_type VARCHAR DEFAULT 'token' CHECK (usage_type IN ('token', 'tool'));
 
 -- Allow NULL model_name for tool usage (tools have no model)
+-- Modify the datatype of the model_name column from VARCHAR(255) to TEXT (v2 compatible)
 DO $$
 BEGIN
     IF EXISTS (
@@ -277,7 +278,21 @@ BEGIN
     ) THEN
         ALTER TABLE enterprise_usage ALTER COLUMN model_name DROP NOT NULL;
     END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'enterprise_usage'
+          AND column_name = 'model_name'
+          AND data_type <> 'text'
+    ) THEN
+        ALTER TABLE public.enterprise_usage
+        ALTER COLUMN model_name
+        TYPE TEXT;
+    END IF;
 END $$;
+
 
 -- ============================================================================
 -- enterprise_can_use_tool - Pre-flight check for tool usage
@@ -386,6 +401,9 @@ GRANT EXECUTE ON FUNCTION enterprise_can_use_tool(UUID, VARCHAR) TO authenticate
 -- monthly limit, deducts credits, and logs the usage with usage_type = 'tool'.
 
 DROP FUNCTION IF EXISTS enterprise_use_tool_credits(UUID, VARCHAR, TEXT, TEXT);
+
+-- Also drop the old function with the incorrect signature from v2
+DROP FUNCTION IF EXISTS enterprise_use_tool_credits(UUID, VARCHAR, UUID, UUID);
 
 CREATE OR REPLACE FUNCTION public.enterprise_use_tool_credits(
     p_account_id UUID,
