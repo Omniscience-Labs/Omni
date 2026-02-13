@@ -392,7 +392,7 @@ async def verify_and_get_agent_authorization(client, agent_id: str, user_id: str
     except HTTPException:
         raise
     except Exception as e:
-        structlog.error(f"Error verifying agent access for agent {agent_id}, user {user_id}: {str(e)}")
+        structlog.get_logger().error(f"Error verifying agent access for agent {agent_id}, user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to verify agent access")
 
 async def verify_and_authorize_thread_access(client, thread_id: str, user_id: Optional[str]):
