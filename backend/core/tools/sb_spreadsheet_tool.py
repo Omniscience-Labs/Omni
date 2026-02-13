@@ -1,7 +1,23 @@
+"""XLSX tool: JSON workbook model → .xlsx (in-memory only). Full regen per call; only .xlsx is written."""
+
+from __future__ import annotations
+
+import io
+import re
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+import jsonschema
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.styles.colors import Color
+from openpyxl.utils import column_index_from_string
+
+from core.agentpress.thread_manager import ThreadManager
 from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
 from core.sandbox.tool_base import SandboxToolsBase
-from core.agentpress.thread_manager import ThreadManager
 from core.utils.logger import logger
+<<<<<<< Updated upstream
 from typing import List, Dict, Optional, Union, Any
 import json
 import os
@@ -13,400 +29,693 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import column_index_from_string, get_column_letter
 from openpyxl.cell.cell import Cell
 from pathlib import Path
+=======
+
+# ---------------------------------------------------------------------------
+# JSON Schema – Foundational v1
+# ---------------------------------------------------------------------------
+
+XLSX_WORKBOOK_SCHEMA: Dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://example.com/schemas/min-ai-xlsx.schema.json",
+    "title": "Minimal AI XLSX Workbook Schema (Foundational v1)",
+    "description": (
+        "Foundational XLSX schema for JSON-template to .xlsx rendering. "
+        "Cell refs are A1-style. Colors are 6- or 8-hex RGB (no #)."
+    ),
+    "type": "object",
+    "required": ["workbook"],
+    "additionalProperties": True,
+    "properties": {
+        "version": {"type": "string", "default": "1.0"},
+        "workbook": {
+            "type": "object",
+            "required": ["sheets"],
+            "additionalProperties": True,
+            "properties": {
+                "title": {"type": "string"},
+                "creator": {"type": "string"},
+                "activeSheet": {
+                    "type": "string",
+                    "description": "Name of the sheet to make active (optional).",
+                },
+                "styles": {
+                    "type": "object",
+                    "description": "Named style dictionary. Cells reference these by name via 'style'.",
+                    "additionalProperties": {"$ref": "#/$defs/CellFormat"},
+                    "default": {},
+                },
+                "sheets": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {"$ref": "#/$defs/Sheet"},
+                },
+            },
+        },
+    },
+    "$defs": {
+        "A1CellRef": {
+            "type": "string",
+            "pattern": "^[A-Z]+[1-9][0-9]*$",
+            "description": "Excel A1-style cell reference (e.g. A1, B2, AA10).",
+        },
+        "A1RangeRef": {
+            "type": "string",
+            "pattern": "^[A-Z]+[1-9][0-9]*:[A-Z]+[1-9][0-9]*$",
+            "description": "Excel A1-style range reference (e.g. A1:B2).",
+        },
+        "ColorHex": {
+            "type": "string",
+            "pattern": "^[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$",
+            "description": "RGB (RRGGBB) or ARGB (AARRGGBB) hex string without #.",
+        },
+        "CellFormat": {
+            "type": "object",
+            "additionalProperties": True,
+            "properties": {
+                "number_format": {
+                    "type": "string",
+                    "description": (
+                        "Excel number format code. Supports dates (mm/dd/yyyy), decimals (0.00), "
+                        "currency ($#,##0.00), percentage (0.00%), and unit formatting: use quotes "
+                        "for literal text, e.g. 0.00 \"kg\", #,##0 \"m\", 0.0 \"hrs\". See Excel number format syntax."
+                    ),
+                },
+                "bold": {"type": "boolean"},
+                "italic": {"type": "boolean"},
+                "font_size": {"type": "number", "minimum": 1},
+                "font_color": {"$ref": "#/$defs/ColorHex"},
+                "fill_color": {"$ref": "#/$defs/ColorHex"},
+                "alignment": {
+                    "type": "string",
+                    "enum": ["left", "center", "right", "top", "bottom", "middle"],
+                    "description": "Text alignment.",
+                },
+                "wrap_text": {"type": "boolean"},
+                "border": {
+                    "type": "boolean",
+                    "description": "If true, apply a thin border around the cell.",
+                },
+            },
+        },
+        "Cell": {
+            "type": "object",
+            "required": ["ref"],
+            "additionalProperties": True,
+            "properties": {
+                "ref": {"$ref": "#/$defs/A1CellRef"},
+                "value": {
+                    "description": (
+                        "Cell value. If value_type is omitted and value is an ISO "
+                        "date/datetime string, renderer may parse into an Excel date."
+                    ),
+                    "oneOf": [
+                        {"type": "string"},
+                        {"type": "number"},
+                        {"type": "boolean"},
+                        {"type": "null"},
+                    ],
+                },
+                "formula": {
+                    "type": "string",
+                    "pattern": "^=",
+                    "description": "Excel formula starting with '='. Takes precedence over value.",
+                },
+                "value_type": {
+                    "type": "string",
+                    "enum": ["auto", "string", "number", "boolean", "date", "datetime"],
+                    "default": "auto",
+                    "description": (
+                        "Controls parsing/coercion. Use 'string' to prevent '=...' "
+                        "being treated as formula when using value only."
+                    ),
+                },
+                "style": {
+                    "description": "Named reference into workbook.styles, or an inline format object.",
+                    "oneOf": [
+                        {"type": "string"},
+                        {"$ref": "#/$defs/CellFormat"},
+                    ],
+                },
+            },
+        },
+        "Sheet": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": True,
+            "properties": {
+                "name": {"type": "string", "minLength": 1, "maxLength": 31},
+                "cells": {
+                    "type": "array",
+                    "default": [],
+                    "items": {"$ref": "#/$defs/Cell"},
+                },
+                "merges": {
+                    "type": "array",
+                    "default": [],
+                    "items": {"$ref": "#/$defs/A1RangeRef"},
+                    "description": "Ranges to merge, e.g. ['A1:D1', 'B2:C2'].",
+                },
+            },
+        },
+    },
+}
+
+# ---------------------------------------------------------------------------
+# A1-reference regex (used by semantic validation)
+# ---------------------------------------------------------------------------
+
+_A1_CELL_RE = re.compile(r"^[A-Z]+[1-9][0-9]*$")
+_A1_RANGE_RE = re.compile(r"^([A-Z]+)([1-9][0-9]*):([A-Z]+)([1-9][0-9]*)$")
+
+
+# ---------------------------------------------------------------------------
+# Normalization (mirrors _normalize_document_model in sb_docx_tool)
+# ---------------------------------------------------------------------------
+
+
+def _normalize_workbook_model(workbook_json: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Accept several input shapes and normalize to the canonical schema form:
+      - canonical: {"workbook": {"sheets": [...], "styles": {...}}}
+      - legacy:    {"sheets": [...], "styles": {...}}          → wraps into workbook
+      - alias:     cell-level "format" key                     → mapped to "style"
+    Never mutates the caller's data (shallow copy).
+    """
+    if not isinstance(workbook_json, dict):
+        raise ValueError("workbook_json must be an object")
+
+    normalized: Dict[str, Any] = dict(workbook_json)
+
+    # ------------------------------------------------------------------
+    # Wrap top-level sheets/styles into workbook if missing
+    # ------------------------------------------------------------------
+    wb_obj = normalized.get("workbook")
+    if not isinstance(wb_obj, dict):
+        wb_obj = {}
+
+    # top-level "sheets" → workbook.sheets
+    if "sheets" not in wb_obj and isinstance(normalized.get("sheets"), list):
+        wb_obj["sheets"] = normalized.pop("sheets")
+
+    # top-level "styles" → workbook.styles
+    if "styles" not in wb_obj and isinstance(normalized.get("styles"), dict):
+        wb_obj["styles"] = normalized.pop("styles")
+
+    # top-level metadata shortcuts
+    for key in ("title", "creator", "activeSheet"):
+        if key not in wb_obj and key in normalized:
+            wb_obj[key] = normalized.pop(key)
+
+    normalized["workbook"] = wb_obj
+
+    # ------------------------------------------------------------------
+    # Cell-level alias: "format" → "style"
+    # ------------------------------------------------------------------
+    sheets = wb_obj.get("sheets")
+    if isinstance(sheets, list):
+        for sheet in sheets:
+            if not isinstance(sheet, dict):
+                continue
+            cells = sheet.get("cells")
+            if not isinstance(cells, list):
+                continue
+            for cell in cells:
+                if not isinstance(cell, dict):
+                    continue
+                if "style" not in cell and "format" in cell:
+                    cell["style"] = cell.pop("format")
+
+    return normalized
+
+
+# ---------------------------------------------------------------------------
+# Semantic validation (beyond JSON Schema)
+# ---------------------------------------------------------------------------
+
+
+def _validate_workbook_semantics(normalized: Dict[str, Any]) -> Optional[str]:
+    """
+    Return an error message string if something is semantically wrong,
+    or None if everything looks good.
+    """
+    wb = normalized.get("workbook") or {}
+    sheets = wb.get("sheets") or []
+    styles = wb.get("styles") or {}
+
+    if not sheets:
+        return "Workbook must contain at least one sheet."
+
+    # --- Sheet-name checks ---
+    seen_names: set[str] = set()
+    for idx, sheet in enumerate(sheets):
+        name = sheet.get("name")
+        if not name or not isinstance(name, str):
+            return f"Sheet at index {idx} must have a non-empty 'name'."
+        if len(name) > 31:
+            return f"Sheet name '{name[:34]}…' exceeds Excel's 31-character limit."
+        if name in seen_names:
+            return f"Duplicate sheet name '{name}' at index {idx}."
+        seen_names.add(name)
+
+    # --- Per-sheet cell / merge checks ---
+    for sheet in sheets:
+        sheet_name = sheet.get("name", "?")
+
+        # Cells
+        for ci, cell in enumerate(sheet.get("cells") or []):
+            ref = cell.get("ref", "")
+            if not _A1_CELL_RE.match(ref):
+                return f"Sheet '{sheet_name}', cell index {ci}: invalid A1 ref '{ref}'."
+
+            # Formula must start with '='
+            formula = cell.get("formula")
+            if formula is not None and not str(formula).startswith("="):
+                return (
+                    f"Sheet '{sheet_name}', cell {ref}: formula must start with '='. "
+                    f"Got: '{str(formula)[:40]}'."
+                )
+
+            # Style reference must exist in named styles
+            style_val = cell.get("style")
+            if isinstance(style_val, str) and style_val not in styles:
+                return (
+                    f"Sheet '{sheet_name}', cell {ref}: style '{style_val}' not found "
+                    f"in workbook.styles. Available: {list(styles.keys())}."
+                )
+
+        # Merges
+        for mi, merge in enumerate(sheet.get("merges") or []):
+            m = _A1_RANGE_RE.match(merge)
+            if not m:
+                return f"Sheet '{sheet_name}', merge index {mi}: invalid range '{merge}'."
+            # Verify end >= start (column and row)
+            start_col, start_row, end_col, end_row = m.group(1), int(m.group(2)), m.group(3), int(m.group(4))
+            try:
+                if column_index_from_string(end_col) < column_index_from_string(start_col):
+                    return (
+                        f"Sheet '{sheet_name}', merge '{merge}': end column ({end_col}) "
+                        f"is before start column ({start_col})."
+                    )
+            except ValueError:
+                return f"Sheet '{sheet_name}', merge '{merge}': invalid column letter."
+            if end_row < start_row:
+                return (
+                    f"Sheet '{sheet_name}', merge '{merge}': end row ({end_row}) "
+                    f"is before start row ({start_row})."
+                )
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Path / filename helpers  (mirrors sb_docx_tool)
+# ---------------------------------------------------------------------------
+
+
+def _validate_and_normalize_path(workspace_path: str, path: str) -> Tuple[str, str]:
+    if not path or not isinstance(path, str):
+        raise ValueError("Path must be a non-empty string")
+    path = path.replace("\\", "/").strip()
+    if path.startswith("/workspace/"):
+        path = path[len("/workspace/"):].lstrip("/")
+    parts = path.split("/")
+    normalized: List[str] = []
+    for part in parts:
+        if part == "..":
+            if normalized:
+                normalized.pop()
+        elif part and part != ".":
+            normalized.append(part)
+    cleaned = "/".join(normalized)
+    if ".." in cleaned or "\\" in cleaned:
+        raise ValueError("Path cannot contain '..' or backslashes")
+    return cleaned, f"{workspace_path}/{cleaned}"
+
+
+def _sanitize_filename(name: str) -> str:
+    base = "workbook"
+    if name:
+        safe = "".join(c for c in name if c.isalnum() or c in "-_.").strip()
+        if safe and not safe.startswith("."):
+            base = safe
+    if not base.lower().endswith(".xlsx"):
+        base = base.rstrip(".") + ".xlsx"
+    return base
+
+
+# ---------------------------------------------------------------------------
+# Cell value parsing
+# ---------------------------------------------------------------------------
+
+_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_ISO_DATETIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?")
+
+
+def _parse_cell_value(value: Any, value_type: str = "auto") -> Any:
+    """
+    Parse a raw JSON value into the appropriate Python type for openpyxl.
+
+    value_type controls coercion:
+      - "auto"     : attempt smart type detection (default)
+      - "string"   : always store as str (prevents formula injection)
+      - "number"   : coerce to int/float
+      - "boolean"  : coerce to bool
+      - "date"     : parse ISO date string → datetime.date
+      - "datetime" : parse ISO datetime string → datetime.datetime
+    """
+    if value is None:
+        return None
+
+    vt = str(value_type).lower() if value_type else "auto"
+
+    if vt == "string":
+        return str(value)
+
+    if vt == "number":
+        try:
+            if isinstance(value, (int, float)):
+                return value
+            s = str(value)
+            return float(s) if "." in s else int(s)
+        except (TypeError, ValueError):
+            return str(value)
+
+    if vt == "boolean":
+        if isinstance(value, bool):
+            return value
+        return bool(value)
+
+    if vt in ("date", "datetime"):
+        if isinstance(value, str):
+            try:
+                if "T" in value or " " in value:
+                    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+                return datetime.strptime(value, "%Y-%m-%d")
+            except (ValueError, TypeError):
+                pass
+        return value
+
+    # "auto" — smart detection
+    if isinstance(value, (int, float, bool)):
+        return value
+
+    if isinstance(value, str):
+        # ISO date/datetime
+        if _ISO_DATETIME_RE.match(value):
+            try:
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                pass
+        elif _ISO_DATE_RE.match(value):
+            try:
+                return datetime.strptime(value, "%Y-%m-%d")
+            except (ValueError, TypeError):
+                pass
+        # Numeric strings
+        try:
+            return float(value) if "." in value else int(value)
+        except ValueError:
+            pass
+        return value
+
+    return str(value)
+
+
+# ---------------------------------------------------------------------------
+# Formatting helpers
+# ---------------------------------------------------------------------------
+
+_ALIGNMENT_MAP = {
+    "left": Alignment(horizontal="left"),
+    "center": Alignment(horizontal="center"),
+    "right": Alignment(horizontal="right"),
+    "top": Alignment(vertical="top"),
+    "bottom": Alignment(vertical="bottom"),
+    "middle": Alignment(vertical="center"),
+}
+
+_THIN_BORDER = Border(
+    left=Side(style="thin"),
+    right=Side(style="thin"),
+    top=Side(style="thin"),
+    bottom=Side(style="thin"),
+)
+
+
+def _resolve_style(
+    cell_style: Any,
+    named_styles: Dict[str, Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Resolve a cell's style field to a concrete format dict (or None)."""
+    if isinstance(cell_style, dict):
+        return cell_style
+    if isinstance(cell_style, str):
+        return named_styles.get(cell_style)
+    return None
+
+
+def _apply_cell_format(ws_cell: Any, fmt: Dict[str, Any]) -> None:
+    """Apply a CellFormat dict to an openpyxl cell."""
+    if not fmt or not isinstance(fmt, dict):
+        return
+
+    # Number format
+    nf = fmt.get("number_format")
+    if nf is not None:
+        ws_cell.number_format = str(nf)
+
+    # Font properties
+    font_kwargs: Dict[str, Any] = {}
+    if fmt.get("bold") is not None:
+        font_kwargs["bold"] = bool(fmt["bold"])
+    if fmt.get("italic") is not None:
+        font_kwargs["italic"] = bool(fmt["italic"])
+    if fmt.get("font_size") is not None:
+        font_kwargs["size"] = float(fmt["font_size"])
+    fc = fmt.get("font_color")
+    if fc:
+        font_kwargs["color"] = Color(rgb=str(fc))
+    if font_kwargs:
+        # Merge with existing font to preserve defaults
+        existing = ws_cell.font
+        ws_cell.font = Font(
+            bold=font_kwargs.get("bold", existing.bold),
+            italic=font_kwargs.get("italic", existing.italic),
+            size=font_kwargs.get("size", existing.size),
+            color=font_kwargs.get("color", existing.color),
+            name=existing.name,
+        )
+
+    # Fill color
+    fill_c = fmt.get("fill_color")
+    if fill_c:
+        ws_cell.fill = PatternFill(start_color=str(fill_c), end_color=str(fill_c), fill_type="solid")
+
+    # Alignment
+    align_key = fmt.get("alignment")
+    wrap = fmt.get("wrap_text")
+    if align_key or wrap is not None:
+        base = _ALIGNMENT_MAP.get(str(align_key).lower()) if align_key else Alignment()
+        # Combine alignment + wrap_text
+        ws_cell.alignment = Alignment(
+            horizontal=base.horizontal,
+            vertical=base.vertical,
+            wrap_text=bool(wrap) if wrap is not None else base.wrap_text,
+        )
+
+    # Border
+    if fmt.get("border"):
+        ws_cell.border = _THIN_BORDER
+
+
+# ---------------------------------------------------------------------------
+# Workbook renderer
+# ---------------------------------------------------------------------------
+
+
+def _render_workbook(normalized: Dict[str, Any]) -> Tuple[Workbook, int, int, int]:
+    """
+    Render a normalized+validated workbook model into an openpyxl Workbook.
+
+    Returns:
+        (workbook, sheet_count, cell_count, merge_count)
+    """
+    wb_model = normalized.get("workbook") or {}
+    sheets_model = wb_model.get("sheets") or []
+    named_styles = wb_model.get("styles") or {}
+
+    wb = Workbook()
+    # Remove the default sheet created by openpyxl
+    wb.remove(wb.active)
+
+    total_cells = 0
+    total_merges = 0
+
+    for sheet_model in sheets_model:
+        ws = wb.create_sheet(title=sheet_model["name"])
+
+        # --- Merges (apply first so merged area exists before writing) ---
+        merges = sheet_model.get("merges") or []
+        for merge_range in merges:
+            ws.merge_cells(merge_range)
+        total_merges += len(merges)
+
+        # --- Cells ---
+        cells = sheet_model.get("cells") or []
+        for cell_model in cells:
+            ref = cell_model["ref"]
+            ws_cell = ws[ref]
+
+            # Value / formula
+            formula = cell_model.get("formula")
+            if formula is not None:
+                ws_cell.value = str(formula)
+            else:
+                raw_value = cell_model.get("value")
+                vtype = cell_model.get("value_type", "auto")
+                ws_cell.value = _parse_cell_value(raw_value, vtype)
+
+            # Formatting
+            fmt = _resolve_style(cell_model.get("style"), named_styles)
+            if fmt:
+                _apply_cell_format(ws_cell, fmt)
+
+            total_cells += 1
+
+    # --- Workbook metadata ---
+    title = wb_model.get("title")
+    if title:
+        wb.properties.title = str(title)
+    creator = wb_model.get("creator")
+    if creator:
+        wb.properties.creator = str(creator)
+
+    # --- Active sheet ---
+    active_name = wb_model.get("activeSheet")
+    if active_name and active_name in wb.sheetnames:
+        wb.active = wb.sheetnames.index(active_name)
+
+    return wb, len(sheets_model), total_cells, total_merges
+
+
+# ---------------------------------------------------------------------------
+# Tool class
+# ---------------------------------------------------------------------------
+>>>>>>> Stashed changes
 
 
 @tool_metadata(
     display_name="Spreadsheets",
-    description="Create, edit, and manage Excel spreadsheets with formulas, formatting, and data analysis",
+    description="Generate Excel (.xlsx) workbooks from a JSON workbook model (single render per request)",
     icon="FileSpreadsheet",
     color="bg-green-100 dark:bg-green-800/50",
     weight=80,
-    visible=True
+    visible=True,
 )
 class SandboxSpreadsheetTool(SandboxToolsBase):
-    """
-    Core spreadsheet tool for creating and managing Excel (.xlsx) files.
-    Uses openpyxl for XLSX manipulation and saves files to sandbox filesystem.
-    
-    Overwrite policy: create_spreadsheet overwrites existing files by default (overwrite=True).
-    Last sheet protection: delete_sheet will auto-create a default "Sheet1" if deleting the last sheet.
-    """
-    
     def __init__(self, project_id: str, thread_manager: ThreadManager):
         super().__init__(project_id, thread_manager)
         self.spreadsheets_dir = "spreadsheets"
-    
-    async def _ensure_spreadsheets_dir(self):
-        """Ensure the spreadsheets directory exists"""
-        full_path = f"{self.workspace_path}/{self.spreadsheets_dir}"
+
+    async def _ensure_spreadsheets_dir(self) -> None:
         try:
-            await self.sandbox.fs.create_folder(full_path, "755")
-        except:
+            await self.sandbox.fs.create_folder(f"{self.workspace_path}/{self.spreadsheets_dir}", "755")
+        except Exception:
             pass
-    
-    def _validate_and_normalize_path(self, path: str, must_exist: bool = False) -> tuple[str, str]:
-        """
-        Validate and normalize a file path to ensure it's under /workspace.
-        Prevents path traversal attacks and ensures paths never escape /workspace.
-        
-        Args:
-            path: Input path (can be absolute or relative)
-            must_exist: If True, validate that the file exists (not implemented here, check separately)
-            
-        Returns:
-            Tuple of (cleaned_relative_path, full_path)
-            
-        Raises:
-            ValueError: If path is invalid or escapes /workspace
-        """
-        if not path or not isinstance(path, str):
-            raise ValueError("Path must be a non-empty string")
-        
-        # Clean path using base class method (removes /workspace prefix if present)
-        cleaned_path = self.clean_path(path)
-        
-        # Security: Prevent path traversal attacks and normalize
-        # Remove any Windows-style backslashes
-        cleaned_path = cleaned_path.replace('\\', '/')
-        
-        # Split into parts and normalize
-        parts = cleaned_path.split('/')
-        normalized_parts = []
-        
-        for part in parts:
-            if part == '..':
-                # Path traversal attempt - remove previous part if exists, but never go above workspace
-                if normalized_parts:
-                    normalized_parts.pop()
-                # If already at root, ignore the ..
-            elif part == '.':
-                # Current directory reference - ignore
-                continue
-            elif part and part != '':
-                # Valid path component
-                normalized_parts.append(part)
-        
-        # Reconstruct cleaned path
-        cleaned_path = '/'.join(normalized_parts)
-        
-        # Final security checks
-        if cleaned_path.startswith('/'):
-            raise ValueError("Path must be relative to /workspace, not absolute")
-        
-        if '..' in cleaned_path or '\\' in cleaned_path:
-            raise ValueError("Path cannot contain '..' or backslashes (path traversal not allowed)")
-        
-        # Construct full path
-        full_path = f"{self.workspace_path}/{cleaned_path}"
-        
-        # Ensure it's still under workspace (final security check using realpath logic)
-        # Normalize the full path to detect any remaining traversal
-        normalized_full = '/'.join([self.workspace_path] + normalized_parts)
-        if not normalized_full.startswith(self.workspace_path + '/') and normalized_full != self.workspace_path:
-            raise ValueError(f"Invalid path: path must be under {self.workspace_path}")
-        
-        return cleaned_path, full_path
-    
-    async def _ensure_directory_exists(self, file_path: str):
-        """Ensure the parent directory of a file path exists.
-        
-        Args:
-            file_path: Full path (must already be validated and under /workspace)
-        """
-        try:
-            # Extract directory path
-            parent_dir = '/'.join(file_path.split('/')[:-1])
-            if parent_dir and parent_dir != self.workspace_path:
-                # Security: Ensure parent_dir is still under workspace
-                if not parent_dir.startswith(self.workspace_path + '/') and parent_dir != self.workspace_path:
-                    logger.warning(f"Attempted to create directory outside workspace: {parent_dir}")
-                    return
-                # Only create if it's a subdirectory
-                await self.sandbox.fs.create_folder(parent_dir, "755")
-        except Exception as e:
-            # Directory might already exist, which is fine
-            logger.debug(f"Directory creation note (may already exist): {str(e)}")
-    
-    def _sanitize_filename(self, name: str) -> str:
-        """Convert name to safe filename"""
-        safe = "".join(c for c in name if c.isalnum() or c in "-_./").strip()
-        if safe.startswith('.'):
-            safe = safe[1:]
-        return safe if safe else "spreadsheet"
-    
-    def _validate_cell_reference(self, cell_ref: str) -> bool:
-        """Validate A1-style cell reference"""
-        pattern = r'^[A-Z]+[0-9]+$'
-        return bool(re.match(pattern, cell_ref.upper()))
-    
-    def _validate_range(self, range_ref: str) -> bool:
-        """Validate A1:B10-style range reference"""
-        if ':' not in range_ref:
-            return False
-        parts = range_ref.split(':')
-        if len(parts) != 2:
-            return False
-        return self._validate_cell_reference(parts[0]) and self._validate_cell_reference(parts[1])
-    
-    def _parse_cell_value(self, value: Any) -> Any:
-        """Parse and convert cell value to appropriate type"""
-        if isinstance(value, (int, float, bool)):
-            return value
-        if isinstance(value, str):
-            # Handle ISO date strings
-            if re.match(r'^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2})?', value):
-                try:
-                    if 'T' in value:
-                        return datetime.fromisoformat(value.replace('Z', '+00:00'))
-                    else:
-                        return datetime.strptime(value, '%Y-%m-%d')
-                except:
-                    pass
-            # Try to convert to number if it looks like one
-            try:
-                if '.' in value:
-                    return float(value)
-                return int(value)
-            except ValueError:
-                return value
-        if value is None:
-            return None
-        return str(value)
-    
-    def _parse_range(self, range_ref: str) -> tuple[int, int, int, int]:
-        """Parse A1:B10 range into (start_row, start_col, end_row, end_col)"""
-        start_cell, end_cell = range_ref.split(':')
-        start_col = column_index_from_string(re.match(r'^([A-Z]+)', start_cell.upper()).group(1))
-        start_row = int(re.match(r'[A-Z]+(\d+)$', start_cell.upper()).group(1))
-        end_col = column_index_from_string(re.match(r'^([A-Z]+)', end_cell.upper()).group(1))
-        end_row = int(re.match(r'[A-Z]+(\d+)$', end_cell.upper()).group(1))
-        return start_row, start_col, end_row, end_col
-    
-    async def _load_workbook_from_sandbox(self, file_path: str) -> Workbook:
-        """Load workbook from sandbox filesystem"""
-        try:
-            file_content = await self.sandbox.fs.download_file(file_path)
-            workbook = load_workbook(io.BytesIO(file_content))
-            return workbook
-        except Exception as e:
-            raise Exception(f"Failed to load workbook from {file_path}: {str(e)}")
-    
-    async def _save_workbook_to_sandbox(self, workbook: Workbook, file_path: str) -> bytes:
-        """Save workbook to sandbox filesystem and return bytes"""
-        try:
-            buffer = io.BytesIO()
-            workbook.save(buffer)
-            buffer.seek(0)
-            file_bytes = buffer.getvalue()
-            await self.sandbox.fs.upload_file(file_bytes, file_path)
-            return file_bytes
-        except Exception as e:
-            raise Exception(f"Failed to save workbook to {file_path}: {str(e)}")
-    
-    def _get_preview_data(self, worksheet, max_rows: int = 10, max_cols: int = 10) -> Dict[str, Any]:
-        """Extract preview data from worksheet for frontend display"""
-        headers = []
-        rows = []
-        
-        # Get headers from first row
-        if worksheet.max_row > 0:
-            for col in range(1, min(worksheet.max_column + 1, max_cols + 1)):
-                cell = worksheet.cell(row=1, column=col)
-                headers.append(str(cell.value) if cell.value is not None else f"Column {col}")
-        
-        # Get data rows (skip header)
-        for row_idx in range(2, min(worksheet.max_row + 1, max_rows + 2)):
-            row_data = []
-            for col in range(1, min(worksheet.max_column + 1, max_cols + 1)):
-                cell = worksheet.cell(row=row_idx, column=col)
-                value = cell.value
-                if isinstance(value, datetime):
-                    value = value.strftime("%Y-%m-%d %H:%M:%S")
-                row_data.append(str(value) if value is not None else "")
-            if any(row_data):  # Only add non-empty rows
-                rows.append(row_data)
-        
-        return {
-            "headers": headers,
-            "rows": rows
-        }
-    
-    def _fail_with_details(self, message: str, details: Optional[Dict[str, Any]] = None) -> ToolResult:
-        """Create a failed tool result with optional details"""
-        if details:
-            error_output = {
-                "ok": False,
-                "error": message,
-                "details": details
-            }
-            return ToolResult(success=False, output=json.dumps(error_output))
-        else:
-            return self.fail_response(message)
-    
-    # ==================== FUNCTION 1: create_spreadsheet ====================
+
     @openapi_schema({
         "type": "function",
         "function": {
-            "name": "create_spreadsheet",
-            "description": "Create a new Excel spreadsheet (.xlsx) file. If file already exists and overwrite=True, it will be overwritten. Returns the file path and sheet names.",
+            "name": "render_xlsx",
+            "description": (
+                "Render a workbook from a JSON workbook model and save as .xlsx in the workspace. "
+                "The JSON is not stored; only the generated .xlsx file is written. "
+                "Full regen per call — the entire workbook is rebuilt from the template each time."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {
+                    "workbook_json": {
+                        "type": "object",
+                        "description": (
+                            "The workbook model. Must contain 'workbook.sheets' (array of sheet objects). "
+                            "Each sheet has 'name', optional 'cells' array (each cell has 'ref', optional "
+                            "'value'/'formula'/'style'), and optional 'merges' array of A1 range strings. "
+                            "Optional 'workbook.styles' for named style definitions."
+                        ),
+                    },
+                    "output_filename": {
                         "type": "string",
-                        "description": "Desired output path under /workspace (e.g., '/workspace/spreadsheets/workbook.xlsx'). Defaults to '/workspace/spreadsheets/workbook.xlsx' if not provided.",
-                        "default": "/workspace/spreadsheets/workbook.xlsx"
+                        "description": "Output filename (will be forced to .xlsx extension).",
+                        "default": "workbook.xlsx",
                     },
-                    "sheets": {
-                        "type": "array",
-                        "description": "Optional list of initial sheet names. If omitted, creates default workbook with 'Sheet1'.",
-                        "items": {"type": "string"}
-                    },
-                    "overwrite": {
-                        "type": "boolean",
-                        "description": "If True, overwrite existing file. If False, return error if file exists. Default: True",
-                        "default": True
-                    }
                 },
-                "required": []
-            }
-        }
+                "required": ["workbook_json"],
+            },
+        },
     })
-    async def create_spreadsheet(
+    async def render_xlsx(
         self,
-        path: Optional[str] = None,
-        sheets: Optional[List[str]] = None,
-        overwrite: bool = True
+        workbook_json: Dict[str, Any],
+        output_filename: str = "workbook.xlsx",
     ) -> ToolResult:
-        """Create a new spreadsheet with optional initial sheets"""
         try:
             await self._ensure_sandbox()
             await self._ensure_spreadsheets_dir()
-            
-            # Default path
-            if not path:
-                path = "/workspace/spreadsheets/workbook.xlsx"
-            
-            # Validate and normalize path (prevents path traversal)
+
+            # --- Normalize ---
             try:
-                cleaned_path, full_path = self._validate_and_normalize_path(path)
+                normalized = _normalize_workbook_model(workbook_json)
             except ValueError as e:
-                return self.fail_response(f"Invalid path: {str(e)}. Paths must be relative to /workspace.")
-            
-            # Ensure .xlsx extension
-            if not full_path.endswith('.xlsx'):
-                full_path += '.xlsx'
-                # Re-validate after adding extension
-                try:
-                    cleaned_path, full_path = self._validate_and_normalize_path(full_path)
-                except ValueError as e:
-                    return self.fail_response(f"Invalid path after extension: {str(e)}")
-            
-            # Ensure parent directory exists
-            await self._ensure_directory_exists(full_path)
-            
-            # Check if file exists
+                return self.fail_response(str(e))
+
+            # --- JSON Schema validation ---
             try:
-                file_info = await self.sandbox.fs.get_file_info(full_path)
-                if file_info and not overwrite:
-                    return self.fail_response(f"File already exists at {full_path}. Set overwrite=True to overwrite.")
-            except:
-                pass  # File doesn't exist, proceed
-            
-            # Create workbook
-            workbook = Workbook()
-            
-            # Remove default sheet if we have custom sheets
-            if sheets:
-                workbook.remove(workbook.active)
-                for sheet_name in sheets:
-                    # Excel sheet name limit is 31 characters
-                    safe_sheet_name = sheet_name[:31]
-                    workbook.create_sheet(title=safe_sheet_name)
-            else:
-                # Use default Sheet1
-                workbook.active.title = "Sheet1"
-            
-            # Save to sandbox
-            await self._save_workbook_to_sandbox(workbook, full_path)
-            
-            sheet_names = workbook.sheetnames
-            
-            logger.info(f"Created spreadsheet: {full_path} with sheets: {sheet_names}")
-            
-            return self.success_response({
-                "ok": True,
-                "file_path": full_path,
-                "sheet_names": sheet_names
-            })
-            
-        except Exception as e:
-            logger.error(f"Error creating spreadsheet: {str(e)}", exc_info=True)
-            return self.fail_response(f"Failed to create spreadsheet: {str(e)}")
-    
-    # ==================== FUNCTION 2: add_sheet ====================
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "add_sheet",
-            "description": "Add a new worksheet to an existing workbook.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "Path to existing workbook file"
-                    },
-                    "sheet_name": {
-                        "type": "string",
-                        "description": "Name of the new sheet (max 31 characters)"
-                    }
-                },
-                "required": ["path", "sheet_name"]
-            }
-        }
-    })
-    async def add_sheet(
-        self,
-        path: str,
-        sheet_name: str
-    ) -> ToolResult:
-        """Add a new worksheet to workbook"""
-        try:
-            await self._ensure_sandbox()
-            
-            # Validate and normalize path (prevents path traversal)
+                jsonschema.validate(instance=normalized, schema=XLSX_WORKBOOK_SCHEMA)
+            except jsonschema.ValidationError as e:
+                return self.fail_response(f"Workbook model validation failed: {e.message or str(e)}")
+
+            # --- Semantic validation ---
+            semantic_err = _validate_workbook_semantics(normalized)
+            if semantic_err:
+                return self.fail_response(f"Workbook model invalid: {semantic_err}")
+
+            # --- Render ---
+            wb, sheet_count, cell_count, merge_count = _render_workbook(normalized)
+
+            # --- Write to sandbox ---
+            safe_name = _sanitize_filename(output_filename)
+            relative_path = f"{self.spreadsheets_dir}/{safe_name}"
+            cleaned, full_path = _validate_and_normalize_path(self.workspace_path, relative_path)
+
+            # Delete existing file if present (full regen)
             try:
-                cleaned_path, full_path = self._validate_and_normalize_path(path, must_exist=True)
-            except ValueError as e:
-                return self.fail_response(f"Invalid path: {str(e)}. Paths must be relative to /workspace.")
-            
-            # Validate sheet name length
-            if len(sheet_name) > 31:
-                return self.fail_response(f"Sheet name too long (max 31 characters): {sheet_name}")
-            
-            # Load workbook
-            workbook = await self._load_workbook_from_sandbox(full_path)
-            
-            # Check if sheet already exists
-            if sheet_name in workbook.sheetnames:
-                return self.fail_response(f"Sheet '{sheet_name}' already exists. Available sheets: {', '.join(workbook.sheetnames)}")
-            
-            # Create new sheet
-            workbook.create_sheet(title=sheet_name)
-            
-            # Save back
-            await self._save_workbook_to_sandbox(workbook, full_path)
-            
-            logger.info(f"Added sheet '{sheet_name}' to {full_path}")
-            
+                await self.sandbox.fs.delete_file(full_path)
+            except Exception:
+                pass
+
+            buf = io.BytesIO()
+            wb.save(buf)
+            buf.seek(0)
+            await self.sandbox.fs.upload_file(buf.getvalue(), full_path)
+
+            logger.info(
+                "sb_spreadsheet_tool render_xlsx: sheets=%s cells=%s merges=%s path=%s",
+                sheet_count, cell_count, merge_count, full_path,
+            )
             return self.success_response({
-                "ok": True,
-                "file_path": full_path,
-                "sheet_names": workbook.sheetnames
+                "saved_path": full_path,
+                "relative_path": f"/workspace/{cleaned}",
+                "sheet_count": sheet_count,
+                "cell_count": cell_count,
+                "merge_count": merge_count,
             })
-            
+
+        except ValueError as e:
+            return self.fail_response(str(e))
         except Exception as e:
+<<<<<<< Updated upstream
             logger.error(f"Error adding sheet: {str(e)}", exc_info=True)
             return self.fail_response(f"Failed to add sheet: {str(e)}")
     
@@ -1331,3 +1640,7 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
         except Exception as e:
             logger.error(f"Error formatting cells: {str(e)}", exc_info=True)
             return self.fail_response(f"Failed to format cells: {str(e)}")
+=======
+            logger.exception("sb_spreadsheet_tool render_xlsx failed")
+            return self.fail_response(f"Failed to render workbook: {str(e)}")
+>>>>>>> Stashed changes
