@@ -23,7 +23,7 @@ DOCX_DOCUMENT_SCHEMA = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://example.com/schemas/min-ai-docx.schema.json",
     "title": "Minimal AI DOCX Document Schema (Foundational v1)",
-    "description": "Spacing and margins in twips (1 pt = 20 twips). Font sizes in points.",
+    "description": "Margins are in inches. Spacing is in twips (1 pt = 20 twips). Font sizes are in points.",
     "type": "object",
     "required": ["doc"],
     "additionalProperties": True,
@@ -201,6 +201,58 @@ DOCX_DOCUMENT_SCHEMA = {
 }
 
 
+def _normalize_document_model(document_json: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Accept a couple of legacy/alternate input shapes and normalize to the schema:
+      - canonical: {"doc": {"page": {...}}, "content": [...], "styles": {...}}
+      - legacy:    {"page": {...}, "content": [...], "styles": {...}}
+      - alias:     {"doc": {...}, "blocks": [...]}  -> content
+    """
+    if not isinstance(document_json, dict):
+        raise ValueError("document_json must be an object")
+
+    normalized: Dict[str, Any] = dict(document_json)  # shallow copy; don't mutate caller data
+
+    # Alias: some callers use "blocks" instead of "content"
+    if "content" not in normalized and isinstance(normalized.get("blocks"), list):
+        normalized["content"] = normalized.pop("blocks")
+
+    # Legacy: allow doc/page config at top-level and wrap into {"doc": {"page": ...}}
+    doc_obj = normalized.get("doc")
+    if not isinstance(doc_obj, dict):
+        doc_obj = {}
+
+    if "page" not in doc_obj or not isinstance(doc_obj.get("page"), dict):
+        page_from_root = None
+        if isinstance(normalized.get("page"), dict):
+            page_from_root = normalized.pop("page")
+        else:
+            # Also support page fields directly on the root (size/orientation/margins).
+            page_keys = ("size", "orientation", "margins")
+            page_candidate: Dict[str, Any] = {}
+            for k in page_keys:
+                if k in normalized:
+                    page_candidate[k] = normalized.pop(k)
+            if page_candidate:
+                page_from_root = page_candidate
+
+        if page_from_root is None:
+            page_from_root = {}
+
+        doc_obj["page"] = page_from_root
+
+    normalized["doc"] = doc_obj
+
+    # Legacy: some callers place the blocks under doc.page.children (Lexical-ish)
+    # If top-level content is missing/empty, promote those children to content.
+    if not normalized.get("content"):
+        page_obj = doc_obj.get("page") if isinstance(doc_obj, dict) else None
+        if isinstance(page_obj, dict) and isinstance(page_obj.get("children"), list):
+            normalized["content"] = list(page_obj["children"])
+
+    return normalized
+
+
 def _validate_content_semantics(content: List[Dict[str, Any]]) -> Optional[str]:
     for i, block in enumerate(content):
         if block.get("type") == "paragraph":
@@ -249,9 +301,22 @@ def _twips_to_pt(twips: Any) -> Optional[float]:
         return None
 
 
-def _twips_to_inches(twips: Any) -> Optional[float]:
-    pt = _twips_to_pt(twips)
-    return (pt / 72.0) if pt is not None else None
+def _inches_value(value: Any, *, max_reasonable_inches: float = 5.0) -> Optional[float]:
+    """
+    Margins are always interpreted as inches.
+    A small sanity bound prevents old twips-based inputs (e.g. 1440) from producing absurd margins.
+    """
+    if value is None:
+        return None
+    try:
+        inches = float(value)
+    except (TypeError, ValueError):
+        return None
+    if inches < 0:
+        return None
+    if inches > max_reasonable_inches:
+        return None
+    return inches
 
 
 def _apply_page_setup(doc: Document, size: str, orientation: str, margins: Optional[Dict[str, Any]] = None) -> None:
@@ -267,7 +332,7 @@ def _apply_page_setup(doc: Document, size: str, orientation: str, margins: Optio
         section.orientation = WD_ORIENT.PORTRAIT
     if margins and isinstance(margins, dict):
         for key, attr in (("top", "top_margin"), ("left", "left_margin"), ("right", "right_margin"), ("bottom", "bottom_margin")):
-            inch = _twips_to_inches(margins.get(key))
+            inch = _inches_value(margins.get(key))
             if inch is not None:
                 setattr(section, attr, Inches(inch))
 
@@ -470,20 +535,23 @@ class SandboxDocxTool(SandboxToolsBase):
             await self._ensure_documents_dir()
 
             try:
-                jsonschema.validate(instance=document_json, schema=DOCX_DOCUMENT_SCHEMA)
+                normalized_document_json = _normalize_document_model(document_json)
+                jsonschema.validate(instance=normalized_document_json, schema=DOCX_DOCUMENT_SCHEMA)
             except jsonschema.ValidationError as e:
                 return self.fail_response(f"Document model validation failed: {e.message or str(e)}")
+            except ValueError as e:
+                return self.fail_response(str(e))
 
-            content = document_json.get("content") or []
+            content = normalized_document_json.get("content") or []
             semantic_err = _validate_content_semantics(content)
             if semantic_err:
                 return self.fail_response(f"Document model invalid: {semantic_err}")
 
-            doc_config = document_json.get("doc") or {}
+            doc_config = normalized_document_json.get("doc") or {}
             page_config = doc_config.get("page") or {}
             size = page_config.get("size", "LETTER")
             orientation = page_config.get("orientation", "portrait")
-            styles = document_json.get("styles") or {}
+            styles = normalized_document_json.get("styles") or {}
 
             for block in content:
                 if block.get("type") == "table":
