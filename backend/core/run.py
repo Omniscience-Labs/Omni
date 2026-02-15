@@ -723,6 +723,12 @@ class AgentRunner:
         tool_manager.register_all_tools(agent_id=agent_id, disabled_tools=disabled_tools)
         logger.info(f"⏱️ [TIMING] register_all_tools(): {(time.time() - register_start) * 1000:.1f}ms")
         
+        # Register Knowledge Search Tool if LlamaCloud KBs are configured
+        if self.config.agent_config and self.config.agent_config.get('llamacloud_knowledge_bases'):
+            kb_start = time.time()
+            self._register_knowledge_search_tool()
+            logger.info(f"⏱️ [TIMING] Knowledge Search Tool: {(time.time() - kb_start) * 1000:.1f}ms")
+        
         is_suna_agent = (self.config.agent_config and self.config.agent_config.get('is_suna_default', False)) or (self.config.agent_config is None)
         logger.debug(f"Agent config check: agent_config={self.config.agent_config is not None}, is_suna_default={is_suna_agent}")
         
@@ -783,6 +789,33 @@ class AgentRunner:
                     self.thread_manager.add_tool(AgentCreationTool, thread_manager=self.thread_manager, db_connection=db, account_id=self.account_id)
             else:
                 logger.warning("Could not register agent_creation_tool: account_id not available")
+    
+    def _register_knowledge_search_tool(self):
+        """Register Knowledge Search Tool for LlamaCloud indices."""
+        try:
+            from core.tools.knowledge_search_tool import KnowledgeSearchTool
+            
+            knowledge_bases = self.config.agent_config.get('llamacloud_knowledge_bases', [])
+            
+            if not knowledge_bases:
+                logger.debug("No LlamaCloud knowledge bases configured, skipping KnowledgeSearchTool")
+                return
+            
+            logger.info(
+                f"📚 Registering Knowledge Search Tool with "
+                f"{len(knowledge_bases)} knowledge bases"
+            )
+            
+            self.thread_manager.add_tool(
+                KnowledgeSearchTool,
+                thread_manager=self.thread_manager,
+                knowledge_bases=knowledge_bases
+            )
+            
+            logger.info(f"✅ Successfully registered {len(knowledge_bases)} knowledge base search functions")
+            
+        except Exception as e:
+            logger.error(f"Failed to register Knowledge Search Tool: {e}", exc_info=True)
     
     def _get_disabled_tools_from_config(self) -> List[str]:
         disabled_tools = []

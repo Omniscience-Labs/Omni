@@ -31,6 +31,9 @@ export * from './usage/use-health';
 export * from './knowledge-base/use-knowledge-base-queries';
 export * from './knowledge-base/use-folders';
 
+// LlamaCloud Knowledge Base
+export * from './react-query/llamacloud-knowledge-base';
+
 // Triggers
 export * from './triggers';
 
