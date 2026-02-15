@@ -193,6 +193,10 @@ def load_existing_env_vars():
         },
         "email": {
         },
+        "llamacloud": {
+            "LLAMA_CLOUD_API_KEY": backend_env.get("LLAMA_CLOUD_API_KEY", ""),
+            "LLAMA_CLOUD_PROJECT_NAME": backend_env.get("LLAMA_CLOUD_PROJECT_NAME", ""),
+        },
         "frontend": {
             "NEXT_PUBLIC_SUPABASE_URL": frontend_env.get(
                 "NEXT_PUBLIC_SUPABASE_URL", ""
@@ -312,6 +316,7 @@ class SetupWizard:
             "monitoring": existing_env_vars.get("monitoring", {}),
             "storage": existing_env_vars.get("storage", {}),
             "email": existing_env_vars.get("email", {}),
+            "llamacloud": existing_env_vars.get("llamacloud", {}),
         }
 
         # Override with any progress data (in case user is resuming)
@@ -322,7 +327,7 @@ class SetupWizard:
             else:
                 self.env_vars[key] = value
 
-        self.total_steps = 17
+        self.total_steps = 18
 
     def show_current_config(self):
         """Shows the current configuration status."""
@@ -438,6 +443,14 @@ class SetupWizard:
         else:
             config_items.append(f"{Colors.YELLOW}○{Colors.ENDC} Kortix Admin")
 
+        # Check LlamaCloud configuration (optional)
+        if self.env_vars.get("llamacloud", {}).get("LLAMA_CLOUD_API_KEY"):
+            config_items.append(
+                f"{Colors.GREEN}✓{Colors.ENDC} LlamaCloud (optional)")
+        else:
+            config_items.append(
+                f"{Colors.CYAN}○{Colors.ENDC} LlamaCloud (optional)")
+
         if any("✓" in item for item in config_items):
             print_info("Current configuration status:")
             for item in config_items:
@@ -506,7 +519,7 @@ class SetupWizard:
                 if os.path.exists(PROGRESS_FILE):
                     os.remove(PROGRESS_FILE)
                 self.env_vars = {}
-                self.total_steps = 17
+                self.total_steps = 18
                 self.current_step = 0
                 # Continue with normal setup
             elif choice == "4":
@@ -531,11 +544,12 @@ class SetupWizard:
             self.run_step_optional(10, self.collect_webhook_keys, "Webhook Configuration (Optional)")
             self.run_step_optional(11, self.collect_mcp_keys, "MCP Configuration (Optional)")
             self.run_step_optional(12, self.collect_composio_keys, "Composio Integration (Optional)")
+            self.run_step_optional(13, self.collect_llamacloud_keys, "LlamaCloud Configuration (Optional)")
             # Removed duplicate webhook collection step
-            self.run_step(13, self.configure_env_files)
-            self.run_step(14, self.setup_supabase_database)
-            self.run_step(15, self.install_dependencies)
-            self.run_step(16, self.start_suna)
+            self.run_step(14, self.configure_env_files)
+            self.run_step(15, self.setup_supabase_database)
+            self.run_step(16, self.install_dependencies)
+            self.run_step(17, self.start_suna)
 
             self.final_instructions()
 
@@ -1485,6 +1499,71 @@ class SetupWizard:
 
         print_success("Webhook configuration saved.")
 
+    def collect_llamacloud_keys(self):
+        """Collects the optional LlamaCloud configuration for knowledge base integration."""
+        print_step(13, self.total_steps, "Collecting LlamaCloud Configuration (Optional)")
+
+        # Check if we already have values configured
+        has_existing = bool(self.env_vars["llamacloud"].get("LLAMA_CLOUD_API_KEY"))
+        if has_existing:
+            print_info(
+                f"Found existing LlamaCloud API key: {mask_sensitive_value(self.env_vars['llamacloud']['LLAMA_CLOUD_API_KEY'])}"
+            )
+            print_info("Press Enter to keep current values or type new ones.")
+        else:
+            print_info(
+                "LlamaCloud enables advanced knowledge base integration for your agents.")
+            print_info(
+                "With LlamaCloud, your agents can search through external knowledge bases.")
+            print_info(
+                "This is optional and can be configured later if needed.")
+            print_info(
+                "Get your API key from: https://cloud.llamaindex.ai/")
+            print_info("You can skip this step and configure LlamaCloud later.")
+
+        # Ask if user wants to configure LlamaCloud
+        if not has_existing:
+            configure_llamacloud = input(
+                "Do you want to configure LlamaCloud integration? (y/N): ").lower().strip()
+            if configure_llamacloud != 'y':
+                print_info("Skipping LlamaCloud configuration.")
+                return
+
+        self.env_vars["llamacloud"]["LLAMA_CLOUD_API_KEY"] = self._get_input(
+            "Enter your LlamaCloud API Key (or press Enter to skip): ",
+            validate_api_key,
+            "Invalid LlamaCloud API Key format. It should be a valid API key.",
+            allow_empty=True,
+            default_value=self.env_vars["llamacloud"].get("LLAMA_CLOUD_API_KEY", ""),
+        )
+
+        if self.env_vars["llamacloud"]["LLAMA_CLOUD_API_KEY"]:
+            # Prompt for project name
+            print_info(
+                "\nLlamaCloud Project Name is used to organize your knowledge bases.")
+            print_info(
+                "If you leave this blank, 'Default' will be used.")
+            
+            current_project_name = self.env_vars["llamacloud"].get("LLAMA_CLOUD_PROJECT_NAME", "Default")
+            project_name_input = input(
+                f"Enter your LlamaCloud Project Name [{Colors.GREEN}{current_project_name}{Colors.ENDC}]: "
+            ).strip()
+            
+            # Use the input if provided, otherwise keep current/default value
+            if project_name_input:
+                self.env_vars["llamacloud"]["LLAMA_CLOUD_PROJECT_NAME"] = project_name_input
+            elif not current_project_name:
+                self.env_vars["llamacloud"]["LLAMA_CLOUD_PROJECT_NAME"] = "Default"
+            else:
+                self.env_vars["llamacloud"]["LLAMA_CLOUD_PROJECT_NAME"] = current_project_name
+
+            print_success("LlamaCloud configuration saved.")
+            print_info(
+                f"Project Name: {self.env_vars['llamacloud']['LLAMA_CLOUD_PROJECT_NAME']}")
+        else:
+            print_info("Skipping LlamaCloud configuration.")
+
+
     def configure_env_files(self):
         """Configures and writes the .env files for frontend and backend."""
         print_step(14, self.total_steps, "Configuring Environment Files")
@@ -1528,6 +1607,7 @@ class SetupWizard:
             **self.env_vars.get("monitoring", {}),
             **self.env_vars.get("storage", {}),
             **self.env_vars.get("email", {}),
+            **self.env_vars.get("llamacloud", {}),
             "ENCRYPTION_KEY": encryption_key,
             "NEXT_PUBLIC_URL": "http://localhost:3000",
         }
