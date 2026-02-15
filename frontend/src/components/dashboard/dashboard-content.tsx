@@ -37,6 +37,7 @@ import { useTranslations } from 'next-intl';
 import { NotificationDropdown } from '../notifications/notification-dropdown';
 import { UsageLimitsPopover } from './usage-limits-popover';
 import { useSidebar } from '@/components/ui/sidebar';
+import { GeodesicSphere } from '@/components/ui/geodesic-sphere';
 
 // Lazy load heavy components that aren't immediately visible
 const PlanSelectionModal = lazy(() => 
@@ -468,12 +469,15 @@ export function DashboardContent() {
             )} */}
             
 
-            <div className="flex-1 flex items-start justify-center pt-[25vh] sm:pt-[30vh]">
+            <div className="flex-1 flex items-center justify-center">
               {viewMode === 'super-worker' && (
                 <div className="w-full animate-in fade-in-0 duration-300">
                   <div className="px-4 py-6 sm:py-8">
                     <div className="w-full max-w-3xl mx-auto flex flex-col items-center space-y-5 sm:space-y-6 md:space-y-8">
                       <div className="flex flex-col items-center text-center w-full">
+                        <div className="mb-4">
+                          <GeodesicSphere size={120} glow speed={1} />
+                        </div>
                         <p
                           className="tracking-tight text-2xl sm:text-2xl md:text-3xl font-normal text-foreground/90"
                         >

@@ -217,7 +217,7 @@ export function SidebarLeft({
             {state === 'collapsed' ? (
               <div className="pl-2 relative flex items-center justify-center w-fit group/logo">
                 <Link href="/dashboard" onClick={() => isMobile && setOpenMobile(false)}>
-                  <OmniLogo size={28} className="flex-shrink-0 opacity-100 group-hover/logo:opacity-0 transition-opacity" />
+                  <OmniLogo variant="sphere" size={28} spinning className="flex-shrink-0 opacity-100 group-hover/logo:opacity-0 transition-opacity" />
                 </Link>
                 <Tooltip delayDuration={2000}>
                   <TooltipTrigger asChild>
@@ -236,7 +236,7 @@ export function SidebarLeft({
             ) : (
               <div className="pl-2 relative flex items-center justify-center w-fit">
                 <Link href="/dashboard" onClick={() => isMobile && setOpenMobile(false)}>
-                  <OmniLogo size={28} className="flex-shrink-0" />
+                  <OmniLogo variant="wordmark" size={32} className="flex-shrink-0" />
                 </Link>
               </div>
             )}

@@ -433,7 +433,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
                                 : "text-muted-foreground/50"
                     )}
                 >
-                    <OmniLogo size={compact ? 10 : 12} variant="symbol" />
+                    <OmniLogo size={compact ? 10 : 12} />
                     <span className={cn(
                         "font-semibold tracking-wide uppercase",
                         compact ? "text-[10px]" : "text-xs",

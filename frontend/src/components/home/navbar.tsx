@@ -9,8 +9,7 @@ import { AnimatePresence, motion, useScroll } from 'motion/react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import Image from 'next/image';
-import { useTheme } from 'next-themes';
+import { OmniWordmarkLogo } from '@/components/ui/omni-wordmark-logo';
 
 const INITIAL_WIDTH = '80rem';
 const MAX_WIDTH = '1400px';
@@ -62,8 +61,6 @@ export function Navbar({ tabs }: NavbarProps = {}) {
   const [activeSection, setActiveSection] = useState('hero');
   const [mounted, setMounted] = useState(false);
   const { user } = useAuth();
-  const { resolvedTheme } = useTheme();
-  const isDarkMode = resolvedTheme === 'dark';
 
   // Filter navigation links based on tabs prop
   const filteredLinks = tabs
@@ -135,16 +132,9 @@ export function Navbar({ tabs }: NavbarProps = {}) {
           )}
         >
           <div className="flex h-[56px] items-center justify-between p-4 gap-4">
-            <Link href="/" className="flex items-center gap-3 flex-shrink-0">
+            <Link href="/" className="flex items-center flex-shrink-0 text-foreground" aria-label="Omni home">
               {mounted && (
-                <Image
-                  src={isDarkMode ? '/OMNI-Logo-light.png' : '/OMNI-Logo-Dark.png'}
-                  alt="Omni"
-                  width={130}
-                  height={40}
-                  className="h-10 w-auto"
-                  priority
-                />
+                <OmniWordmarkLogo height={36} className="shrink-0" />
               )}
             </Link>
 
@@ -206,15 +196,9 @@ export function Navbar({ tabs }: NavbarProps = {}) {
               {/* Mobile menu content */}
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                  <Link href="/" className="flex items-center gap-3">
+                  <Link href="/" className="flex items-center text-foreground" aria-label="Omni home">
                     {mounted && (
-                      <Image
-                        src={isDarkMode ? '/OMNI-Logo-light.png' : '/OMNI-Logo-Dark.png'}
-                        alt="Omni"
-                        width={110}
-                        height={28}
-                        className="h-7 w-auto"
-                      />
+                      <OmniWordmarkLogo height={28} />
                     )}
                   </Link>
                   <button

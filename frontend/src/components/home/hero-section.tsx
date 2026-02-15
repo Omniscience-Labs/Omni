@@ -21,6 +21,7 @@ import { isLocalMode, config, isStagingMode } from '@/lib/config';
 import { toast } from 'sonner';
 import { ChatInput, ChatInputHandles } from '@/components/thread/chat-input/chat-input';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
+import { GeodesicSphere } from '@/components/ui/geodesic-sphere';
 import { useQuery } from '@tanstack/react-query';
 import { agentKeys } from '@/hooks/agents/keys';
 import { getAgents } from '@/hooks/agents/utils';
@@ -246,6 +247,11 @@ export function HeroSection() {
             <div className="relative flex flex-col items-center w-full px-4 sm:px-6 pb-8 sm:pb-10">
 
                 <div className="relative z-10 pt-20 sm:pt-24 md:pt-32 mx-auto h-full w-full max-w-6xl flex flex-col items-center justify-center min-h-[60vh] sm:min-h-0">
+
+                    {/* Spinning Geodesic Sphere Logo */}
+                    <div className="mb-6">
+                        <GeodesicSphere size={120} glow speed={1} />
+                    </div>
 
                     {/* Decorative line */}
                     <div className="w-24 h-0.5 bg-gradient-to-r from-purple-500 to-pink-500 mb-8" />
