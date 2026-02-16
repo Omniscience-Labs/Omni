@@ -13,6 +13,9 @@ from core.billing.credits.integration import billing_integration
 from core.utils.config import config, EnvMode
 from core.services import redis
 from redis.exceptions import ConnectionError as RedisConnectionError, TimeoutError as RedisTimeoutError
+from supabase import AsyncClient
+from daytona_sdk import AsyncSandbox
+from core.agent_default_files import AgentDefaultFilesService, format_file_path_for_agent
 from core.sandbox.sandbox import create_sandbox, delete_sandbox, get_or_start_sandbox
 from core.utils.sandbox_utils import generate_unique_filename, get_uploads_directory
 from run_agent_background import run_agent_background
@@ -404,14 +407,34 @@ async def _trigger_agent_background(
         raise
 
 
-async def _handle_file_uploads(files: List[UploadFile], sandbox, project_id: str, prompt: str = "") -> str:
+async def _copy_agent_default_files_to_sandbox(agent_id: str, sandbox: AsyncSandbox) -> Dict[str, Optional[str] | List[str]]:
+    """
+    Copy agent default files to /workspace/agent-defaults in the sandbox.
+    Standalone helper for reuse (e.g. after file uploads, in worker, etc.).
+    """
+    try:
+        svc = AgentDefaultFilesService()
+        result = await svc.copy_default_files_to_sandbox(agent_id, sandbox)
+        if result["copied"]:
+            logger.info(f"Copied agent default files to /workspace/agent-defaults: {result['copied']}")
+            paths = [format_file_path_for_agent(filename) for filename in result["copied"]]
+            message = "\n[Agent Default Files Available]:\n"
+            for path in paths:
+                message += f"- {path}\n"
+            return {"files": paths, "message": message}
+        return {"files": [], "message": None}
+    except Exception as e:
+        logger.warning(f"Failed to copy agent default files to sandbox: {e}")
+        return {"files": [], "message": None}
+
+
+async def _handle_file_uploads(files: List[UploadFile], sandbox, prompt: str = "",) -> str:
     """
     Handle file uploads to sandbox and return message content with file references.
     
     Args:
         files: List of uploaded files
         sandbox: Sandbox object to upload files to
-        project_id: Project ID for logging
         prompt: Optional prompt text to prepend to file references
     
     Returns:
@@ -482,17 +505,19 @@ async def _handle_file_uploads(files: List[UploadFile], sandbox, project_id: str
     return message_content
 
 
-async def _ensure_sandbox_for_thread(client, project_id: str, files: List[UploadFile]):
+async def _ensure_sandbox_for_thread(
+    client: AsyncClient,
+    project_id: str,
+) -> Tuple[Optional[AsyncSandbox], Optional[str]]:
     """
-    Ensure sandbox exists for a project. Retrieves existing or creates new if files are provided.
+    Ensure sandbox exists for a project. Retrieves existing or creates new if missing.
     
     Args:
         client: Database client
         project_id: Project ID
-        files: List of files (if any)
     
     Returns:
-        Tuple of (sandbox, sandbox_id) or (None, None) if no sandbox needed
+        Tuple of (sandbox, sandbox_id) or (None, None) if project not found
     """
     # First check if project already has a sandbox
     project_result = await client.table('projects').select('sandbox').eq('project_id', project_id).execute()
@@ -517,11 +542,6 @@ async def _ensure_sandbox_for_thread(client, project_id: str, files: List[Upload
             logger.error(f"Error retrieving existing sandbox {sandbox_id}: {str(e)}")
             # If we can't retrieve the sandbox, we can't upload files
             raise HTTPException(status_code=500, detail=f"Failed to retrieve sandbox for file upload: {str(e)}")
-    
-    # Only create sandbox if files are provided
-    if not files or len(files) == 0:
-        logger.debug(f"No files to upload and no sandbox exists for project {project_id}")
-        return None, None
     
     # Create new sandbox
     try:
@@ -833,20 +853,30 @@ async def unified_agent_start(
                 await verify_and_authorize_thread_access(client, thread_id, user_id)
             
             structlog.contextvars.bind_contextvars(project_id=project_id, account_id=account_id)
-            
-            # Handle file uploads for existing thread
-            if files and len(files) > 0:
-                sandbox, _ = await _ensure_sandbox_for_thread(client, project_id, files)
+
+            # Sandbox: only when user files OR agent default files exist
+            has_user_files = files and len(files) > 0
+            agent_has_defaults = False
+            if agent_id:
+                agent_has_defaults = await AgentDefaultFilesService().has_default_files(agent_id)
+            if has_user_files or agent_has_defaults:
+                sandbox, _ = await _ensure_sandbox_for_thread(client, project_id)
                 if sandbox:
-                    message_content = await _handle_file_uploads(files, sandbox, project_id, prompt or "")
-        
+                    if has_user_files:
+                        message_content = await _handle_file_uploads(files, sandbox, prompt or "")
+                    if agent_id:
+                        await _copy_agent_default_files_to_sandbox(agent_id, sandbox)
+
         else:
             # ================================================================
             # NEW THREAD: Handle sandbox/files before calling internal
             # ================================================================
-            # For new threads with files, we need to create sandbox first
-            if files and len(files) > 0:
-                # Create project early to attach sandbox
+            # Create project when: user files OR agent has default files
+            has_user_files = files and len(files) > 0
+            agent_has_defaults = False
+            if agent_id:
+                agent_has_defaults = await AgentDefaultFilesService().has_default_files(agent_id)
+            if has_user_files or agent_has_defaults:
                 project_id = str(uuid.uuid4())
                 placeholder_name = f"{prompt[:30]}..." if len(prompt) > 30 else prompt
                 await client.table('projects').insert({
@@ -855,21 +885,24 @@ async def unified_agent_start(
                     "name": placeholder_name,
                     "created_at": datetime.now(timezone.utc).isoformat()
                 }).execute()
-                
-                # Pre-cache and start naming task
                 try:
                     from core.runtime_cache import set_cached_project_metadata
                     await set_cached_project_metadata(project_id, {})
                 except Exception:
                     pass
                 asyncio.create_task(generate_and_update_project_name(project_id=project_id, prompt=prompt))
-                
                 try:
-                    sandbox, _ = await _ensure_sandbox_for_thread(client, project_id, files)
+                    sandbox, _ = await _ensure_sandbox_for_thread(client, project_id)
                     if sandbox:
-                        message_content = await _handle_file_uploads(files, sandbox, project_id, prompt)
+                        if has_user_files:
+                            message_content = await _handle_file_uploads(files, sandbox, prompt)
+                        if agent_id:
+                            result = await _copy_agent_default_files_to_sandbox(agent_id, sandbox)
+                            if result["files"] and result["message"]:
+                                if not message_content.endswith('\n'):
+                                    message_content += "\n"
+                                message_content += result["message"]
                 except Exception as e:
-                    # Cleanup project on sandbox failure
                     await client.table('projects').delete().eq('project_id', project_id).execute()
                     raise HTTPException(status_code=500, detail=f"Failed to create sandbox: {str(e)}")
         
@@ -880,7 +913,7 @@ async def unified_agent_start(
             agent_id=agent_id,
             model_name=model_name,
             thread_id=thread_id,
-            project_id=project_id,  # Pre-created if files were uploaded
+            project_id=project_id,  # Pre-created if files or agent defaults
             message_content=message_content,  # Includes file references if any
         )
         

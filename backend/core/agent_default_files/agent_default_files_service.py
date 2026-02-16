@@ -4,6 +4,8 @@ Agent Default Files Service
 
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
+
+from daytona_sdk import AsyncSandbox
 from fastapi import UploadFile
 from core.utils.logger import logger
 from core.services.supabase import DBConnection
@@ -28,6 +30,19 @@ class AgentDefaultFilesService:
         if not is_valid:
             raise ValueError(error or "Invalid filename")
         return UploadedFileValidator.sanitize_filename(name)
+
+    async def has_default_files(self, agent_id: str) -> bool:
+        """Check if agent has any default files configured."""
+        client = await self._db.client
+        result = (
+            await client
+                .table("agent_default_files")
+                .select("id")
+                .eq("agent_id", agent_id)
+                .limit(1)
+                .execute()
+        )
+        return bool(result.data)
 
     async def list_default_files(self, agent_id: str) -> List[Dict[str, Any]]:
         client = await self._db.client
@@ -118,6 +133,53 @@ class AgentDefaultFilesService:
             "failed": failed,
             "files": files,
         }
+
+    async def copy_default_files_to_sandbox(
+        self,
+        agent_id: str,
+        sandbox: AsyncSandbox,
+    ) -> Dict[str, List[str]]:
+        """
+        Create /workspace/agent-defaults in the sandbox and copy all agent default files there.
+        Downloads from storage and uploads to sandbox. Returns lists of copied and failed file names.
+        """
+        DEFAULT_FILES_DIR = "/workspace/agent-defaults"
+        client = await self._db.client
+        rows = (
+            await client
+                .table("agent_default_files")
+                .select("name, storage_path")
+                .eq("agent_id", agent_id)
+                .execute()
+        )
+        files_data = rows.data or []
+        if not files_data:
+            return {"copied": [], "failed": []}
+
+        try:
+            await sandbox.fs.create_folder(DEFAULT_FILES_DIR, "755")
+        except Exception as e:
+            logger.warning(f"Failed to create agent-defaults dir in sandbox: {e}")
+            return {"copied": [], "failed": [row["name"] for row in files_data]}
+
+        copied: List[str] = []
+        failed: List[str] = []
+        for row in files_data:
+            storage_path = row["storage_path"]
+            filename = row["name"]
+            target_path = f"{DEFAULT_FILES_DIR}/{filename}"
+            try:
+                file_content: bytes = await client.storage.from_(
+                    AGENT_DEFAULT_FILES_BUCKET_NAME
+                ).download(storage_path)
+                await sandbox.fs.upload_file(file_content, target_path)
+                copied.append(filename)
+                logger.debug(f"Copied default file {filename} to sandbox")
+            except Exception as e:
+                logger.warning(f"Failed to copy default file {filename} to sandbox: {e}")
+                failed.append(filename)
+
+        return {"copied": copied, "failed": failed}
 
     async def upload_default_file(
         self,
