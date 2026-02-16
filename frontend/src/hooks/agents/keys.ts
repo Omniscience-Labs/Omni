@@ -8,6 +8,7 @@ export const agentKeys = {
   detail: (id: string) => [...agentKeysBase, 'detail', id] as const,
   threadAgents: () => [...agentKeysBase, 'thread-agent'] as const,
   threadAgent: (threadId: string) => [...agentKeysBase, 'thread-agent', threadId] as const,
+  defaultFiles: (agentId: string) => [...agentKeysBase, agentId, 'default-files'] as const,
 } as const;
 
 export const versionKeys = {

@@ -28,6 +28,7 @@ import {
     DragOverlay,
     useDraggable,
 } from '@dnd-kit/core';
+import { formatFileSize } from '@/lib/utils/file-utils';
 
 interface TreeItem {
     id: string;
@@ -200,14 +201,6 @@ export function SharedTreeItem({
         opacity: isDragging ? 0 : 1, // Completely hide the original when dragging
         zIndex: isDragging ? 1000 : 'auto',
     } : {};
-
-    const formatFileSize = (bytes: number) => {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-    };
 
     return (
         <div ref={combinedRef} style={style} className="select-none my-2">
@@ -499,14 +492,6 @@ export function SharedTreeItem({
 
 // Custom drag overlay component that matches the file row styling
 export function FileDragOverlay({ item }: { item: TreeItem }) {
-    const formatFileSize = (bytes: number) => {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-    };
-
     return (
         <SpotlightCard className="bg-card border border-border shadow-2xl opacity-90">
             <div className="flex items-center gap-4 p-5">

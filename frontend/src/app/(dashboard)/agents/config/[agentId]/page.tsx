@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAgent } from '@/hooks/agents/use-agents';
-import { ChevronLeft, Brain, BookOpen, Zap, Wrench, Server, Pencil, MessageCircle } from 'lucide-react';
+import { ChevronLeft, Brain, BookOpen, Zap, Wrench, Server, Pencil, MessageCircle, FileText } from 'lucide-react';
 import { OmniLoader } from '@/components/ui/kortix-loader';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -15,11 +15,12 @@ import { InstructionsScreen } from './screens/instructions-screen';
 import { KnowledgeScreen } from './screens/knowledge-screen';
 import { ToolsScreen } from './screens/tools-screen';
 import { IntegrationsScreen } from './screens/integrations-screen';
+import { AgentDefaultFilesConfiguration } from '@/components/agents/default-files';
 import { useUpdateAgent } from '@/hooks/agents/use-agents';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 
-type ConfigView = 'instructions' | 'knowledge' | 'triggers' | 'tools' | 'integrations';
+type ConfigView = 'instructions' | 'knowledge' | 'triggers' | 'tools' | 'integrations' | 'default-files';
 
 export default function AgentConfigPage() {
   const params = useParams();
@@ -76,6 +77,7 @@ export default function AgentConfigPage() {
     { id: 'tools' as const, label: 'Tools', icon: Wrench },
     { id: 'integrations' as const, label: 'Integrations', icon: Server },
     { id: 'knowledge' as const, label: 'Knowledge', icon: BookOpen },
+    { id: 'default-files' as const, label: 'Default Files', icon: FileText },
     { id: 'triggers' as const, label: 'Triggers', icon: Zap },
   ];
 
@@ -134,8 +136,8 @@ export default function AgentConfigPage() {
           })}
         </div>
 
-        {/* Menu items - mobile (icon only) */}
-        <div className="flex gap-2 md:hidden md:space-y-2">
+        {/* Menu items - mobile (icon only, scrollable) */}
+        <div className="flex gap-2 overflow-x-auto overflow-y-hidden pb-2 -mx-4 px-4 md:hidden md:overflow-visible md:pb-0 md:mx-0 md:px-0">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.id;
@@ -145,7 +147,7 @@ export default function AgentConfigPage() {
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  "h-12 w-12 p-0 cursor-pointer hover:bg-muted/60 hover:border-[1.5px] hover:border-border",
+                  "h-12 w-12 shrink-0 p-0 cursor-pointer hover:bg-muted/60 hover:border-[1.5px] hover:border-border",
                   isActive ? 'bg-muted/60 border-[1.5px] border-border' : ''
                 )}
                 onClick={() => setActiveView(item.id)}
@@ -194,6 +196,7 @@ export default function AgentConfigPage() {
         {activeView === 'tools' && <ToolsScreen agentId={agentId} />}
         {activeView === 'integrations' && <IntegrationsScreen agentId={agentId} />}
         {activeView === 'knowledge' && <KnowledgeScreen agentId={agentId} />}
+        {activeView === 'default-files' && <AgentDefaultFilesConfiguration agentId={agentId} />}
         {activeView === 'triggers' && <TriggersScreen agentId={agentId} />}
       </div>
 

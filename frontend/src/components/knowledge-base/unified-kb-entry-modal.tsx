@@ -31,6 +31,7 @@ import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { FileNameValidator, useNameValidation } from '@/lib/validation';
 import { cn } from '@/lib/utils';
+import { formatFileSize } from '@/lib/utils/file-utils';
 import { type Folder } from '@/hooks/knowledge-base/use-folders';
 
 interface FileUploadStatus {
@@ -414,14 +415,6 @@ export function UnifiedKbEntryModal({
             setIsEditingNewFolder(false);
             setIsOpen(false);
         }, 300);
-    };
-
-    const formatFileSize = (bytes: number) => {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     };
 
     const selectedFolderInfo = folders.find(f => f.folder_id === selectedFolder);
