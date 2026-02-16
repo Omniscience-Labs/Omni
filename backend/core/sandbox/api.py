@@ -447,7 +447,7 @@ async def create_file_in_project(
         existing_sandbox_id = project_data.get('sandbox', {}).get('id')
         
         # Ensure sandbox exists (creates if needed)
-        sandbox, sandbox_id = await _ensure_sandbox_for_thread(client, project_id, [file])
+        sandbox, sandbox_id = await _ensure_sandbox_for_thread(client, project_id)
         
         if not sandbox or not sandbox_id:
             raise HTTPException(status_code=500, detail="Failed to ensure sandbox for file upload")
