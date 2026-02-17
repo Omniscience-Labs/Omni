@@ -351,6 +351,20 @@ class ToolBillingService:
         }
 
     # ================================================================== #
+    #  Cost lookup (for agent awareness)
+    # ================================================================== #
+
+    async def get_tool_costs(self, tool_names: List[str]) -> Dict[str, float]:
+        """
+        Look up per-invocation costs for *tool_names*. Used to inject cost
+        into tool descriptions so agents see them when choosing tools.
+        """
+        if not tool_names:
+            return {}
+        costs = await self._get_tool_costs_batch(tool_names)
+        return {name: float(c) for name, c in costs.items() if c > 0}
+
+    # ================================================================== #
     #  Helpers
     # ================================================================== #
 

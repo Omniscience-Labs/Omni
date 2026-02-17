@@ -21,6 +21,7 @@ from core.prompts.prompt import get_system_prompt
 from core.utils.logger import logger
 
 from core.billing.credits.integration import billing_integration
+from core.billing.tool_billing import tool_billing_service
 
 from core.services.langfuse import langfuse
 from langfuse.client import StatefulTraceClient
@@ -506,8 +507,14 @@ class PromptManager:
         
         # Add XML tool calling instructions to system prompt if requested
         if xml_tool_calling and tool_registry:
-            openapi_schemas = tool_registry.get_openapi_schemas()
-            
+            cost_map = {}
+            try:
+                tool_names = list(tool_registry.tools.keys())
+                cost_map = await tool_billing_service.get_tool_costs(tool_names)
+            except Exception as e:
+                logger.debug(f"Failed to fetch tool costs for prompt: {e}")
+            openapi_schemas = tool_registry.get_openapi_schemas(cost_map=cost_map)
+
             if openapi_schemas:
                 # Convert schemas to JSON string
                 schemas_json = json.dumps(openapi_schemas, indent=2)
