@@ -44,6 +44,9 @@ class KnowledgeSearchTool(Tool):
         self.api_key = os.getenv("LLAMA_CLOUD_API_KEY")
         self.project_name = os.getenv("LLAMA_CLOUD_PROJECT_NAME", "Default")
         
+        if not self.api_key:
+            logger.warning("LLAMA_CLOUD_API_KEY not found in environment variables")
+        
         # Create dynamic search methods for each knowledge base
         self._create_dynamic_methods()
         super().__init__()
@@ -63,6 +66,11 @@ class KnowledgeSearchTool(Tool):
             name = kb.get('name', '')
             index_name = kb.get('index_name', '')
             description = kb.get('description', '')
+            
+            # Skip knowledge bases with empty name or index_name
+            if not name or not index_name:
+                logger.warning(f"Skipping knowledge base with empty name='{name}' or index_name='{index_name}'")
+                continue
             
             # Create method name: "search_<kb_name>"
             # Convert name to valid Python identifier (replace hyphens/spaces with underscores)

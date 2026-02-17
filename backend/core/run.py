@@ -876,6 +876,18 @@ class AgentRunner:
         await self.setup()  # Must run first (sets up client, account_id)
         logger.info(f"⏱️ [TIMING] AgentRunner.setup() completed in {(time.time() - setup_start) * 1000:.1f}ms")
         
+        # Always enrich agent config with LlamaCloud KBs if not already present
+        # This handles cases where run_agent() is called directly without going through
+        # AgentLoader or run_agent_background (which normally do the enrichment)
+        if self.config.agent_config and 'llamacloud_knowledge_bases' not in self.config.agent_config:
+            try:
+                from core.config_helper import enrich_agent_config_with_llamacloud_kb
+                enrich_start = time.time()
+                self.config.agent_config = await enrich_agent_config_with_llamacloud_kb(self.config.agent_config)
+                logger.debug(f"⏱️ [TIMING] LlamaCloud KB enrichment: {(time.time() - enrich_start) * 1000:.1f}ms")
+            except Exception as e:
+                logger.warning(f"Failed to enrich agent config with LlamaCloud KBs: {e}")
+        
         # Run tool setup and MCP setup in parallel
         parallel_start = time.time()
         setup_tools_task = asyncio.create_task(self._setup_tools_async())

@@ -7,7 +7,7 @@ create extension if not exists "pg_net" with schema "public";
 drop function if exists "public"."get_agent_knowledge_base"(p_agent_id uuid, p_include_inactive boolean);
 
 
-  create table "public"."agent_llamacloud_kb_assignments" (
+  create table if not exists "public"."agent_llamacloud_kb_assignments" (
     "assignment_id" uuid not null default gen_random_uuid(),
     "agent_id" uuid not null,
     "kb_id" uuid not null,
@@ -20,7 +20,7 @@ drop function if exists "public"."get_agent_knowledge_base"(p_agent_id uuid, p_i
 alter table "public"."agent_llamacloud_kb_assignments" enable row level security;
 
 
-  create table "public"."agent_llamacloud_knowledge_bases" (
+  create table if not exists "public"."agent_llamacloud_knowledge_bases" (
     "kb_id" uuid not null default gen_random_uuid(),
     "agent_id" uuid not null,
     "account_id" uuid not null,
@@ -36,7 +36,7 @@ alter table "public"."agent_llamacloud_kb_assignments" enable row level security
 alter table "public"."agent_llamacloud_knowledge_bases" enable row level security;
 
 
-  create table "public"."llamacloud_knowledge_bases" (
+  create table if not exists "public"."llamacloud_knowledge_bases" (
     "kb_id" uuid not null default gen_random_uuid(),
     "account_id" uuid not null,
     "name" character varying(255) not null,
@@ -53,97 +53,157 @@ alter table "public"."agent_llamacloud_knowledge_bases" enable row level securit
 
 alter table "public"."llamacloud_knowledge_bases" enable row level security;
 
-CREATE UNIQUE INDEX agent_llamacloud_kb_assignments_agent_id_kb_id_key ON public.agent_llamacloud_kb_assignments USING btree (agent_id, kb_id);
+CREATE UNIQUE INDEX IF NOT EXISTS agent_llamacloud_kb_assignments_agent_id_kb_id_key ON public.agent_llamacloud_kb_assignments USING btree (agent_id, kb_id);
 
-CREATE UNIQUE INDEX agent_llamacloud_kb_assignments_pkey ON public.agent_llamacloud_kb_assignments USING btree (assignment_id);
+CREATE UNIQUE INDEX IF NOT EXISTS agent_llamacloud_kb_assignments_pkey ON public.agent_llamacloud_kb_assignments USING btree (assignment_id);
 
-CREATE UNIQUE INDEX agent_llamacloud_knowledge_bases_pkey ON public.agent_llamacloud_knowledge_bases USING btree (kb_id);
+CREATE UNIQUE INDEX IF NOT EXISTS agent_llamacloud_knowledge_bases_pkey ON public.agent_llamacloud_knowledge_bases USING btree (kb_id);
 
-CREATE INDEX idx_agent_llamacloud_assignments_account_id ON public.agent_llamacloud_kb_assignments USING btree (account_id);
+CREATE INDEX IF NOT EXISTS idx_agent_llamacloud_assignments_account_id ON public.agent_llamacloud_kb_assignments USING btree (account_id);
 
-CREATE INDEX idx_agent_llamacloud_assignments_enabled ON public.agent_llamacloud_kb_assignments USING btree (enabled);
+CREATE INDEX IF NOT EXISTS idx_agent_llamacloud_assignments_enabled ON public.agent_llamacloud_kb_assignments USING btree (enabled);
 
-CREATE INDEX idx_agent_llamacloud_kb_agent_id ON public.agent_llamacloud_knowledge_bases USING btree (agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_llamacloud_kb_agent_id ON public.agent_llamacloud_knowledge_bases USING btree (agent_id);
 
-CREATE INDEX idx_llamacloud_kb_account_id ON public.llamacloud_knowledge_bases USING btree (account_id);
+CREATE INDEX IF NOT EXISTS idx_llamacloud_kb_account_id ON public.llamacloud_knowledge_bases USING btree (account_id);
 
-CREATE INDEX idx_llamacloud_kb_assignments_agent_id ON public.agent_llamacloud_kb_assignments USING btree (agent_id);
+CREATE INDEX IF NOT EXISTS idx_llamacloud_kb_assignments_agent_id ON public.agent_llamacloud_kb_assignments USING btree (agent_id);
 
-CREATE INDEX idx_llamacloud_kb_assignments_kb_id ON public.agent_llamacloud_kb_assignments USING btree (kb_id);
+CREATE INDEX IF NOT EXISTS idx_llamacloud_kb_assignments_kb_id ON public.agent_llamacloud_kb_assignments USING btree (kb_id);
 
-CREATE INDEX idx_llamacloud_kb_created_at ON public.llamacloud_knowledge_bases USING btree (created_at);
+CREATE INDEX IF NOT EXISTS idx_llamacloud_kb_created_at ON public.llamacloud_knowledge_bases USING btree (created_at);
 
-CREATE INDEX idx_llamacloud_kb_folder_id ON public.llamacloud_knowledge_bases USING btree (folder_id);
+CREATE INDEX IF NOT EXISTS idx_llamacloud_kb_folder_id ON public.llamacloud_knowledge_bases USING btree (folder_id);
 
-CREATE INDEX idx_llamacloud_kb_is_active ON public.llamacloud_knowledge_bases USING btree (is_active);
+CREATE INDEX IF NOT EXISTS idx_llamacloud_kb_is_active ON public.llamacloud_knowledge_bases USING btree (is_active);
 
-CREATE INDEX idx_llamacloud_kb_usage_context ON public.llamacloud_knowledge_bases USING btree (usage_context);
+CREATE INDEX IF NOT EXISTS idx_llamacloud_kb_usage_context ON public.llamacloud_knowledge_bases USING btree (usage_context);
 
-CREATE UNIQUE INDEX llamacloud_kb_unique_index_per_account ON public.llamacloud_knowledge_bases USING btree (account_id, index_name);
+CREATE UNIQUE INDEX IF NOT EXISTS llamacloud_kb_unique_index_per_account ON public.llamacloud_knowledge_bases USING btree (account_id, index_name);
 
-CREATE UNIQUE INDEX llamacloud_knowledge_bases_pkey ON public.llamacloud_knowledge_bases USING btree (kb_id);
+CREATE UNIQUE INDEX IF NOT EXISTS llamacloud_knowledge_bases_pkey ON public.llamacloud_knowledge_bases USING btree (kb_id);
 
-alter table "public"."agent_llamacloud_kb_assignments" add constraint "agent_llamacloud_kb_assignments_pkey" PRIMARY KEY using index "agent_llamacloud_kb_assignments_pkey";
+-- Safely add constraints only if they don't already exist (V2 DB compatibility)
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_llamacloud_kb_assignments_pkey') THEN
+        ALTER TABLE "public"."agent_llamacloud_kb_assignments" ADD CONSTRAINT "agent_llamacloud_kb_assignments_pkey" PRIMARY KEY USING INDEX "agent_llamacloud_kb_assignments_pkey";
+    END IF;
+END $$;
 
-alter table "public"."agent_llamacloud_knowledge_bases" add constraint "agent_llamacloud_knowledge_bases_pkey" PRIMARY KEY using index "agent_llamacloud_knowledge_bases_pkey";
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_llamacloud_knowledge_bases_pkey') THEN
+        ALTER TABLE "public"."agent_llamacloud_knowledge_bases" ADD CONSTRAINT "agent_llamacloud_knowledge_bases_pkey" PRIMARY KEY USING INDEX "agent_llamacloud_knowledge_bases_pkey";
+    END IF;
+END $$;
 
-alter table "public"."llamacloud_knowledge_bases" add constraint "llamacloud_knowledge_bases_pkey" PRIMARY KEY using index "llamacloud_knowledge_bases_pkey";
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'llamacloud_knowledge_bases_pkey') THEN
+        ALTER TABLE "public"."llamacloud_knowledge_bases" ADD CONSTRAINT "llamacloud_knowledge_bases_pkey" PRIMARY KEY USING INDEX "llamacloud_knowledge_bases_pkey";
+    END IF;
+END $$;
 
-alter table "public"."agent_llamacloud_kb_assignments" add constraint "agent_llamacloud_kb_assignments_account_id_fkey" FOREIGN KEY (account_id) REFERENCES basejump.accounts(id) ON DELETE CASCADE not valid;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_llamacloud_kb_assignments_account_id_fkey') THEN
+        ALTER TABLE "public"."agent_llamacloud_kb_assignments" ADD CONSTRAINT "agent_llamacloud_kb_assignments_account_id_fkey" FOREIGN KEY (account_id) REFERENCES basejump.accounts(id) ON DELETE CASCADE NOT VALID;
+    END IF;
+END $$;
+ALTER TABLE "public"."agent_llamacloud_kb_assignments" VALIDATE CONSTRAINT "agent_llamacloud_kb_assignments_account_id_fkey";
 
-alter table "public"."agent_llamacloud_kb_assignments" validate constraint "agent_llamacloud_kb_assignments_account_id_fkey";
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_llamacloud_kb_assignments_agent_id_fkey') THEN
+        ALTER TABLE "public"."agent_llamacloud_kb_assignments" ADD CONSTRAINT "agent_llamacloud_kb_assignments_agent_id_fkey" FOREIGN KEY (agent_id) REFERENCES public.agents(agent_id) ON DELETE CASCADE NOT VALID;
+    END IF;
+END $$;
+ALTER TABLE "public"."agent_llamacloud_kb_assignments" VALIDATE CONSTRAINT "agent_llamacloud_kb_assignments_agent_id_fkey";
 
-alter table "public"."agent_llamacloud_kb_assignments" add constraint "agent_llamacloud_kb_assignments_agent_id_fkey" FOREIGN KEY (agent_id) REFERENCES public.agents(agent_id) ON DELETE CASCADE not valid;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_llamacloud_kb_assignments_agent_id_kb_id_key') THEN
+        ALTER TABLE "public"."agent_llamacloud_kb_assignments" ADD CONSTRAINT "agent_llamacloud_kb_assignments_agent_id_kb_id_key" UNIQUE USING INDEX "agent_llamacloud_kb_assignments_agent_id_kb_id_key";
+    END IF;
+END $$;
 
-alter table "public"."agent_llamacloud_kb_assignments" validate constraint "agent_llamacloud_kb_assignments_agent_id_fkey";
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_llamacloud_kb_assignments_kb_id_fkey') THEN
+        ALTER TABLE "public"."agent_llamacloud_kb_assignments" ADD CONSTRAINT "agent_llamacloud_kb_assignments_kb_id_fkey" FOREIGN KEY (kb_id) REFERENCES public.llamacloud_knowledge_bases(kb_id) ON DELETE CASCADE NOT VALID;
+    END IF;
+END $$;
+ALTER TABLE "public"."agent_llamacloud_kb_assignments" VALIDATE CONSTRAINT "agent_llamacloud_kb_assignments_kb_id_fkey";
 
-alter table "public"."agent_llamacloud_kb_assignments" add constraint "agent_llamacloud_kb_assignments_agent_id_kb_id_key" UNIQUE using index "agent_llamacloud_kb_assignments_agent_id_kb_id_key";
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_llamacloud_kb_index_not_empty') THEN
+        ALTER TABLE "public"."agent_llamacloud_knowledge_bases" ADD CONSTRAINT "agent_llamacloud_kb_index_not_empty" CHECK ((length(TRIM(BOTH FROM index_name)) > 0)) NOT VALID;
+    END IF;
+END $$;
+ALTER TABLE "public"."agent_llamacloud_knowledge_bases" VALIDATE CONSTRAINT "agent_llamacloud_kb_index_not_empty";
 
-alter table "public"."agent_llamacloud_kb_assignments" add constraint "agent_llamacloud_kb_assignments_kb_id_fkey" FOREIGN KEY (kb_id) REFERENCES public.llamacloud_knowledge_bases(kb_id) ON DELETE CASCADE not valid;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_llamacloud_kb_name_not_empty') THEN
+        ALTER TABLE "public"."agent_llamacloud_knowledge_bases" ADD CONSTRAINT "agent_llamacloud_kb_name_not_empty" CHECK ((length(TRIM(BOTH FROM name)) > 0)) NOT VALID;
+    END IF;
+END $$;
+ALTER TABLE "public"."agent_llamacloud_knowledge_bases" VALIDATE CONSTRAINT "agent_llamacloud_kb_name_not_empty";
 
-alter table "public"."agent_llamacloud_kb_assignments" validate constraint "agent_llamacloud_kb_assignments_kb_id_fkey";
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_llamacloud_knowledge_bases_account_id_fkey') THEN
+        ALTER TABLE "public"."agent_llamacloud_knowledge_bases" ADD CONSTRAINT "agent_llamacloud_knowledge_bases_account_id_fkey" FOREIGN KEY (account_id) REFERENCES basejump.accounts(id) ON DELETE CASCADE NOT VALID;
+    END IF;
+END $$;
+ALTER TABLE "public"."agent_llamacloud_knowledge_bases" VALIDATE CONSTRAINT "agent_llamacloud_knowledge_bases_account_id_fkey";
 
-alter table "public"."agent_llamacloud_knowledge_bases" add constraint "agent_llamacloud_kb_index_not_empty" CHECK ((length(TRIM(BOTH FROM index_name)) > 0)) not valid;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_llamacloud_knowledge_bases_agent_id_fkey') THEN
+        ALTER TABLE "public"."agent_llamacloud_knowledge_bases" ADD CONSTRAINT "agent_llamacloud_knowledge_bases_agent_id_fkey" FOREIGN KEY (agent_id) REFERENCES public.agents(agent_id) ON DELETE CASCADE NOT VALID;
+    END IF;
+END $$;
+ALTER TABLE "public"."agent_llamacloud_knowledge_bases" VALIDATE CONSTRAINT "agent_llamacloud_knowledge_bases_agent_id_fkey";
 
-alter table "public"."agent_llamacloud_knowledge_bases" validate constraint "agent_llamacloud_kb_index_not_empty";
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'llamacloud_kb_index_not_empty') THEN
+        ALTER TABLE "public"."llamacloud_knowledge_bases" ADD CONSTRAINT "llamacloud_kb_index_not_empty" CHECK ((length(TRIM(BOTH FROM index_name)) > 0)) NOT VALID;
+    END IF;
+END $$;
+ALTER TABLE "public"."llamacloud_knowledge_bases" VALIDATE CONSTRAINT "llamacloud_kb_index_not_empty";
 
-alter table "public"."agent_llamacloud_knowledge_bases" add constraint "agent_llamacloud_kb_name_not_empty" CHECK ((length(TRIM(BOTH FROM name)) > 0)) not valid;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'llamacloud_kb_name_not_empty') THEN
+        ALTER TABLE "public"."llamacloud_knowledge_bases" ADD CONSTRAINT "llamacloud_kb_name_not_empty" CHECK ((length(TRIM(BOTH FROM name)) > 0)) NOT VALID;
+    END IF;
+END $$;
+ALTER TABLE "public"."llamacloud_knowledge_bases" VALIDATE CONSTRAINT "llamacloud_kb_name_not_empty";
 
-alter table "public"."agent_llamacloud_knowledge_bases" validate constraint "agent_llamacloud_kb_name_not_empty";
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'llamacloud_kb_unique_index_per_account') THEN
+        ALTER TABLE "public"."llamacloud_knowledge_bases" ADD CONSTRAINT "llamacloud_kb_unique_index_per_account" UNIQUE USING INDEX "llamacloud_kb_unique_index_per_account";
+    END IF;
+END $$;
 
-alter table "public"."agent_llamacloud_knowledge_bases" add constraint "agent_llamacloud_knowledge_bases_account_id_fkey" FOREIGN KEY (account_id) REFERENCES basejump.accounts(id) ON DELETE CASCADE not valid;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'llamacloud_kb_usage_context_check') THEN
+        ALTER TABLE "public"."llamacloud_knowledge_bases" ADD CONSTRAINT "llamacloud_kb_usage_context_check" CHECK (((usage_context)::text = ANY ((ARRAY['always'::character varying, 'on_request'::character varying, 'contextual'::character varying])::text[]))) NOT VALID;
+    END IF;
+END $$;
+ALTER TABLE "public"."llamacloud_knowledge_bases" VALIDATE CONSTRAINT "llamacloud_kb_usage_context_check";
 
-alter table "public"."agent_llamacloud_knowledge_bases" validate constraint "agent_llamacloud_knowledge_bases_account_id_fkey";
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'llamacloud_knowledge_bases_account_id_fkey') THEN
+        ALTER TABLE "public"."llamacloud_knowledge_bases" ADD CONSTRAINT "llamacloud_knowledge_bases_account_id_fkey" FOREIGN KEY (account_id) REFERENCES basejump.accounts(id) ON DELETE CASCADE NOT VALID;
+    END IF;
+END $$;
+ALTER TABLE "public"."llamacloud_knowledge_bases" VALIDATE CONSTRAINT "llamacloud_knowledge_bases_account_id_fkey";
 
-alter table "public"."agent_llamacloud_knowledge_bases" add constraint "agent_llamacloud_knowledge_bases_agent_id_fkey" FOREIGN KEY (agent_id) REFERENCES public.agents(agent_id) ON DELETE CASCADE not valid;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'llamacloud_knowledge_bases_folder_id_fkey') THEN
+        ALTER TABLE "public"."llamacloud_knowledge_bases" ADD CONSTRAINT "llamacloud_knowledge_bases_folder_id_fkey" FOREIGN KEY (folder_id) REFERENCES public.knowledge_base_folders(folder_id) ON DELETE SET NULL NOT VALID;
+    END IF;
+END $$;
+ALTER TABLE "public"."llamacloud_knowledge_bases" VALIDATE CONSTRAINT "llamacloud_knowledge_bases_folder_id_fkey";
 
-alter table "public"."agent_llamacloud_knowledge_bases" validate constraint "agent_llamacloud_knowledge_bases_agent_id_fkey";
-
-alter table "public"."llamacloud_knowledge_bases" add constraint "llamacloud_kb_index_not_empty" CHECK ((length(TRIM(BOTH FROM index_name)) > 0)) not valid;
-
-alter table "public"."llamacloud_knowledge_bases" validate constraint "llamacloud_kb_index_not_empty";
-
-alter table "public"."llamacloud_knowledge_bases" add constraint "llamacloud_kb_name_not_empty" CHECK ((length(TRIM(BOTH FROM name)) > 0)) not valid;
-
-alter table "public"."llamacloud_knowledge_bases" validate constraint "llamacloud_kb_name_not_empty";
-
-alter table "public"."llamacloud_knowledge_bases" add constraint "llamacloud_kb_unique_index_per_account" UNIQUE using index "llamacloud_kb_unique_index_per_account";
-
-alter table "public"."llamacloud_knowledge_bases" add constraint "llamacloud_kb_usage_context_check" CHECK (((usage_context)::text = ANY ((ARRAY['always'::character varying, 'on_request'::character varying, 'contextual'::character varying])::text[]))) not valid;
-
-alter table "public"."llamacloud_knowledge_bases" validate constraint "llamacloud_kb_usage_context_check";
-
-alter table "public"."llamacloud_knowledge_bases" add constraint "llamacloud_knowledge_bases_account_id_fkey" FOREIGN KEY (account_id) REFERENCES basejump.accounts(id) ON DELETE CASCADE not valid;
-
-alter table "public"."llamacloud_knowledge_bases" validate constraint "llamacloud_knowledge_bases_account_id_fkey";
-
-alter table "public"."llamacloud_knowledge_bases" add constraint "llamacloud_knowledge_bases_folder_id_fkey" FOREIGN KEY (folder_id) REFERENCES public.knowledge_base_folders(folder_id) ON DELETE SET NULL not valid;
-
-alter table "public"."llamacloud_knowledge_bases" validate constraint "llamacloud_knowledge_bases_folder_id_fkey";
-
-alter table "public"."llamacloud_knowledge_bases" add constraint "llamacloud_knowledge_bases_usage_context_check" CHECK (((usage_context)::text = ANY ((ARRAY['always'::character varying, 'on_request'::character varying, 'contextual'::character varying])::text[]))) not valid;
-
-alter table "public"."llamacloud_knowledge_bases" validate constraint "llamacloud_knowledge_bases_usage_context_check";
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'llamacloud_knowledge_bases_usage_context_check') THEN
+        ALTER TABLE "public"."llamacloud_knowledge_bases" ADD CONSTRAINT "llamacloud_knowledge_bases_usage_context_check" CHECK (((usage_context)::text = ANY ((ARRAY['always'::character varying, 'on_request'::character varying, 'contextual'::character varying])::text[]))) NOT VALID;
+    END IF;
+END $$;
+ALTER TABLE "public"."llamacloud_knowledge_bases" VALIDATE CONSTRAINT "llamacloud_knowledge_bases_usage_context_check";
 
 set check_function_bodies = off;
 
@@ -533,34 +593,34 @@ grant truncate on table "public"."llamacloud_knowledge_bases" to "service_role";
 grant update on table "public"."llamacloud_knowledge_bases" to "service_role";
 
 
-  create policy "llamacloud_kb_assignments_account_access"
-  on "public"."agent_llamacloud_kb_assignments"
-  as permissive
-  for all
-  to public
-using ((basejump.has_role_on_account(account_id) = true));
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'llamacloud_kb_assignments_account_access' AND tablename = 'agent_llamacloud_kb_assignments') THEN
+        CREATE POLICY "llamacloud_kb_assignments_account_access" ON "public"."agent_llamacloud_kb_assignments" AS permissive FOR ALL TO public USING ((basejump.has_role_on_account(account_id) = true));
+    END IF;
+END $$;
 
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'agent_llamacloud_kb_account_access' AND tablename = 'agent_llamacloud_knowledge_bases') THEN
+        CREATE POLICY "agent_llamacloud_kb_account_access" ON "public"."agent_llamacloud_knowledge_bases" AS permissive FOR ALL TO public USING ((basejump.has_role_on_account(account_id) = true));
+    END IF;
+END $$;
 
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'llamacloud_kb_account_access' AND tablename = 'llamacloud_knowledge_bases') THEN
+        CREATE POLICY "llamacloud_kb_account_access" ON "public"."llamacloud_knowledge_bases" AS permissive FOR ALL TO public USING ((basejump.has_role_on_account(account_id) = true));
+    END IF;
+END $$;
 
-  create policy "agent_llamacloud_kb_account_access"
-  on "public"."agent_llamacloud_knowledge_bases"
-  as permissive
-  for all
-  to public
-using ((basejump.has_role_on_account(account_id) = true));
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'agent_llamacloud_kb_updated_at') THEN
+        CREATE TRIGGER agent_llamacloud_kb_updated_at BEFORE UPDATE ON public.agent_llamacloud_knowledge_bases FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+    END IF;
+END $$;
 
-
-
-  create policy "llamacloud_kb_account_access"
-  on "public"."llamacloud_knowledge_bases"
-  as permissive
-  for all
-  to public
-using ((basejump.has_role_on_account(account_id) = true));
-
-
-CREATE TRIGGER agent_llamacloud_kb_updated_at BEFORE UPDATE ON public.agent_llamacloud_knowledge_bases FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
-CREATE TRIGGER llamacloud_kb_updated_at BEFORE UPDATE ON public.llamacloud_knowledge_bases FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'llamacloud_kb_updated_at') THEN
+        CREATE TRIGGER llamacloud_kb_updated_at BEFORE UPDATE ON public.llamacloud_knowledge_bases FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+    END IF;
+END $$;
 
 

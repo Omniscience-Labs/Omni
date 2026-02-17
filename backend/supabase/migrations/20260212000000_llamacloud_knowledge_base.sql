@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS llamacloud_knowledge_bases (
     name VARCHAR(255) NOT NULL,
     index_name VARCHAR(255) NOT NULL, -- LlamaCloud index name
     description TEXT,
+    summary TEXT, -- V2 compatibility: optional summary for display
+    usage_context VARCHAR(100) DEFAULT 'always', -- V2 compatibility: when to use this KB
     
     is_active BOOLEAN DEFAULT TRUE,
     
@@ -22,6 +24,25 @@ CREATE TABLE IF NOT EXISTS llamacloud_knowledge_bases (
     CONSTRAINT llamacloud_kb_index_not_empty CHECK (LENGTH(TRIM(index_name)) > 0),
     CONSTRAINT llamacloud_kb_account_name_unique UNIQUE(account_id, name)
 );
+
+-- Add summary and usage_context columns if they don't exist (V2 DB already has them)
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name='llamacloud_knowledge_bases' AND column_name='summary'
+    ) THEN
+        ALTER TABLE llamacloud_knowledge_bases ADD COLUMN summary TEXT;
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name='llamacloud_knowledge_bases' AND column_name='usage_context'
+    ) THEN
+        ALTER TABLE llamacloud_knowledge_bases ADD COLUMN usage_context VARCHAR(100) DEFAULT 'always';
+    END IF;
+END $$;
 
 -- Agent assignments to global LlamaCloud knowledge bases
 CREATE TABLE IF NOT EXISTS agent_llamacloud_kb_assignments (
@@ -83,7 +104,11 @@ RETURNS TABLE (
     name VARCHAR(255),
     index_name VARCHAR(255),
     description TEXT,
+    summary TEXT,
+    usage_context VARCHAR(100),
     is_active BOOLEAN,
+    enabled BOOLEAN,
+    assigned_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
 )
@@ -97,7 +122,11 @@ BEGIN
         lkb.name,
         lkb.index_name,
         lkb.description,
+        lkb.summary,
+        COALESCE(lkb.usage_context, 'always'::VARCHAR(100)) as usage_context,
         lkb.is_active,
+        akla.enabled,
+        akla.assigned_at,
         lkb.created_at,
         lkb.updated_at
     FROM llamacloud_knowledge_bases lkb
@@ -119,6 +148,8 @@ RETURNS TABLE (
     name VARCHAR(255),
     index_name VARCHAR(255),
     description TEXT,
+    summary TEXT,
+    usage_context VARCHAR(100),
     folder_id UUID,
     is_active BOOLEAN,
     created_at TIMESTAMPTZ,
@@ -134,6 +165,8 @@ BEGIN
         lkb.name,
         lkb.index_name,
         lkb.description,
+        lkb.summary,
+        COALESCE(lkb.usage_context, 'always'::VARCHAR(100)) as usage_context,
         lkb.folder_id,
         lkb.is_active,
         lkb.created_at,
@@ -148,6 +181,7 @@ $$;
 -- Get unified knowledge base entries for folder (including LlamaCloud KBs)
 CREATE OR REPLACE FUNCTION get_folder_unified_entries(
     p_folder_id UUID,
+    p_account_id UUID DEFAULT NULL,
     p_include_inactive BOOLEAN DEFAULT FALSE
 )
 RETURNS TABLE (
@@ -171,6 +205,17 @@ SECURITY DEFINER
 LANGUAGE plpgsql
 AS $$
 BEGIN
+    -- Verify folder ownership if account_id is provided
+    IF p_account_id IS NOT NULL THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM knowledge_base_folders 
+            WHERE knowledge_base_folders.folder_id = p_folder_id 
+            AND knowledge_base_folders.account_id = p_account_id
+        ) THEN
+            RAISE EXCEPTION 'Folder not found or access denied';
+        END IF;
+    END IF;
+
     -- Return file entries
     RETURN QUERY
     SELECT 
@@ -193,15 +238,15 @@ BEGIN
     WHERE kbe.folder_id = p_folder_id
     AND (p_include_inactive OR kbe.is_active = TRUE);
     
-    -- Return cloud KB entries
+    -- Return cloud KB entries (using actual column values from V2 data)
     RETURN QUERY
     SELECT 
         lkb.kb_id as entry_id,
         'cloud_kb'::VARCHAR(20) as entry_type,
         lkb.name,
-        NULL::TEXT as summary,
+        COALESCE(lkb.summary, lkb.description) as summary,
         lkb.description,
-        'always'::VARCHAR(100) as usage_context,
+        COALESCE(lkb.usage_context, 'always'::VARCHAR(100)) as usage_context,
         lkb.is_active,
         lkb.created_at,
         lkb.updated_at,
@@ -248,9 +293,9 @@ BEGIN
         lkb.kb_id as entry_id,
         'cloud_kb'::VARCHAR(20) as entry_type,
         lkb.name,
-        NULL::TEXT as summary,
+        COALESCE(lkb.summary, lkb.description) as summary,
         lkb.description,
-        'always'::VARCHAR(100) as usage_context,
+        COALESCE(lkb.usage_context, 'always'::VARCHAR(100)) as usage_context,
         lkb.is_active,
         lkb.created_at,
         lkb.updated_at,
@@ -273,7 +318,7 @@ GRANT ALL ON llamacloud_knowledge_bases TO authenticated, service_role;
 GRANT ALL ON agent_llamacloud_kb_assignments TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION get_agent_assigned_llamacloud_kbs(UUID, BOOLEAN) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION get_account_llamacloud_kbs(UUID, BOOLEAN) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION get_folder_unified_entries(UUID, BOOLEAN) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION get_folder_unified_entries(UUID, UUID, BOOLEAN) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION get_root_llamacloud_kbs(UUID, BOOLEAN) TO authenticated, service_role;
 
 COMMIT;
