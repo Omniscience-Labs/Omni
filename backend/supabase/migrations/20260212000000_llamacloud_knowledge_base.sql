@@ -92,7 +92,12 @@ DO $$ BEGIN
     END IF;
 END $$;
 
--- Functions
+-- Functions (drop first so return types can change vs existing definitions)
+DROP FUNCTION IF EXISTS get_agent_assigned_llamacloud_kbs(UUID, BOOLEAN);
+DROP FUNCTION IF EXISTS get_account_llamacloud_kbs(UUID, BOOLEAN);
+DROP FUNCTION IF EXISTS get_folder_unified_entries(UUID, UUID, BOOLEAN);
+DROP FUNCTION IF EXISTS get_folder_unified_entries(UUID, BOOLEAN);
+DROP FUNCTION IF EXISTS get_root_llamacloud_kbs(UUID, BOOLEAN);
 
 -- Get agent's assigned LlamaCloud knowledge bases
 CREATE OR REPLACE FUNCTION get_agent_assigned_llamacloud_kbs(

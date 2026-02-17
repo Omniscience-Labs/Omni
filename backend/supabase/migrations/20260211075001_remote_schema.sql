@@ -57,7 +57,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS agent_llamacloud_kb_assignments_agent_id_kb_id
 
 CREATE UNIQUE INDEX IF NOT EXISTS agent_llamacloud_kb_assignments_pkey ON public.agent_llamacloud_kb_assignments USING btree (assignment_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS agent_llamacloud_knowledge_bases_pkey ON public.agent_llamacloud_knowledge_bases USING btree (kb_id);
+-- Legacy agent_llamacloud_knowledge_bases may have "id" not "kb_id"; create pkey index on whichever exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'agent_llamacloud_knowledge_bases' AND column_name = 'kb_id') THEN
+        CREATE UNIQUE INDEX IF NOT EXISTS agent_llamacloud_knowledge_bases_pkey ON public.agent_llamacloud_knowledge_bases USING btree (kb_id);
+    ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'agent_llamacloud_knowledge_bases' AND column_name = 'id') THEN
+        CREATE UNIQUE INDEX IF NOT EXISTS agent_llamacloud_knowledge_bases_pkey ON public.agent_llamacloud_knowledge_bases USING btree (id);
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_agent_llamacloud_assignments_account_id ON public.agent_llamacloud_kb_assignments USING btree (account_id);
 
@@ -261,25 +269,33 @@ END;
 $function$
 ;
 
+-- Drop first so return type can change (legacy may return id, we return kb_id)
+DROP FUNCTION IF EXISTS public.get_agent_llamacloud_knowledge_bases(uuid, boolean);
+
 CREATE OR REPLACE FUNCTION public.get_agent_llamacloud_knowledge_bases(p_agent_id uuid, p_include_inactive boolean DEFAULT false)
  RETURNS TABLE(kb_id uuid, name character varying, index_name character varying, description text, is_active boolean, created_at timestamp with time zone, updated_at timestamp with time zone)
  LANGUAGE plpgsql
  SECURITY DEFINER
 AS $function$
+DECLARE
+    pk_col text;
 BEGIN
-    RETURN QUERY
-    SELECT 
-        alkb.kb_id,
-        alkb.name,
-        alkb.index_name,
-        alkb.description,
-        alkb.is_active,
-        alkb.created_at,
-        alkb.updated_at
-    FROM agent_llamacloud_knowledge_bases alkb
-    WHERE alkb.agent_id = p_agent_id
-    AND (p_include_inactive OR alkb.is_active = TRUE)
-    ORDER BY alkb.created_at DESC;
+    -- Legacy table has "id", new schema has "kb_id"; use whichever exists
+    SELECT column_name INTO pk_col
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'agent_llamacloud_knowledge_bases'
+    AND column_name IN ('kb_id', 'id')
+    ORDER BY CASE column_name WHEN 'kb_id' THEN 0 ELSE 1 END
+    LIMIT 1;
+
+    RETURN QUERY EXECUTE format(
+        'SELECT alkb.%I, alkb.name, alkb.index_name, alkb.description, alkb.is_active, alkb.created_at, alkb.updated_at
+         FROM agent_llamacloud_knowledge_bases alkb
+         WHERE alkb.agent_id = $1 AND ($2 OR alkb.is_active = TRUE)
+         ORDER BY alkb.created_at DESC',
+        COALESCE(pk_col, 'kb_id')
+    )
+    USING p_agent_id, p_include_inactive;
 END;
 $function$
 ;
