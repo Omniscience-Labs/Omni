@@ -1,0 +1,20 @@
+FROM ghcr.io/astral-sh/uv:python3.11-alpine
+
+ENV ENV_MODE=local
+WORKDIR /app
+
+RUN apk add --no-cache curl git freetype-dev gcc linux-headers musl-dev python3-dev
+
+# Deps layer - cached unless pyproject.toml/uv.lock changes
+COPY pyproject.toml uv.lock* ./
+ENV UV_LINK_MODE=copy
+RUN --mount=type=cache,target=/root/.cache/uv uv sync
+
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV PYTHONPATH=/app
+
+EXPOSE 8000
+
+# Uvicorn with reload for hot reloading - single worker for dev
+CMD ["uv", "run", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
