@@ -103,6 +103,40 @@ def _alignment_enum(value: str) -> Optional[WD_ALIGN_PARAGRAPH]:
     return _ALIGNMENT_MAP.get(str(value).strip().lower())
 
 
+def _paragraph_has_text(para_element: Any) -> bool:
+    """Return True if the paragraph XML element contains any non-whitespace text."""
+    for el in para_element.iter():
+        local = el.tag.split("}")[-1] if "}" in el.tag else el.tag
+        if local == "t":
+            if (el.text or "").strip() or (el.tail or "").strip():
+                return True
+    return False
+
+
+def _strip_leading_empty_body_paragraphs(doc: Document) -> None:
+    """Remove leading empty paragraphs from the document body.
+
+    Many letterhead templates include empty paragraphs at the start of the body
+    to create spacing. When we append our content, those produce an unwanted
+    gap. This strips only leading empty paragraphs; leaves section properties
+    and the first non-empty paragraph or table unchanged.
+    """
+    body = doc.element.body
+    to_remove = []
+    for child in list(body):
+        tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+        if tag == "sectPr":
+            break
+        if tag == "p":
+            if _paragraph_has_text(child):
+                break
+            to_remove.append(child)
+        elif tag == "tbl":
+            break
+    for el in to_remove:
+        body.remove(el)
+
+
 # ── Document assembly ────────────────────────────────────────────────────────
 
 
@@ -510,6 +544,7 @@ class SandboxDocxTool(SandboxToolsBase):
                     raw = await self.sandbox.fs.download_file(resolved_template)
                     doc = Document(io.BytesIO(raw))
                     using_template = True
+                    _strip_leading_empty_body_paragraphs(doc)
                     logger.info("sb_docx_tool: loaded template %s", resolved_template)
                 except Exception as e:
                     return self.fail_response(f"Failed to load template '{template_path}': {e}")
