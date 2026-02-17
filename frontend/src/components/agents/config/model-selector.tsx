@@ -107,7 +107,7 @@ export function AgentModelSelector({
     const modelMap = new Map();
 
     if (modelsData?.models) {
-      modelsData.models.forEach(model => {
+      modelsData.models.forEach((model: any) => {
         const displayName = model.name || model.id;
         
         modelMap.set(model.id, {
@@ -119,7 +119,10 @@ export function AgentModelSelector({
           top: (model.priority || 0) >= 90,
           capabilities: model.capabilities || [],
           contextWindow: model.context_window || 128000,
-          isCustom: false
+          isCustom: false,
+          // Map snake_case to camelCase for pricing data
+          inputCostPerMillionTokens: model.input_cost_per_million_tokens,
+          outputCostPerMillionTokens: model.output_cost_per_million_tokens
         });
       });
     } else {
@@ -210,7 +213,7 @@ export function AgentModelSelector({
       // If user doesn't have access, open pricing modal
       setIsOpen(false);
       const model = enhancedModelOptions.find(m => m.id === modelId);
-      const isPowerModel = modelId === 'kortix/power';
+      const isPowerModel = modelId === 'omni/power' || modelId === 'kortix/power';
       openPricingModal({
         isAlert: true,
         alertTitle: isPowerModel ? 'Upgrade to access Omni Power mode' : 'Upgrade to access this model',
@@ -313,7 +316,7 @@ export function AgentModelSelector({
     const isPremium = model.requiresSubscription;
     const isLowQuality = false; // API models are quality controlled
     const isRecommended = false; // Remove recommended badges
-    const isPowerModel = model.id === 'kortix/power';
+    const isPowerModel = model.id === 'omni/power' || model.id === 'kortix/power';
 
     // Format cost display
     const formatCost = (cost: number | null | undefined) => {

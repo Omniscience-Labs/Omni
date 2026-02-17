@@ -24,11 +24,11 @@ const isPaidTier = (tierKey: string | undefined): boolean => {
 
 const getDefaultModel = (accessibleModels: ModelOption[]): string => {
   // Pick the first accessible model (sorted by priority)
-  // kortix/basic should be first for free users since power is not accessible
-  const basicModel = accessibleModels.find(m => m.id === 'kortix/basic');
+  // omni/basic should be first for free users since power is not accessible
+  const basicModel = accessibleModels.find(m => m.id === 'omni/basic' || m.id === 'kortix/basic');
   if (basicModel) return basicModel.id;
   
-  const powerModel = accessibleModels.find(m => m.id === 'kortix/power');
+  const powerModel = accessibleModels.find(m => m.id === 'omni/power' || m.id === 'kortix/power');
   if (powerModel) return powerModel.id;
   
   // Fallback: pick from accessible models sorted by priority
@@ -114,10 +114,10 @@ export const useModelSelection = () => {
     // Detect upgrade: was free, now paid
     if (wasFree && isNowPaid && prevTierKey.current !== null) {
       // Check if power model is now accessible
-      const powerModel = availableModels.find(m => m.id === 'kortix/power' && !m.requiresSubscription);
+      const powerModel = availableModels.find(m => (m.id === 'omni/power' || m.id === 'kortix/power') && !m.requiresSubscription);
       if (powerModel) {
-        console.log('🚀 useModelSelection: Upgraded to paid tier! Switching to kortix/power');
-        setSelectedModel('kortix/power');
+        console.log('🚀 useModelSelection: Upgraded to paid tier! Switching to omni/power');
+        setSelectedModel(powerModel.id);
       }
     }
     

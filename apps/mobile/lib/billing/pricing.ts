@@ -52,8 +52,8 @@ export const PRICING_TIERS: PricingTier[] = [
     features: [
       '200 daily credits - Refreshes every 24 hours (applies to all tiers)',
       '1 concurrent run',
-      '10 Total Chats',
-      'Basic Mode - Core Kortix experience with basic autonomy',
+      '3 Total Chats',
+      'Basic Mode - Core Omni experience with basic autonomy',
     ],
     disabledFeatures: [
       // 'No custom AI Workers',
@@ -73,17 +73,17 @@ export const PRICING_TIERS: PricingTier[] = [
     price: '$20',
     priceMonthly: 20,
     priceYearly: 17, // 15% off = $17/month billed yearly
-    credits: 40, // $40/month = 4,000 credits/month (40 * 100)
+    credits: 20, // $20/month = 2,000 credits/month (20 * 100)
     description: 'Best for individuals and small teams',
     features: [
-      'CREDITS_BONUS:2000:4000',
+      'CREDITS_BONUS:2000:2000',
       'Unlimited Chats',
       '3 concurrent runs - Run multiple Chats simultaneously',
-      // '5 custom AI Workers - Create Kortix Agents with custom Knowledge, Tools & Integrations',
+      // '5 custom AI Workers - Create Omni Agents with custom Knowledge, Tools & Integrations',
       // '5 scheduled triggers - Run at 9am daily, every Monday, first of month...',
       // '25 app triggers - Auto-respond to new emails, Slack messages, form submissions...',
       // '100+ Integrations - Google Drive, Slack, Notion, Gmail, Calendar, GitHub & more',
-      'Kortix Power mode - Strongest autonomy & decision-making capabilities',
+      'Omni Power mode - Strongest autonomy & decision-making capabilities',
     ],
     isPopular: true,
     buttonText: 'Get started',
@@ -98,17 +98,17 @@ export const PRICING_TIERS: PricingTier[] = [
     price: '$50',
     priceMonthly: 50,
     priceYearly: 42.5, // 15% off = $42.50/month billed yearly
-    credits: 100, // $100/month = 10,000 credits/month (100 * 100)
+    credits: 50, // $50/month = 5,000 credits/month (50 * 100)
     description: 'Ideal for growing businesses',
     features: [
-      'CREDITS_BONUS:5000:10000',
+      'CREDITS_BONUS:5000:5000',
       'Unlimited Chats',
       '5 concurrent runs - Run multiple Chats simultaneously',
-      // '20 custom AI Workers - Create Kortix Agents with custom Knowledge, Tools & Integrations',
+      // '20 custom AI Workers - Create Omni Agents with custom Knowledge, Tools & Integrations',
       // '10 scheduled triggers - Run at 9am daily, every Monday, first of month...',
       // '50 app triggers - Auto-respond to new emails, Slack messages, form submissions...',
       // '100+ Integrations - Google Drive, Slack, Notion, Gmail, Calendar, GitHub & more',
-      'Kortix Power mode - Strongest autonomy & decision-making capabilities',
+      'Omni Power mode - Strongest autonomy & decision-making capabilities',
     ],
     isPopular: false,
     buttonText: 'Get started',
@@ -123,17 +123,17 @@ export const PRICING_TIERS: PricingTier[] = [
     price: '$200',
     priceMonthly: 200,
     // No yearly option available for Ultra
-    credits: 400, // $400/month = 40,000 credits/month (400 * 100)
+    credits: 200, // $200/month = 20,000 credits/month (200 * 100)
     description: 'For power users',
     features: [
-      'CREDITS_BONUS:20000:40000',
+      'CREDITS_BONUS:20000:20000',
       'Unlimited Chats',
       '20 concurrent runs - Run multiple Chats simultaneously',
-      // '100 custom AI Workers - Create Kortix Agents with custom Knowledge, Tools & Integrations',
+      // '100 custom AI Workers - Create Omni Agents with custom Knowledge, Tools & Integrations',
       // '50 scheduled triggers - Run at 9am daily, every Monday, first of month...',
       // '200 app triggers - Auto-respond to new emails, Slack messages, form submissions...',
       // '100+ Integrations - Google Drive, Slack, Notion, Gmail, Calendar, GitHub & more',
-      'Kortix Power mode - Strongest autonomy & decision-making capabilities',
+      'Omni Power mode - Strongest autonomy & decision-making capabilities',
     ],
     isPopular: false,
     buttonText: 'Get started',

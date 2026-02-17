@@ -357,7 +357,7 @@ export const ScheduleTriggerConfigForm: React.FC<ScheduleTriggerConfigFormProps>
                 <div className="space-y-3">
                   <Label className="text-sm">Choose which model to use for this scheduled task</Label>
                   <AgentModelSelector
-                    value={config.model || 'kortix/basic'}
+                    value={config.model || 'omni/basic'}
                     onChange={(model) => onChange({ ...config, model })}
                   />
                 </div>

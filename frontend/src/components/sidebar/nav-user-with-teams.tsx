@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   BadgeCheck,
   Bell,
+  Building2,
   ChevronDown,
   ChevronsUpDown,
   ChevronRight,
@@ -64,7 +65,7 @@ import {
 } from '@/components/ui/dialog';
 import { createClient } from '@/lib/supabase/client';
 import { useTheme } from 'next-themes';
-import { isLocalMode, isProductionMode } from '@/lib/config';
+import { isLocalMode, isProductionMode, isEnterpriseMode } from '@/lib/config';
 import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
 import { UserSettingsModal } from '@/components/settings/user-settings-modal';
 import { PlanSelectionModal } from '@/components/billing/pricing';
@@ -206,8 +207,8 @@ export function NavUserWithTeams({
           <div className="absolute bottom-full left-0 right-0 mb-2 px-0 group-data-[collapsible=icon]:hidden z-50 flex flex-col gap-2">
             {/* Referral Button - Above Upgrade */}
 
-            {/* Upgrade Button - Closest to user card */}
-            {isFreeTier && (
+            {/* Upgrade Button - Closest to user card (hidden in enterprise mode) */}
+            {isFreeTier && !isEnterpriseMode() && (
               <Button
                 onClick={() => setShowPlanModal(true)}
                 variant="default"
@@ -232,7 +233,7 @@ export function NavUserWithTeams({
                 </Avatar>
                 <div className="flex flex-col justify-between flex-1 min-w-0 h-10 group-data-[collapsible=icon]:hidden">
                   <span className="truncate font-medium text-sm leading-tight">{user.name}</span>
-                  {user.planName ? (
+                  {user.planName && !isEnterpriseMode() ? (
                     <TierBadge planName={user.planName} size="xs" variant="default" />
                   ) : (
                     <span className="truncate text-xs text-muted-foreground leading-tight">{user.email}</span>
@@ -334,31 +335,46 @@ export function NavUserWithTeams({
                 General
               </DropdownMenuLabel>
               <DropdownMenuGroup>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setShowPlanModal(true);
-                  }}
-                  className="gap-2 p-2"
-                >
-                  <Zap className="h-4 w-4" />
-                  <span>Plan</span>
-                </DropdownMenuItem>
+                {/* Plan - Hidden in enterprise mode */}
+                {!isEnterpriseMode() && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setShowPlanModal(true);
+                    }}
+                    className="gap-2 p-2"
+                  >
+                    <Zap className="h-4 w-4" />
+                    <span>Plan</span>
+                  </DropdownMenuItem>
+                )}
+                {/* Enterprise Admin - Only in enterprise mode */}
+                {isEnterpriseMode() && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/enterprise" className="gap-2 p-2">
+                      <Building2 className="h-4 w-4" />
+                      <span>Enterprise</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem asChild>
                   <Link href="/knowledge" className="gap-2 p-2">
                     <FileText className="h-4 w-4" />
                     <span>Knowledge Base</span>
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSettingsTab('billing');
-                    setShowSettingsModal(true);
-                  }}
-                  className="gap-2 p-2"
-                >
-                  <CreditCard className="h-4 w-4" />
-                  <span>Billing</span>
-                </DropdownMenuItem>
+                {/* Billing - Hidden in enterprise mode */}
+                {!isEnterpriseMode() && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSettingsTab('billing');
+                      setShowSettingsModal(true);
+                    }}
+                    className="gap-2 p-2"
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    <span>Billing</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={() => {
                     setSettingsTab('usage');

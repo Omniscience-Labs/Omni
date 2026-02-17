@@ -12,8 +12,8 @@ SHOULD_USE_ANTHROPIC = config.ENV_MODE == EnvMode.LOCAL and bool(config.ANTHROPI
 _BASIC_MODEL_ID = "claude-haiku-4-5-20251001" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
 _POWER_MODEL_ID = "claude-sonnet-4-5-20250929" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 # Default model IDs (these are aliases that resolve to actual IDs)
-FREE_MODEL_ID = "kortix/basic"
-PREMIUM_MODEL_ID = "kortix/power"
+FREE_MODEL_ID = "omni/basic"
+PREMIUM_MODEL_ID = "omni/power"
 
 
 is_local = config.ENV_MODE == EnvMode.LOCAL
@@ -26,14 +26,14 @@ class ModelRegistry:
         self._aliases: Dict[str, str] = {}
         self._initialize_models()
     
-    # KORTIX BASIC & POWER – Same underlying model, different configs
+    # OMNI BASIC & POWER – Different underlying models (Haiku vs Sonnet)
     def _initialize_models(self):
-        # Kortix Basic
+        # Omni Basic (uses Haiku 4.5)
         self.register(Model(
-            id="kortix/basic",
-            name="Kortix Basic",
+            id="omni/basic",
+            name="Omni Basic",
             provider=ModelProvider.ANTHROPIC,
-            aliases=["kortix-basic", "Kortix Basic"],
+            aliases=["omni-basic", "kortix-basic", "Omni Basic", "kortix/basic"],
             context_window=1_000_000,
             capabilities=[
                 ModelCapability.CHAT,
@@ -58,12 +58,12 @@ class ModelRegistry:
             )
         ))
         
-        # Kortix Power - extended context & thinking
+        # Omni Power - extended context & thinking (uses Sonnet 4.5)
         self.register(Model(
-            id="kortix/power",
-            name="Kortix POWER Mode",
+            id="omni/power",
+            name="Omni POWER Mode",
             provider=ModelProvider.ANTHROPIC,
-            aliases=["kortix-power", "Kortix POWER Mode", "Kortix Power"],
+            aliases=["omni-power", "kortix-power", "Omni POWER Mode", "Omni Power", "kortix/power"],
             context_window=1_000_000,
             capabilities=[
                 ModelCapability.CHAT,
@@ -72,11 +72,11 @@ class ModelRegistry:
                 ModelCapability.THINKING,
             ],
             pricing=ModelPricing(
-                input_cost_per_million_tokens=1.00,
-                output_cost_per_million_tokens=5.00,
-                cached_read_cost_per_million_tokens=0.10,
-                cache_write_5m_cost_per_million_tokens=1.25,
-                cache_write_1h_cost_per_million_tokens=2.00
+                input_cost_per_million_tokens=3.00,
+                output_cost_per_million_tokens=15.00,
+                cached_read_cost_per_million_tokens=0.30,
+                cache_write_5m_cost_per_million_tokens=3.75,
+                cache_write_1h_cost_per_million_tokens=6.00
             ),
             tier_availability=["paid"],
             priority=101,
@@ -393,18 +393,23 @@ class ModelRegistry:
     def get_litellm_model_id(self, model_id: str) -> str:
         """Get the actual model ID to pass to LiteLLM.
         
-        Resolves kortix/basic and kortix/power to actual provider model IDs.
+        Resolves omni/basic and omni/power to actual provider model IDs.
+        Also supports legacy kortix/basic and kortix/power for backward compatibility.
         """
-        # Map kortix model IDs to actual LiteLLM model IDs
-        if model_id in ("kortix/basic", "kortix/power"):
-            return _BASIC_MODEL_ID  # Both use the same underlying model
+        # Map omni model IDs to actual LiteLLM model IDs
+        if model_id == "omni/basic" or model_id == "kortix/basic":
+            return _BASIC_MODEL_ID  # Haiku
+        elif model_id == "omni/power" or model_id == "kortix/power":
+            return _POWER_MODEL_ID  # Sonnet
         
         # For other models, check if it's an alias and resolve
         model = self.get(model_id)
         if model:
             # Check if this model's ID needs resolution
-            if model.id in ("kortix/basic", "kortix/power"):
+            if model.id == "omni/basic" or model.id == "kortix/basic":
                 return _BASIC_MODEL_ID
+            elif model.id == "omni/power" or model.id == "kortix/power":
+                return _POWER_MODEL_ID
             return model.id
         
         # Return as-is if not found (let LiteLLM handle it)
@@ -419,9 +424,8 @@ class ModelRegistry:
             litellm_model_id: The actual model ID used by LiteLLM (e.g. Bedrock ARN)
             
         Returns:
-            The registry model ID (e.g. 'kortix/basic') or the input if not found
+            The registry model ID (e.g. 'omni/basic' or 'omni/power') or the input if not found
         """
-        # Check if this is the Bedrock ARN that maps to kortix models
         # Strip common prefixes for comparison
         normalized_id = litellm_model_id
         for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
@@ -429,20 +433,27 @@ class ModelRegistry:
                 normalized_id = normalized_id[len(prefix):]
                 break
         
-        # Check if this matches _BASIC_MODEL_ID (also normalize it)
+        # Normalize the basic model ID for comparison
         basic_model_normalized = _BASIC_MODEL_ID
         for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
             if basic_model_normalized.startswith(prefix):
                 basic_model_normalized = basic_model_normalized[len(prefix):]
                 break
         
-        # If the normalized ID matches the basic model ARN, return kortix/basic
-        if normalized_id == basic_model_normalized or litellm_model_id == _BASIC_MODEL_ID:
-            return "kortix/basic"
+        # Normalize the power model ID for comparison
+        power_model_normalized = _POWER_MODEL_ID
+        for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
+            if power_model_normalized.startswith(prefix):
+                power_model_normalized = power_model_normalized[len(prefix):]
+                break
         
-        # Also check if the full ID matches
-        if litellm_model_id == _BASIC_MODEL_ID:
-            return "kortix/basic"
+        # Check if it matches the basic model (Haiku)
+        if normalized_id == basic_model_normalized or litellm_model_id == _BASIC_MODEL_ID:
+            return "omni/basic"
+        
+        # Check if it matches the power model (Sonnet)
+        if normalized_id == power_model_normalized or litellm_model_id == _POWER_MODEL_ID:
+            return "omni/power"
         
         # Check if this model exists directly in registry
         if self.get(litellm_model_id):
@@ -476,7 +487,7 @@ class ModelRegistry:
     def get_pricing(self, model_id: str) -> Optional[ModelPricing]:
         """Get pricing for a model, with reverse lookup for LiteLLM model IDs.
         
-        Handles both registry model IDs (kortix/basic) and LiteLLM model IDs (Bedrock ARNs).
+        Handles both registry model IDs (omni/basic, omni/power) and LiteLLM model IDs (Bedrock ARNs).
         """
         # First try direct lookup
         model = self.get(model_id)
@@ -493,24 +504,40 @@ class ModelRegistry:
         return None
     
     def to_legacy_format(self) -> Dict:
+        """
+        Generate legacy format with pricing INCLUDING margin.
+        All prices returned include the TOKEN_PRICE_MULTIPLIER markup.
+        """
+        from core.billing.shared.config import TOKEN_PRICE_MULTIPLIER
+        
         models_dict = {}
         pricing_dict = {}
         context_windows_dict = {}
         
         for model in self.get_all(enabled_only=True):
-            models_dict[model.id] = {
-                "pricing": {
-                    "input_cost_per_million_tokens": model.pricing.input_cost_per_million_tokens,
-                    "output_cost_per_million_tokens": model.pricing.output_cost_per_million_tokens,
-                } if model.pricing else None,
-                "context_window": model.context_window,
-                "tier_availability": model.tier_availability,
-            }
-            
+            # Apply margin to all pricing for user-facing display
             if model.pricing:
+                input_with_margin = float(model.pricing.input_cost_per_million_tokens) * float(TOKEN_PRICE_MULTIPLIER)
+                output_with_margin = float(model.pricing.output_cost_per_million_tokens) * float(TOKEN_PRICE_MULTIPLIER)
+                
+                models_dict[model.id] = {
+                    "pricing": {
+                        "input_cost_per_million_tokens": input_with_margin,
+                        "output_cost_per_million_tokens": output_with_margin,
+                    },
+                    "context_window": model.context_window,
+                    "tier_availability": model.tier_availability,
+                }
+                
                 pricing_dict[model.id] = {
-                    "input_cost_per_million_tokens": model.pricing.input_cost_per_million_tokens,
-                    "output_cost_per_million_tokens": model.pricing.output_cost_per_million_tokens,
+                    "input_cost_per_million_tokens": input_with_margin,
+                    "output_cost_per_million_tokens": output_with_margin,
+                }
+            else:
+                models_dict[model.id] = {
+                    "pricing": None,
+                    "context_window": model.context_window,
+                    "tier_availability": model.tier_availability,
                 }
             
             context_windows_dict[model.id] = model.context_window

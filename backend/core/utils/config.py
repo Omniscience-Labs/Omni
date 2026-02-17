@@ -94,6 +94,18 @@ class Configuration:
     DISABLE_PRESENCE: bool = False  # Disable presence tracking entirely
     # ==================================
     
+    # ===== ENTERPRISE MODE CONFIGURATION =====
+    # When True, uses enterprise billing (shared pool) instead of SaaS (individual Stripe subscriptions)
+    # Set via ENTERPRISE_MODE environment variable in Render/Vercel
+    ENTERPRISE_MODE: bool = False
+    
+    # Enterprise admin emails (comma-separated) - can view users, edit limits
+    ADMIN_EMAILS: Optional[str] = None
+    
+    # Enterprise omni admin emails (comma-separated) - can load/negate credits
+    OMNI_ADMIN: Optional[str] = None
+    # ==========================================
+    
     SYSTEM_ADMIN_USER_ID: Optional[str] = None  # User ID that owns shared/fallback agents
 
 # Subscription tier IDs - Production

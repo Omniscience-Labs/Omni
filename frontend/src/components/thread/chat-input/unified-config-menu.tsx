@@ -375,8 +375,8 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
     ), [isFreeTier, openPricingModal]);
 
     const ModeToggle = useCallback(({ compact = false }: { compact?: boolean }) => {
-        const basicModel = modelOptions.find(m => m.id === 'kortix/basic' || m.label === 'Omni Basic');
-        const powerModel = modelOptions.find(m => m.id === 'kortix/power' || m.label === 'Omni POWER Mode');
+        const basicModel = modelOptions.find(m => m.id === 'omni/basic' || m.id === 'kortix/basic' || m.label === 'Omni Basic');
+        const powerModel = modelOptions.find(m => m.id === 'omni/power' || m.id === 'kortix/power' || m.label === 'Omni POWER Mode');
         
         const canAccessPower = powerModel ? canAccessModel(powerModel.id) : false;
         const isPowerSelected = powerModel && selectedModel === powerModel.id;

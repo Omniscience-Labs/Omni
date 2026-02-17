@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { AlertTriangle, ExternalLink, X, Square, Loader2, Zap, Rocket } from 'lucide-react';
+import { AlertTriangle, ExternalLink, X, Square, Loader2, Zap, Rocket, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +17,7 @@ import { getThread } from '@/hooks/threads/utils';
 import { getProject } from '@/lib/api/threads';
 import { threadKeys } from '@/hooks/threads/keys';
 import { usePricingModalStore } from '@/stores/pricing-modal-store';
+import { isEnterpriseMode } from '@/lib/config';
 
 interface RunningThreadInfo {
   threadId: string;
@@ -257,31 +258,49 @@ export const AgentRunLimitDialog: React.FC<AgentRunLimitDialogProps> = ({
         }
       ]}
     >
-      <Card className="border-primary/20 bg-primary/5 mb-4">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Rocket className="h-5 w-5 text-primary" />
+      {isEnterpriseMode() ? (
+        <Card className="border-primary/20 bg-primary/5 mb-4">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Building2 className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <CardTitle className="text-sm">Parallel runs limit reached</CardTitle>
+                <CardDescription className="text-sm mt-1">
+                  Wait for a running agent to complete, or stop one to start a new run.
+                </CardDescription>
+              </div>
             </div>
-            <div className="flex-1">
-              <CardTitle className="text-sm">Need more parallel runs?</CardTitle>
-              <CardDescription className="text-sm mt-1">
-                Upgrade your plan to run multiple agents simultaneously and boost your productivity.
-              </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        <Card className="border-primary/20 bg-primary/5 mb-4">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Rocket className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <CardTitle className="text-sm">Need more parallel runs?</CardTitle>
+                <CardDescription className="text-sm mt-1">
+                  Upgrade your plan to run multiple agents simultaneously and boost your productivity.
+                </CardDescription>
+              </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardFooter>
-          <Button 
-            onClick={handleUpgrade}
-            size="sm"
-            className="w-full"
-          >
-            <Zap className="h-4 w-4" />
-            Upgrade Plan
-          </Button>
-        </CardFooter>
-      </Card>
+          </CardHeader>
+          <CardFooter>
+            <Button 
+              onClick={handleUpgrade}
+              size="sm"
+              className="w-full"
+            >
+              <Zap className="h-4 w-4" />
+              Upgrade Plan
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
 
       {(runningThreadIds.length > 0 || runningCount > 0) && (
         <div className="space-y-3">

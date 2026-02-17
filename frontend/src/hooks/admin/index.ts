@@ -9,5 +9,4 @@ export {
   useProcessRefund,
 } from '../billing/use-admin-billing';
 export * from './use-admin-users';
-
-
+export * from './use-enterprise-admin';

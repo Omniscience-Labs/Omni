@@ -18,6 +18,27 @@ CREDITS_PER_DOLLAR = 100
 
 FREE_TIER_INITIAL_CREDITS = Decimal('0.00')
 
+# ============================================================================
+# Enterprise Mode Tier Configuration
+# ============================================================================
+# When ENTERPRISE_MODE=true, all users get ULTRA tier capabilities
+# This is handled at the application level, not in the database
+
+ENTERPRISE_TIER_NAME = 'enterprise'
+
+# Enterprise tier limits (same as Ultra tier)
+ENTERPRISE_TIER_LIMITS = {
+    'project_limit': 2500,
+    'thread_limit': 2500,
+    'concurrent_runs': 20,
+    'custom_workers_limit': 100,
+    'scheduled_triggers_limit': 50,
+    'app_triggers_limit': 100,
+    'models': ['all'],
+    'can_purchase_credits': False,  # No Stripe purchases in enterprise
+    'daily_credits_enabled': False,  # No daily credits in enterprise
+}
+
 @dataclass
 class Tier:
     name: str
@@ -58,7 +79,7 @@ TIERS: Dict[str, Tier] = {
         can_purchase_credits=False,
         models=['haiku'],
         project_limit=3,
-        thread_limit=10,
+        thread_limit=3,
         concurrent_runs=1,
         custom_workers_limit=0,
         scheduled_triggers_limit=0,
@@ -77,7 +98,7 @@ TIERS: Dict[str, Tier] = {
             config.STRIPE_TIER_2_20_YEARLY_ID,
             config.STRIPE_TIER_2_17_YEARLY_COMMITMENT_ID
         ],
-        monthly_credits=Decimal('40.00'),
+        monthly_credits=Decimal('20.00'),
         display_name='Plus',
         can_purchase_credits=False,
         models=['all'],
@@ -101,7 +122,7 @@ TIERS: Dict[str, Tier] = {
             config.STRIPE_TIER_6_50_YEARLY_ID,
             config.STRIPE_TIER_6_42_YEARLY_COMMITMENT_ID
         ],
-        monthly_credits=Decimal('100.00'),
+        monthly_credits=Decimal('50.00'),
         display_name='Pro',
         can_purchase_credits=False,
         models=['all'],
@@ -125,7 +146,7 @@ TIERS: Dict[str, Tier] = {
             config.STRIPE_TIER_25_200_YEARLY_ID,
             config.STRIPE_TIER_25_170_YEARLY_COMMITMENT_ID
         ],
-        monthly_credits=Decimal('400.00'),
+        monthly_credits=Decimal('200.00'),
         display_name='Ultra',
         can_purchase_credits=True,
         models=['all'],
@@ -279,6 +300,10 @@ def can_purchase_credits(tier_name: str) -> bool:
     return tier.can_purchase_credits if tier else False
 
 def is_model_allowed(tier_name: str, model: str) -> bool:
+    # Enterprise mode override - all models allowed
+    if config.ENTERPRISE_MODE:
+        return True
+    
     tier = TIERS.get(tier_name, TIERS['none'])
     
     # Tier has access to all models
@@ -315,6 +340,9 @@ def is_model_allowed(tier_name: str, model: str) -> bool:
     return False
 
 def get_project_limit(tier_name: str) -> int:
+    # Enterprise mode override
+    if config.ENTERPRISE_MODE:
+        return ENTERPRISE_TIER_LIMITS['project_limit']
     tier = TIERS.get(tier_name)
     return tier.project_limit if tier else 3
 
@@ -351,26 +379,55 @@ def get_plan_type(price_id: str) -> str:
     return price_type
 
 def get_thread_limit(tier_name: str) -> int:
+    # Enterprise mode override
+    if config.ENTERPRISE_MODE:
+        return ENTERPRISE_TIER_LIMITS['thread_limit']
     tier = TIERS.get(tier_name)
     return tier.thread_limit if tier else TIERS['free'].thread_limit
 
 def get_concurrent_runs_limit(tier_name: str) -> int:
+    # Enterprise mode override
+    if config.ENTERPRISE_MODE:
+        return ENTERPRISE_TIER_LIMITS['concurrent_runs']
     tier = TIERS.get(tier_name)
     return tier.concurrent_runs if tier else TIERS['free'].concurrent_runs
 
 def get_custom_workers_limit(tier_name: str) -> int:
+    # Enterprise mode override
+    if config.ENTERPRISE_MODE:
+        return ENTERPRISE_TIER_LIMITS['custom_workers_limit']
     tier = TIERS.get(tier_name)
     return tier.custom_workers_limit if tier else TIERS['free'].custom_workers_limit
 
 def get_scheduled_triggers_limit(tier_name: str) -> int:
+    # Enterprise mode override
+    if config.ENTERPRISE_MODE:
+        return ENTERPRISE_TIER_LIMITS['scheduled_triggers_limit']
     tier = TIERS.get(tier_name)
     return tier.scheduled_triggers_limit if tier else TIERS['free'].scheduled_triggers_limit
 
 def get_app_triggers_limit(tier_name: str) -> int:
+    # Enterprise mode override
+    if config.ENTERPRISE_MODE:
+        return ENTERPRISE_TIER_LIMITS['app_triggers_limit']
     tier = TIERS.get(tier_name)
     return tier.app_triggers_limit if tier else TIERS['free'].app_triggers_limit
 
 def get_tier_limits(tier_name: str) -> Dict:
+    # Enterprise mode override - all users get enterprise limits
+    if config.ENTERPRISE_MODE:
+        return {
+            'project_limit': ENTERPRISE_TIER_LIMITS['project_limit'],
+            'thread_limit': ENTERPRISE_TIER_LIMITS['thread_limit'],
+            'concurrent_runs': ENTERPRISE_TIER_LIMITS['concurrent_runs'],
+            'custom_workers_limit': ENTERPRISE_TIER_LIMITS['custom_workers_limit'],
+            'scheduled_triggers_limit': ENTERPRISE_TIER_LIMITS['scheduled_triggers_limit'],
+            'app_triggers_limit': ENTERPRISE_TIER_LIMITS['app_triggers_limit'],
+            'agent_limit': ENTERPRISE_TIER_LIMITS['custom_workers_limit'],
+            'can_purchase_credits': ENTERPRISE_TIER_LIMITS['can_purchase_credits'],
+            'models': ENTERPRISE_TIER_LIMITS['models']
+        }
+    
     tier = TIERS.get(tier_name, TIERS['free'])
     return {
         'project_limit': tier.project_limit,
@@ -383,3 +440,54 @@ def get_tier_limits(tier_name: str) -> Dict:
         'can_purchase_credits': tier.can_purchase_credits,
         'models': tier.models
     }
+
+
+# ============================================================================
+# Enterprise Mode Helper Functions
+# ============================================================================
+
+def is_enterprise_mode() -> bool:
+    """Check if the application is running in enterprise mode."""
+    return bool(config.ENTERPRISE_MODE)
+
+
+def get_effective_tier_name(tier_name: str) -> str:
+    """
+    Get the effective tier name, considering enterprise mode.
+    
+    In enterprise mode, returns 'enterprise' regardless of the actual tier.
+    """
+    if config.ENTERPRISE_MODE:
+        return ENTERPRISE_TIER_NAME
+    return tier_name
+
+
+def get_enterprise_project_limit() -> int:
+    """Get the project limit for enterprise users."""
+    return ENTERPRISE_TIER_LIMITS['project_limit']
+
+
+def get_enterprise_thread_limit() -> int:
+    """Get the thread limit for enterprise users."""
+    return ENTERPRISE_TIER_LIMITS['thread_limit']
+
+
+def get_enterprise_concurrent_runs_limit() -> int:
+    """Get the concurrent runs limit for enterprise users."""
+    return ENTERPRISE_TIER_LIMITS['concurrent_runs']
+
+
+def should_use_daily_credits(tier_name: str) -> bool:
+    """
+    Check if daily credits should be used for a tier.
+    
+    Returns False in enterprise mode (daily credits are disabled).
+    """
+    if config.ENTERPRISE_MODE:
+        return False
+    
+    tier = TIERS.get(tier_name)
+    if not tier or not tier.daily_credit_config:
+        return False
+    
+    return tier.daily_credit_config.get('enabled', False)
