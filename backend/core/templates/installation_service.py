@@ -124,28 +124,31 @@ class InstallationService:
         logger.debug(f"Missing profiles: {[p['qualified_name'] for p in missing_profiles]}")
         logger.debug(f"Missing configs: {[c['qualified_name'] for c in missing_configs]}")
         
-        # Check for trigger variables
-        trigger_variables = self._extract_trigger_variables(template.config)
-        missing_trigger_variables = {}
+        # Check for trigger variables - SKIPPED FOR NOW as we disable triggers on install
+        # trigger_variables = self._extract_trigger_variables(template.config)
+        # missing_trigger_variables = {}
         
-        if trigger_variables and not request.trigger_variables:
-            # All trigger variables are missing
-            missing_trigger_variables = trigger_variables
-        elif trigger_variables and request.trigger_variables:
-            # Check which trigger variables are still missing
-            for trigger_key, trigger_data in trigger_variables.items():
-                if trigger_key not in request.trigger_variables:
-                    missing_trigger_variables[trigger_key] = trigger_data
-                else:
-                    # Check if all required variables for this trigger are provided
-                    provided_vars = request.trigger_variables.get(trigger_key, {})
-                    missing_vars = []
-                    for var in trigger_data['variables']:
-                        if var not in provided_vars:
-                            missing_vars.append(var)
-                    if missing_vars:
-                        trigger_data['missing_variables'] = missing_vars
-                        missing_trigger_variables[trigger_key] = trigger_data
+        # if trigger_variables and not request.trigger_variables:
+        #     # All trigger variables are missing
+        #     missing_trigger_variables = trigger_variables
+        # elif trigger_variables and request.trigger_variables:
+        #     # Check which trigger variables are still missing
+        #     for trigger_key, trigger_data in trigger_variables.items():
+        #         if trigger_key not in request.trigger_variables:
+        #             missing_trigger_variables[trigger_key] = trigger_data
+        #         else:
+        #             # Check if all required variables for this trigger are provided
+        #             provided_vars = request.trigger_variables.get(trigger_key, {})
+        #             missing_vars = []
+        #             for var in trigger_data['variables']:
+        #                 if var not in provided_vars:
+        #                     missing_vars.append(var)
+        #             if missing_vars:
+        #                 trigger_data['missing_variables'] = missing_vars
+        #                 missing_trigger_variables[trigger_key] = trigger_data
+        
+        # Ensure we don't block on this
+        missing_trigger_variables = {}
         
         if missing_profiles or missing_configs or missing_trigger_variables:
             return TemplateInstallationResult(
@@ -526,7 +529,7 @@ class InstallationService:
                     account_id=account_id,
                     trigger_name=trigger.get('name', 'Unnamed Trigger'),
                     trigger_description=trigger.get('description'),
-                    is_active=trigger.get('is_active', True),
+                    is_active=False, # FORCE DISABLE TRIGGERS ON INSTALLATION
                     trigger_slug=trigger_config.get('trigger_slug', ''),
                     qualified_name=qualified_name,
                     agent_prompt=agent_prompt,  # Use the potentially modified agent_prompt
@@ -552,7 +555,7 @@ class InstallationService:
                     'trigger_type': trigger.get('trigger_type', 'webhook'),
                     'name': trigger.get('name', 'Unnamed Trigger'),
                     'description': trigger.get('description'),
-                    'is_active': trigger.get('is_active', True),
+                    'is_active': False, # FORCE DISABLE TRIGGERS ON INSTALLATION
                     'config': clean_config,
                     'created_at': datetime.now(timezone.utc).isoformat(),
                     'updated_at': datetime.now(timezone.utc).isoformat()
@@ -768,6 +771,7 @@ class InstallationService:
                 name=trigger_name,
                 config=config,
                 description=trigger_description,
+                is_active=is_active
             )
             return True
         except httpx.HTTPError as e:

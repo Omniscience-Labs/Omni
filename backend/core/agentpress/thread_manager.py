@@ -471,10 +471,9 @@ class ThreadManager:
             
             # Always fetch messages (needed for LLM call)
             # Fast path just skips compression, not fetching!
-            import time
-            fetch_start = time.time()
+            msg_fetch_start = time.time()
             messages = await self.get_llm_messages(thread_id)
-            logger.info(f"⏱️ [TIMING] get_llm_messages(): {(time.time() - fetch_start) * 1000:.1f}ms ({len(messages)} messages)")
+            logger.info(f"⏱️ [TIMING] get_llm_messages(): {(time.time() - msg_fetch_start) * 1000:.1f}ms ({len(messages)} messages)")
             
             # Note: We no longer need to manually append partial assistant messages
             # because we now save complete assistant messages with tool calls before auto-continuing

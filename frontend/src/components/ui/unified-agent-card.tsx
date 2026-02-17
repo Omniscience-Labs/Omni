@@ -29,7 +29,7 @@ import { AgentAvatar } from '@/components/thread/content/agent-avatar';
 import { useComposioToolkitIcon } from '@/hooks/composio/use-composio';
 
 // Unified agent card variants
-export type AgentCardVariant = 
+export type AgentCardVariant =
   | 'onboarding'      // Selection card for onboarding
   | 'marketplace'     // Marketplace template card
   | 'template'        // User template card
@@ -48,23 +48,23 @@ export interface BaseAgentData {
   icon?: string;
   role?: string;
   capabilities?: string[];
-  
+
   // Icon/avatar data
   icon_name?: string;
   icon_color?: string;
   icon_background?: string;
-  
+
   // Marketplace specific
   creator_id?: string;
   creator_name?: string;
   is_omni_team?: boolean;
   download_count?: number;
   marketplace_published_at?: string;
-  
+
   // Template specific
   template_id?: string;
   is_public?: boolean;
-  
+
   // Agent specific
   agent_id?: string;
   is_default?: boolean;
@@ -112,29 +112,29 @@ export interface UnifiedAgentCardProps {
   data: BaseAgentData;
   actions?: AgentCardActions;
   state?: AgentCardState;
-  
+
   // Styling
   className?: string;
   size?: 'sm' | 'md' | 'lg';
-  
+
   // Animation
   delay?: number;
-  
+
   // Context
   currentUserId?: string;
 }
 
 // Avatar component
-const CardAvatar: React.FC<{ 
+const CardAvatar: React.FC<{
   data: BaseAgentData;
   size?: number;
   variant: AgentCardVariant;
 }> = ({ data, size = 48, variant }) => {
   const isOmniAgent = data.metadata?.is_suna_default === true;
-  
+
   if (variant === 'showcase') {
     return (
-      <motion.div 
+      <motion.div
         className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300"
         whileHover={{ rotate: [0, -10, 10, 0] }}
         transition={{ duration: 0.5 }}
@@ -143,7 +143,7 @@ const CardAvatar: React.FC<{
       </motion.div>
     );
   }
-  
+
   if (isOmniAgent) {
     return (
       <AgentAvatar
@@ -153,7 +153,7 @@ const CardAvatar: React.FC<{
       />
     );
   }
-  
+
   if (data.icon_name) {
     return (
       <AgentAvatar
@@ -165,7 +165,7 @@ const CardAvatar: React.FC<{
       />
     );
   }
-  
+
   // Fallback avatar
   return (
     <AgentAvatar
@@ -177,8 +177,8 @@ const CardAvatar: React.FC<{
 };
 
 // Badge components
-const MarketplaceBadge: React.FC<{ 
-  isOmniTeam?: boolean; 
+const MarketplaceBadge: React.FC<{
+  isOmniTeam?: boolean;
   isOwner?: boolean;
 }> = ({ isOmniTeam, isOwner }) => (
   <div className="flex gap-1 flex-wrap">
@@ -258,7 +258,7 @@ const extractAppInfo = (qualifiedName: string, customType?: string) => {
       return { type: 'composio', slug: extractedSlug };
     }
   }
-  
+
   if (customType === 'composio') {
     if (qualifiedName?.startsWith('composio.')) {
       const extractedSlug = qualifiedName.substring(9);
@@ -267,27 +267,27 @@ const extractAppInfo = (qualifiedName: string, customType?: string) => {
       }
     }
   }
-  
+
   return null;
 };
 
-const IntegrationLogo: React.FC<{ 
-  qualifiedName: string; 
-  displayName: string; 
+const IntegrationLogo: React.FC<{
+  qualifiedName: string;
+  displayName: string;
   customType?: string;
   toolkitSlug?: string;
 }> = ({ qualifiedName, displayName, customType, toolkitSlug }) => {
   let appInfo = extractAppInfo(qualifiedName, customType);
-  
+
   if (!appInfo && toolkitSlug) {
     appInfo = { type: 'composio', slug: toolkitSlug };
   }
-  
+
   const { data: composioIconData } = useComposioToolkitIcon(
     appInfo?.type === 'composio' ? appInfo.slug : '',
     { enabled: appInfo?.type === 'composio' }
   );
-  
+
   let logoUrl: string | undefined;
   if (appInfo?.type === 'composio') {
     logoUrl = composioIconData?.icon_url;
@@ -321,12 +321,12 @@ const IntegrationLogos: React.FC<{ data: BaseAgentData; maxLogos?: number }> = (
   const tools = data.mcp_requirements || [];
   const toolRequirements = tools.filter(req => req.source === 'tool' || !req.source);
   const integrations = toolRequirements.filter(tool => !tool.custom_type || tool.custom_type !== 'sse');
-  
+
   if (integrations.length === 0) return null;
-  
+
   const displayIntegrations = integrations.slice(0, maxLogos);
   const remainingCount = integrations.length - maxLogos;
-  
+
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       {displayIntegrations.map((integration, index) => (
@@ -348,9 +348,9 @@ const IntegrationLogos: React.FC<{ data: BaseAgentData; maxLogos?: number }> = (
 };
 
 // Capabilities list for onboarding
-const CapabilitiesList: React.FC<{ capabilities?: string[]; maxCapabilities?: number }> = ({ 
-  capabilities, 
-  maxCapabilities = 3 
+const CapabilitiesList: React.FC<{ capabilities?: string[]; maxCapabilities?: number }> = ({
+  capabilities,
+  maxCapabilities = 3
 }) => (
   <div className="flex flex-wrap gap-1">
     {capabilities && capabilities.length > 0 && (
@@ -382,7 +382,7 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
   currentUserId
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
-  
+
   const {
     onPrimaryAction,
     onSecondaryAction,
@@ -390,37 +390,37 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
     onClick,
     onToggle
   } = actions;
-  
+
   const {
     isSelected = false,
     isRecommended = false,
     isActioning = false,
     isDeleting = false
   } = state;
-  
+
   const isOmniAgent = data.metadata?.is_suna_default === true;
   const isOwner = currentUserId && data.creator_id === currentUserId;
-  
+
   // Handle delete confirmation
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowDeleteDialog(true);
   };
-  
+
   const handleConfirmDelete = () => {
     setShowDeleteDialog(false);
     onDeleteAction?.(data);
   };
-  
+
   // Render different variants
   const renderShowcaseCard = () => (
     <motion.div className="flex flex-col items-start justify-end relative group cursor-pointer hover:bg-accent/30 transition-colors duration-300">
       <div className="relative flex size-full items-center justify-center h-full overflow-hidden">
         <div className="pointer-events-none absolute bottom-0 left-0 h-20 w-full bg-gradient-to-t from-background to-transparent z-20"></div>
-        
+
         <div className="w-full h-full flex flex-col items-center justify-center gap-6 p-8 text-center">
           <CardAvatar data={data} variant={variant} />
-          
+
           <div className="space-y-3">
             <h3 className="text-xl font-semibold tracking-tighter group-hover:text-primary transition-colors">
               {data.name}
@@ -439,14 +439,14 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
             whileHover={{ y: 0 }}
             onClick={() => onClick?.(data)}
           >
-            Try {data.name} 
+            Try {data.name}
             <ArrowRight className="w-4 h-4" />
           </motion.button>
         </div>
       </div>
     </motion.div>
   );
-  
+
   const renderDashboardCard = () => (
     <div
       className={cn(
@@ -468,11 +468,11 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
         </div>
       </div>
       <div className='p-4'>
-      <IntegrationLogos data={data} maxLogos={6} />
+        <IntegrationLogos data={data} maxLogos={6} />
       </div>
     </div>
   );
-  
+
   const renderOnboardingCard = () => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -480,11 +480,11 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
       transition={{ duration: 0.3, delay }}
       className="relative"
     >
-      <Card 
+      <Card
         className={cn(
           'cursor-pointer transition-all duration-200 relative overflow-hidden',
-          isSelected 
-            ? 'border-2 border-foreground bg-background' 
+          isSelected
+            ? 'border-2 border-foreground bg-background'
             : 'border border-border hover:border-muted-foreground/30',
           className
         )}
@@ -497,10 +497,10 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
               <h3 className="font-semibold text-sm leading-tight">{data.name}</h3>
               <p className="text-xs text-muted-foreground leading-tight">{data.role}</p>
             </div>
-            
+
             {/* Selection indicator */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              
+
               {isSelected ? (
                 <div className="flex items-center justify-center w-4 h-4 rounded-full bg-foreground text-background">
                   <Check className="h-3 w-3" strokeWidth={3} />
@@ -510,12 +510,12 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
               )}
             </div>
           </div>
-          
+
           {/* Description */}
           <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
             {data.description}
           </p>
-          
+
           {/* Capabilities - compact */}
           {data.capabilities && data.capabilities.length > 0 && (
             <div className="space-y-1">
@@ -536,13 +536,13 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
       </Card>
     </motion.div>
   );
-  
+
   const renderStandardCard = () => {
     const cardClassName = cn(
       'group relative bg-card rounded-2xl overflow-hidden transition-all duration-300 border cursor-pointer flex flex-col border-border/50 hover:border-primary/20',
       className
     );
-    
+
     const renderBadge = () => {
       switch (variant) {
         case 'marketplace':
@@ -555,23 +555,43 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
           return null;
       }
     };
-    
+
+
+
+    // Helper to format date
+    const formatPublishedDate = (dateString?: string) => {
+      if (!dateString) return '';
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    };
+
     const renderMetadata = () => {
       if (variant === 'marketplace') {
         return (
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <User className="h-3 w-3" />
-              <span>{data.creator_name || 'Anonymous'}</span>
+          <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <User className="h-3 w-3" />
+                <span>{data.creator_name || 'Anonymous'}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Download className="h-3 w-3" />
+                <span>{data.download_count || 0} installs</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <Download className="h-3 w-3" />
-              <span>{data.download_count || 0} installs</span>
-            </div>
+            {data.marketplace_published_at && (
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70">
+                <CheckCircle className="h-3 w-3" />
+                <span>Published {formatPublishedDate(data.marketplace_published_at)}</span>
+              </div>
+            )}
           </div>
         );
       }
-      
+
       if ((variant === 'template' || variant === 'agent') && data.is_public && data.download_count && data.download_count > 0) {
         return (
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -580,15 +600,15 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
           </div>
         );
       }
-      
+
       return null;
     };
-    
+
     const renderActions = () => {
       if (variant === 'marketplace') {
         return (
           <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-            <Button 
+            <Button
               onClick={(e) => {
                 e.stopPropagation();
                 onPrimaryAction?.(data, e);
@@ -609,12 +629,12 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
                 </>
               )}
             </Button>
-            
+
             {isOwner && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     className="px-2"
                     disabled={isActioning}
@@ -634,7 +654,7 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
           </div>
         );
       }
-      
+
       if (variant === 'template') {
         return (
           <div className="space-y-2">
@@ -669,10 +689,10 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
           </div>
         );
       }
-      
+
       return null;
     };
-    
+
     return (
       <div className={cardClassName} onClick={() => onClick?.(data)}>
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -683,16 +703,16 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
               {renderBadge()}
             </div>
           </div>
-          
+
           <h3 className="text-lg font-semibold text-foreground mb-2 line-clamp-1">
             {data.name}
           </h3>
-          
+
           <div className="flex-1 flex flex-col">
             <div className="min-h-[1.25rem] mb-3">
               <TagList tags={data.tags} />
             </div>
-            
+
             <div className="mt-auto">
               <div className="mb-3">
                 {renderMetadata()}
@@ -701,7 +721,7 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
             </div>
           </div>
         </div>
-        
+
         {/* Delete confirmation dialog */}
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <AlertDialogContent>
@@ -737,7 +757,7 @@ export const UnifiedAgentCard: React.FC<UnifiedAgentCardProps> = ({
       </div>
     );
   };
-  
+
   // Render based on variant
   switch (variant) {
     case 'showcase':

@@ -214,6 +214,6 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </TooltipProvider>
+    </TooltipProvider >
   );
 }; 

@@ -31,7 +31,7 @@ const extractAppInfo = (qualifiedName: string, customType?: string) => {
       return { type: 'composio', slug: extractedSlug };
     }
   }
-  
+
   if (customType === 'composio') {
     if (qualifiedName?.startsWith('composio.')) {
       const extractedSlug = qualifiedName.substring(9);
@@ -40,28 +40,28 @@ const extractAppInfo = (qualifiedName: string, customType?: string) => {
       }
     }
   }
-  
+
   return null;
 };
 
-const IntegrationLogo: React.FC<{ 
-  qualifiedName: string; 
-  displayName: string; 
+const IntegrationLogo: React.FC<{
+  qualifiedName: string;
+  displayName: string;
   customType?: string;
   toolkitSlug?: string;
   size?: 'sm' | 'md' | 'lg';
 }> = ({ qualifiedName, displayName, customType, toolkitSlug, size = 'sm' }) => {
   let appInfo = extractAppInfo(qualifiedName, customType);
-  
+
   if (!appInfo && toolkitSlug) {
     appInfo = { type: 'composio', slug: toolkitSlug };
   }
-  
+
   const { data: composioIconData } = useComposioToolkitIcon(
     appInfo?.type === 'composio' ? appInfo.slug : '',
     { enabled: appInfo?.type === 'composio' }
   );
-  
+
   let logoUrl: string | undefined;
   if (appInfo?.type === 'composio') {
     logoUrl = composioIconData?.icon_url;
@@ -106,16 +106,16 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
   const router = useRouter();
   const { theme } = useTheme();
   const [isGeneratingShareLink, setIsGeneratingShareLink] = React.useState(false);
-  
+
   if (!agent) return null;
 
   const isOmniAgent = agent.is_omni_team || false;
-  
+
   const tools = agent.mcp_requirements || [];
-  
+
   const toolRequirements = tools.filter(req => req.source === 'tool');
   const triggerRequirements = tools.filter(req => req.source === 'trigger');
-  
+
   const integrations = toolRequirements.filter(tool => !tool.custom_type || tool.custom_type !== 'sse');
   const customTools = toolRequirements.filter(tool => tool.custom_type === 'sse');
 
@@ -132,7 +132,7 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
     try {
       // Simple approach: use template ID directly in URL
       const shareUrl = `${window.location.origin}/templates/${agent.template_id}`;
-      
+
       await navigator.clipboard.writeText(shareUrl);
       toast.success('Share link copied to clipboard!');
     } catch (error: any) {
@@ -179,7 +179,7 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
                     agentName={agent.name}
                     size={56}
                   />
-                  <div 
+                  <div
                     className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-30 h-10 blur-2xl opacity-100"
                     style={{
                       background: `radial-gradient(ellipse at center, ${agent.icon_color}, transparent)`
@@ -190,6 +190,11 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
                   <h1 className="text-2xl font-semibold text-foreground mb-2">
                     {agent.name}
                   </h1>
+                  {agent.description && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {agent.description}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -212,74 +217,74 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
 
             <div className="flex-shrink-0 bg-background p-6 space-y-6">
               {(integrations.length > 0 || customTools.length > 0 || triggerRequirements.length > 0) && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Plug className="h-4 w-4 text-muted-foreground" />
-                      <h3 className="text-sm font-medium text-muted-foreground">Integrations</h3>
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                      {integrations.map((integration, index) => (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Plug className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="text-sm font-medium text-muted-foreground">Integrations</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {integrations.map((integration, index) => (
+                      <div
+                        key={`int-${index}`}
+                        className="flex items-center gap-2 p-2 rounded-lg border bg-card"
+                      >
+                        <IntegrationLogo
+                          qualifiedName={integration.qualified_name}
+                          displayName={integration.display_name || getAppDisplayName(integration.qualified_name)}
+                          customType={integration.custom_type}
+                          toolkitSlug={integration.toolkit_slug}
+                          size="sm"
+                        />
+                        <span className="text-sm font-medium pr-2">
+                          {integration.display_name || getAppDisplayName(integration.qualified_name)}
+                        </span>
+                      </div>
+                    ))}
+                    {triggerRequirements.map((trigger, index) => {
+                      const appName = trigger.display_name?.split(' (')[0] || trigger.display_name;
+                      const triggerName = trigger.display_name?.match(/\(([^)]+)\)/)?.[1] || trigger.display_name;
+
+                      return (
                         <div
-                          key={`int-${index}`}
+                          key={`trig-${index}`}
                           className="flex items-center gap-2 p-2 rounded-lg border bg-card"
                         >
                           <IntegrationLogo
-                            qualifiedName={integration.qualified_name}
-                            displayName={integration.display_name || getAppDisplayName(integration.qualified_name)}
-                            customType={integration.custom_type}
-                            toolkitSlug={integration.toolkit_slug}
+                            qualifiedName={trigger.qualified_name}
+                            displayName={appName || getAppDisplayName(trigger.qualified_name)}
+                            customType={trigger.custom_type || (trigger.qualified_name?.startsWith('composio.') ? 'composio' : undefined)}
+                            toolkitSlug={trigger.toolkit_slug}
                             size="sm"
                           />
-                          <span className="text-sm font-medium pr-2">
-                            {integration.display_name || getAppDisplayName(integration.qualified_name)}
-                          </span>
-                        </div>
-                      ))}
-                      {triggerRequirements.map((trigger, index) => {
-                        const appName = trigger.display_name?.split(' (')[0] || trigger.display_name;
-                        const triggerName = trigger.display_name?.match(/\(([^)]+)\)/)?.[1] || trigger.display_name;
-                        
-                        return (
-                          <div
-                            key={`trig-${index}`}
-                            className="flex items-center gap-2 p-2 rounded-lg border bg-card"
-                          >
-                            <IntegrationLogo
-                              qualifiedName={trigger.qualified_name}
-                              displayName={appName || getAppDisplayName(trigger.qualified_name)}
-                              customType={trigger.custom_type || (trigger.qualified_name?.startsWith('composio.') ? 'composio' : undefined)}
-                              toolkitSlug={trigger.toolkit_slug}
-                              size="sm"
-                            />
-                            <div className="flex items-center gap-1">
-                              <Zap className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-sm font-medium pr-2">
-                                {triggerName || trigger.display_name}
-                              </span>
-                            </div>
+                          <div className="flex items-center gap-1">
+                            <Zap className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-sm font-medium pr-2">
+                              {triggerName || trigger.display_name}
+                            </span>
                           </div>
-                        );
-                      })}
-                      {customTools.map((tool, index) => (
-                        <div
-                          key={`tool-${index}`}
-                          className="flex items-center gap-2 p-2 rounded-lg border bg-card"
-                        >
-                          <IntegrationLogo
-                            qualifiedName={tool.qualified_name}
-                            displayName={tool.display_name || getAppDisplayName(tool.qualified_name)}
-                            customType={tool.custom_type}
-                            toolkitSlug={tool.toolkit_slug}
-                            size="md"
-                          />
-                          <span className="text-sm font-medium pr-2">
-                            {tool.display_name || getAppDisplayName(tool.qualified_name)}
-                          </span>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
+                    {customTools.map((tool, index) => (
+                      <div
+                        key={`tool-${index}`}
+                        className="flex items-center gap-2 p-2 rounded-lg border bg-card"
+                      >
+                        <IntegrationLogo
+                          qualifiedName={tool.qualified_name}
+                          displayName={tool.display_name || getAppDisplayName(tool.qualified_name)}
+                          customType={tool.custom_type}
+                          toolkitSlug={tool.toolkit_slug}
+                          size="md"
+                        />
+                        <span className="text-sm font-medium pr-2">
+                          {tool.display_name || getAppDisplayName(tool.qualified_name)}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
 
               {agentpressTools.length === 0 && toolRequirements.length === 0 && triggerRequirements.length === 0 && (
                 <div className="rounded-lg border bg-muted/20 p-6 text-center">
@@ -319,10 +324,10 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
                 </div>
               </div>
               <div className="bg-white dark:bg-black p-3 rounded-xl flex-1 overflow-y-auto space-y-4 min-h-0">
-                <div 
+                <div
                   className="p-3 rounded-xl flex-1 overflow-y-auto space-y-4 h-full"
                   style={{
-                    background: theme === 'dark' 
+                    background: theme === 'dark'
                       ? `linear-gradient(to bottom right, ${agent.icon_background}14, ${agent.icon_background}0A)`
                       : `linear-gradient(to bottom right, ${agent.icon_background}33, ${agent.icon_background}60)`
                   }}
@@ -330,7 +335,7 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
                   {(() => {
                     const messages = agent.usage_examples || [];
                     const groupedMessages: Array<{ role: string; messages: UsageExampleMessage[] }> = [];
-                    
+
                     messages.forEach((message) => {
                       const lastGroup = groupedMessages[groupedMessages.length - 1];
                       if (lastGroup && lastGroup.role === message.role) {

@@ -1,25 +1,38 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Globe, Loader2, Plus, Trash2, User, Bot, Wrench } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Globe, Loader2, Plus, Trash2, User, Bot, Wrench, Settings, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { UsageExampleMessage } from '@/hooks/secure-mcp/use-secure-mcp';
 
 interface PublishDialogData {
   templateId: string;
   templateName: string;
+  templateDescription?: string;
+}
+
+export interface PublishOptions {
+  description: string;
+  includeSystemPrompt: boolean;
+  includeTools: boolean;
+  includeTriggers: boolean;
+  includePlaybooks: boolean;
+  includeDefaultFiles: boolean;
+  usageExamples: UsageExampleMessage[];
 }
 
 interface PublishDialogProps {
   publishDialog: PublishDialogData | null;
   templatesActioningId: string | null;
   onClose: () => void;
-  onPublish: (usageExamples: UsageExampleMessage[]) => void;
+  onPublish: (options: PublishOptions) => void;
 }
 
 export const PublishDialog = ({
@@ -29,6 +42,28 @@ export const PublishDialog = ({
   onPublish
 }: PublishDialogProps) => {
   const [examples, setExamples] = useState<UsageExampleMessage[]>([]);
+  const [description, setDescription] = useState('');
+  const [includeSystemPrompt, setIncludeSystemPrompt] = useState(true);
+  const [includeTools, setIncludeTools] = useState(true);
+
+  const [includeTriggers, setIncludeTriggers] = useState(true);
+  const [includePlaybooks, setIncludePlaybooks] = useState(true);
+  const [includeDefaultFiles, setIncludeDefaultFiles] = useState(true);
+
+  // Initialize description when dialog opens
+  useEffect(() => {
+    if (publishDialog?.templateDescription) {
+      setDescription(publishDialog.templateDescription);
+    } else {
+      setDescription('');
+    }
+    // Reset flags
+    setIncludeSystemPrompt(true);
+    setIncludeTools(true);
+    setIncludeTriggers(true);
+    setIncludePlaybooks(true);
+    setIncludeDefaultFiles(true);
+  }, [publishDialog]);
 
   const handleAddMessage = () => {
     setExamples([...examples, { role: 'user', content: '' }]);
@@ -72,7 +107,15 @@ export const PublishDialog = ({
 
   const handlePublish = () => {
     const validExamples = examples.filter(ex => ex.content.trim());
-    onPublish(validExamples);
+    onPublish({
+      description,
+      includeSystemPrompt,
+      includeTools,
+      includeTriggers,
+      includePlaybooks,
+      includeDefaultFiles,
+      usageExamples: validExamples
+    });
     setExamples([]);
   };
 
@@ -91,8 +134,125 @@ export const PublishDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-6 py-4">
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Template Name</Label>
+              <Input value={publishDialog?.templateName || ''} disabled />
+              <p className="text-xs text-muted-foreground">
+                Template name is inherited from the agent name.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                placeholder="Describe what your agent does..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground">
+                This description will be shown in the marketplace listing.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-4 border-t">
+            <div className="bg-muted/30 p-4 rounded-lg border">
+              <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                <Settings className="h-4 w-4 text-muted-foreground" />
+                Publishing Components
+              </h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                Select which components of your agent you want to include in the template.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-start space-x-3 space-y-0">
+                  <Checkbox
+                    id="include-prompt"
+                    checked={includeSystemPrompt}
+                    onCheckedChange={(c) => setIncludeSystemPrompt(!!c)}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <Label
+                      htmlFor="include-prompt"
+                      className="text-sm font-medium leading-none cursor-pointer"
+                    >
+                      System Prompt
+                    </Label>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 space-y-0">
+                  <Checkbox
+                    id="include-tools"
+                    checked={includeTools}
+                    onCheckedChange={(c) => setIncludeTools(!!c)}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <Label
+                      htmlFor="include-tools"
+                      className="text-sm font-medium leading-none cursor-pointer"
+                    >
+                      Tool Configurations
+                    </Label>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 space-y-0">
+                  <Checkbox
+                    id="include-triggers"
+                    checked={includeTriggers}
+                    onCheckedChange={(c) => setIncludeTriggers(!!c)}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <Label
+                      htmlFor="include-triggers"
+                      className="text-sm font-medium leading-none cursor-pointer"
+                    >
+                      Triggers
+                    </Label>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 space-y-0">
+                  <Checkbox
+                    id="include-playbooks"
+                    checked={includePlaybooks}
+                    onCheckedChange={(c) => setIncludePlaybooks(!!c)}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <Label
+                      htmlFor="include-playbooks"
+                      className="text-sm font-medium leading-none cursor-pointer"
+                    >
+                      Playbooks
+                    </Label>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 space-y-0">
+                  <Checkbox
+                    id="include-files"
+                    checked={includeDefaultFiles}
+                    onCheckedChange={(c) => setIncludeDefaultFiles(!!c)}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <Label
+                      htmlFor="include-files"
+                      className="text-sm font-medium leading-none cursor-pointer"
+                    >
+                      Default Files
+                    </Label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-4 border-t">
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-base font-semibold">Usage Examples (Optional)</Label>

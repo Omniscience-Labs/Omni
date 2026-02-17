@@ -150,10 +150,10 @@ export const MyAgentsTab = ({
                       isActioning: isActioning,
                     }}
                     actions={{
-                      onPrimaryAction: template.is_public 
+                      onPrimaryAction: template.is_public
                         ? () => onUnpublish(template.template_id, template.name)
                         : () => onPublish(template),
-                      onSecondaryAction: template.is_public ? () => {} : undefined,
+                      onSecondaryAction: template.is_public ? () => { } : undefined,
                     }}
                   />
                 );
@@ -216,31 +216,80 @@ export const MyAgentsTab = ({
                 onClearFilters={handleClearFilters}
               />
             ) : (
-              <AgentsGrid
-                agents={agents}
-                onEditAgent={onEditAgent}
-                onDeleteAgent={onDeleteAgent}
-                onToggleDefault={onToggleDefault}
-                deleteAgentMutation={deleteAgentMutation}
-                isDeletingAgent={isDeletingAgent}
-                onPublish={onPublishAgent}
-                publishingId={publishingAgentId}
-              />
+              <div className="space-y-10">
+                {/* Created Agents Section */}
+                {(() => {
+                  const createdAgents = agents.filter(a => !a.metadata?.created_from_template);
+                  const installedAgents = agents.filter(a => a.metadata?.created_from_template);
+
+                  return (
+                    <>
+                      {createdAgents.length > 0 && (
+                        <div className="space-y-4">
+                          <h2 className="text-xl font-semibold text-foreground/80 tracking-tight">Created Agents</h2>
+                          <AgentsGrid
+                            agents={createdAgents}
+                            onEditAgent={onEditAgent}
+                            onDeleteAgent={onDeleteAgent}
+                            onToggleDefault={onToggleDefault}
+                            deleteAgentMutation={deleteAgentMutation}
+                            isDeletingAgent={isDeletingAgent}
+                            onPublish={onPublishAgent}
+                            publishingId={publishingAgentId}
+                          />
+                        </div>
+                      )}
+
+                      {installedAgents.length > 0 && (
+                        <div className="space-y-4">
+                          <h2 className="text-xl font-semibold text-foreground/80 tracking-tight">Installed Agents</h2>
+                          <AgentsGrid
+                            agents={installedAgents}
+                            onEditAgent={onEditAgent}
+                            onDeleteAgent={onDeleteAgent}
+                            onToggleDefault={onToggleDefault}
+                            deleteAgentMutation={deleteAgentMutation}
+                            isDeletingAgent={isDeletingAgent}
+                            onPublish={onPublishAgent}
+                            publishingId={publishingAgentId}
+                          />
+                        </div>
+                      )}
+
+                      {/* Fallback if logic is weird (shouldn't happen if filters match) */}
+                      {createdAgents.length === 0 && installedAgents.length === 0 && agents.length > 0 && (
+                        <AgentsGrid
+                          agents={agents}
+                          onEditAgent={onEditAgent}
+                          onDeleteAgent={onDeleteAgent}
+                          onToggleDefault={onToggleDefault}
+                          deleteAgentMutation={deleteAgentMutation}
+                          isDeletingAgent={isDeletingAgent}
+                          onPublish={onPublishAgent}
+                          publishingId={publishingAgentId}
+                        />
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
             )}
-            
+
             {agentsPagination && (
-              <Pagination
-                currentPage={agentsPagination.current_page}
-                totalPages={agentsPagination.total_pages}
-                totalItems={agentsPagination.total_items}
-                pageSize={agentsPageSize}
-                onPageChange={setAgentsPage}
-                onPageSizeChange={onAgentsPageSizeChange}
-                isLoading={agentsLoading}
-                showPageSizeSelector={true}
-                showJumpToPage={true}
-                showResultsInfo={true}
-              />
+              <div className="mt-8">
+                <Pagination
+                  currentPage={agentsPagination.current_page}
+                  totalPages={agentsPagination.total_pages}
+                  totalItems={agentsPagination.total_items}
+                  pageSize={agentsPageSize}
+                  onPageChange={setAgentsPage}
+                  onPageSizeChange={onAgentsPageSizeChange}
+                  isLoading={agentsLoading}
+                  showPageSizeSelector={true}
+                  showJumpToPage={true}
+                  showResultsInfo={true}
+                />
+              </div>
             )}
           </>
         )}

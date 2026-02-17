@@ -39,6 +39,10 @@ class CreateTemplateRequest(BaseModel):
     make_public: bool = False
     tags: Optional[List[str]] = None
     usage_examples: Optional[List[UsageExampleMessage]] = None
+    description: Optional[str] = None
+    include_system_prompt: bool = True
+    include_tools: bool = True
+    include_triggers: bool = True
 
 
 class InstallTemplateRequest(BaseModel):
@@ -54,6 +58,7 @@ class InstallTemplateRequest(BaseModel):
 class PublishTemplateRequest(BaseModel):
     tags: Optional[List[str]] = None
     usage_examples: Optional[List[UsageExampleMessage]] = None
+    description: Optional[str] = None
 
 
 class TemplateResponse(BaseModel):
@@ -78,6 +83,7 @@ class TemplateResponse(BaseModel):
     creator_name: Optional[str] = None
     usage_examples: Optional[List[UsageExampleMessage]] = None
     config: Optional[Dict[str, Any]] = None
+    description: Optional[str] = None
 
 class InstallationResponse(BaseModel):
     status: str
@@ -160,7 +166,11 @@ async def create_template_from_agent(
             creator_id=user_id,
             make_public=request.make_public,
             tags=request.tags,
-            usage_examples=usage_examples
+            usage_examples=usage_examples,
+            description=request.description,
+            include_system_prompt=request.include_system_prompt,
+            include_tools=request.include_tools,
+            include_triggers=request.include_triggers
         )
         
         logger.debug(f"Successfully created template {template_id} from agent {request.agent_id}")
@@ -206,7 +216,8 @@ async def publish_template(
         success = await template_service.publish_template(
             template_id, 
             user_id,
-            usage_examples=usage_examples
+            usage_examples=usage_examples,
+            description=request.description
         )
         
         if not success:

@@ -58,7 +58,8 @@ class TriggerService:
         provider_id: str,
         name: str,
         config: Dict[str, Any],
-        description: Optional[str] = None
+        description: Optional[str] = None,
+        is_active: bool = True
     ) -> Trigger:
         trigger_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc)
@@ -76,7 +77,7 @@ class TriggerService:
             trigger_type=trigger_type,
             name=name,
             description=description,
-            is_active=True,
+            is_active=is_active,
             config=validated_config,
             created_at=now,
             updated_at=now

@@ -3,16 +3,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
 } from '@/components/ui/dialog';
-import { 
-  Loader2, 
-  Shield, 
+import {
+  Loader2,
+  Shield,
   Download,
   ArrowRight,
   CheckCircle,
@@ -32,9 +32,9 @@ interface StreamlinedInstallDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onInstall: (
-    item: MarketplaceTemplate, 
-    instanceName: string, 
-    profileMappings: Record<string, string>, 
+    item: MarketplaceTemplate,
+    instanceName: string,
+    profileMappings: Record<string, string>,
     customMcpConfigs: Record<string, Record<string, any>>,
     triggerConfigs?: Record<string, Record<string, any>>,
     triggerVariables?: Record<string, Record<string, string>>
@@ -63,39 +63,42 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
 
   const generateSetupSteps = useCallback(() => {
     if (!item?.mcp_requirements) return [];
-    
+
     const steps: SetupStep[] = [];
     const triggers = item.config?.triggers || [];
-    
+
     item.mcp_requirements
       .filter(req => {
-        return req.custom_type === 'composio' || 
-               req.qualified_name?.startsWith('composio.') || 
-               req.qualified_name === 'composio';
+        // Skip trigger-based requirements as requested by user
+        if (req.source === 'trigger') return false;
+
+        return req.custom_type === 'composio' ||
+          req.qualified_name?.startsWith('composio.') ||
+          req.qualified_name === 'composio';
       })
       .forEach(req => {
-        const app_slug = req.app_slug || (req.qualified_name?.startsWith('composio.') 
-          ? req.qualified_name.split('.')[1] 
+        const app_slug = req.app_slug || (req.qualified_name?.startsWith('composio.')
+          ? req.qualified_name.split('.')[1]
           : 'composio');
-        
+
         const stepId = req.source === 'trigger' && req.trigger_index !== undefined
           ? `${req.qualified_name}_trigger_${req.trigger_index}`
           : req.qualified_name;
-        
-        const trigger = req.source === 'trigger' && req.trigger_index !== undefined 
+
+        const trigger = req.source === 'trigger' && req.trigger_index !== undefined
           ? triggers[req.trigger_index] : null;
         const triggerSlug = trigger?.config?.trigger_slug;
-        
+
         const triggerFields = req.source === 'trigger' ? trigger?.config?.trigger_fields : undefined;
-        
+
         steps.push({
           id: stepId,
           title: req.source === 'trigger' ? req.display_name : `Connect ${req.display_name}`,
           description: req.source === 'trigger' && triggerFields
             ? `Select a ${req.display_name.split(' (')[0]} profile and configure trigger settings`
             : req.source === 'trigger'
-            ? `Select a ${req.display_name.split(' (')[0]} profile for this trigger`
-            : `Select an existing ${req.display_name} profile or create a new one`,
+              ? `Select a ${req.display_name.split(' (')[0]} profile for this trigger`
+              : `Select an existing ${req.display_name} profile or create a new one`,
           type: 'composio_profile',
           service_name: req.display_name,
           qualified_name: req.qualified_name,
@@ -110,15 +113,18 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
 
     item.mcp_requirements
       .filter(req => {
-        return !req.custom_type && 
-               !req.qualified_name?.startsWith('composio.') && 
-               req.qualified_name !== 'composio';
+        // Skip trigger-based requirements
+        if (req.source === 'trigger') return false;
+
+        return !req.custom_type &&
+          !req.qualified_name?.startsWith('composio.') &&
+          req.qualified_name !== 'composio';
       })
       .forEach(req => {
         const stepId = req.source === 'trigger' && req.trigger_index !== undefined
           ? `${req.qualified_name}_trigger_${req.trigger_index}`
           : req.qualified_name;
-        
+
         steps.push({
           id: stepId,
           title: req.source === 'trigger' ? req.display_name : `Connect ${req.display_name}`,
@@ -133,7 +139,11 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
       });
 
     item.mcp_requirements
-      .filter(req => req.custom_type && req.custom_type !== 'composio')
+      .filter(req => {
+        // Skip trigger-based requirements
+        if (req.source === 'trigger') return false;
+        return req.custom_type && req.custom_type !== 'composio';
+      })
       .forEach(req => {
         steps.push({
           id: req.qualified_name,
@@ -160,13 +170,13 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
       setTriggerVariables({});
       setMissingTriggerVariables({});
       setIsLoading(true);
-      
+
       const steps = generateSetupSteps();
       setSetupSteps(steps);
-      
+
       const triggers = item.config?.triggers || [];
       const triggerVars: Record<string, TriggerVariable> = {};
-      
+
       triggers.forEach((trigger, index) => {
         const config = trigger.config || {};
         const variables = config.trigger_variables || [];
@@ -177,7 +187,7 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
           const matches = [...agent_prompt.matchAll(pattern)];
           extractedVars = [...new Set(matches.map(m => m[1]))];
         }
-        
+
         if (extractedVars.length > 0) {
           triggerVars[`trigger_${index}`] = {
             trigger_name: trigger.name || `Trigger ${index + 1}`,
@@ -187,8 +197,8 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
           };
         }
       });
-      
-      setMissingTriggerVariables(triggerVars);
+
+      setMissingTriggerVariables({});
       setIsLoading(false);
     }
   }, [open, item, generateSetupSteps]);
@@ -221,16 +231,16 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
   const isCurrentStepComplete = useCallback((): boolean => {
     if (setupSteps.length === 0) return true;
     if (currentStep >= setupSteps.length) return !!instanceName.trim();
-    
+
     const step = setupSteps[currentStep];
-    
+
     switch (step.type) {
       case 'credential_profile':
       case 'composio_profile':
         const hasProfile = !!profileMappings[step.id];
         if (!hasProfile) return false;
         return true;
-        
+
       case 'custom_server':
         const config = customMcpConfigs[step.qualified_name] || {};
         if (!step.required_config || step.required_config.length === 0) return true;
@@ -257,7 +267,7 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
 
   const areAllTriggerVariablesFilled = useCallback((): boolean => {
     if (Object.keys(missingTriggerVariables).length === 0) return true;
-    
+
     for (const [triggerKey, triggerData] of Object.entries(missingTriggerVariables)) {
       const triggerVars = triggerVariables[triggerKey] || {};
       for (const varName of triggerData.variables) {
@@ -271,10 +281,10 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
 
   const handleInstall = useCallback(async () => {
     if (!item || !instanceName.trim()) return;
-    
+
     console.log('Dialog handleInstall - triggerVariables:', triggerVariables);
     console.log('Dialog handleInstall - missingTriggerVariables:', missingTriggerVariables);
-    
+
     // Validate trigger variables if they exist
     if (Object.keys(missingTriggerVariables).length > 0) {
       for (const [triggerKey, triggerData] of Object.entries(missingTriggerVariables)) {
@@ -287,9 +297,9 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
         }
       }
     }
-    
+
     const finalCustomConfigs = { ...customMcpConfigs };
-    
+
     setupSteps.forEach(step => {
       if (step.type === 'composio_profile') {
         const profileId = profileMappings[step.id];
@@ -343,7 +353,8 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
             </div>
           ) : (setupSteps.length === 0 || isOnFinalStep) ? (
             <div className="space-y-6">
-              {Object.keys(missingTriggerVariables).length > 0 ? (
+              {/* Trigger Variables Step removed to streamline installation */}
+              {false && Object.keys(missingTriggerVariables).length > 0 ? (
                 <>
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center">
@@ -356,16 +367,7 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
                       </p>
                     </div>
                   </div>
-                  <TriggerVariablesStep
-                    triggerVariables={missingTriggerVariables}
-                    values={triggerVariables}
-                    onValuesChange={(triggerKey, variables) => {
-                      setTriggerVariables(prev => ({
-                        ...prev,
-                        [triggerKey]: variables
-                      }));
-                    }}
-                  />
+                  {/* <TriggerVariablesStep ... /> removed */}
                 </>
               ) : (
                 <>
@@ -435,7 +437,7 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
                         }
                       }}
                     />
-                    
+
                     {currentStepData.trigger_fields && profileMappings[currentStepData.id] && (
                       <div className="mt-4">
                         <TriggerConfigStep
@@ -449,7 +451,7 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
                     )}
                   </>
                 )}
-                
+
                 {currentStepData.type === 'custom_server' && (
                   <CustomServerStep
                     step={currentStepData}
@@ -487,9 +489,9 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
               Back
             </Button>
           )}
-          
+
           {isOnFinalStep ? (
-            <Button 
+            <Button
               onClick={handleInstall}
               disabled={isInstalling || !instanceName.trim() || !areAllTriggerVariablesFilled()}
               className="flex-1"
@@ -507,7 +509,7 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
               )}
             </Button>
           ) : setupSteps.length === 0 ? (
-            <Button 
+            <Button
               onClick={handleInstall}
               disabled={isInstalling || !instanceName.trim() || !areAllTriggerVariablesFilled()}
               className="flex-1"
@@ -525,7 +527,7 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
               )}
             </Button>
           ) : (
-            <Button 
+            <Button
               onClick={handleNext}
               disabled={!isCurrentStepComplete()}
               className="flex-1"

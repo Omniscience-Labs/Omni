@@ -121,9 +121,13 @@ export interface InstallationResponse {
 
 export interface CreateTemplateRequest {
   agent_id: string;
-  make_public?: boolean;
+  make_public: boolean;
   tags?: string[];
   usage_examples?: UsageExampleMessage[];
+  description?: string;
+  include_system_prompt?: boolean;
+  include_tools?: boolean;
+  include_triggers?: boolean;
 }
 
 export function useUserCredentials() {
@@ -383,14 +387,16 @@ export function usePublishTemplate() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      template_id, 
+    mutationFn: async ({
+      template_id,
       tags,
-      usage_examples 
-    }: { 
-      template_id: string; 
+      usage_examples,
+      description
+    }: {
+      template_id: string;
       tags?: string[];
       usage_examples?: UsageExampleMessage[];
+      description?: string;
     }): Promise<{ message: string }> => {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
@@ -405,7 +411,7 @@ export function usePublishTemplate() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ tags, usage_examples }),
+        body: JSON.stringify({ tags, usage_examples, description }),
       });
 
       if (!response.ok) {
@@ -511,7 +517,7 @@ export function useKortixTeamTemplates(options?: { enabled?: boolean }) {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
         throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       return response.json();
     },
     enabled: options?.enabled !== false,
@@ -541,16 +547,16 @@ export function useInstallTemplate() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
         const isAgentLimitError = (response.status === 402) && (
-          errorData.error_code === 'AGENT_LIMIT_EXCEEDED' || 
+          errorData.error_code === 'AGENT_LIMIT_EXCEEDED' ||
           errorData.detail?.error_code === 'AGENT_LIMIT_EXCEEDED'
         );
-        
+
         if (isAgentLimitError) {
           const { AgentCountLimitError } = await import('@/lib/api/errors');
           const errorDetail = errorData.detail || errorData;
           throw new AgentCountLimitError(response.status, errorDetail);
         }
-        
+
         throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 

@@ -6,13 +6,13 @@ import { Dialog } from '@/components/ui/dialog';
 import { ConfiguredTriggersList } from './configured-triggers-list';
 import { TriggerCreationDialog } from '../../triggers/trigger-creation-dialog';
 import { TriggerConfiguration, TriggerProvider } from './types';
-import { 
-  useAgentTriggers, 
-  useCreateTrigger, 
-  useUpdateTrigger, 
-  useDeleteTrigger, 
+import {
+  useAgentTriggers,
+  useCreateTrigger,
+  useUpdateTrigger,
+  useDeleteTrigger,
   useToggleTrigger,
-  useTriggerProviders 
+  useTriggerProviders
 } from '@/hooks/triggers';
 import { toast } from 'sonner';
 import { OneClickIntegrations } from './one-click-integrations';
@@ -37,7 +37,7 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
 
   const handleEditTrigger = (trigger: TriggerConfiguration) => {
     setEditingTrigger(trigger);
-    
+
     const provider = providers.find(p => p.provider_id === trigger.provider_id);
     if (provider) {
       setConfiguringProvider(provider);
@@ -129,7 +129,7 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
   return (
     <div className="space-y-4">
       <OneClickIntegrations agentId={agentId} />
-      
+
       {triggers.length > 0 && (
         <ConfiguredTriggersList
           triggers={triggers}
@@ -153,7 +153,7 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
           </p>
         </div>
       )}
-      
+
       {configuringProvider && (
         <TriggerCreationDialog
           open={!!configuringProvider}

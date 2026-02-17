@@ -165,7 +165,7 @@ export function NavAgentsView() {
         deleteAgentMutation(agentId, {
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: agentKeys.lists() });
-                toast.success('Worker deleted successfully');
+                toast.success('Agent deleted successfully');
 
                 // Navigate away if we're on the deleted agent's page
                 if (isActive) {
@@ -184,7 +184,7 @@ export function NavAgentsView() {
                 {(state !== 'collapsed' || isMobile) && (
                     <>
                         {/* Always show header */}
-                        <DateGroupHeader title="My Workforce" count={agents.length} />
+                        <DateGroupHeader title="My Agents" count={agents.length} />
 
                         {isAgentsLoading ? (
                             // Show skeleton loaders while loading
@@ -225,7 +225,7 @@ export function NavAgentsView() {
                         >
                             <div className="flex items-center gap-2">
                                 <Plus className="h-4 w-4" />
-                                Add Workers
+                                Add Agents
                             </div>
                         </Button>
                     </>

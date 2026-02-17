@@ -1,0 +1,5 @@
+BEGIN;
+
+ALTER TABLE agent_templates ADD COLUMN IF NOT EXISTS description TEXT;
+
+COMMIT;

@@ -584,6 +584,8 @@ async def run_agent_background(
             if not complete_tool_called:
                 logger.info(f"Agent run {agent_run_id} completed without explicit complete tool call - skipping notification")
 
+
+
         all_responses_json = await redis.lrange(redis_keys['response_list'], 0, -1)
         all_responses = [json.loads(r) for r in all_responses_json]
 

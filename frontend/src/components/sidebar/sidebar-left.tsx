@@ -346,10 +346,10 @@ export function SidebarLeft({
                         {t('newChat')}
                       </div>
                       <div className="flex items-center gap-1">
-                      <KbdGroup>
-                        <Kbd>⌘</Kbd>
-                        <Kbd>J</Kbd>
-                      </KbdGroup>
+                        <KbdGroup>
+                          <Kbd>⌘</Kbd>
+                          <Kbd>J</Kbd>
+                        </KbdGroup>
                       </div>
                     </Link>
                   </Button>
@@ -359,7 +359,7 @@ export function SidebarLeft({
                 <div className="flex justify-between items-center gap-2">
                   {[
                     { view: 'chats' as const, icon: MessageCircle, label: t('chats') },
-                    { view: 'agents' as const, icon: Bot, label: t('workers') },
+                    { view: 'agents' as const, icon: Bot, label: t('agents') },
                     { view: 'starred' as const, icon: Zap, label: t('triggers') }
                   ].map(({ view, icon: Icon, label }) => (
                     <button
@@ -369,7 +369,13 @@ export function SidebarLeft({
                         "hover:bg-muted/60 hover:border-[1.5px] hover:border-border",
                         activeView === view ? 'bg-card border-[1.5px] border-border' : 'border-[1.5px] border-transparent'
                       )}
-                      onClick={() => setActiveView(view)}
+                      onClick={() => {
+                        if (view === 'agents') {
+                          router.push('/agents');
+                        } else {
+                          setActiveView(view);
+                        }
+                      }}
                     >
                       <Icon className="!h-4 !w-4" />
                       <span className="text-xs text-muted-foreground whitespace-nowrap">

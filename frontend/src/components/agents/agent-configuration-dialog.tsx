@@ -44,6 +44,8 @@ import {
   Info,
   Lock,
   Sparkles,
+  Book,
+  FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -66,12 +68,14 @@ import { AgentTriggersConfiguration } from './triggers/agent-triggers-configurat
 import { AgentAvatar } from '../thread/content/agent-avatar';
 import { AgentIconEditorDialog } from './config/agent-icon-editor-dialog';
 import { AgentVersionSwitcher } from './agent-version-switcher';
+import { AgentPlaybooks } from './playbooks/agent-playbooks';
+import { AgentDefaultFiles } from './default-files/agent-default-files';
 
 interface AgentConfigurationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   agentId: string;
-  initialTab?: 'instructions' | 'tools' | 'integrations' | 'knowledge' | 'triggers';
+  initialTab?: 'instructions' | 'tools' | 'integrations' | 'knowledge' | 'triggers' | 'playbooks' | 'files';
   onAgentChange?: (agentId: string) => void;
 }
 
@@ -87,7 +91,7 @@ export function AgentConfigurationDialog({
   const queryClient = useQueryClient();
 
   const { agent, versionData, isViewingOldVersion, isLoading, error } = useAgentVersionData({ agentId });
-  const { data: agentsResponse, refetch: refetchAgents } = useAgents({}, { 
+  const { data: agentsResponse, refetch: refetchAgents } = useAgents({}, {
     enabled: !!onAgentChange,
     refetchOnWindowFocus: true,
     refetchOnMount: 'always'
@@ -97,10 +101,10 @@ export function AgentConfigurationDialog({
   const updateAgentMutation = useUpdateAgent();
   const updateAgentMCPsMutation = useUpdateAgentMCPs();
   const exportMutation = useExportAgent();
-  
+
   const { data: accountState } = useAccountState();
   const { openPricingModal } = usePricingModalStore();
-  
+
   const isFreeTier = accountState && (
     accountState.subscription?.tier_key === 'free' ||
     accountState.tier?.name === 'free'
@@ -110,7 +114,7 @@ export function AgentConfigurationDialog({
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState('');
   const [isIconEditorOpen, setIsIconEditorOpen] = useState(false);
-  
+
   // Debug state changes
   useEffect(() => {
     console.log('Icon editor open state changed:', isIconEditorOpen);
@@ -338,7 +342,7 @@ export function AgentConfigurationDialog({
       };
 
       await updateAgentMutation.mutateAsync(updateData);
-      
+
       // Update original form data to reflect the save
       setOriginalFormData(prev => ({
         ...prev,
@@ -350,12 +354,12 @@ export function AgentConfigurationDialog({
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['agents', 'detail', agentId] });
       queryClient.invalidateQueries({ queryKey: ['versions', 'list', agentId] });
-      
+
       toast.success('Agent icon updated successfully!');
     } catch (error) {
       console.error('Failed to update agent icon:', error);
       toast.error('Failed to update agent icon. Please try again.');
-      
+
       // Revert the local state on error
       setFormData(prev => ({
         ...prev,
@@ -389,6 +393,8 @@ export function AgentConfigurationDialog({
     { id: 'integrations', label: 'Integrations', icon: Server, disabled: false },
     { id: 'knowledge', label: 'Knowledge', icon: BookOpen, disabled: false },
     { id: 'triggers', label: 'Triggers', icon: Zap, disabled: false },
+    { id: 'playbooks', label: 'Playbooks', icon: Book, disabled: false },
+    { id: 'files', label: 'Default Files', icon: FileText, disabled: false },
   ];
 
   return (
@@ -414,10 +420,10 @@ export function AgentConfigurationDialog({
                         e.preventDefault();
                         e.stopPropagation();
                         console.log('🎯 Icon clicked in config dialog - opening editor');
-                        console.log('Current formData:', { 
-                          icon_name: formData.icon_name, 
-                          icon_color: formData.icon_color, 
-                          icon_background: formData.icon_background 
+                        console.log('Current formData:', {
+                          icon_name: formData.icon_name,
+                          icon_color: formData.icon_color,
+                          icon_background: formData.icon_background
                         });
                         setIsIconEditorOpen(true);
                       }}
@@ -489,8 +495,8 @@ export function AgentConfigurationDialog({
                               <ChevronDown className="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                             </button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent 
-                            className="w-80 p-0" 
+                          <DropdownMenuContent
+                            className="w-80 p-0"
                             align="start"
                             sideOffset={4}
                           >
@@ -706,7 +712,7 @@ export function AgentConfigurationDialog({
                       <div className="absolute inset-0 z-10">
                         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
                         <div className="relative h-full flex flex-col items-center justify-center px-8">
-                          <div 
+                          <div
                             className="max-w-md w-full rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-background to-background p-8 cursor-pointer hover:border-primary/50 transition-all group shadow-lg"
                             onClick={() => openPricingModal()}
                           >
@@ -720,7 +726,7 @@ export function AgentConfigurationDialog({
                                   Connect Google Drive, Slack, Notion, and 100+ apps to supercharge your AI Workers
                                 </p>
                               </div>
-                              <Button 
+                              <Button
                                 variant="default"
                                 className="mt-2 gap-2"
                                 onClick={(e) => { e.stopPropagation(); openPricingModal(); }}
@@ -743,7 +749,7 @@ export function AgentConfigurationDialog({
                       <div className="absolute inset-0 z-10">
                         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
                         <div className="relative h-full flex flex-col items-center justify-center px-8">
-                          <div 
+                          <div
                             className="max-w-md w-full rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-background to-background p-8 cursor-pointer hover:border-primary/50 transition-all group shadow-lg"
                             onClick={() => openPricingModal()}
                           >
@@ -757,7 +763,7 @@ export function AgentConfigurationDialog({
                                   Upload documents, PDFs, and files to give your AI Workers custom knowledge and context
                                 </p>
                               </div>
-                              <Button 
+                              <Button
                                 variant="default"
                                 className="mt-2 gap-2"
                                 onClick={(e) => { e.stopPropagation(); openPricingModal(); }}
@@ -780,7 +786,7 @@ export function AgentConfigurationDialog({
                       <div className="absolute inset-0 z-10">
                         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
                         <div className="relative h-full flex flex-col items-center justify-center px-8">
-                          <div 
+                          <div
                             className="max-w-md w-full rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-background to-background p-8 cursor-pointer hover:border-primary/50 transition-all group shadow-lg"
                             onClick={() => openPricingModal()}
                           >
@@ -794,7 +800,81 @@ export function AgentConfigurationDialog({
                                   Set up scheduled tasks and event-based triggers to automate your AI Workers 24/7
                                 </p>
                               </div>
-                              <Button 
+                              <Button
+                                variant="default"
+                                className="mt-2 gap-2"
+                                onClick={(e) => { e.stopPropagation(); openPricingModal(); }}
+                              >
+                                <Sparkles className="h-4 w-4" />
+                                Upgrade to Unlock
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="playbooks" className="p-6 mt-0 flex flex-col h-full">
+                  <div className="flex flex-col flex-1 min-h-0 h-full relative">
+                    <AgentPlaybooks agentId={agentId} />
+                    {isFreeTier && (
+                      <div className="absolute inset-0 z-10">
+                        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
+                        <div className="relative h-full flex flex-col items-center justify-center px-8">
+                          <div
+                            className="max-w-md w-full rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-background to-background p-8 cursor-pointer hover:border-primary/50 transition-all group shadow-lg"
+                            onClick={() => openPricingModal()}
+                          >
+                            <div className="flex flex-col items-center text-center gap-4">
+                              <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/15 border border-primary/20 group-hover:bg-primary/20 transition-colors">
+                                <Book className="h-7 w-7 text-primary" />
+                              </div>
+                              <div>
+                                <h3 className="text-lg font-semibold text-foreground mb-2">Unlock Playbooks</h3>
+                                <p className="text-sm text-muted-foreground leading-relaxed">
+                                  Standardize operating procedures and guided workflows for your AI Workers
+                                </p>
+                              </div>
+                              <Button
+                                variant="default"
+                                className="mt-2 gap-2"
+                                onClick={(e) => { e.stopPropagation(); openPricingModal(); }}
+                              >
+                                <Sparkles className="h-4 w-4" />
+                                Upgrade to Unlock
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="files" className="p-6 mt-0 flex flex-col h-full">
+                  <div className="flex flex-col flex-1 min-h-0 h-full relative">
+                    <AgentDefaultFiles agentId={agentId} />
+                    {isFreeTier && (
+                      <div className="absolute inset-0 z-10">
+                        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
+                        <div className="relative h-full flex flex-col items-center justify-center px-8">
+                          <div
+                            className="max-w-md w-full rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-background to-background p-8 cursor-pointer hover:border-primary/50 transition-all group shadow-lg"
+                            onClick={() => openPricingModal()}
+                          >
+                            <div className="flex flex-col items-center text-center gap-4">
+                              <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/15 border border-primary/20 group-hover:bg-primary/20 transition-colors">
+                                <FileText className="h-7 w-7 text-primary" />
+                              </div>
+                              <div>
+                                <h3 className="text-lg font-semibold text-foreground mb-2">Unlock Default Files</h3>
+                                <p className="text-sm text-muted-foreground leading-relaxed">
+                                  Initialize your AI Workers with custom templates, docs, and files
+                                </p>
+                              </div>
+                              <Button
                                 variant="default"
                                 className="mt-2 gap-2"
                                 onClick={(e) => { e.stopPropagation(); openPricingModal(); }}
