@@ -27,20 +27,20 @@ class KnowledgeSearchTool(Tool):
     def __init__(
         self, 
         thread_manager: ThreadManager,
-        knowledge_bases: Optional[List[Dict[str, Any]]] = None
+        knowledge_bases: Optional[List[Dict[str, Any]]] = None,
+        file_knowledge_base_entries: Optional[List[Dict[str, Any]]] = None
     ):
         """
         Initialize the Knowledge Search Tool.
         
         Args:
             thread_manager: Thread manager instance for context
-            knowledge_bases: List of KB configurations, each containing:
-                - name: Display name (becomes part of method name)
-                - index_name: LlamaCloud index identifier
-                - description: Description for agent context
+            knowledge_bases: List of LlamaCloud KB configurations (name, index_name, description)
+            file_knowledge_base_entries: List of file-based KB entries (entry_type, name, folder_name, summary, etc.)
         """
         self.thread_manager = thread_manager
         self.knowledge_bases = knowledge_bases or []
+        self.file_knowledge_base_entries = file_knowledge_base_entries or []
         self.api_key = os.getenv("LLAMA_CLOUD_API_KEY")
         self.project_name = os.getenv("LLAMA_CLOUD_PROJECT_NAME", "Default")
         
@@ -224,7 +224,7 @@ class KnowledgeSearchTool(Tool):
         "type": "function",
         "function": {
             "name": "list_available_knowledge_bases",
-            "description": "List all available knowledge bases that can be searched",
+            "description": "List all available knowledge bases: LlamaCloud (searchable) and file-based (folders and files assigned to this agent)",
             "parameters": {
                 "type": "object",
                 "properties": {},
@@ -234,33 +234,64 @@ class KnowledgeSearchTool(Tool):
     })
     async def list_available_knowledge_bases(self) -> ToolResult:
         """
-        Lists all available knowledge bases and their descriptions.
-        
-        Helps agents discover what knowledge bases are available and when to use them.
-        
-        Returns:
-            ToolResult with list of knowledge bases and their metadata
+        Lists all available knowledge bases: LlamaCloud KBs (searchable) and file-based
+        folders/files assigned to this agent.
         """
         try:
-            if not self.knowledge_bases:
-                return self.success_response({
-                    "message": "No knowledge bases configured for this agent",
-                    "knowledge_bases": []
-                })
-            
+            # LlamaCloud knowledge bases (searchable via search_* methods)
             kb_list = []
             for kb in self.knowledge_bases:
                 kb_info = {
                     "name": kb.get('name'),
                     "index_name": kb.get('index_name'),
                     "description": kb.get('description', 'No description available'),
-                    "search_method": f"search_{kb.get('name', '').replace('-', '_').replace(' ', '_').lower()}"
+                    "search_method": f"search_{kb.get('name', '').replace('-', '_').replace(' ', '_').lower()}",
+                    "type": "llamacloud"
                 }
                 kb_list.append(kb_info)
             
+            # File-based knowledge base: group by folder
+            folders_map = {}  # folder_name -> list of file dicts
+            for entry in self.file_knowledge_base_entries:
+                folder_name = entry.get('folder_name') or 'Uncategorized'
+                if folder_name not in folders_map:
+                    folders_map[folder_name] = []
+                file_size = entry.get('file_size')
+                size_str = f"~{file_size // 1024} KB" if file_size else "—"
+                folders_map[folder_name].append({
+                    "filename": entry.get('filename') or entry.get('name'),
+                    "summary": (entry.get('summary') or "")[:300] + ("..." if len(entry.get('summary') or "") > 300 else ""),
+                    "file_size": size_str,
+                    "type": "file"
+                })
+            
+            file_folders = [
+                {"folder_name": name, "files": files, "file_count": len(files)}
+                for name, files in folders_map.items()
+            ]
+            
+            total_cloud = len(kb_list)
+            total_files = len(self.file_knowledge_base_entries)
+            if total_cloud == 0 and total_files == 0:
+                return self.success_response({
+                    "message": "No knowledge bases configured for this agent",
+                    "knowledge_bases": [],
+                    "file_knowledge_base": {"folders": []}
+                })
+            
+            message_parts = []
+            if total_cloud:
+                message_parts.append(f"{total_cloud} LlamaCloud knowledge base(s) available for search")
+            if total_files:
+                message_parts.append(f"{total_files} file(s) in {len(file_folders)} folder(s)")
+            
             return self.success_response({
-                "message": f"Found {len(kb_list)} knowledge bases available for search",
-                "knowledge_bases": kb_list
+                "message": "Found knowledge bases: " + "; ".join(message_parts),
+                "knowledge_bases": kb_list,
+                "file_knowledge_base": {
+                    "folders": file_folders,
+                    "total_files": total_files
+                }
             })
             
         except Exception as e:

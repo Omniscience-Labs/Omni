@@ -300,16 +300,11 @@ async def get_agent_llamacloud_knowledge_bases(agent_id: str) -> List[Dict[str, 
 
 async def enrich_agent_config_with_llamacloud_kb(config: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Enriches agent configuration with LlamaCloud knowledge bases.
+    Enriches agent configuration with LlamaCloud knowledge bases and file-based KB entries.
     
-    This adds a 'llamacloud_knowledge_bases' key to the config with all
-    assigned knowledge bases for the agent.
-    
-    Args:
-        config: Agent configuration dictionary
-        
-    Returns:
-        Enriched configuration with 'llamacloud_knowledge_bases' key
+    Adds:
+    - 'llamacloud_knowledge_bases': list of LlamaCloud KBs for search tool
+    - 'agent_knowledge_base_entries': full list (file + cloud) for listing in list_available_knowledge_bases
     """
     if not config.get('agent_id'):
         logger.debug("No agent_id in config, skipping LlamaCloud KB enrichment")
@@ -325,8 +320,28 @@ async def enrich_agent_config_with_llamacloud_kb(config: Dict[str, Any]) -> Dict
                 f"{len(llamacloud_kbs)} LlamaCloud knowledge bases"
             )
         else:
+            config['llamacloud_knowledge_bases'] = []
             logger.debug(f"No LlamaCloud knowledge bases found for agent {config['agent_id']}")
     except Exception as e:
         logger.error(f"Failed to enrich agent config with LlamaCloud KBs: {e}")
+        config['llamacloud_knowledge_bases'] = []
+    
+    # Fetch unified KB (file + cloud) so list_available_knowledge_bases can show both
+    try:
+        from core.services.supabase import DBConnection
+        db = DBConnection()
+        client = await db.client
+        result = await client.rpc(
+            'get_agent_knowledge_base',
+            {'p_agent_id': config['agent_id'], 'p_include_inactive': False}
+        ).execute()
+        config['agent_knowledge_base_entries'] = result.data or []
+        if config['agent_knowledge_base_entries']:
+            logger.debug(
+                f"Loaded {len(config['agent_knowledge_base_entries'])} KB entries (file + cloud) for agent {config['agent_id']}"
+            )
+    except Exception as e:
+        logger.warning(f"Could not fetch agent knowledge base entries for listing: {e}")
+        config['agent_knowledge_base_entries'] = []
     
     return config
