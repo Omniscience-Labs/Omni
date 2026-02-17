@@ -557,6 +557,11 @@ async def run_agent_background(
         await redis.set(redis_keys['instance_active'], "running", ex=redis.REDIS_KEY_TTL)
 
         agent_config = await load_agent_config(agent_id, account_id)
+        
+        # Enrich agent config with LlamaCloud knowledge bases
+        if agent_config:
+            from core.config_helper import enrich_agent_config_with_llamacloud_kb
+            agent_config = await enrich_agent_config_with_llamacloud_kb(agent_config)
 
         agent_gen = run_agent(
             thread_id=thread_id,

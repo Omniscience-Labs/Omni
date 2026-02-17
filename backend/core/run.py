@@ -723,6 +723,14 @@ class AgentRunner:
         tool_manager.register_all_tools(agent_id=agent_id, disabled_tools=disabled_tools)
         logger.info(f"⏱️ [TIMING] register_all_tools(): {(time.time() - register_start) * 1000:.1f}ms")
         
+        # Register Knowledge Search Tool if agent has any KB (LlamaCloud and/or file-based)
+        has_llamacloud = bool(self.config.agent_config and self.config.agent_config.get('llamacloud_knowledge_bases'))
+        has_file_kb = bool(self.config.agent_config and self.config.agent_config.get('agent_knowledge_base_entries'))
+        if self.config.agent_config and (has_llamacloud or has_file_kb):
+            kb_start = time.time()
+            self._register_knowledge_search_tool()
+            logger.info(f"⏱️ [TIMING] Knowledge Search Tool: {(time.time() - kb_start) * 1000:.1f}ms")
+        
         is_suna_agent = (self.config.agent_config and self.config.agent_config.get('is_suna_default', False)) or (self.config.agent_config is None)
         logger.debug(f"Agent config check: agent_config={self.config.agent_config is not None}, is_suna_default={is_suna_agent}")
         
@@ -784,6 +792,33 @@ class AgentRunner:
             else:
                 logger.warning("Could not register agent_creation_tool: account_id not available")
     
+    def _register_knowledge_search_tool(self):
+        """Register Knowledge Search Tool for LlamaCloud indices and file KB listing."""
+        try:
+            from core.tools.knowledge_search_tool import KnowledgeSearchTool
+            
+            knowledge_bases = self.config.agent_config.get('llamacloud_knowledge_bases', [])
+            all_entries = self.config.agent_config.get('agent_knowledge_base_entries', [])
+            # File-type entries for list_available_knowledge_bases (folder + file info)
+            file_knowledge_base_entries = [e for e in all_entries if e.get('entry_type') == 'file']
+            
+            logger.info(
+                f"📚 Registering Knowledge Search Tool with "
+                f"{len(knowledge_bases)} LlamaCloud KBs and {len(file_knowledge_base_entries)} file entries"
+            )
+            
+            self.thread_manager.add_tool(
+                KnowledgeSearchTool,
+                thread_manager=self.thread_manager,
+                knowledge_bases=knowledge_bases,
+                file_knowledge_base_entries=file_knowledge_base_entries
+            )
+            
+            logger.info(f"✅ Successfully registered knowledge base tool (list + {len(knowledge_bases)} search functions)")
+            
+        except Exception as e:
+            logger.error(f"Failed to register Knowledge Search Tool: {e}", exc_info=True)
+    
     def _get_disabled_tools_from_config(self) -> List[str]:
         disabled_tools = []
         
@@ -842,6 +877,18 @@ class AgentRunner:
         setup_start = time.time()
         await self.setup()  # Must run first (sets up client, account_id)
         logger.info(f"⏱️ [TIMING] AgentRunner.setup() completed in {(time.time() - setup_start) * 1000:.1f}ms")
+        
+        # Always enrich agent config with LlamaCloud KBs if not already present
+        # This handles cases where run_agent() is called directly without going through
+        # AgentLoader or run_agent_background (which normally do the enrichment)
+        if self.config.agent_config and 'llamacloud_knowledge_bases' not in self.config.agent_config:
+            try:
+                from core.config_helper import enrich_agent_config_with_llamacloud_kb
+                enrich_start = time.time()
+                self.config.agent_config = await enrich_agent_config_with_llamacloud_kb(self.config.agent_config)
+                logger.debug(f"⏱️ [TIMING] LlamaCloud KB enrichment: {(time.time() - enrich_start) * 1000:.1f}ms")
+            except Exception as e:
+                logger.warning(f"Failed to enrich agent config with LlamaCloud KBs: {e}")
         
         # Run tool setup and MCP setup in parallel
         parallel_start = time.time()

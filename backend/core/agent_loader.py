@@ -41,6 +41,7 @@ class AgentData:
     custom_mcps: Optional[list] = None
     agentpress_tools: Optional[Dict[str, Any]] = None
     triggers: Optional[list] = None
+    llamacloud_knowledge_bases: Optional[list] = None
     
     # Version info
     version_name: Optional[str] = None
@@ -129,6 +130,7 @@ class AgentData:
                 "custom_mcps": self.custom_mcps,
                 "agentpress_tools": self.agentpress_tools,
                 "triggers": self.triggers,
+                "llamacloud_knowledge_bases": self.llamacloud_knowledge_bases,
                 "version_name": self.version_name,
                 "is_suna_default": self.is_suna_default,
                 "centrally_managed": self.centrally_managed,
@@ -395,6 +397,20 @@ class AgentLoader:
             await self._load_suna_config(agent, user_id)
         else:
             await self._load_custom_config(agent, user_id)
+        
+        # Enrich with LlamaCloud knowledge bases
+        try:
+            from core.config_helper import enrich_agent_config_with_llamacloud_kb
+            agent_dict = agent.to_dict()
+            enriched_config = await enrich_agent_config_with_llamacloud_kb(agent_dict)
+            
+            # Add llamacloud_knowledge_bases if present
+            if 'llamacloud_knowledge_bases' in enriched_config:
+                # Store in AgentData - we need to handle this properly
+                # For now, store it in a custom attribute
+                agent.llamacloud_knowledge_bases = enriched_config['llamacloud_knowledge_bases']
+        except Exception as e:
+            logger.error(f"Failed to enrich agent config with LlamaCloud KBs: {e}")
         
         agent.config_loaded = True
     
