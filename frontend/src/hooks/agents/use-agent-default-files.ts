@@ -10,7 +10,7 @@ export type DefaultFile = {
   name: string;
   size: number;
   mime_type: string | null;
-  updated_at: string;
+  uploaded_at: string;
 };
 
 export function useAgentDefaultFiles(agentId: string) {

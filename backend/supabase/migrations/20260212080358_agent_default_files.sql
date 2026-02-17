@@ -1,6 +1,7 @@
 BEGIN;
 
 -- Create agent_default_files table for storing default file metadata
+-- Uses uploaded_at (matching v2 schema) for backward compatibility with existing databases
 CREATE TABLE IF NOT EXISTS agent_default_files (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     agent_id UUID NOT NULL REFERENCES agents(agent_id) ON DELETE CASCADE,
@@ -9,7 +10,7 @@ CREATE TABLE IF NOT EXISTS agent_default_files (
     storage_path TEXT NOT NULL,
     size BIGINT NOT NULL,
     mime_type TEXT,
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    uploaded_at TIMESTAMPTZ DEFAULT NOW(),
     uploaded_by UUID REFERENCES auth.users(id),
     
     -- Ensure unique filenames per agent
@@ -32,12 +33,14 @@ CREATE TABLE IF NOT EXISTS agent_default_files (
 -- Enable RLS
 ALTER TABLE agent_default_files ENABLE ROW LEVEL SECURITY;
 
--- RLS: Any account member can view; only primary account owner can write
+-- Drop ALL existing RLS policies (both v2 and v3 names) to avoid conflicts
+DROP POLICY IF EXISTS agent_default_files_user_access ON agent_default_files;  -- v2 policy
 DROP POLICY IF EXISTS agent_default_files_select ON agent_default_files;
 DROP POLICY IF EXISTS agent_default_files_insert_owner ON agent_default_files;
 DROP POLICY IF EXISTS agent_default_files_update_owner ON agent_default_files;
 DROP POLICY IF EXISTS agent_default_files_delete_owner ON agent_default_files;
 
+-- RLS: Any account member can view; only primary account owner can write
 CREATE POLICY agent_default_files_select ON agent_default_files
     FOR SELECT USING (basejump.has_role_on_account(account_id));
 
@@ -50,24 +53,27 @@ CREATE POLICY agent_default_files_update_owner ON agent_default_files
 CREATE POLICY agent_default_files_delete_owner ON agent_default_files
     FOR DELETE USING (basejump.has_role_on_account(account_id, 'owner'));
 
--- Create indexes for better query performance
+-- Create indexes for better query performance (use IF NOT EXISTS for safety)
 CREATE INDEX IF NOT EXISTS idx_agent_default_files_agent_id ON agent_default_files(agent_id);
-CREATE INDEX IF NOT EXISTS idx_agent_default_files_agent_id_updated_at
-    ON agent_default_files(agent_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_default_files_account_id ON agent_default_files(account_id);
+CREATE INDEX IF NOT EXISTS idx_agent_default_files_uploaded_at ON agent_default_files(uploaded_at);
 
--- Auto-update updated_at on row update
-CREATE OR REPLACE FUNCTION update_updated_at_column()
+-- Auto-update uploaded_at on row update (matching v2 function name for compatibility)
+CREATE OR REPLACE FUNCTION update_agent_default_files_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = NOW();
+    NEW.uploaded_at = NOW();
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS update_agent_default_files_updated_at ON agent_default_files;
-CREATE TRIGGER update_agent_default_files_updated_at
+-- Drop ALL existing triggers (both v2 and v3 names) to avoid duplicates
+DROP TRIGGER IF EXISTS trigger_agent_default_files_updated_at ON agent_default_files;  -- v2 trigger
+DROP TRIGGER IF EXISTS update_agent_default_files_updated_at ON agent_default_files;   -- v3 trigger
+
+CREATE TRIGGER trigger_agent_default_files_updated_at
     BEFORE UPDATE ON agent_default_files
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE FUNCTION update_agent_default_files_timestamp();
 
 -- Grant permissions
 GRANT ALL PRIVILEGES ON TABLE agent_default_files TO authenticated, service_role;
@@ -86,12 +92,17 @@ ON CONFLICT (id) DO UPDATE SET
     public = false,
     file_size_limit = 524288000;
 
--- Storage policies: account members can read; only owners can write
-DROP POLICY IF EXISTS "agent-default-files select" ON storage.objects;
-DROP POLICY IF EXISTS "agent-default-files insert" ON storage.objects;
-DROP POLICY IF EXISTS "agent-default-files update" ON storage.objects;
-DROP POLICY IF EXISTS "agent-default-files delete" ON storage.objects;
+-- Drop ALL existing storage policies (both v2 and v3 names) to avoid duplicates
+DROP POLICY IF EXISTS "Users can view agent default files in their accounts" ON storage.objects;  -- v2
+DROP POLICY IF EXISTS "Users can upload agent default files" ON storage.objects;                   -- v2
+DROP POLICY IF EXISTS "Users can update agent default files" ON storage.objects;                   -- v2
+DROP POLICY IF EXISTS "Users can delete agent default files" ON storage.objects;                   -- v2
+DROP POLICY IF EXISTS "agent-default-files select" ON storage.objects;                             -- v3
+DROP POLICY IF EXISTS "agent-default-files insert" ON storage.objects;                             -- v3
+DROP POLICY IF EXISTS "agent-default-files update" ON storage.objects;                             -- v3
+DROP POLICY IF EXISTS "agent-default-files delete" ON storage.objects;                             -- v3
 
+-- Storage policies: account members can read; only owners can write
 CREATE POLICY "agent-default-files select" ON storage.objects
 FOR SELECT USING (
     bucket_id = 'agent-default-files'

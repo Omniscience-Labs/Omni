@@ -24,7 +24,7 @@ class DefaultFileResponse(BaseModel):
     name: str
     size: int
     mime_type: str | None
-    updated_at: str
+    uploaded_at: str
 
 
 class DefaultFileUploadResponse(BaseModel):
