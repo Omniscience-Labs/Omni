@@ -911,12 +911,38 @@ async def update_agent_unified_assignments(
         client = await db.client
         account_id = auth.user_id
         
+        # Verify ownership of regular entries before assigning
+        if assignment_data.regular_entry_ids:
+            entry_check = await client.table('knowledge_base_entries').select(
+                'entry_id'
+            ).eq('account_id', account_id).in_('entry_id', assignment_data.regular_entry_ids).execute()
+            
+            verified_entry_ids = {row['entry_id'] for row in entry_check.data} if entry_check.data else set()
+            invalid_entries = set(assignment_data.regular_entry_ids) - verified_entry_ids
+            if invalid_entries:
+                logger.warning(f"Skipping {len(invalid_entries)} entry IDs not owned by account {account_id}")
+        else:
+            verified_entry_ids = set()
+        
+        # Verify ownership of LlamaCloud KBs before assigning
+        if assignment_data.llamacloud_kb_ids:
+            kb_check = await client.table('llamacloud_knowledge_bases').select(
+                'kb_id'
+            ).eq('account_id', account_id).in_('kb_id', assignment_data.llamacloud_kb_ids).execute()
+            
+            verified_kb_ids = {row['kb_id'] for row in kb_check.data} if kb_check.data else set()
+            invalid_kbs = set(assignment_data.llamacloud_kb_ids) - verified_kb_ids
+            if invalid_kbs:
+                logger.warning(f"Skipping {len(invalid_kbs)} KB IDs not owned by account {account_id}")
+        else:
+            verified_kb_ids = set()
+        
         # Clear existing assignments
         await client.table('agent_knowledge_entry_assignments').delete().eq('agent_id', agent_id).execute()
         await client.table('agent_llamacloud_kb_assignments').delete().eq('agent_id', agent_id).execute()
         
-        # Insert regular entry assignments
-        for entry_id in assignment_data.regular_entry_ids:
+        # Insert regular entry assignments (only verified ones)
+        for entry_id in verified_entry_ids:
             await client.table('agent_knowledge_entry_assignments').insert({
                 'agent_id': agent_id,
                 'entry_id': entry_id,
@@ -924,8 +950,8 @@ async def update_agent_unified_assignments(
                 'enabled': True
             }).execute()
         
-        # Insert LlamaCloud KB assignments
-        for kb_id in assignment_data.llamacloud_kb_ids:
+        # Insert LlamaCloud KB assignments (only verified ones)
+        for kb_id in verified_kb_ids:
             await client.table('agent_llamacloud_kb_assignments').insert({
                 'agent_id': agent_id,
                 'kb_id': kb_id,
@@ -943,10 +969,12 @@ async def update_agent_unified_assignments(
         
         return {
             "message": "Unified agent assignments updated successfully",
-            "regular_count": len(assignment_data.regular_entry_ids),
-            "llamacloud_count": len(assignment_data.llamacloud_kb_ids)
+            "regular_count": len(verified_entry_ids),
+            "llamacloud_count": len(verified_kb_ids)
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error updating unified assignments: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to update assignments")
@@ -1217,6 +1245,11 @@ async def create_agent_llamacloud_kb(
     except HTTPException:
         raise
     except Exception as e:
+        if 'unique constraint' in str(e).lower():
+            raise HTTPException(
+                status_code=409,
+                detail=f"A knowledge base with name '{kb_data.name}' already exists"
+            )
         logger.error(f"Error creating agent LlamaCloud KB: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to create knowledge base")
 
