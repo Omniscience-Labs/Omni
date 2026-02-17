@@ -49,9 +49,9 @@ class AgentDefaultFilesService:
         result = (
             await client
                 .table('agent_default_files')
-                .select('id, name, size, mime_type, updated_at')
+                .select('id, name, size, mime_type, uploaded_at')
                 .eq('agent_id', agent_id)
-                .order('updated_at', desc=True)
+                .order('uploaded_at', desc=True)
                 .execute()
         )
         return result.data or []
