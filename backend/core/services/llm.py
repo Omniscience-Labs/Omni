@@ -191,6 +191,17 @@ def _configure_openai_compatible(params: Dict[str, Any], model_name: str, api_ke
     setup_provider_router(api_key, api_base)
     logger.debug(f"Configured OpenAI-compatible provider with custom API base")
 
+def _configure_thinking(params: Dict[str, Any], model_name: str, enable_thinking: Optional[bool], reasoning_effort: Optional[str]) -> None:
+    """Configure reasoning/thinking parameters for supported models (Anthropic, xAI, GPT-5, Qwen)."""
+    if not enable_thinking:
+        return
+    effort_level = reasoning_effort or "low"
+    is_anthropic = "anthropic" in model_name.lower() or "claude" in model_name.lower() or "bedrock" in model_name.lower()
+    if is_anthropic:
+        params["reasoning_effort"] = effort_level
+        params["temperature"] = 1.0  # Required by Anthropic when reasoning_effort is used
+        logger.info(f"Anthropic thinking enabled with reasoning_effort='{effort_level}'")
+
 def _add_tools_config(params: Dict[str, Any], tools: Optional[List[Dict[str, Any]]], tool_choice: str) -> None:
     """Add tools configuration to parameters."""
     if tools is None:
@@ -218,6 +229,8 @@ async def make_llm_api_call(
     headers: Optional[Dict[str, str]] = None,
     extra_headers: Optional[Dict[str, str]] = None,
     stop: Optional[List[str]] = None,
+    enable_thinking: Optional[bool] = False,
+    reasoning_effort: Optional[str] = "low",
 ) -> Union[Dict[str, Any], AsyncGenerator, ModelResponse]:
     """Make an API call to a language model using LiteLLM.
     
@@ -280,7 +293,8 @@ async def make_llm_api_call(
     # Apply additional configurations
     _configure_openai_compatible(params, model_name, api_key, api_base)
     _add_tools_config(params, tools, tool_choice)
-    
+    _configure_thinking(params, resolved_model_name, enable_thinking, reasoning_effort)
+
     # Final safeguard: Re-apply stop sequences
     if stop is not None:
         params["stop"] = stop

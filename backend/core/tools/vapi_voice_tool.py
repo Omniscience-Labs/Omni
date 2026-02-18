@@ -281,7 +281,7 @@ def validate_call_safety(phone_number: str, first_message: str, system_prompt: O
     icon="Phone",
     color="bg-indigo-100 dark:bg-indigo-800/50",
     weight=280,
-    visible=True
+    visible=False  # Hidden and disabled - not accessible to agents
 )
 class VapiVoiceTool(Tool):
     

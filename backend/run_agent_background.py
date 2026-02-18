@@ -447,7 +447,9 @@ async def run_agent_background(
     model_name: str = "openai/gpt-5-mini",
     agent_id: Optional[str] = None,
     account_id: Optional[str] = None,
-    request_id: Optional[str] = None
+    request_id: Optional[str] = None,
+    enable_thinking: bool = False,
+    reasoning_effort: str = "low",
 ):
     worker_start = time.time()
     timings = {}
@@ -482,7 +484,7 @@ async def run_agent_background(
     
     from core.ai_models import model_manager
     effective_model = model_manager.resolve_model_id(model_name)
-    logger.info(f"🚀 Using model: {effective_model}")
+    logger.info(f"🚀 Using model: {effective_model} (thinking: {enable_thinking}, reasoning_effort: {reasoning_effort})")
     
     start_time = datetime.now(timezone.utc)
     pubsub = None
@@ -571,6 +573,8 @@ async def run_agent_background(
             trace=trace,
             cancellation_event=cancellation_event,
             account_id=account_id,
+            enable_thinking=enable_thinking,
+            reasoning_effort=reasoning_effort,
         )
         
         total_to_ready = (time.time() - worker_start) * 1000

@@ -290,6 +290,8 @@ class ThreadManager:
         generation: Optional[StatefulGenerationClient] = None,
         latest_user_message_content: Optional[str] = None,
         cancellation_event: Optional[asyncio.Event] = None,
+        enable_thinking: Optional[bool] = False,
+        reasoning_effort: Optional[str] = "low",
     ) -> Union[Dict[str, Any], AsyncGenerator]:
         """Run a conversation thread with LLM integration and tool execution."""
         logger.debug(f"🚀 Starting thread execution for {thread_id} with model {llm_model}")
@@ -315,7 +317,7 @@ class ThreadManager:
                 thread_id, system_prompt, llm_model, llm_temperature, llm_max_tokens,
                 tool_choice, config, stream,
                 generation, auto_continue_state, temporary_message, latest_user_message_content,
-                cancellation_event
+                cancellation_event, enable_thinking, reasoning_effort
             )
             
             # If result is an error dict, convert it to a generator that yields the error
@@ -329,7 +331,8 @@ class ThreadManager:
             thread_id, system_prompt, llm_model, llm_temperature, llm_max_tokens,
             tool_choice, config, stream,
             generation, auto_continue_state, temporary_message,
-            native_max_auto_continues, latest_user_message_content, cancellation_event
+            native_max_auto_continues, latest_user_message_content, cancellation_event,
+            enable_thinking, reasoning_effort
         )
 
     async def _execute_run(
@@ -337,7 +340,8 @@ class ThreadManager:
         llm_temperature: float, llm_max_tokens: Optional[int], tool_choice: ToolChoice,
         config: ProcessorConfig, stream: bool, generation: Optional[StatefulGenerationClient],
         auto_continue_state: Dict[str, Any], temporary_message: Optional[Dict[str, Any]] = None,
-        latest_user_message_content: Optional[str] = None, cancellation_event: Optional[asyncio.Event] = None
+        latest_user_message_content: Optional[str] = None, cancellation_event: Optional[asyncio.Event] = None,
+        enable_thinking: Optional[bool] = False, reasoning_effort: Optional[str] = "low",
     ) -> Union[Dict[str, Any], AsyncGenerator]:
         """Execute a single LLM run."""
         # Simple run counter - increments with each call
@@ -622,7 +626,9 @@ class ThreadManager:
                     tools=openapi_tool_schemas,
                     tool_choice=tool_choice if config.native_tool_calling else "none",
                     stream=stream,
-                    stop=stop_sequences if stop_sequences else None
+                    stop=stop_sequences if stop_sequences else None,
+                    enable_thinking=enable_thinking,
+                    reasoning_effort=reasoning_effort,
                 )
                 
                 # For streaming, the call returns immediately with a generator
@@ -663,7 +669,8 @@ class ThreadManager:
         config: ProcessorConfig, stream: bool, generation: Optional[StatefulGenerationClient],
         auto_continue_state: Dict[str, Any], temporary_message: Optional[Dict[str, Any]],
         native_max_auto_continues: int, latest_user_message_content: Optional[str] = None,
-        cancellation_event: Optional[asyncio.Event] = None
+        cancellation_event: Optional[asyncio.Event] = None,
+        enable_thinking: Optional[bool] = False, reasoning_effort: Optional[str] = "low",
     ) -> AsyncGenerator:
         """Generator that handles auto-continue logic."""
         logger.debug(f"Starting auto-continue generator, max: {native_max_auto_continues}")
@@ -715,7 +722,7 @@ class ThreadManager:
                     generation, auto_continue_state,
                     temporary_message if auto_continue_state['count'] == 0 else None,
                     latest_user_message_content if auto_continue_state['count'] == 0 else None,
-                    cancellation_event
+                    cancellation_event, enable_thinking, reasoning_effort
                 )
 
                 # Handle error responses

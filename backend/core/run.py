@@ -46,6 +46,8 @@ class AgentConfig:
     agent_config: Optional[dict] = None
     trace: Optional[StatefulTraceClient] = None
     account_id: Optional[str] = None  # If provided, skip thread query in setup()
+    enable_thinking: bool = False
+    reasoning_effort: str = "low"
 
 class ToolManager:
     def __init__(self, thread_manager: ThreadManager, project_id: str, thread_id: str, agent_config: Optional[dict] = None):
@@ -820,19 +822,22 @@ class AgentRunner:
             logger.error(f"Failed to register Knowledge Search Tool: {e}", exc_info=True)
     
     def _get_disabled_tools_from_config(self) -> List[str]:
-        disabled_tools = []
-        
+        from core.utils.core_tools_helper import RESTRICTED_TOOLS
+
+        disabled_tools = list(RESTRICTED_TOOLS)  # Always disabled - never accessible
+
         if not self.config.agent_config or 'agentpress_tools' not in self.config.agent_config:
+            logger.debug(f"Disabled tools (config empty): {disabled_tools}")
             return disabled_tools
-        
+
         raw_tools = self.config.agent_config['agentpress_tools']
-        
+
         if not isinstance(raw_tools, dict):
             return disabled_tools
-        
+
         if self.config.agent_config.get('is_suna_default', False) and not raw_tools:
             return disabled_tools
-        
+
         def is_tool_enabled(tool_name: str) -> bool:
             try:
                 tool_config = raw_tools.get(tool_name, True)
@@ -844,21 +849,21 @@ class AgentRunner:
                     return True
             except Exception:
                 return True
-        
+
         all_tools = [
             'sb_shell_tool', 'sb_files_tool', 'sb_expose_tool',
             'web_search_tool', 'image_search_tool', 'sb_vision_tool', 'sb_presentation_tool', 'sb_image_edit_tool',
             'sb_kb_tool', 'sb_design_tool', 'sb_upload_file_tool',
             'sb_docs_tool',
-            'data_providers_tool', 'browser_tool', 'people_search_tool', 'company_search_tool', 
+            'data_providers_tool', 'browser_tool', 'people_search_tool', 'company_search_tool',
             'agent_config_tool', 'mcp_search_tool', 'credential_profile_tool', 'trigger_tool',
             'agent_creation_tool'
         ]
-        
+
         for tool_name in all_tools:
-            if not is_tool_enabled(tool_name):
+            if tool_name not in RESTRICTED_TOOLS and not is_tool_enabled(tool_name):
                 disabled_tools.append(tool_name)
-                
+
         logger.debug(f"Disabled tools from config: {disabled_tools}")
         return disabled_tools
     
@@ -997,7 +1002,9 @@ class AgentRunner:
                     ),
                     native_max_auto_continues=self.config.native_max_auto_continues,
                     generation=generation,
-                    cancellation_event=cancellation_event
+                    cancellation_event=cancellation_event,
+                    enable_thinking=self.config.enable_thinking,
+                    reasoning_effort=self.config.reasoning_effort,
                 )
 
                 last_tool_call = None
@@ -1131,7 +1138,9 @@ async def run_agent(
     agent_config: Optional[dict] = None,    
     trace: Optional[StatefulTraceClient] = None,
     cancellation_event: Optional[asyncio.Event] = None,
-    account_id: Optional[str] = None  # If provided, skips thread query in setup()
+    account_id: Optional[str] = None,  # If provided, skips thread query in setup()
+    enable_thinking: bool = False,
+    reasoning_effort: str = "low",
 ):
     effective_model = model_name
     
@@ -1143,7 +1152,9 @@ async def run_agent(
         model_name=effective_model,
         agent_config=agent_config,
         trace=trace,
-        account_id=account_id
+        account_id=account_id,
+        enable_thinking=enable_thinking,
+        reasoning_effort=reasoning_effort,
     )
     
     runner = AgentRunner(config)

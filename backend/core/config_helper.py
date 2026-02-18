@@ -210,7 +210,11 @@ def _get_default_agentpress_tools() -> Dict[str, bool]:
         "sb_presentation_tool": True,
         "browser_tool": True,
         "data_providers_tool": True,
+        # Restricted tools - always disabled, hidden from UI
         "people_search_tool": False,
+        "company_search_tool": False,
+        "paper_search_tool": False,
+        "vapi_voice_tool": False,
         "agent_config_tool": True,
         "mcp_search_tool": True,
         "credential_profile_tool": True,

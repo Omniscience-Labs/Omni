@@ -19,7 +19,7 @@ from core.services.supabase import DBConnection
     icon="Building",
     color="bg-slate-100 dark:bg-slate-800/50",
     weight=260,
-    visible=True
+    visible=False  # Hidden and disabled - not accessible to agents
 )
 class CompanySearchTool(Tool):
     def __init__(self, thread_manager: ThreadManager):
