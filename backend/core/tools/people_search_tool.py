@@ -19,7 +19,7 @@ from core.services.supabase import DBConnection
     icon="Users",
     color="bg-sky-100 dark:bg-sky-800/50",
     weight=250,
-    visible=True
+    visible=False  # Hidden and disabled - not accessible to agents
 )
 class PeopleSearchTool(Tool):
     def __init__(self, thread_manager: ThreadManager):

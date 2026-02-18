@@ -9,7 +9,7 @@ from core.utils.logger import logger
     color="bg-purple-100 dark:bg-purple-800/50",
     is_core=True,
     weight=310,
-    visible=True
+    visible=False  # Hidden from agent config UI - always enabled at runtime
 )
 class MessageTool(Tool):
     """Tool for user communication and interaction.

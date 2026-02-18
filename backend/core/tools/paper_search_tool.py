@@ -14,7 +14,7 @@ from core.agentpress.thread_manager import ThreadManager
     icon="GraduationCap",
     color="bg-emerald-100 dark:bg-emerald-800/50",
     weight=270,
-    visible=True
+    visible=False  # Hidden and disabled - not accessible to agents
 )
 class PaperSearchTool(Tool):
     def __init__(self, thread_manager: ThreadManager):

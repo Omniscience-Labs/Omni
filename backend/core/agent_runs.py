@@ -372,7 +372,9 @@ async def _trigger_agent_background(
     project_id: str, 
     effective_model: str, 
     agent_id: Optional[str],
-    account_id: Optional[str] = None
+    account_id: Optional[str] = None,
+    enable_thinking: bool = False,
+    reasoning_effort: str = "low",
 ):
     """
     Trigger the background agent execution.
@@ -384,10 +386,12 @@ async def _trigger_agent_background(
         effective_model: Model name to use
         agent_id: Agent ID (instead of full config to reduce log spam)
         account_id: Account ID for authorization in worker
+        enable_thinking: Enable extended thinking/reasoning
+        reasoning_effort: Reasoning effort level (low/medium/high)
     """
     request_id = structlog.contextvars.get_contextvars().get('request_id')
 
-    logger.info(f"🚀 Sending agent run {agent_run_id} to Dramatiq queue (thread: {thread_id}, model: {effective_model})")
+    logger.info(f"🚀 Sending agent run {agent_run_id} to Dramatiq queue (thread: {thread_id}, model: {effective_model}, thinking: {enable_thinking})")
     
     try:
         message = run_agent_background.send(
@@ -399,6 +403,8 @@ async def _trigger_agent_background(
             agent_id=agent_id,  # Pass agent_id instead of full agent_config
             account_id=account_id,  # Pass account_id for worker authorization
             request_id=request_id,
+            enable_thinking=enable_thinking,
+            reasoning_effort=reasoning_effort,
         )
         message_id = message.message_id if hasattr(message, 'message_id') else 'N/A'
         logger.info(f"✅ Successfully enqueued agent run {agent_run_id} to Dramatiq (message_id: {message_id})")
@@ -616,6 +622,8 @@ async def start_agent_run(
     message_content: Optional[str] = None,  # Pre-processed content (with file refs)
     metadata: Optional[Dict[str, Any]] = None,
     skip_limits_check: bool = False,  # For triggers that have their own limits
+    enable_thinking: bool = False,
+    reasoning_effort: str = "low",
 ) -> Dict[str, Any]:
     """
     Core function to start an agent run.
@@ -765,14 +773,20 @@ async def start_agent_run(
         logger.debug(f"Created user message for thread {thread_id}")
     
     async def create_agent_run():
-        return await _create_agent_run_record(client, thread_id, agent_config, effective_model, account_id, metadata)
+        # Add thinking params to metadata for auditing
+        run_metadata = metadata.copy() if metadata else {}
+        run_metadata.update({
+            "enable_thinking": enable_thinking,
+            "reasoning_effort": reasoning_effort,
+        })
+        return await _create_agent_run_record(client, thread_id, agent_config, effective_model, account_id, run_metadata)
     
     _, agent_run_id = await asyncio.gather(create_message(), create_agent_run())
     logger.debug(f"⏱️ [TIMING] Parallel message+agent_run: {(time.time() - t_parallel2) * 1000:.1f}ms")
     
     # Trigger background execution
     t_dispatch = time.time()
-    await _trigger_agent_background(agent_run_id, thread_id, project_id, effective_model, agent_id, account_id)
+    await _trigger_agent_background(agent_run_id, thread_id, project_id, effective_model, agent_id, account_id, enable_thinking, reasoning_effort)
     logger.debug(f"⏱️ [TIMING] Worker dispatch: {(time.time() - t_dispatch) * 1000:.1f}ms")
     
     logger.info(f"⏱️ [TIMING] start_agent_run total: {(time.time() - t_start) * 1000:.1f}ms")
@@ -796,6 +810,8 @@ async def unified_agent_start(
     prompt: Optional[str] = Form(None),
     model_name: Optional[str] = Form(None),
     agent_id: Optional[str] = Form(None),
+    enable_thinking: Optional[bool] = Form(False),
+    reasoning_effort: Optional[str] = Form("low"),
     files: List[UploadFile] = File(default=[]),
     user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
@@ -915,6 +931,8 @@ async def unified_agent_start(
             thread_id=thread_id,
             project_id=project_id,  # Pre-created if files or agent defaults
             message_content=message_content,  # Includes file references if any
+            enable_thinking=enable_thinking,
+            reasoning_effort=reasoning_effort,
         )
         
         logger.info(f"⏱️ [TIMING] 🎯 API Request Total: {(time.time() - api_request_start) * 1000:.1f}ms")

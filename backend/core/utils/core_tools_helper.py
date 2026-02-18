@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
 from core.utils.logger import logger
 
 CORE_TOOLS = {
@@ -6,6 +6,14 @@ CORE_TOOLS = {
     'task_list_tool': True,
     'expand_message_tool': True,
 }
+
+# Tools that are always disabled and never accessible to any agent (hidden from UI + never registered)
+RESTRICTED_TOOLS: List[str] = [
+    'people_search_tool',
+    'company_search_tool',
+    'paper_search_tool',
+    'vapi_voice_tool',
+]
 
 def ensure_core_tools_enabled(agentpress_tools: Dict[str, Any]) -> Dict[str, Any]:
     if agentpress_tools is None:
