@@ -80,7 +80,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle } 
 import { getPlanName, getPlanIcon } from '../billing/plan-utils';
 import { TierBadge } from '../billing/tier-badge';
 import { siteConfig } from '@/lib/home';
-import ThreadUsage from '@/components/billing/thread-usage';
+import DailyUsageLogs from '@/components/billing/daily-usage-logs';
 import { formatCredits } from '@/lib/utils/credit-formatter';
 import { LanguageSwitcher } from './language-switcher';
 import { useTranslations } from 'next-intl';
@@ -1156,7 +1156,7 @@ function CreditsHelpAlert() {
 function UsageTab() {
     return (
         <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 min-w-0 max-w-full overflow-x-hidden">
-            <ThreadUsage />
+            <DailyUsageLogs />
         </div>
     );
 }
