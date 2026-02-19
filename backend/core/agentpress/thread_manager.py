@@ -4,7 +4,7 @@ Simplified conversation thread management system for AgentPress.
 
 import asyncio
 import json
-from typing import List, Dict, Any, Optional, Type, Union, AsyncGenerator, Literal, cast
+from typing import List, Dict, Any, Optional, Type, Union, AsyncGenerator, Literal, cast, Tuple
 from core.services.llm import make_llm_api_call, LLMError
 from core.agentpress.prompt_caching import apply_anthropic_caching_strategy, validate_cache_blocks
 from core.agentpress.tool import Tool
@@ -18,6 +18,10 @@ from langfuse.client import StatefulGenerationClient, StatefulTraceClient
 from core.services.langfuse import langfuse
 from datetime import datetime, timezone
 from core.billing.credits.integration import billing_integration
+from core.billing.shared.config import (
+    CREDIT_CHECK_ESTIMATED_PROMPT_TOKENS,
+    CREDIT_CHECK_ESTIMATED_OUTPUT_TOKENS,
+)
 from litellm.utils import token_counter
 import litellm
 
@@ -703,7 +707,15 @@ class ThreadManager:
                 if account_id:
                     try:
                         from core.billing.credits.integration import billing_integration
-                        can_run, message, _ = await billing_integration.check_and_reserve_credits(account_id)
+                        estimated_prompt, estimated_completion = self._estimate_max_tokens_for_iteration(
+                            llm_model, llm_max_tokens
+                        )
+                        can_run, message, _ = await billing_integration.check_and_reserve_credits(
+                            account_id,
+                            model_name=llm_model,
+                            estimated_prompt_tokens=estimated_prompt,
+                            estimated_completion_tokens=estimated_completion,
+                        )
                         if not can_run:
                             logger.warning(f"Stopping auto-continue - insufficient credits: {message}")
                             yield {
@@ -800,6 +812,34 @@ class ThreadManager:
                 "type": "content",
                 "content": f"\n[Agent reached maximum auto-continue limit of {native_max_auto_continues}]"
             }
+
+    def _estimate_max_tokens_for_iteration(
+        self, llm_model: str, llm_max_tokens: Optional[int]
+    ) -> Tuple[int, int]:
+        """
+        Conservative estimate of max tokens for one LLM call (prompt + completion).
+        Used for credit capacity checks before each auto-continue iteration.
+        Note: llm_max_tokens is typically None (AgentRunner lets providers use defaults).
+        """
+        try:
+            from core.ai_models import model_manager
+            context_window = model_manager.get_context_window(llm_model)
+            model = model_manager.get_model(model_manager.resolve_model_id(llm_model))
+
+            # llm_max_tokens is usually None; only use if valid positive int
+            if llm_max_tokens is not None and llm_max_tokens > 0:
+                max_output = min(llm_max_tokens, context_window)  # cap to context
+            else:
+                max_output = (
+                    (model.max_output_tokens if model and model.max_output_tokens else None)
+                    or min(CREDIT_CHECK_ESTIMATED_OUTPUT_TOKENS, context_window)
+                )
+
+            estimated_prompt = min(context_window, CREDIT_CHECK_ESTIMATED_PROMPT_TOKENS)
+            estimated_completion = max_output
+            return estimated_prompt, estimated_completion
+        except Exception:
+            return CREDIT_CHECK_ESTIMATED_PROMPT_TOKENS, CREDIT_CHECK_ESTIMATED_OUTPUT_TOKENS
 
     def _check_auto_continue_trigger(
         self, chunk: Dict[str, Any], auto_continue_state: Dict[str, Any], 

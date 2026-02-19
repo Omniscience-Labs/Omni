@@ -10,34 +10,72 @@ from ..shared.cache_utils import invalidate_account_state_cache
 
 class BillingIntegration:
     @staticmethod
-    async def check_and_reserve_credits(account_id: str, estimated_tokens: int = 10000) -> Tuple[bool, str, Optional[str]]:
+    async def check_and_reserve_credits(
+        account_id: str,
+        estimated_tokens: Optional[int] = None,
+        model_name: Optional[str] = None,
+        estimated_prompt_tokens: Optional[int] = None,
+        estimated_completion_tokens: Optional[int] = None,
+    ) -> Tuple[bool, str, Optional[str]]:
+        """
+        Check if account has capacity to run (and optionally to cover estimated token cost).
+        When model_name + token estimates are provided, verifies balance >= estimated cost.
+        """
         if config.ENV_MODE == EnvMode.LOCAL:
             return True, "Local mode", None
-        
+
+        estimated_cost: Optional[Decimal] = None
+        if model_name and (estimated_tokens or estimated_prompt_tokens is not None or estimated_completion_tokens is not None):
+            prompt_tokens: int
+            completion_tokens: int
+            if estimated_prompt_tokens is not None and estimated_completion_tokens is not None:
+                prompt_tokens = estimated_prompt_tokens
+                completion_tokens = estimated_completion_tokens
+            elif estimated_tokens is not None and estimated_tokens > 0:
+                prompt_tokens = int(estimated_tokens * 0.8)
+                completion_tokens = estimated_tokens - prompt_tokens
+            else:
+                prompt_tokens = 0
+                completion_tokens = 0
+            if prompt_tokens > 0 or completion_tokens > 0:
+                try:
+                    estimated_cost = calculate_token_cost(prompt_tokens, completion_tokens, model_name)
+                except Exception as e:
+                    logger.warning(f"[BILLING] Failed to estimate cost, falling back to balance check: {e}")
+
         # ===== ENTERPRISE MODE FORK =====
         if config.ENTERPRISE_MODE:
-            # Use enterprise billing - check shared pool and user limits
             from core.billing.enterprise.service import enterprise_billing_service
-            return await enterprise_billing_service.check_billing_status(account_id)
+            cost_for_check = float(estimated_cost) if estimated_cost is not None and estimated_cost > 0 else 0.01
+            logger.debug(f"[BILLING] Checking enterprise billing status for {account_id} with estimated cost: ${cost_for_check:.6f}")
+            return await enterprise_billing_service.check_billing_status(
+                account_id, estimated_cost=Decimal(str(cost_for_check))
+            )
         # ================================
-        
+
         # Standard SaaS mode - check and refresh daily credits
         try:
             from core.credits import credit_service
             await credit_service.check_and_refresh_daily_credits(account_id)
         except Exception as e:
             logger.warning(f"[DAILY_CREDITS] Failed to check/refresh daily credits for {account_id}: {e}")
-        
+
         balance_info = await credit_manager.get_balance(account_id)
-        
+
         if isinstance(balance_info, dict):
             balance = Decimal(str(balance_info.get('total', 0)))
         else:
             balance = Decimal(str(balance_info or 0))
-        
+
         if balance < 0:
             return False, f"Insufficient credits. Your balance is {int(balance * 100)} credits. Please add credits to continue.", None
-        
+
+        if estimated_cost is not None and estimated_cost > 0 and balance < estimated_cost:
+            return False, (
+                f"Insufficient credits for estimated usage (${float(estimated_cost):.4f}). "
+                f"Your balance is ${float(balance):.2f}. Please add credits to continue."
+            ), None
+
         return True, f"Credits available: {int(balance * 100)} credits", None
     
     @staticmethod
