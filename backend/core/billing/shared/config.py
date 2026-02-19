@@ -14,6 +14,10 @@ TOKEN_PRICE_MULTIPLIER = Decimal('1.2')
 MINIMUM_CREDIT_FOR_RUN = Decimal('0.01')
 DEFAULT_TOKEN_COST = Decimal('0.000002')
 
+# Credit capacity check: estimated tokens per LLM iteration (used before auto-continue)
+CREDIT_CHECK_ESTIMATED_PROMPT_TOKENS = 12_000
+CREDIT_CHECK_ESTIMATED_OUTPUT_TOKENS = 1_000
+
 CREDITS_PER_DOLLAR = 100
 
 FREE_TIER_INITIAL_CREDITS = Decimal('0.00')
