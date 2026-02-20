@@ -27,6 +27,13 @@ MAX_MERGED_AREA_RATIO_ADJACENT = 10.0  # allow vertical separation (e.g. same co
 
 DEFAULT_TYPE = "unknown"
 
+# Fixed task rules for vision; not overridable by user chat.
+DEFAULT_TASK_INSTRUCTION = (
+    "* **No Substrings:** Do **NOT** look for substrings within a given string. Count only if the entire string matches. "
+    "* *Example:* `B30,30` should **not** be counted for `B30`, or vice versa.\n"
+    "* **Deduplication:** Mentally mark all the ones you have counted for one string so that it is not counted again for another."
+).strip()
+
 
 def _extract_bbox_from_detection(raw: Dict[str, Any]) -> Tuple[Optional[Dict[str, float]], Dict[str, Any]]:
     """Parse bbox from detection (object, [x_min,y_min,x_max,y_max], or flat keys). Returns (bbox dict or None, copy of raw)."""
@@ -279,7 +286,6 @@ def _normalize_detection_types(detection_types: Any) -> List[str]:
 
 def _build_vision_prompts(
     detection_types: List[str],
-    task_instruction: str,
     tile_id: int,
     row: int,
     col: int,
@@ -287,20 +293,17 @@ def _build_vision_prompts(
     tile_height_px: int,
     global_bbox_px: Dict[str, int],
 ) -> Tuple[str, str]:
-    """Build system and user prompts from structured spec (request + output_format + tile_context)."""
-    types_str = ", ".join(detection_types)
+    """Build system and user prompts. System: fixed rules + output format. User: only required JSON (no extra text)."""
     system_prompt = (
-        "You are an image detection assistant. Detect only the following types in this tile image: "
-        f"{types_str}. Return valid JSON only (no markdown) with a single key \"detections\": an array of objects. "
-        "Each object must have \"label\" (exactly one of the types above) and \"bbox\" as [x_min, y_min, x_max, y_max] "
-        "in tile pixels, top-left origin (0,0)."
+        "Output valid JSON only (no markdown, no commentary).\n"
+        "Schema: {\"detections\": [{\"label\": \"<string>\", \"bbox\": [x_min, y_min, x_max, y_max]}]}\n"
+        "Rules:\n"
+        "- label: exactly one of the detection_types given in the input JSON; entire string must match (no substrings).\n"
+        "- bbox: tile pixels, top-left origin (0,0).\n"
+        f"- {DEFAULT_TASK_INSTRUCTION}"
     )
     payload = {
-        "request": {"detection_types": detection_types, "task_instruction": task_instruction.strip() or None},
-        "output_format": {
-            "detections": [{"label": "<one of detection_types>", "bbox": ["x_min", "y_min", "x_max", "y_max"]}],
-            "coordinate_system": "tile pixels, top-left origin (0,0)",
-        },
+        "detection_types": detection_types,
         "tile_context": {
             "tile_id": tile_id,
             "row": row,
@@ -310,10 +313,7 @@ def _build_vision_prompts(
             "global_bbox_px": dict(global_bbox_px),
         },
     }
-    user_lines = [f"Input (JSON):\n{json.dumps(payload, indent=2)}"]
-    if task_instruction and task_instruction.strip():
-        user_lines.append(f"\nAdditional guidance: {task_instruction.strip()}")
-    user_prompt = "\n".join(user_lines)
+    user_prompt = json.dumps(payload)
     return system_prompt, user_prompt
 
 
@@ -429,13 +429,12 @@ class SandboxAdvancedFloorplanAnalyzerTool(SandboxToolsBase):
             "type": "function",
             "function": {
                 "name": "analyze_floorplan_tiles",
-                "description": "Only call when the user explicitly asks to divide or split the image into tiles (e.g. 'analyze by tiles', 'split into tiles'). Do not use for general image analysis. Splits the image into tiles, one LLM call per tile, 10% overlap, merge duplicates. Pass detection_types (e.g. [\"B0\", \"B20\"]); infer from user request. Optional task_instruction.",
+                "description": "Only call when the user explicitly asks to divide or split the image into tiles (e.g. 'analyze by tiles', 'split into tiles'). Do not use for general image analysis. Splits the image into tiles, one LLM call per tile, 10% overlap, merge duplicates. Pass detection_types (e.g. [\"B0\", \"B20\"]); infer from user request.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "image_path": {"type": "string", "description": "Relative path to image in workspace (e.g. uploads/drawing.png)."},
                         "detection_types": {"type": "array", "items": {"type": "string"}, "description": "List of component types to detect (e.g. [\"B0\", \"B20\"]). Inferred from user request. Required."},
-                        "task_instruction": {"type": "string", "description": "Optional. Short extra guidance (e.g. ignore text annotations)."},
                         "tile_count": {"type": "integer", "description": "Total number of tiles (default 2).", "default": 2, "minimum": 1, "maximum": MAX_TILE_COUNT},
                         "tiles_wide": {"type": "integer", "description": "Optional. Force number of columns (use with tiles_high)."},
                         "tiles_high": {"type": "integer", "description": "Optional. Force number of rows (use with tiles_wide)."},
@@ -449,10 +448,10 @@ class SandboxAdvancedFloorplanAnalyzerTool(SandboxToolsBase):
         self,
         image_path: str,
         detection_types: Any,
-        task_instruction: str = "",
         tile_count: int = 2,
         tiles_wide: Optional[int] = None,
         tiles_high: Optional[int] = None,
+        task_instruction: Optional[str] = None,
     ) -> ToolResult:
         try:
             detection_types = _normalize_detection_types(detection_types)
@@ -528,7 +527,6 @@ class SandboxAdvancedFloorplanAnalyzerTool(SandboxToolsBase):
 
                     system_prompt, user_prompt = _build_vision_prompts(
                         detection_types,
-                        task_instruction or "",
                         tile_id,
                         row,
                         col,
@@ -590,7 +588,7 @@ class SandboxAdvancedFloorplanAnalyzerTool(SandboxToolsBase):
                     "overlap_fraction": OVERLAP_FRACTION,
                 },
                 "detection_types": detection_types,
-                "task_instruction": task_instruction or None,
+                "task_instruction": DEFAULT_TASK_INSTRUCTION,
                 "merged_components": merged,
                 "component_counts": component_counts,
                 "model_used": VISION_MODEL,
