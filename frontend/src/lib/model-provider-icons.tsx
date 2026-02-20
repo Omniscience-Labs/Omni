@@ -29,7 +29,7 @@ export function isOmniMode(modelId: string): boolean {
     return true;
   }
   // Legacy: Omni POWER Mode (Sonnet 4.5)
-  if (modelId.includes('claude-sonnet-4-5') || modelId.includes('few7z4l830xh')) {
+  if (modelId.includes('claude-sonnet-4-5') || modelId.includes('claude-sonnet-4-6') || modelId.includes('few7z4l830xh')) {
     return true;
   }
   return false;

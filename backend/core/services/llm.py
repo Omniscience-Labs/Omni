@@ -106,10 +106,19 @@ def setup_provider_router(openai_compatible_api_key: str = None, openai_compatib
         },
     ]
     
-    # Fallbacks disabled - using client-specific application inference profiles
-    # Each client has dedicated ARNs for usage tracking, so no cross-profile fallbacks
+    # Fallback to Sonnet 4.5 when Haiku or Sonnet 4.6 fails (rate limit, 5xx, context exceeded)
+    from core.ai_models import model_manager
+    from core.ai_models.registry import get_fallback_model_id
+    _basic_id = model_manager.registry.get_litellm_model_id("kortix/basic")
+    _power_id = model_manager.registry.get_litellm_model_id("kortix/power")
+    _fallback_id = get_fallback_model_id()
     fallbacks = []
-    
+    if _basic_id:
+        fallbacks.append({_basic_id: [_fallback_id]})
+    if _power_id and _power_id != _basic_id:
+        fallbacks.append({_power_id: [_fallback_id]})
+    context_window_fallbacks = list(fallbacks)  # same chain for context exceeded
+
     # # OLD: MAP-tagged Haiku 4.5 (default) -> Sonnet 4 -> Sonnet 4.5
     # {
     #     "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/heol2zyy5v48": [
@@ -131,9 +140,7 @@ def setup_provider_router(openai_compatible_api_key: str = None, openai_compatib
     #     ]
     # }
     
-    # Context window fallbacks disabled - using client-specific profiles
-    context_window_fallbacks = []
-    
+    # (context_window_fallbacks set above: Haiku/Sonnet 4.6 -> Sonnet 4.5)
     # # OLD: Haiku 4.5 (200k) -> Sonnet 4 (1M) -> Sonnet 4.5 (1M)
     # {
     #     "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/heol2zyy5v48": [
@@ -169,7 +176,7 @@ def setup_provider_router(openai_compatible_api_key: str = None, openai_compatib
         # context_window_fallbacks are separate and only triggered by context length issues
     )
     
-    logger.info(f"Configured LiteLLM Router with {len(fallbacks)} fallback rules (fallbacks disabled for client-specific profiles)")
+    logger.info(f"Configured LiteLLM Router with {len(fallbacks)} fallback rule(s) (Haiku/Sonnet 4.6 -> Sonnet 4.5 on failure)")
 
 def _configure_openai_compatible(params: Dict[str, Any], model_name: str, api_key: Optional[str], api_base: Optional[str]) -> None:
     """Configure OpenAI-compatible provider setup."""
