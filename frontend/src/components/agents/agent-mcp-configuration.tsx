@@ -45,8 +45,7 @@ export const AgentMCPConfiguration: React.FC<AgentMCPConfigurationProps> = ({
         };
       }
       
-      // Map 'sse' backend type to 'http' for frontend display
-      const displayType = customMcp.type === 'sse' ? 'http' : (customMcp.type || customMcp.customType);
+      const displayType = customMcp.type ?? customMcp.customType;
       
       return {
         name: customMcp.name,
@@ -76,12 +75,9 @@ export const AgentMCPConfiguration: React.FC<AgentMCPConfigurationProps> = ({
           };
         }
         
-        // Map 'http' to 'sse' for backend compatibility
-        const backendType = mcp.customType === 'http' ? 'sse' : mcp.customType;
-        
         return {
           name: mcp.name,
-          type: backendType,
+          type: mcp.type,
           customType: mcp.customType,
           config: mcp.config,
           enabledTools: mcp.enabledTools

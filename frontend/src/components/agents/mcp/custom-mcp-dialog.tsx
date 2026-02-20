@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, AlertCircle, CheckCircle2, Zap, ChevronRight, Sparkles, Server } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, Zap, ChevronRight, Sparkles, Server, CloudLightning, Plus, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
@@ -18,10 +18,15 @@ interface CustomMCPDialogProps {
   onSave: (config: CustomMCPConfiguration) => void;
 }
 
+interface CustomMCPConfigObject {
+  url: string;
+  headers?: Record<string, string>;
+}
+
 interface CustomMCPConfiguration {
   name: string;
-  type: 'http';
-  config: any;
+  type: 'http' | 'sse';
+  config: CustomMCPConfigObject;
   enabledTools: string[];
   selectedProfileId?: string;
 }
@@ -38,37 +43,37 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
   onSave
 }) => {
   const [step, setStep] = useState<'setup' | 'tools'>('setup');
-  const [serverType, setServerType] = useState<'http'>('http');
+  const [serverType, setServerType] = useState<'http' | 'sse'>('http');
   const [configText, setConfigText] = useState('');
   const [serverName, setServerName] = useState('');
-  const [manualServerName, setManualServerName] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [discoveredTools, setDiscoveredTools] = useState<MCPTool[]>([]);
   const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set());
-  const [processedConfig, setProcessedConfig] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [headers, setHeaders] = useState<Array<{ name: string; value: string }>>([]);
 
   const validateAndDiscoverTools = async () => {
     setIsValidating(true);
     setValidationError(null);
     setDiscoveredTools([]);
-    
+
     try {
-      let parsedConfig: any;
-      
-      if (serverType === 'http') {
-        const url = configText.trim();
-        if (!url) {
-          throw new Error('Please enter the MCP server URL.');
-        }
-        if (!manualServerName.trim()) {
-          throw new Error('Please enter a name for this MCP server.');
-        }
-        
-        parsedConfig = { url };
-        setServerName(manualServerName.trim());
+      const url = configText.trim();
+      if (!url) {
+        throw new Error('Please enter the MCP server URL.');
       }
+      if (!serverName.trim()) {
+        throw new Error('Please enter a name for this MCP server.');
+      }
+
+      const headersObj = Object.fromEntries(
+        headers
+          .filter((h) => h.name.trim())
+          .map((h) => [h.name.trim(), h.value])
+      ) as Record<string, string>;
+      const parsedConfig: Record<string, unknown> = { url };
+      if (Object.keys(headersObj).length > 0) parsedConfig.headers = headersObj;
 
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
@@ -95,23 +100,15 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
       }
 
       const data = await response.json();
-      
+
       if (!data.tools || data.tools.length === 0) {
         throw new Error('No tools found. Please check your configuration.');
-      }
-
-      if (data.serverName) {
-        setServerName(data.serverName);
-      }
-
-      if (data.processedConfig) {
-        setProcessedConfig(data.processedConfig);
       }
 
       setDiscoveredTools(data.tools);
       setSelectedTools(new Set(data.tools.map((tool: MCPTool) => tool.name)));
       setStep('tools');
-      
+
     } catch (error: any) {
       setValidationError(error.message);
     } finally {
@@ -143,8 +140,12 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
     setValidationError(null);
 
     try {
-      const configToSave: any = { url: configText.trim() };
-      
+      const headersObj = Object.fromEntries(
+        headers.filter((h) => h.name.trim()).map((h) => [h.name.trim(), h.value])
+      ) as Record<string, string>;
+      const configToSave: CustomMCPConfigObject = { url: configText.trim() };
+      if (Object.keys(headersObj).length > 0) configToSave.headers = headersObj;
+
       onSave({
         name: serverName,
         type: serverType,
@@ -152,13 +153,11 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
         enabledTools: Array.from(selectedTools),
         selectedProfileId: undefined
       });
-      
+
       setConfigText('');
-      setManualServerName('');
+      setServerName('');
       setDiscoveredTools([]);
       setSelectedTools(new Set());
-      setServerName('');
-      setProcessedConfig(null);
       setValidationError(null);
       setStep('setup');
       onOpenChange(false);
@@ -188,19 +187,19 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
 
   const handleReset = () => {
     setConfigText('');
-    setManualServerName('');
+    setServerName('');
+    setHeaders([]);
     setDiscoveredTools([]);
     setSelectedTools(new Set());
-    setServerName('');
-    setProcessedConfig(null);
-    
+    setServerType('http');
     setValidationError(null);
     setStep('setup');
     setIsSaving(false);
   };
 
   const exampleConfigs = {
-    http: `https://server.example.com/mcp`
+    http: `https://server.example.com/mcp`,
+    sse: `https://server.example.com/mcp/sse`
   };
 
   return (
@@ -217,7 +216,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
             <DialogTitle>Add MCP Server</DialogTitle>
           </div>
           <DialogDescription>
-            {step === 'setup' 
+            {step === 'setup'
               ? 'Connect to a Model Context Protocol (MCP) server to expand your agent\'s capabilities with new tools and integrations.'
               : 'Choose which tools you\'d like to enable from this MCP server.'
             }
@@ -258,8 +257,19 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
                   <Label className="text-base font-medium">Connection Type</Label>
                   <div className={cn(
                     "flex items-start space-x-3 p-4 rounded-lg border bg-primary/5",
-                    "border-primary"
-                  )}>
+                    "border-primary",
+                    serverType === 'http' ? "bg-primary/5 border-primary" : "bg-muted/30 border-input hover:bg-muted/50"
+                  )}
+                    onClick={() => setServerType('http')}
+                  >
+                    <input
+                      type="radio"
+                      name="serverType"
+                      value="http"
+                      checked={serverType === 'http'}
+                      onChange={() => setServerType('http')}
+                      className="mt-1"
+                    />
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center gap-2">
                         <Server className="h-4 w-4 text-primary" />
@@ -269,6 +279,33 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
                       </div>
                       <p className="text-sm text-muted-foreground">
                         Connect to any Model Context Protocol server via HTTP. MCP provides a standardized way for AI applications to securely connect to external tools and data sources.
+                      </p>
+                    </div>
+                  </div>
+                  <div className={cn(
+                    "flex items-start space-x-3 p-4 rounded-lg border bg-primary/5",
+                    "border-primary",
+                    serverType === 'sse' ? "bg-primary/5 border-primary" : "bg-muted/30 border-input hover:bg-muted/50"
+                  )}
+                    onClick={() => setServerType('sse')}
+                  >
+                    <input
+                      type="radio"
+                      name="serverType"
+                      value="sse"
+                      checked={serverType === 'sse'}
+                      onChange={() => setServerType('sse')}
+                      className="mt-1"
+                    />
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <CloudLightning className="h-4 w-4 text-primary" />
+                        <Label className="text-base font-medium">
+                          Server Sent Events (SSE) MCP Server
+                        </Label>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Real-time transport streaming for live updates.
                       </p>
                     </div>
                   </div>
@@ -283,8 +320,8 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
                     id="serverName"
                     type="text"
                     placeholder="e.g., Gmail MCP Server, Slack Integration, File System Tools"
-                    value={manualServerName}
-                    onChange={(e) => setManualServerName(e.target.value)}
+                    value={serverName}
+                    onChange={(e) => setServerName(e.target.value)}
                     className="w-full px-4 py-3 border border-input bg-background rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                   />
                   <p className="text-sm text-muted-foreground">
@@ -297,15 +334,77 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
                     MCP Server URL
                   </Label>
                   <Input
-                      id="config"
-                      type="url"
-                      placeholder={exampleConfigs.http}
-                      value={configText}
-                      onChange={(e) => setConfigText(e.target.value)}
-                      className="w-full px-4 py-3 border border-input bg-muted rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent font-mono"
-                    />
+                    id="config"
+                    type="url"
+                    placeholder={exampleConfigs[serverType]}
+                    value={configText}
+                    onChange={(e) => setConfigText(e.target.value)}
+                    className="w-full px-4 py-3 border border-input bg-muted rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent font-mono"
+                  />
                   <p className="text-sm text-muted-foreground">
                     Enter the complete URL to your MCP server endpoint
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-medium">
+                      Custom Headers (Optional)
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setHeaders((p) => [...p, { name: '', value: '' }])}
+                      className="rounded-lg"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Header
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {headers.map((header, i) => (
+                      <div key={i} className="space-y-2">
+                        <div className="flex gap-2 items-center">
+                          <Input
+                            placeholder="Header name (e.g., Authorization)"
+                            value={header.name}
+                            onChange={(e) =>
+                              setHeaders((p) => {
+                                const next = [...p];
+                                next[i] = { ...next[i], name: e.target.value };
+                                return next;
+                              })
+                            }
+                            className="rounded-lg flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setHeaders((p) => p.filter((_, j) => j !== i))}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <Input
+                          placeholder="Header value"
+                          value={header.value}
+                          onChange={(e) =>
+                            setHeaders((p) => {
+                              const next = [...p];
+                              next[i] = { ...next[i], value: e.target.value };
+                              return next;
+                            })
+                          }
+                          className="rounded-lg"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Custom headers will be sent with all requests to your MCP server.
                   </p>
                 </div>
               </div>
@@ -358,12 +457,12 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
                   <ScrollArea className="h-[400px] border border-border rounded-lg">
                     <div className="space-y-3 p-4">
                       {discoveredTools.map((tool) => (
-                        <div 
-                          key={tool.name} 
+                        <div
+                          key={tool.name}
                           className={cn(
                             "flex items-start space-x-3 p-4 rounded-lg border transition-all cursor-pointer hover:bg-muted/50",
-                            selectedTools.has(tool.name) 
-                              ? "border-primary bg-primary/5" 
+                            selectedTools.has(tool.name)
+                              ? "border-primary bg-primary/5"
                               : "border-border"
                           )}
                           onClick={() => handleToolToggle(tool.name)}
@@ -413,7 +512,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
               <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving} type="button">
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleToolsNext}
                 disabled={selectedTools.size === 0 || isSaving}
                 type="button"
@@ -435,7 +534,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
               </Button>
               <Button
                 onClick={validateAndDiscoverTools}
-                disabled={!configText.trim() || !manualServerName.trim() || isValidating}
+                disabled={!configText.trim() || !serverName.trim() || isValidating}
                 type="button"
               >
                 {isValidating ? (
