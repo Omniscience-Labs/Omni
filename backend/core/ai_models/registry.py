@@ -24,10 +24,17 @@ def _format_bedrock_arn(arn: str) -> str:
     return arn
 
 _BASIC_MODEL_ID = _format_bedrock_arn(config.BEDROCK_HAIKU_ARN) if config.BEDROCK_HAIKU_ARN else "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
-_POWER_MODEL_ID = _format_bedrock_arn(config.BEDROCK_SONNET_ARN) if config.BEDROCK_SONNET_ARN else "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+_POWER_MODEL_ID = _format_bedrock_arn(config.BEDROCK_SONNET_ARN) if config.BEDROCK_SONNET_ARN else "bedrock/us.anthropic.claude-sonnet-4-6"
+# Sonnet 4.5 used when Haiku or Sonnet 4.6 fails (rate limit, 5xx, context exceeded)
+_FALLBACK_MODEL_ID = _format_bedrock_arn(config.BEDROCK_FALLBACK_ARN) if getattr(config, "BEDROCK_FALLBACK_ARN", None) else "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 # Default model IDs (these are aliases that resolve to actual IDs)
 FREE_MODEL_ID = "kortix/basic"
 PREMIUM_MODEL_ID = "kortix/power"
+
+
+def get_fallback_model_id() -> str:
+    """Return the Bedrock model ID used when Haiku or Sonnet 4.6 fails (Sonnet 4.5)."""
+    return _FALLBACK_MODEL_ID
 
 
 is_local = config.ENV_MODE == EnvMode.LOCAL
@@ -407,18 +414,21 @@ class ModelRegistry:
     def get_litellm_model_id(self, model_id: str) -> str:
         """Get the actual model ID to pass to LiteLLM.
         
-        Resolves kortix/basic and kortix/power to actual provider model IDs.
+        Resolves kortix/basic and kortix/power to actual provider model IDs
+        (client Bedrock ARN when set, else fallback model ID).
         """
-        # Map kortix model IDs to actual LiteLLM model IDs
-        if model_id in ("kortix/basic", "kortix/power"):
-            return _BASIC_MODEL_ID  # Both use the same underlying model
-        
+        if model_id == "kortix/basic":
+            return _BASIC_MODEL_ID
+        if model_id == "kortix/power":
+            return _POWER_MODEL_ID
+
         # For other models, check if it's an alias and resolve
         model = self.get(model_id)
         if model:
-            # Check if this model's ID needs resolution
-            if model.id in ("kortix/basic", "kortix/power"):
+            if model.id == "kortix/basic":
                 return _BASIC_MODEL_ID
+            if model.id == "kortix/power":
+                return _POWER_MODEL_ID
             return model.id
         
         # Return as-is if not found (let LiteLLM handle it)
@@ -453,10 +463,24 @@ class ModelRegistry:
         # If the normalized ID matches the basic model ARN, return kortix/basic
         if normalized_id == basic_model_normalized or litellm_model_id == _BASIC_MODEL_ID:
             return "kortix/basic"
-        
-        # Also check if the full ID matches
-        if litellm_model_id == _BASIC_MODEL_ID:
-            return "kortix/basic"
+
+        # If the normalized ID matches the power model (Sonnet 4.6 or client ARN), return kortix/power
+        power_model_normalized = _POWER_MODEL_ID
+        for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
+            if power_model_normalized.startswith(prefix):
+                power_model_normalized = power_model_normalized[len(prefix):]
+                break
+        if normalized_id == power_model_normalized or litellm_model_id == _POWER_MODEL_ID:
+            return "kortix/power"
+
+        # If the normalized ID matches the fallback model (Sonnet 4.5), return kortix/power for billing
+        fallback_normalized = _FALLBACK_MODEL_ID
+        for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
+            if fallback_normalized.startswith(prefix):
+                fallback_normalized = fallback_normalized[len(prefix):]
+                break
+        if normalized_id == fallback_normalized or litellm_model_id == _FALLBACK_MODEL_ID:
+            return "kortix/power"
         
         # Check if this model exists directly in registry
         if self.get(litellm_model_id):

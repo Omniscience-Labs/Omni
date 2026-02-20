@@ -159,7 +159,7 @@ class ContextManager:
                     from core.utils.config import config
                     model_id_mapping = {}
                     
-                    # Register client-specific profile IDs from environment (Haiku 4.5 and Sonnet 4.5)
+                    # Register client-specific profile IDs from environment (Haiku 4.5 and Sonnet 4.6)
                     if config.BEDROCK_HAIKU_ARN:
                         haiku_profile_id = config.BEDROCK_HAIKU_ARN.split("/")[-1]
                         model_id_mapping[haiku_profile_id] = "anthropic.claude-haiku-4-5-20251001-v1:0"
@@ -167,8 +167,13 @@ class ContextManager:
                     
                     if config.BEDROCK_SONNET_ARN:
                         sonnet_profile_id = config.BEDROCK_SONNET_ARN.split("/")[-1]
-                        model_id_mapping[sonnet_profile_id] = "anthropic.claude-sonnet-4-5-20250929-v1:0"
-                        logger.debug(f"Registered Sonnet 4.5 profile ID for token counting: {sonnet_profile_id}")
+                        model_id_mapping[sonnet_profile_id] = "anthropic.claude-sonnet-4-6"
+                        logger.debug(f"Registered Sonnet 4.6 profile ID for token counting: {sonnet_profile_id}")
+                    
+                    if getattr(config, "BEDROCK_FALLBACK_ARN", None):
+                        fallback_profile_id = config.BEDROCK_FALLBACK_ARN.split("/")[-1]
+                        model_id_mapping[fallback_profile_id] = "anthropic.claude-sonnet-4-5-20250929-v1:0"
+                        logger.debug(f"Registered Sonnet 4.5 fallback profile ID for token counting: {fallback_profile_id}")
                     
                     # Extract profile ID from ARN
                     bedrock_model_id = None
@@ -176,6 +181,9 @@ class ContextManager:
                         profile_id = model.split("/")[-1]
                         bedrock_model_id = model_id_mapping.get(profile_id)
                     
+                    if not bedrock_model_id and "claude-sonnet-4-5" in model:
+                        # Direct fallback model ID (Sonnet 4.5) when Haiku/Sonnet 4.6 failed
+                        bedrock_model_id = "anthropic.claude-sonnet-4-5-20250929-v1:0"
                     if not bedrock_model_id:
                         # Default fallback for non-ARN Bedrock models (Haiku 4.5)
                         bedrock_model_id = "anthropic.claude-haiku-4-5-20251001-v1:0"
