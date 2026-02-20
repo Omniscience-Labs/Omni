@@ -82,7 +82,7 @@ import { TierBadge } from '../billing/tier-badge';
 import { siteConfig } from '@/lib/home';
 import ThreadUsage from '@/components/billing/thread-usage';
 import { formatCredits } from '@/lib/utils/credit-formatter';
-import { LanguageSwitcher } from './language-switcher';
+// import { LanguageSwitcher } from './language-switcher';
 import { useTranslations } from 'next-intl';
 
 
@@ -406,9 +406,9 @@ function GeneralTab({ onClose }: { onClose: () => void }) {
                     </p>
                 </div>
 
-                <div className="space-y-2 pt-4">
+                {/* <div className="space-y-2 pt-4">
                     <LanguageSwitcher />
-                </div>
+                </div> */}
             </div>
 
             <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-4">
