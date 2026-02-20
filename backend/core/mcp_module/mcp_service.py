@@ -3,7 +3,7 @@ import json
 import base64
 import asyncio
 import logging
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, Literal
 from dataclasses import dataclass, field
 from datetime import datetime
 from collections import OrderedDict
@@ -78,7 +78,7 @@ class MCPConnectionRequest:
     name: str
     config: Dict[str, Any]
     enabled_tools: List[str]
-    provider: str = 'custom'
+    provider: Literal['http', 'sse', 'custom'] = 'custom'
     external_user_id: Optional[str] = None
 
 
@@ -106,8 +106,8 @@ class MCPService:
         self._connection_ttl = 3600  # 1 hour TTL for connections
 
     async def connect_server(self, mcp_config: Dict[str, Any], external_user_id: Optional[str] = None) -> MCPConnection:
-        # Determine provider from type field
-        provider = mcp_config.get('type', mcp_config.get('provider', 'custom'))
+        # Determine provider: type, customType (from frontend), or provider
+        provider = mcp_config.get('type') or mcp_config.get('customType') or mcp_config.get('provider') or 'custom'
         
         request = MCPConnectionRequest(
             qualified_name=mcp_config.get('qualifiedName', mcp_config.get('name', '')),
@@ -130,37 +130,54 @@ class MCPService:
             self._logger.debug(f"MCP connection details - Provider: {request.provider}, URL: {server_url}, Headers: {headers}")
             
             # Add timeout to prevent hanging
+            # SSE and StreamableHTTP use different protocols - must use correct client
             async with asyncio.timeout(30):
-                async with streamablehttp_client(server_url, headers=headers) as (
-                    read_stream, write_stream, _
-                ):
-                    session = ClientSession(read_stream, write_stream)
-                    await session.initialize()
-                    
-                    tool_result = await session.list_tools()
-                    tools = tool_result.tools if tool_result else []
-                    
-                    connection = MCPConnection(
-                        qualified_name=request.qualified_name,
-                        name=request.name,
-                        config=request.config,
-                        enabled_tools=request.enabled_tools,
-                        provider=request.provider,
-                        external_user_id=request.external_user_id,
-                        session=session,
-                        tools=tools
-                    )
-                    
-                    # Store with timestamp for TTL tracking
-                    self._connections[request.qualified_name] = (connection, time())
-                    # Move to end (most recently used)
-                    self._connections.move_to_end(request.qualified_name)
-                    self._logger.debug(f"Connected to {request.qualified_name} ({len(tools)} tools available)")
-                    
-                    # Cleanup old connections
-                    await self._cleanup_old_connections()
-                    
-                    return connection
+                if request.provider == 'sse':
+                    async with sse_client(server_url, headers=headers) as (read_stream, write_stream):
+                        session = ClientSession(read_stream, write_stream)
+                        await session.initialize()
+                        tool_result = await session.list_tools()
+                        tools = tool_result.tools if tool_result else []
+                        
+                        connection = MCPConnection(
+                            qualified_name=request.qualified_name,
+                            name=request.name,
+                            config=request.config,
+                            enabled_tools=request.enabled_tools,
+                            provider=request.provider,
+                            external_user_id=request.external_user_id,
+                            session=session,
+                            tools=tools
+                        )
+                        self._connections[request.qualified_name] = (connection, time())
+                        self._connections.move_to_end(request.qualified_name)
+                        self._logger.debug(f"Connected to {request.qualified_name} ({len(tools)} tools available)")
+                        await self._cleanup_old_connections()
+                        return connection
+                else:
+                    async with streamablehttp_client(server_url, headers=headers) as (
+                        read_stream, write_stream, _
+                    ):
+                        session = ClientSession(read_stream, write_stream)
+                        await session.initialize()
+                        tool_result = await session.list_tools()
+                        tools = tool_result.tools if tool_result else []
+                        
+                        connection = MCPConnection(
+                            qualified_name=request.qualified_name,
+                            name=request.name,
+                            config=request.config,
+                            enabled_tools=request.enabled_tools,
+                            provider=request.provider,
+                            external_user_id=request.external_user_id,
+                            session=session,
+                            tools=tools
+                        )
+                        self._connections[request.qualified_name] = (connection, time())
+                        self._connections.move_to_end(request.qualified_name)
+                        self._logger.debug(f"Connected to {request.qualified_name} ({len(tools)} tools available)")
+                        await self._cleanup_old_connections()
+                        return connection
                     
         except asyncio.TimeoutError:
             error_msg = f"Connection timeout for {request.qualified_name} after 30 seconds"
@@ -173,8 +190,7 @@ class MCPService:
     async def connect_all(self, mcp_configs: List[Dict[str, Any]]) -> None:
         requests = []
         for config in mcp_configs:
-            # Determine provider from type field
-            provider = config.get('type', config.get('provider', 'custom'))
+            provider = config.get('type') or config.get('customType') or config.get('provider') or 'custom'
             
             request = MCPConnectionRequest(
                 qualified_name=config.get('qualifiedName', config.get('name', '')),
@@ -344,9 +360,10 @@ class MCPService:
         url = config.get("url")
         if not url:
             raise CustomMCPError("URL is required for HTTP MCP connections")
-        
+
+        headers = config.get("headers") or {}
         try:
-            async with streamablehttp_client(url) as (read_stream, write_stream, _):
+            async with streamablehttp_client(url, headers=headers) as (read_stream, write_stream, _):
                 async with ClientSession(read_stream, write_stream) as session:
                     await session.initialize()
                     tool_result = await session.list_tools()
@@ -381,13 +398,20 @@ class MCPService:
                 message=f"Failed to connect: {str(e)}"
             )
     
+    def _unwrap_taskgroup_error(self, e: BaseException) -> str:
+        """Extract real error from anyio TaskGroup's ExceptionGroup wrapper."""
+        if hasattr(e, 'exceptions') and e.exceptions:
+            return str(e.exceptions[0])
+        return str(e)
+
     async def _discover_sse_tools(self, config: Dict[str, Any]) -> CustomMCPConnectionResult:
         url = config.get("url")
         if not url:
             raise CustomMCPError("URL is required for SSE MCP connections")
-        
+
+        headers = config.get("headers") or {}
         try:
-            async with sse_client(url) as (read_stream, write_stream):
+            async with sse_client(url, headers=headers, timeout=15, sse_read_timeout=60) as (read_stream, write_stream):
                 async with ClientSession(read_stream, write_stream) as session:
                     await session.initialize()
                     tool_result = await session.list_tools()
@@ -410,8 +434,9 @@ class MCPService:
                         message=f"Connected via SSE ({len(tools_info)} tools)"
                     )
         
-        except Exception as e:
-            self._logger.error(f"Error connecting to SSE MCP server: {str(e)}")
+        except BaseException as e:
+            error_msg = self._unwrap_taskgroup_error(e)
+            self._logger.error(f"Error connecting to SSE MCP server: {error_msg}")
             return CustomMCPConnectionResult(
                 success=False,
                 qualified_name="",
@@ -419,7 +444,7 @@ class MCPService:
                 tools=[],
                 config=config,
                 url=url,
-                message=f"Failed to connect: {str(e)}"
+                message=f"Failed to connect: {error_msg}"
             )
 
     async def _get_server_url(self, qualified_name: str, config: Dict[str, Any], provider: str) -> str:
