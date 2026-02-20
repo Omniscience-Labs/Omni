@@ -133,7 +133,7 @@ class ToolManager:
         from core.tools.tool_registry import SANDBOX_TOOLS, get_tool_class
         
         # Tools that need thread_id
-        tools_needing_thread_id = {'sb_vision_tool', 'sb_image_edit_tool', 'sb_design_tool'}
+        tools_needing_thread_id = {'sb_vision_tool', 'sb_advanced_floorplan_analyzer', 'sb_image_edit_tool', 'sb_design_tool'}
         
         sandbox_tools = []
         for tool_name, module_path, class_name in SANDBOX_TOOLS:
@@ -812,7 +812,7 @@ class AgentRunner:
         
         all_tools = [
             'sb_shell_tool', 'sb_files_tool', 'sb_expose_tool',
-            'web_search_tool', 'image_search_tool', 'sb_vision_tool', 'sb_presentation_tool', 'sb_image_edit_tool',
+            'web_search_tool', 'image_search_tool', 'sb_vision_tool', 'sb_advanced_floorplan_analyzer', 'sb_presentation_tool', 'sb_image_edit_tool',
             'sb_kb_tool', 'sb_design_tool', 'sb_upload_file_tool',
             'sb_docs_tool',
             'data_providers_tool', 'browser_tool', 'people_search_tool', 'company_search_tool', 
@@ -842,7 +842,11 @@ class AgentRunner:
         setup_start = time.time()
         await self.setup()  # Must run first (sets up client, account_id)
         logger.info(f"⏱️ [TIMING] AgentRunner.setup() completed in {(time.time() - setup_start) * 1000:.1f}ms")
-        
+
+        # So tools (e.g. floorplan analyzer) use the same model as this chat run
+        if self.config.agent_config is not None:
+            self.config.agent_config["model_name"] = self.config.model_name
+
         # Run tool setup and MCP setup in parallel
         parallel_start = time.time()
         setup_tools_task = asyncio.create_task(self._setup_tools_async())

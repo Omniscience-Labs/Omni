@@ -26,6 +26,7 @@ SANDBOX_TOOLS = [
     ('sb_files_tool', 'core.tools.sb_files_tool', 'SandboxFilesTool'),
     ('sb_expose_tool', 'core.tools.sb_expose_tool', 'SandboxExposeTool'),
     ('sb_vision_tool', 'core.tools.sb_vision_tool', 'SandboxVisionTool'),
+    ('sb_advanced_floorplan_analyzer', 'core.tools.sb_advanced_floorplan_analyzer', 'SandboxAdvancedFloorplanAnalyzerTool'),
     ('sb_image_edit_tool', 'core.tools.sb_image_edit_tool', 'SandboxImageEditTool'),
     ('sb_kb_tool', 'core.tools.sb_kb_tool', 'SandboxKbTool'),
     # ('sb_design_tool', 'core.tools.sb_designer_tool', 'SandboxDesignerTool'),

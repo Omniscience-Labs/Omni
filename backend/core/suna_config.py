@@ -22,6 +22,7 @@ SUNA_CONFIG = {
         
         # AI vision and image tools
         "sb_vision_tool": True,
+        "sb_advanced_floorplan_analyzer": True,
         "sb_image_edit_tool": True,
         "sb_design_tool": True,
         
