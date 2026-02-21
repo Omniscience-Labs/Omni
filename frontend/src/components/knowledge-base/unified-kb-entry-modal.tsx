@@ -26,6 +26,7 @@ import {
     Upload,
     Check,
     FileIcon,
+    Cloud,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
@@ -45,7 +46,7 @@ interface UnifiedKbEntryModalProps {
     folders: Folder[];
     onUploadComplete: () => void;
     trigger?: React.ReactNode;
-    defaultTab?: 'upload' | 'text' | 'git';
+    defaultTab?: 'upload' | 'text' | 'git' | 'cloud';
 }
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
@@ -85,6 +86,12 @@ export function UnifiedKbEntryModal({
     const [gitUrl, setGitUrl] = useState('');
     const [gitBranch, setGitBranch] = useState('main');
     const [isCloning, setIsCloning] = useState(false);
+
+    // Cloud KB state
+    const [cloudName, setCloudName] = useState('');
+    const [cloudIndexName, setCloudIndexName] = useState('');
+    const [cloudDescription, setCloudDescription] = useState('');
+    const [isCreatingCloud, setIsCreatingCloud] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const newFolderInputRef = useRef<HTMLInputElement>(null);
@@ -402,6 +409,47 @@ export function UnifiedKbEntryModal({
         }
     };
 
+    const handleCloudKBCreate = async () => {
+        if (!cloudName.trim() || !cloudIndexName.trim()) {
+            toast.error('Name and Index Key are required');
+            return;
+        }
+
+        setIsCreatingCloud(true);
+        try {
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) throw new Error('No session found');
+
+            const response = await fetch(`${API_URL}/knowledge-base/llamacloud`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: cloudName.trim(),
+                    index_name: cloudIndexName.trim(),
+                    description: cloudDescription.trim() || undefined,
+                }),
+            });
+
+            if (response.ok) {
+                toast.success('Cloud knowledge base created successfully');
+                onUploadComplete();
+                resetAndClose();
+            } else {
+                const errorData = await response.json().catch(() => null);
+                toast.error(errorData?.detail || 'Failed to create cloud knowledge base');
+            }
+        } catch (error) {
+            console.error('Error creating cloud KB:', error);
+            toast.error('Failed to create cloud knowledge base');
+        } finally {
+            setIsCreatingCloud(false);
+        }
+    };
+
     const resetAndClose = () => {
         setTimeout(() => {
             setSelectedFiles([]);
@@ -413,6 +461,9 @@ export function UnifiedKbEntryModal({
             setSelectedFolder('');
             setNewFolderName('');
             setIsEditingNewFolder(false);
+            setCloudName('');
+            setCloudIndexName('');
+            setCloudDescription('');
             setIsOpen(false);
         }, 300);
     };
@@ -433,14 +484,14 @@ export function UnifiedKbEntryModal({
                 <DialogHeader className="flex-shrink-0">
                     <DialogTitle className="text-xl font-semibold">Add to Knowledge Base</DialogTitle>
                     <p className="text-sm text-muted-foreground">
-                        Upload files, create text entries, or clone repositories
+                        Upload files, create text entries, clone repositories, or connect a LlamaCloud index
                     </p>
                 </DialogHeader>
 
                 <div className="flex-1 overflow-y-auto">
                     <div className="space-y-6 p-1">
-                        {/* Folder Selection */}
-                        <div className="space-y-3">
+                        {/* Folder Selection — hidden for cloud KB tab */}
+                        <div className={cn("space-y-3", activeTab === 'cloud' && "hidden")}>
                             <Label className="text-sm font-medium">
                                 Destination Folder {!selectedFolder && <span className="text-red-500">*</span>}
                             </Label>
@@ -533,19 +584,22 @@ export function UnifiedKbEntryModal({
 
                         {/* Content Creation Tabs */}
                         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
-                            <TabsList className="grid w-full grid-cols-3">
-                                <TabsTrigger value="upload" className="gap-2">
-                                    <CloudUpload className="h-4 w-4" />
+                            <TabsList className="grid w-full grid-cols-4">
+                                <TabsTrigger value="upload" className="gap-1.5 text-xs sm:text-sm">
+                                    <CloudUpload className="h-4 w-4 shrink-0" />
                                     Upload Files
                                 </TabsTrigger>
-                                <TabsTrigger value="text" className="gap-2">
-                                    <FileText className="h-4 w-4" />
+                                <TabsTrigger value="text" className="gap-1.5 text-xs sm:text-sm">
+                                    <FileText className="h-4 w-4 shrink-0" />
                                     Text Entry
                                 </TabsTrigger>
-                                <TabsTrigger value="git" className="gap-2" disabled>
-                                    <GitBranch className="h-4 w-4" />
-                                    Git Clone
-                                    <span className="text-xs text-muted-foreground ml-1">(Coming Soon)</span>
+                                <TabsTrigger value="git" className="gap-1.5 text-xs sm:text-sm" disabled>
+                                    <GitBranch className="h-4 w-4 shrink-0" />
+                                    <span>Git Clone</span>
+                                </TabsTrigger>
+                                <TabsTrigger value="cloud" className="gap-1.5 text-xs sm:text-sm">
+                                    <Cloud className="h-4 w-4 shrink-0" />
+                                    Cloud KB
                                 </TabsTrigger>
                             </TabsList>
 
@@ -744,6 +798,51 @@ export function UnifiedKbEntryModal({
                                     </div>
                                 </div>
                             </TabsContent>
+
+                            <TabsContent value="cloud" className="space-y-4 mt-6">
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="cloud-name" className="text-sm font-medium">
+                                            Name <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="cloud-name"
+                                            placeholder="e.g., Documentation"
+                                            value={cloudName}
+                                            onChange={(e) => setCloudName(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="cloud-index" className="text-sm font-medium">
+                                            Index Key <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="cloud-index"
+                                            placeholder="e.g., my-docs-index"
+                                            value={cloudIndexName}
+                                            onChange={(e) => setCloudIndexName(e.target.value)}
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            The LlamaCloud index name/key
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="cloud-description" className="text-sm font-medium">
+                                            Description
+                                        </Label>
+                                        <Textarea
+                                            id="cloud-description"
+                                            placeholder="Describe what this knowledge base contains..."
+                                            value={cloudDescription}
+                                            onChange={(e) => setCloudDescription(e.target.value)}
+                                            rows={4}
+                                            className="resize-none"
+                                        />
+                                    </div>
+                                </div>
+                            </TabsContent>
                         </Tabs>
 
                         {/* Action Buttons */}
@@ -751,7 +850,7 @@ export function UnifiedKbEntryModal({
                             <Button
                                 variant="outline"
                                 onClick={() => setIsOpen(false)}
-                                disabled={isUploading || isCreatingText || isCloning}
+                                disabled={isUploading || isCreatingText || isCloning || isCreatingCloud}
                             >
                                 Cancel
                             </Button>
@@ -808,6 +907,25 @@ export function UnifiedKbEntryModal({
                                         <>
                                             <GitBranch className="h-4 w-4" />
                                             Clone Repository
+                                        </>
+                                    )}
+                                </Button>
+                            )}
+                            {activeTab === 'cloud' && (
+                                <Button
+                                    onClick={handleCloudKBCreate}
+                                    disabled={!cloudName.trim() || !cloudIndexName.trim() || isCreatingCloud}
+                                    className="gap-2"
+                                >
+                                    {isCreatingCloud ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            Creating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Cloud className="h-4 w-4" />
+                                            Create Knowledge Base
                                         </>
                                     )}
                                 </Button>

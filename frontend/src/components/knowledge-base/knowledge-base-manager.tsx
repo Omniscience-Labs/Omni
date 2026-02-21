@@ -77,6 +77,8 @@ interface KnowledgeBaseManagerProps {
     maxHeight?: string;
     /** Enable assignment mode for agents */
     enableAssignments?: boolean;
+    /** Show the Add Knowledge button in the header (default: true) */
+    showAddButton?: boolean;
 }
 
 export function KnowledgeBaseManager({
@@ -89,7 +91,8 @@ export function KnowledgeBaseManager({
     emptyStateMessage,
     emptyStateContent,
     maxHeight,
-    enableAssignments = false
+    enableAssignments = false,
+    showAddButton = true,
 }: KnowledgeBaseManagerProps) {
     const [treeData, setTreeData] = useState<TreeItem[]>([]);
     const [folderEntries, setFolderEntries] = useState<{ [folderId: string]: Entry[] }>({});
@@ -919,21 +922,23 @@ export function KnowledgeBaseManager({
                             {enableAssignments ? `Manage ${agentName}'s knowledge sources and access` : headerDescription}
                         </p>
                     </div>
-                    <UnifiedKbEntryModal
-                        folders={folders}
-                        onUploadComplete={() => {
-                            refetchFolders();
-                            if (enableAssignments) {
-                                loadAssignments();
+                    {showAddButton && (
+                        <UnifiedKbEntryModal
+                            folders={folders}
+                            onUploadComplete={() => {
+                                refetchFolders();
+                                if (enableAssignments) {
+                                    loadAssignments();
+                                }
+                            }}
+                            trigger={
+                                <Button size="sm" className="gap-2">
+                                    <PlusIcon className="h-4 w-4" />
+                                    Add Knowledge
+                                </Button>
                             }
-                        }}
-                        trigger={
-                            <Button size="sm" className="gap-2">
-                                <PlusIcon className="h-4 w-4" />
-                                Add Knowledge
-                            </Button>
-                        }
-                    />
+                        />
+                    )}
                 </div>
             )}
 
