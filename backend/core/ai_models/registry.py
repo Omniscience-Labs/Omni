@@ -27,6 +27,10 @@ _BASIC_MODEL_ID = _format_bedrock_arn(config.BEDROCK_HAIKU_ARN) if config.BEDROC
 _POWER_MODEL_ID = _format_bedrock_arn(config.BEDROCK_SONNET_ARN) if config.BEDROCK_SONNET_ARN else "bedrock/us.anthropic.claude-sonnet-4-6"
 # Sonnet 4.5 used when Haiku or Sonnet 4.6 fails (rate limit, 5xx, context exceeded)
 _FALLBACK_MODEL_ID = _format_bedrock_arn(config.BEDROCK_FALLBACK_ARN) if getattr(config, "BEDROCK_FALLBACK_ARN", None) else "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+# Anthropic API model IDs (for fallback chain; LiteLLM uses anthropic/<model-id>)
+_ANTHROPIC_HAIKU_ID = "anthropic/claude-haiku-4-5-20251001"
+_ANTHROPIC_SONNET_4_6_ID = "anthropic/claude-sonnet-4-6"
+_ANTHROPIC_SONNET_4_5_ID = "anthropic/claude-sonnet-4-5-20250929"
 # Default model IDs (these are aliases that resolve to actual IDs)
 FREE_MODEL_ID = "kortix/basic"
 PREMIUM_MODEL_ID = "kortix/power"
@@ -481,6 +485,22 @@ class ModelRegistry:
                 break
         if normalized_id == fallback_normalized or litellm_model_id == _FALLBACK_MODEL_ID:
             return "kortix/power"
+
+        # Anthropic API fallback model IDs -> map to Basic or Power for billing
+        if litellm_model_id == _ANTHROPIC_HAIKU_ID or "anthropic/claude-haiku-4-5" in (litellm_model_id or ""):
+            return "kortix/basic"
+        if litellm_model_id == _ANTHROPIC_SONNET_4_6_ID or "anthropic/claude-sonnet-4-6" in (litellm_model_id or ""):
+            return "kortix/power"
+        if litellm_model_id == _ANTHROPIC_SONNET_4_5_ID or "anthropic/claude-sonnet-4-5" in (litellm_model_id or ""):
+            return "kortix/power"
+
+        # Billing rule: Haiku = Basic, ANY Sonnet = Power. Final fallback by model name so
+        # unknown/alternate IDs (e.g. new date suffixes, different prefixes) still bill correctly.
+        lid_lower = (litellm_model_id or "").lower()
+        if "sonnet" in lid_lower:
+            return "kortix/power"
+        if "haiku" in lid_lower:
+            return "kortix/basic"
         
         # Check if this model exists directly in registry
         if self.get(litellm_model_id):
