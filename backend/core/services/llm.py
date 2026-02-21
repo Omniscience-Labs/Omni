@@ -106,17 +106,38 @@ def setup_provider_router(openai_compatible_api_key: str = None, openai_compatib
         },
     ]
     
-    # Fallback to Sonnet 4.5 when Haiku or Sonnet 4.6 fails (rate limit, 5xx, context exceeded)
+    # Fallback chains: Bedrock primary -> Anthropic same model -> Bedrock 4.6/4.5 -> Anthropic 4.5
     from core.ai_models import model_manager
-    from core.ai_models.registry import get_fallback_model_id
+    from core.ai_models.registry import (
+        get_fallback_model_id,
+        _ANTHROPIC_HAIKU_ID,
+        _ANTHROPIC_SONNET_4_6_ID,
+        _ANTHROPIC_SONNET_4_5_ID,
+    )
     _basic_id = model_manager.registry.get_litellm_model_id("kortix/basic")
     _power_id = model_manager.registry.get_litellm_model_id("kortix/power")
     _fallback_id = get_fallback_model_id()
     fallbacks = []
     if _basic_id:
-        fallbacks.append({_basic_id: [_fallback_id]})
+        # Basic: Anthropic Haiku -> Bedrock Sonnet 4.6 -> Anthropic 4.6 -> Bedrock 4.5 -> Anthropic 4.5
+        fallbacks.append({
+            _basic_id: [
+                _ANTHROPIC_HAIKU_ID,
+                _power_id,
+                _ANTHROPIC_SONNET_4_6_ID,
+                _fallback_id,
+                _ANTHROPIC_SONNET_4_5_ID,
+            ]
+        })
     if _power_id and _power_id != _basic_id:
-        fallbacks.append({_power_id: [_fallback_id]})
+        # Power: Anthropic Sonnet 4.6 -> Bedrock 4.5 -> Anthropic 4.5
+        fallbacks.append({
+            _power_id: [
+                _ANTHROPIC_SONNET_4_6_ID,
+                _fallback_id,
+                _ANTHROPIC_SONNET_4_5_ID,
+            ]
+        })
     context_window_fallbacks = list(fallbacks)  # same chain for context exceeded
 
     # # OLD: MAP-tagged Haiku 4.5 (default) -> Sonnet 4 -> Sonnet 4.5
@@ -176,7 +197,7 @@ def setup_provider_router(openai_compatible_api_key: str = None, openai_compatib
         # context_window_fallbacks are separate and only triggered by context length issues
     )
     
-    logger.info(f"Configured LiteLLM Router with {len(fallbacks)} fallback rule(s) (Haiku/Sonnet 4.6 -> Sonnet 4.5 on failure)")
+    logger.info(f"Configured LiteLLM Router with {len(fallbacks)} fallback rule(s) (Bedrock -> Anthropic -> Bedrock 4.5 -> Anthropic 4.5)")
 
 def _configure_openai_compatible(params: Dict[str, Any], model_name: str, api_key: Optional[str], api_base: Optional[str]) -> None:
     """Configure OpenAI-compatible provider setup."""
