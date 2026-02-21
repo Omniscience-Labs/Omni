@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends
-from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, HTTPException
+from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel
 
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt
@@ -25,7 +25,7 @@ class CustomMCPConnectionResponse(BaseModel):
 
 
 class CustomMCPDiscoverRequest(BaseModel):
-    type: str
+    type: Literal['http', 'sse']
     config: Dict[str, Any]
 
 
