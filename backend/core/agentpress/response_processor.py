@@ -389,7 +389,9 @@ class ResponseProcessor:
                     final_llm_response = chunk  # Store the entire chunk object as-is
                     model = getattr(chunk, 'model', 'unknown')
                     usage = chunk.usage
-                    logger.info(f"📊 Usage captured - Model: {model}, Usage: {usage}")
+                    from core.ai_models import model_manager
+                    tag = model_manager.registry.get_model_display_tag(model)
+                    logger.info(f"📊 Usage captured - Model: {model} {tag}, Usage: {usage}")
 
 
                 if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'finish_reason') and chunk.choices[0].finish_reason:
@@ -1044,9 +1046,10 @@ class ResponseProcessor:
                         # Use the complete LiteLLM response object as received
                         if final_llm_response:
                             logger.info("✅ Using complete LiteLLM response for llm_response_end (normal completion)")
-                            
-                            # Log the complete response object for debugging
-                            logger.info(f"🔍 COMPLETE RESPONSE OBJECT: {final_llm_response}")
+                            _model = getattr(final_llm_response, 'model', None)
+                            from core.ai_models import model_manager
+                            _tag = model_manager.registry.get_model_display_tag(_model or "")
+                            logger.info(f"🔍 COMPLETE RESPONSE OBJECT: {final_llm_response} {_tag}")
                             
                             # Serialize the complete response object as-is
                             llm_end_content = self._serialize_model_response(final_llm_response)

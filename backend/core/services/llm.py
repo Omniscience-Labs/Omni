@@ -279,8 +279,6 @@ async def make_llm_api_call(
         extra_headers: Optional extra headers to send with request
         stop: Optional list of stop sequences
     """
-    logger.info(f"Making LLM API call to model: {model_name} with {len(messages)} messages")
-    
     # Prepare parameters using centralized model configuration
     from core.ai_models import model_manager
     resolved_model_name = model_manager.resolve_model_id(model_name) or model_name
@@ -304,6 +302,8 @@ async def make_llm_api_call(
         override_params["extra_headers"] = extra_headers
     
     params = model_manager.get_litellm_params(resolved_model_name, **override_params)
+    tag = model_manager.registry.get_model_display_tag(params.get("model", ""))
+    logger.info(f"Making LLM API call to model: {model_name} {tag} with {len(messages)} messages")
     
     # Ensure stop sequences are in final params
     if stop is not None:
@@ -340,6 +340,7 @@ async def make_llm_api_call(
                 debug_data = {
                     "timestamp": timestamp,
                     "model": params.get("model"),
+                    "model_display_tag": model_manager.registry.get_model_display_tag(params.get("model", "")),
                     "messages": params.get("messages"),
                     "temperature": params.get("temperature"),
                     "max_tokens": params.get("max_tokens"),

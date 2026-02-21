@@ -23,10 +23,23 @@ def _format_bedrock_arn(arn: str) -> str:
         return f"bedrock/converse/{arn}"
     return arn
 
-_BASIC_MODEL_ID = _format_bedrock_arn(config.BEDROCK_HAIKU_ARN) if config.BEDROCK_HAIKU_ARN else "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
-_POWER_MODEL_ID = _format_bedrock_arn(config.BEDROCK_SONNET_ARN) if config.BEDROCK_SONNET_ARN else "bedrock/us.anthropic.claude-sonnet-4-6"
-# Sonnet 4.5 used when Haiku or Sonnet 4.6 fails (rate limit, 5xx, context exceeded)
-_FALLBACK_MODEL_ID = _format_bedrock_arn(config.BEDROCK_FALLBACK_ARN) if getattr(config, "BEDROCK_FALLBACK_ARN", None) else "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+def _get_basic_model_id() -> str:
+    """Resolve Basic (Haiku) model ID from config at use-time so backend .env is always used."""
+    arn = getattr(config, "BEDROCK_HAIKU_ARN", None) if config else None
+    return _format_bedrock_arn(arn) if arn else "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
+
+
+def _get_power_model_id() -> str:
+    """Resolve Power (Sonnet 4.6) model ID from config at use-time so backend .env is always used."""
+    arn = getattr(config, "BEDROCK_SONNET_ARN", None) if config else None
+    return _format_bedrock_arn(arn) if arn else "bedrock/us.anthropic.claude-sonnet-4-6"
+
+
+def _get_fallback_model_id() -> str:
+    """Resolve fallback (Sonnet 4.5) model ID from config at use-time. Used when Haiku or Sonnet 4.6 fails."""
+    arn = getattr(config, "BEDROCK_FALLBACK_ARN", None) if config else None
+    return _format_bedrock_arn(arn) if arn else "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 # Anthropic API model IDs (for fallback chain; LiteLLM uses anthropic/<model-id>)
 _ANTHROPIC_HAIKU_ID = "anthropic/claude-haiku-4-5-20251001"
 _ANTHROPIC_SONNET_4_6_ID = "anthropic/claude-sonnet-4-6"
@@ -38,7 +51,7 @@ PREMIUM_MODEL_ID = "omni/power"
 
 def get_fallback_model_id() -> str:
     """Return the Bedrock model ID used when Haiku or Sonnet 4.6 fails (Sonnet 4.5)."""
-    return _FALLBACK_MODEL_ID
+    return _get_fallback_model_id()
 
 
 is_local = config.ENV_MODE == EnvMode.LOCAL
@@ -421,20 +434,20 @@ class ModelRegistry:
         Resolves omni/basic and omni/power to actual provider model IDs.
         Also supports legacy kortix/basic and kortix/power for backward compatibility.
         """
-        # Map omni model IDs to actual LiteLLM model IDs
+        # Map omni model IDs to actual LiteLLM model IDs (resolved from config at use-time)
         if model_id == "omni/basic" or model_id == "kortix/basic":
-            return _BASIC_MODEL_ID  # Haiku
+            return _get_basic_model_id()  # Haiku
         elif model_id == "omni/power" or model_id == "kortix/power":
-            return _POWER_MODEL_ID  # Sonnet
+            return _get_power_model_id()  # Sonnet
         
         # For other models, check if it's an alias and resolve
         model = self.get(model_id)
         if model:
             # Check if this model's ID needs resolution
             if model.id == "omni/basic" or model.id == "kortix/basic":
-                return _BASIC_MODEL_ID
+                return _get_basic_model_id()
             elif model.id == "omni/power" or model.id == "kortix/power":
-                return _POWER_MODEL_ID
+                return _get_power_model_id()
             return model.id
         
         # Return as-is if not found (let LiteLLM handle it)
@@ -458,35 +471,36 @@ class ModelRegistry:
                 normalized_id = normalized_id[len(prefix):]
                 break
         
-        # Normalize the basic model ID for comparison
-        basic_model_normalized = _BASIC_MODEL_ID
+        # Normalize the basic model ID for comparison (use current config)
+        basic_model = _get_basic_model_id()
+        basic_model_normalized = basic_model
         for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
             if basic_model_normalized.startswith(prefix):
                 basic_model_normalized = basic_model_normalized[len(prefix):]
                 break
         
-        # Normalize the power model ID for comparison
-        power_model_normalized = _POWER_MODEL_ID
+        if normalized_id == basic_model_normalized or litellm_model_id == basic_model:
+            return "omni/basic"
+
+        # Normalize the power model ID for comparison (use current config)
+        power_model = _get_power_model_id()
+        power_model_normalized = power_model
         for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
             if power_model_normalized.startswith(prefix):
                 power_model_normalized = power_model_normalized[len(prefix):]
                 break
         
-        # Check if it matches the basic model (Haiku)
-        if normalized_id == basic_model_normalized or litellm_model_id == _BASIC_MODEL_ID:
-            return "omni/basic"
-        
-        # Check if it matches the power model (Sonnet)
-        if normalized_id == power_model_normalized or litellm_model_id == _POWER_MODEL_ID:
+        if normalized_id == power_model_normalized or litellm_model_id == power_model:
             return "omni/power"
-        
+
         # If the normalized ID matches the fallback model (Sonnet 4.5), return omni/power for billing
-        fallback_normalized = _FALLBACK_MODEL_ID
+        fallback_model = _get_fallback_model_id()
+        fallback_normalized = fallback_model
         for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
             if fallback_normalized.startswith(prefix):
                 fallback_normalized = fallback_normalized[len(prefix):]
                 break
-        if normalized_id == fallback_normalized or litellm_model_id == _FALLBACK_MODEL_ID:
+        if normalized_id == fallback_normalized or litellm_model_id == fallback_model:
             return "omni/power"
         
         # Anthropic API fallback model IDs -> map to Basic or Power for billing
@@ -511,7 +525,59 @@ class ModelRegistry:
         
         # Return as-is if no reverse mapping found
         return litellm_model_id
-    
+
+    def get_model_display_tag(self, litellm_model_id: str) -> str:
+        """Return a visible tag for logs: [Haiku 4.5], [Sonnet 4.6], or [Sonnet 4.5]."""
+        if not litellm_model_id:
+            return "[Unknown]"
+        # Strip common prefixes for comparison
+        normalized_id = litellm_model_id
+        for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
+            if normalized_id.startswith(prefix):
+                normalized_id = normalized_id[len(prefix):]
+                break
+        basic_model = _get_basic_model_id()
+        basic_normalized = basic_model
+        for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
+            if basic_normalized.startswith(prefix):
+                basic_normalized = basic_normalized[len(prefix):]
+                break
+        if normalized_id == basic_normalized or litellm_model_id == basic_model:
+            return "[Haiku 4.5]"
+        power_model = _get_power_model_id()
+        power_normalized = power_model
+        for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
+            if power_normalized.startswith(prefix):
+                power_normalized = power_normalized[len(prefix):]
+                break
+        if normalized_id == power_normalized or litellm_model_id == power_model:
+            return "[Sonnet 4.6]"
+        fallback_model = _get_fallback_model_id()
+        fallback_normalized = fallback_model
+        for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
+            if fallback_normalized.startswith(prefix):
+                fallback_normalized = fallback_normalized[len(prefix):]
+                break
+        if normalized_id == fallback_normalized or litellm_model_id == fallback_model:
+            return "[Sonnet 4.5]"
+        lid = litellm_model_id or ""
+        if lid == _ANTHROPIC_HAIKU_ID or "anthropic/claude-haiku-4-5" in lid:
+            return "[Haiku 4.5]"
+        if lid == _ANTHROPIC_SONNET_4_6_ID or "anthropic/claude-sonnet-4-6" in lid:
+            return "[Sonnet 4.6]"
+        if lid == _ANTHROPIC_SONNET_4_5_ID or "anthropic/claude-sonnet-4-5" in lid:
+            return "[Sonnet 4.5]"
+        lid_lower = lid.lower()
+        if "haiku" in lid_lower:
+            return "[Haiku 4.5]"
+        if "sonnet-4-6" in lid_lower:
+            return "[Sonnet 4.6]"
+        if "sonnet-4-5" in lid_lower:
+            return "[Sonnet 4.5]"
+        if "sonnet" in lid_lower:
+            return "[Sonnet 4.6]"
+        return "[Unknown]"
+
     def get_aliases(self, model_id: str) -> List[str]:
         model = self.get(model_id)
         return model.aliases if model else []
