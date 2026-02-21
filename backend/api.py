@@ -1,5 +1,10 @@
+import os
 from dotenv import load_dotenv
 load_dotenv()
+# Ensure backend/.env wins for BEDROCK_* ARNs when started from project root
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.exists(_env_path):
+    load_dotenv(_env_path, override=True)
 
 from fastapi import FastAPI, Request, HTTPException, Response, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware

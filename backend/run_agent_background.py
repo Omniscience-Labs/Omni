@@ -1,5 +1,11 @@
+import os
 import dotenv
-dotenv.load_dotenv(".env")
+dotenv.load_dotenv(".env")  # cwd .env first
+# Then backend/.env so BEDROCK_* ARNs from backend/.env always win
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
+_env_path = os.path.join(_backend_dir, ".env")
+if os.path.exists(_env_path):
+    dotenv.load_dotenv(_env_path, override=True)
 
 import sentry
 import asyncio
@@ -484,7 +490,9 @@ async def run_agent_background(
     
     from core.ai_models import model_manager
     effective_model = model_manager.resolve_model_id(model_name)
-    logger.info(f"🚀 Using model: {effective_model} (thinking: {enable_thinking}, reasoning_effort: {reasoning_effort})")
+    litellm_id = model_manager.registry.get_litellm_model_id(effective_model)
+    tag = model_manager.registry.get_model_display_tag(litellm_id)
+    logger.info(f"🚀 Using model: {effective_model} {tag} (thinking: {enable_thinking}, reasoning_effort: {reasoning_effort})")
     
     start_time = datetime.now(timezone.utc)
     pubsub = None
