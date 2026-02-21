@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bot, Menu, Plus, Zap, MessageCircle, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
+import { Bot, Menu, Plus, Zap, MessageCircle, PanelLeftOpen, PanelLeftClose, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
@@ -101,7 +101,7 @@ export function SidebarLeft({
   const isMobile = useIsMobile();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
-  const [activeView, setActiveView] = useState<'chats' | 'agents' | 'starred'>('chats');
+  const [activeView, setActiveView] = useState<'chats' | 'agents' | 'starred' | 'knowledge'>('chats');
   const [showEnterpriseCard, setShowEnterpriseCard] = useState(true);
   const [user, setUser] = useState<{
     name: string;
@@ -123,8 +123,12 @@ export function SidebarLeft({
 
   // Update active view based on pathname
   useEffect(() => {
-    if (pathname?.includes('/triggers') || pathname?.includes('/knowledge')) {
+    if (pathname?.includes('/knowledge')) {
+      setActiveView('knowledge');
+    } else if (pathname?.includes('/triggers')) {
       setActiveView('starred');
+    } else if (pathname?.includes('/agents')) {
+      setActiveView('agents');
     }
   }, [pathname]);
 
@@ -356,20 +360,24 @@ export function SidebarLeft({
                 </div>
 
                 {/* State buttons horizontally */}
-                <div className="flex justify-between items-center gap-2">
+                <div className="flex justify-between items-center gap-1">
                   {[
-                    { view: 'chats' as const, icon: MessageCircle, label: t('chats') },
-                    { view: 'agents' as const, icon: Bot, label: t('workers') },
-                    { view: 'starred' as const, icon: Zap, label: t('triggers') }
-                  ].map(({ view, icon: Icon, label }) => (
+                    { view: 'chats' as const, icon: MessageCircle, label: t('chats'), href: undefined },
+                    { view: 'agents' as const, icon: Bot, label: t('workers'), href: '/agents' },
+                    { view: 'starred' as const, icon: Zap, label: t('triggers'), href: undefined },
+                    { view: 'knowledge' as const, icon: BookOpen, label: 'Knowledge', href: '/knowledge' },
+                  ].map(({ view, icon: Icon, label, href }) => (
                     <button
                       key={view}
                       className={cn(
-                        "flex flex-col items-center justify-center gap-1.5 p-1.5 rounded-2xl cursor-pointer transition-colors w-[64px] h-[64px]",
+                        "flex flex-col items-center justify-center gap-1 p-1 rounded-2xl cursor-pointer transition-colors flex-1 h-[56px]",
                         "hover:bg-muted/60 hover:border-[1.5px] hover:border-border",
                         activeView === view ? 'bg-card border-[1.5px] border-border' : 'border-[1.5px] border-transparent'
                       )}
-                      onClick={() => setActiveView(view)}
+                      onClick={() => {
+                        setActiveView(view);
+                        if (href) router.push(href);
+                      }}
                     >
                       <Icon className="!h-4 !w-4" />
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
