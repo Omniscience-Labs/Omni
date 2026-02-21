@@ -45,6 +45,7 @@ import { Kbd } from '../ui/kbd';
 import { useTranslations } from 'next-intl';
 import { KbdGroup } from '../ui/kbd';
 import { NotificationDropdown } from '../notifications/notification-dropdown';
+import { HelpTicketButton } from '@/components/help/help-ticket-button';
 
 
 function UserProfileSection({ user }: { user: any }) {
@@ -434,6 +435,12 @@ export function SidebarLeft({
           </div>
         )
       } */}
+
+      {state !== 'collapsed' && (
+        <div className="px-6 pb-3">
+          <HelpTicketButton />
+        </div>
+      )}
 
       <div className={cn("pb-4", state === 'collapsed' ? "px-6" : "px-6")}>
         <UserProfileSection user={user} />
