@@ -348,6 +348,12 @@ class Configuration:
     # AWS Bedrock authentication
     AWS_BEARER_TOKEN_BEDROCK: Optional[str] = None
     
+    # Application Inference Profile ARNs (client-specific for usage tracking)
+    BEDROCK_HAIKU_ARN: Optional[str] = None
+    BEDROCK_SONNET_ARN: Optional[str] = None
+    # Fallback when Haiku or Sonnet 4.6 fails (Sonnet 4.5 ARN or model ID). Used for rate limits / 5xx / context exceeded.
+    BEDROCK_FALLBACK_ARN: Optional[str] = None
+    
     # Supabase configuration
     SUPABASE_URL: str
     SUPABASE_ANON_KEY: str

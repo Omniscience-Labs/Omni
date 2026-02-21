@@ -5,15 +5,40 @@ from core.utils.logger import logger
 
 # SHOULD_USE_ANTHROPIC = False
 # CRITICAL: Production and Staging must ALWAYS use Bedrock, never Anthropic API directly
-SHOULD_USE_ANTHROPIC = config.ENV_MODE == EnvMode.LOCAL and bool(config.ANTHROPIC_API_KEY)
+# Disabled: No longer using Anthropic API directly, only Bedrock
+# SHOULD_USE_ANTHROPIC = config.ENV_MODE == EnvMode.LOCAL and bool(config.ANTHROPIC_API_KEY)
 
 # # Actual model IDs for LiteLLM
 # Use Anthropic API directly for local development, Bedrock for production/staging
-_BASIC_MODEL_ID = "claude-haiku-4-5-20251001" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
-_POWER_MODEL_ID = "claude-sonnet-4-5-20250929" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+# OLD: _BASIC_MODEL_ID = "claude-haiku-4-5-20251001" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
+# OLD: _POWER_MODEL_ID = "claude-sonnet-4-5-20250929" if SHOULD_USE_ANTHROPIC else "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+# Use client-specific Bedrock ARNs for usage tracking, fallback to direct Bedrock model IDs
+# Automatically prepend 'bedrock/converse/' prefix if ARN is provided without it
+def _format_bedrock_arn(arn: str) -> str:
+    """Ensure ARN has the bedrock/converse/ prefix for LiteLLM."""
+    if not arn:
+        return arn
+    if arn.startswith("arn:aws:bedrock:"):
+        return f"bedrock/converse/{arn}"
+    return arn
+
+_BASIC_MODEL_ID = _format_bedrock_arn(config.BEDROCK_HAIKU_ARN) if config.BEDROCK_HAIKU_ARN else "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
+_POWER_MODEL_ID = _format_bedrock_arn(config.BEDROCK_SONNET_ARN) if config.BEDROCK_SONNET_ARN else "bedrock/us.anthropic.claude-sonnet-4-6"
+# Sonnet 4.5 used when Haiku or Sonnet 4.6 fails (rate limit, 5xx, context exceeded)
+_FALLBACK_MODEL_ID = _format_bedrock_arn(config.BEDROCK_FALLBACK_ARN) if getattr(config, "BEDROCK_FALLBACK_ARN", None) else "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+# Anthropic API model IDs (for fallback chain; LiteLLM uses anthropic/<model-id>)
+_ANTHROPIC_HAIKU_ID = "anthropic/claude-haiku-4-5-20251001"
+_ANTHROPIC_SONNET_4_6_ID = "anthropic/claude-sonnet-4-6"
+_ANTHROPIC_SONNET_4_5_ID = "anthropic/claude-sonnet-4-5-20250929"
 # Default model IDs (these are aliases that resolve to actual IDs)
 FREE_MODEL_ID = "omni/basic"
 PREMIUM_MODEL_ID = "omni/power"
+
+
+def get_fallback_model_id() -> str:
+    """Return the Bedrock model ID used when Haiku or Sonnet 4.6 fails (Sonnet 4.5)."""
+    return _FALLBACK_MODEL_ID
 
 
 is_local = config.ENV_MODE == EnvMode.LOCAL
@@ -454,6 +479,31 @@ class ModelRegistry:
         # Check if it matches the power model (Sonnet)
         if normalized_id == power_model_normalized or litellm_model_id == _POWER_MODEL_ID:
             return "omni/power"
+        
+        # If the normalized ID matches the fallback model (Sonnet 4.5), return omni/power for billing
+        fallback_normalized = _FALLBACK_MODEL_ID
+        for prefix in ['bedrock/converse/', 'bedrock/', 'converse/']:
+            if fallback_normalized.startswith(prefix):
+                fallback_normalized = fallback_normalized[len(prefix):]
+                break
+        if normalized_id == fallback_normalized or litellm_model_id == _FALLBACK_MODEL_ID:
+            return "omni/power"
+        
+        # Anthropic API fallback model IDs -> map to Basic or Power for billing
+        if litellm_model_id == _ANTHROPIC_HAIKU_ID or "anthropic/claude-haiku-4-5" in (litellm_model_id or ""):
+            return "omni/basic"
+        if litellm_model_id == _ANTHROPIC_SONNET_4_6_ID or "anthropic/claude-sonnet-4-6" in (litellm_model_id or ""):
+            return "omni/power"
+        if litellm_model_id == _ANTHROPIC_SONNET_4_5_ID or "anthropic/claude-sonnet-4-5" in (litellm_model_id or ""):
+            return "omni/power"
+        
+        # Billing rule: Haiku = Basic, ANY Sonnet = Power. Final fallback by model name so
+        # unknown/alternate IDs (e.g. new date suffixes, different prefixes) still bill correctly.
+        lid_lower = (litellm_model_id or "").lower()
+        if "sonnet" in lid_lower:
+            return "omni/power"
+        if "haiku" in lid_lower:
+            return "omni/basic"
         
         # Check if this model exists directly in registry
         if self.get(litellm_model_id):
