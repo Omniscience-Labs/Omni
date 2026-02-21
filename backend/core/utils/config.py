@@ -108,8 +108,13 @@ class Configuration:
     
     SYSTEM_ADMIN_USER_ID: Optional[str] = None  # User ID that owns shared/fallback agents
 
+    # ===== LINEAR INTEGRATION =====
+    LINEAR_API_KEY: Optional[str] = None
+    LINEAR_TEAM_KEY: str = "DEV"
+    # ==============================
+
 # Subscription tier IDs - Production
-    STRIPE_FREE_TIER_ID_PROD: str = 'price_1SnWwZRGnNhiCsludARv8Gva'
+    STRIPE_FREE_TIER_ID_PROD: str = 'price_1S7ibVRGnNsdCsluStxGPsPT'
     STRIPE_TIER_2_20_ID_PROD: str = 'price_1S7ibVRGnNhiCsluStxGPsPT'
     STRIPE_TIER_6_50_ID_PROD: str = 'price_1S7ibVRGnNhiCslujX0nuAnS'
     STRIPE_TIER_12_100_ID_PROD: str = 'price_1S7ibVRGnNhiCsluh23GQqnG'
@@ -133,7 +138,7 @@ class Configuration:
     STRIPE_TIER_25_170_YEARLY_COMMITMENT_ID_PROD: str = 'price_1S7ibVRGnNhiCsluh23GQqnG'  # $170/month
 
     # Subscription tier IDs - Staging
-    STRIPE_FREE_TIER_ID_STAGING: str = 'price_1SnXFlRGnNhiCsluboccGik7' 
+    STRIPE_FREE_TIER_ID_STAGING: str = 'price_1RIGvuG6l1KZGqIrw14abxeL' 
     STRIPE_TIER_2_20_ID_STAGING: str = 'price_1S7jUjRGnNhiCslu3LW4qtrW'
     STRIPE_TIER_6_50_ID_STAGING: str = 'price_1S7jUtRGnNhiCslufS8cVnKo'
     STRIPE_TIER_12_100_ID_STAGING: str = 'price_1S7jV2RGnNhiCsluZFfGsdsWm88'

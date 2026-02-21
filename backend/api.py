@@ -330,6 +330,9 @@ api_router.include_router(google_slides_router)
 from core.google.google_docs_api import router as google_docs_router
 api_router.include_router(google_docs_router)
 
+from core.linear import api as linear_api
+linear_api.initialize(db)
+api_router.include_router(linear_api.router)
 
 
 @api_router.get("/health", summary="Health Check", operation_id="health_check", tags=["system"])
