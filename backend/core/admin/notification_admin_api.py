@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Optional, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from core.utils.logger import logger
 from core.auth import require_admin
 from core.notifications.notification_service import notification_service
@@ -14,6 +14,11 @@ class TriggerWorkflowRequest(BaseModel):
     subscriber_id: Optional[str] = None
     subscriber_email: Optional[str] = None
     broadcast: bool = False
+
+
+class TestLowCreditAlertRequest(BaseModel):
+    account_id: str = Field(..., description="User account ID to send the test alert to")
+    balance: float = Field(0.50, description="Simulated balance to show in the email (default $0.50)")
 
 
 @router.get("/workflows")
@@ -97,4 +102,37 @@ async def trigger_workflow_admin(
         raise
     except Exception as e:
         logger.error(f"[ADMIN] Error triggering workflow: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/test-low-credit-alert")
+async def test_low_credit_alert(
+    request: TestLowCreditAlertRequest,
+    admin: dict = Depends(require_admin)
+):
+    """Send a test low-credit alert email to a specific user. Bypasses the 24-hour deduplication guard."""
+    try:
+        logger.info(f"[ADMIN] Sending test low credit alert to account {request.account_id} (balance: ${request.balance:.2f})")
+
+        # Bypass the deduplication cache by calling the notification service directly
+        result = await notification_service.send_low_credit_alert_email(
+            account_id=request.account_id,
+            balance=request.balance
+        )
+
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Failed to send low credit alert email")
+            )
+
+        return {
+            "success": True,
+            "message": f"Low credit alert email sent to account {request.account_id} (simulated balance: ${request.balance:.2f})"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[ADMIN] Error sending test low credit alert: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
