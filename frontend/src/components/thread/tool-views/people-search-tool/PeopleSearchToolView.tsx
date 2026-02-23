@@ -43,7 +43,6 @@ export function PeopleSearchToolView({
   const {
     query,
     total_results,
-    cost_deducted,
     results,
     actualIsSuccess,
     actualToolTimestamp,
@@ -94,11 +93,6 @@ export function PeopleSearchToolView({
 
           {!isStreaming && (
             <div className="flex items-center gap-2">
-              {cost_deducted && (
-                <Badge variant="outline" className="text-xs font-normal text-orange-600 dark:text-orange-400">
-                  {cost_deducted}
-                </Badge>
-              )}
               <Badge
                 variant="secondary"
                 className={

@@ -18,6 +18,7 @@ from langfuse.client import StatefulGenerationClient, StatefulTraceClient
 from core.services.langfuse import langfuse
 from datetime import datetime, timezone
 from core.billing.credits.integration import billing_integration
+from core.billing.tool_billing import tool_billing_service
 from litellm.utils import token_counter
 import litellm
 
@@ -551,7 +552,16 @@ class ThreadManager:
 
             # Get tool schemas for LLM API call (after compression)
             schema_start = time.time()
-            openapi_tool_schemas = self.tool_registry.get_openapi_schemas() if config.native_tool_calling else None
+            cost_map = {}
+            if config.native_tool_calling:
+                try:
+                    tool_names = list(self.tool_registry.tools.keys())
+                    cost_map = await tool_billing_service.get_tool_costs(tool_names)
+                except Exception as e:
+                    logger.debug(f"Failed to fetch tool costs: {e}")
+                openapi_tool_schemas = self.tool_registry.get_openapi_schemas(cost_map=cost_map)
+            else:
+                openapi_tool_schemas = None
             logger.debug(f"⏱️ [TIMING] Get tool schemas: {(time.time() - schema_start) * 1000:.1f}ms")
 
             # Update generation tracking

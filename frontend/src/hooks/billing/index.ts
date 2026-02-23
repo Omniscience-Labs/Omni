@@ -55,6 +55,13 @@ export { useBillingModal } from './use-billing-modal';
 // Credit & Thread Usage analytics
 export { useCreditUsage } from './use-credit-usage';
 export { useThreadUsage } from './use-thread-usage';
+export {
+  useCreditUsageDetail,
+  type CreditUsageDetailResponse,
+  type DayUsage,
+  type ThreadUsageDetail,
+  type UsageRecord,
+} from './use-credit-usage-detail';
 
 // =============================================================================
 // TIER CONFIGURATIONS - Static data, separate endpoint

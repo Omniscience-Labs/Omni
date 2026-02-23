@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import Optional, Dict, Tuple, List
 from core.billing.credits.calculator import calculate_token_cost, calculate_cached_token_cost, calculate_cache_write_cost
 from core.billing.credits.manager import credit_manager
+from core.billing.tool_billing import tool_billing_service
 from core.utils.config import config, EnvMode
 from core.utils.logger import logger
 from core.services.supabase import DBConnection
@@ -231,5 +232,51 @@ class BillingIntegration:
         # Invalidate account state cache after adding credits
         await invalidate_account_state_cache(account_id)
         return result
+
+    # ------------------------------------------------------------------ #
+    #  Tool-level billing (delegates to ToolBillingService)
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    async def check_tool_usage(account_id: str, tool_name: str) -> Dict:
+        """Pre-flight check: can *account_id* afford to run *tool_name*?
+
+        Returns a dict with at least ``can_use: bool``.
+        Handles Enterprise vs SaaS internally.
+        """
+        return await tool_billing_service.can_use_tool(account_id, tool_name)
+
+    @staticmethod
+    async def check_tool_usage_batch(account_id: str, tool_names: List[str]) -> Dict:
+        """Pre-flight check for a batch of tools.
+
+        Verifies that *account_id* can afford the **combined** cost of
+        every tool in *tool_names*.  For a single tool this falls back
+        to :meth:`check_tool_usage`.
+
+        Returns a dict with at least ``can_use: bool`` and ``total_cost: float``.
+        Handles Enterprise vs SaaS internally.
+        """
+        return await tool_billing_service.can_use_tools_batch(account_id, tool_names)
+
+    @staticmethod
+    async def deduct_tool_usage(
+        account_id: str,
+        tool_name: str,
+        thread_id: Optional[str] = None,
+        message_id: Optional[str] = None,
+    ) -> Dict:
+        """Deduct credits for a successful tool execution.
+
+        Returns a dict with at least ``success: bool`` and ``cost: float``.
+        Handles Enterprise vs SaaS internally.
+        """
+        return await tool_billing_service.deduct_tool(
+            account_id=account_id,
+            tool_name=tool_name,
+            thread_id=thread_id,
+            message_id=message_id,
+        )
+
 
 billing_integration = BillingIntegration()

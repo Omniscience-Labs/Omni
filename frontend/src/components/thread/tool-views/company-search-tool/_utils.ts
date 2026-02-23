@@ -22,7 +22,6 @@ export interface CompanySearchResult {
 export interface CompanySearchData {
   query: string | null;
   total_results: number;
-  cost_deducted: string;
   enrichment_type: string;
   results: CompanySearchResult[];
   success?: boolean;
@@ -39,7 +38,6 @@ export function extractCompanySearchData(
 ): {
   query: string | null;
   total_results: number;
-  cost_deducted: string;
   enrichment_type: string;
   results: CompanySearchResult[];
   actualIsSuccess: boolean;
@@ -49,16 +47,15 @@ export function extractCompanySearchData(
   const args = toolCall.arguments || {};
   const query = args.query || null;
   const enrichment_type = args.enrichment_description || '';
-  
+
   let total_results = 0;
-  let cost_deducted = '$0.54';
   let results: CompanySearchResult[] = [];
 
   // Extract from toolResult output
   if (toolResult?.output) {
     const output = toolResult.output;
     let parsedOutput: any = {};
-    
+
     if (typeof output === 'string') {
       try {
         parsedOutput = JSON.parse(output);
@@ -70,7 +67,6 @@ export function extractCompanySearchData(
     }
 
     total_results = parsedOutput.total_results || 0;
-    cost_deducted = parsedOutput.cost_deducted || '$0.54';
     results = parsedOutput.results?.map((result: any) => ({
       rank: result.rank || 0,
       id: result.id || '',
@@ -96,7 +92,6 @@ export function extractCompanySearchData(
   return {
     query,
     total_results,
-    cost_deducted,
     enrichment_type,
     results,
     actualIsSuccess,

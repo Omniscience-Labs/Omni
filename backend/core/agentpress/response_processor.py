@@ -39,6 +39,8 @@ from core.utils.json_helpers import (
     to_json_string, format_for_yield
 )
 from core.agentpress.xml_tool_parser import strip_xml_tool_calls
+from core.billing.credits.integration import billing_integration
+from core.services.supabase import DBConnection
 
 # Note: Debug stream saving is controlled by global_config.DEBUG_SAVE_LLM_IO
 
@@ -122,6 +124,118 @@ class ResponseProcessor:
             self.trace = langfuse.trace(name="anonymous:response_processor")
             
         self.agent_config = agent_config
+
+    # ------------------------------------------------------------------ #
+    #  Tool credit helpers
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    async def _resolve_account_id(thread_id: str) -> Optional[str]:
+        """Look up the ``account_id`` that owns *thread_id*."""
+        try:
+            db = DBConnection()
+            client = await db.client
+            row = (
+                await client.table("threads")
+                .select("account_id")
+                .eq("thread_id", thread_id)
+                .limit(1)
+                .execute()
+            )
+            if row.data and len(row.data) > 0:
+                return row.data[0].get("account_id")
+        except Exception as e:
+            logger.warning(f"[TOOL_BILLING] Failed to resolve account_id for thread {thread_id}: {e}")
+        return None
+
+    @staticmethod
+    async def _check_tool_credits_batch(
+        account_id: Optional[str],
+        tool_calls: List[Dict[str, Any]],
+    ) -> Optional[Dict]:
+        """Run a batch credit pre-check for *tool_calls*.
+
+        Returns ``None`` when the check passes (or cannot be performed).
+        Returns a dict with ``can_use=False`` when the user cannot afford
+        the batch -- callers should short-circuit tool execution.
+        """
+        if not account_id:
+            return None
+        try:
+            tool_names = [
+                tc.get("function_name", "unknown") for tc in tool_calls
+            ]
+            result = await billing_integration.check_tool_usage_batch(
+                account_id, tool_names
+            )
+            if not result.get("can_use", True):
+                logger.warning(
+                    f"[TOOL_BILLING] Batch credit check failed for "
+                    f"{account_id}: total_cost={result.get('total_cost')}, "
+                    f"tools={tool_names}"
+                )
+                return result
+        except Exception as e:
+            # Fail-open: billing errors must not block tool execution
+            logger.error(f"[TOOL_BILLING] Batch credit check error: {e}")
+        return None
+
+    @staticmethod
+    async def _check_single_tool_credit(
+        account_id: Optional[str],
+        tool_name: str,
+    ) -> Optional[Dict]:
+        """Run a single-tool credit pre-check.
+
+        Returns ``None`` when the check passes.
+        Returns a dict with ``can_use=False`` when the user cannot
+        afford the tool.
+        """
+        if not account_id:
+            return None
+        try:
+            result = await billing_integration.check_tool_usage(
+                account_id, tool_name
+            )
+            if not result.get("can_use", True):
+                logger.warning(
+                    f"[TOOL_BILLING] Credit check failed for "
+                    f"{account_id}/{tool_name}: "
+                    f"required={result.get('required_cost')}"
+                )
+                return result
+        except Exception as e:
+            logger.error(f"[TOOL_BILLING] Single credit check error for {tool_name}: {e}")
+        return None
+
+    @staticmethod
+    async def _deduct_tool_credits(
+        account_id: Optional[str],
+        function_name: str,
+        thread_id: str,
+        message_id: Optional[str] = None,
+    ) -> None:
+        """Deduct credits for a successful tool execution.
+
+        Fire-and-forget: a deduction failure must never block the agent
+        loop or discard a tool result that was already persisted.
+        """
+        if not account_id or not function_name:
+            return
+        try:
+            result = await billing_integration.deduct_tool_usage(
+                account_id=account_id,
+                tool_name=function_name,
+                thread_id=thread_id,
+                message_id=message_id,
+            )
+            cost = result.get("cost", 0)
+            if result.get("success") and cost > 0:
+                logger.info(f"[TOOL_BILLING] Deducted ${cost:.4f} for '{function_name}'")
+            elif not result.get("success"):
+                logger.error(f"[TOOL_BILLING] Deduction failed for '{function_name}': {result}")
+        except Exception as e:
+            logger.error(f"[TOOL_BILLING] Deduction error for '{function_name}': {e}")
 
     def _serialize_model_response(self, model_response) -> Dict[str, Any]:
         """Convert a LiteLLM ModelResponse object to a JSON-serializable dictionary.
@@ -260,6 +374,9 @@ class ResponseProcessor:
         first_chunk_time = None
         last_chunk_time = None
         llm_response_end_saved = False
+
+        # Resolve account_id once for tool credit pre-checks
+        account_id = await self._resolve_account_id(thread_id)
 
         logger.debug(f"Streaming Config: XML={config.xml_tool_calling}, Native={config.native_tool_calling}, "
                    f"Execute on stream={config.execute_on_stream}, Strategy={config.tool_execution_strategy}")
@@ -481,17 +598,30 @@ class ResponseProcessor:
                                     )
 
                                     if config.execute_tools and config.execute_on_stream:
-                                        # Save and Yield tool_started status
-                                        started_msg_obj = await self._yield_and_save_tool_started(context, thread_id, thread_run_id)
-                                        if started_msg_obj: yield format_for_yield(started_msg_obj)
-                                        yielded_tool_indices.add(tool_index) # Mark status as yielded
+                                        # Credit pre-check for this individual tool
+                                        credit_block = await self._check_single_tool_credit(
+                                            account_id, tool_call.get("function_name", "unknown")
+                                        )
+                                        if credit_block is not None:
+                                            # Insufficient credits -- record an error result
+                                            # without launching the tool
+                                            context.result = ToolResult(
+                                                success=False,
+                                                output="Insufficient credits to execute this tool.",
+                                            )
+                                            tool_index += 1
+                                        else:
+                                            # Save and Yield tool_started status
+                                            started_msg_obj = await self._yield_and_save_tool_started(context, thread_id, thread_run_id)
+                                            if started_msg_obj: yield format_for_yield(started_msg_obj)
+                                            yielded_tool_indices.add(tool_index) # Mark status as yielded
 
-                                        execution_task = asyncio.create_task(self._execute_tool(tool_call))
-                                        pending_tool_executions.append({
-                                            "task": execution_task, "tool_call": tool_call,
-                                            "tool_index": tool_index, "context": context
-                                        })
-                                        tool_index += 1
+                                            execution_task = asyncio.create_task(self._execute_tool(tool_call))
+                                            pending_tool_executions.append({
+                                                "task": execution_task, "tool_call": tool_call,
+                                                "tool_index": tool_index, "context": context
+                                            })
+                                            tool_index += 1
 
                     # --- Process Native Tool Call Chunks ---
                     if config.native_tool_calling and delta and hasattr(delta, 'tool_calls') and delta.tool_calls:
@@ -537,17 +667,28 @@ class ResponseProcessor:
                                     tool_call_data, tool_index, current_assistant_id
                                 )
 
-                                # Save and Yield tool_started status
-                                started_msg_obj = await self._yield_and_save_tool_started(context, thread_id, thread_run_id)
-                                if started_msg_obj: yield format_for_yield(started_msg_obj)
-                                yielded_tool_indices.add(tool_index) # Mark status as yielded
+                                # Credit pre-check for this individual tool
+                                credit_block = await self._check_single_tool_credit(
+                                    account_id, tool_call_data.get("function_name", "unknown")
+                                )
+                                if credit_block is not None:
+                                    context.result = ToolResult(
+                                        success=False,
+                                        output="Insufficient credits to execute this tool.",
+                                    )
+                                    tool_index += 1
+                                else:
+                                    # Save and Yield tool_started status
+                                    started_msg_obj = await self._yield_and_save_tool_started(context, thread_id, thread_run_id)
+                                    if started_msg_obj: yield format_for_yield(started_msg_obj)
+                                    yielded_tool_indices.add(tool_index) # Mark status as yielded
 
-                                execution_task = asyncio.create_task(self._execute_tool(tool_call_data))
-                                pending_tool_executions.append({
-                                    "task": execution_task, "tool_call": tool_call_data,
-                                    "tool_index": tool_index, "context": context
-                                })
-                                tool_index += 1
+                                    execution_task = asyncio.create_task(self._execute_tool(tool_call_data))
+                                    pending_tool_executions.append({
+                                        "task": execution_task, "tool_call": tool_call_data,
+                                        "tool_index": tool_index, "context": context
+                                    })
+                                    tool_index += 1
                         
                         # --- Unified Streaming Chunk Yield (combines XML + Native tool calls) ---
                         if xml_tool_calls_updated or native_tool_calls_updated:
@@ -882,7 +1023,7 @@ class ResponseProcessor:
                     self.trace.event(name="executing_tools_after_stream", level="DEFAULT", status_message=(f"Executing {len(final_tool_calls_to_process)} tools ({config.tool_execution_strategy}) after stream"))
 
                     try:
-                        results_list = await self._execute_tools(final_tool_calls_to_process, config.tool_execution_strategy)
+                        results_list = await self._execute_tools(final_tool_calls_to_process, config.tool_execution_strategy, account_id=account_id)
                         logger.debug(f"✅ STREAMING: Tool execution after stream completed, got {len(results_list)} results")
                     except Exception as stream_exec_error:
                         logger.error(f"❌ STREAMING: Tool execution after stream failed: {str(stream_exec_error)}")
@@ -922,19 +1063,27 @@ class ResponseProcessor:
                             yielded_tool_indices.add(tool_idx) # Mark status yielded
 
                         # Save the tool result message to DB
-                        saved_tool_result_object = await self._add_tool_result( # Returns full object or None
+                        saved_tool_result_object = await self._add_tool_result(
                             thread_id, tool_call, result,
                             context.assistant_message_id
                         )
 
-                        # Yield completed/failed status (linked to saved result ID if available)
+                        # Deduct credits for successful tool execution
+                        if saved_tool_result_object and result and getattr(result, "success", False):
+                            await self._deduct_tool_credits(
+                                account_id,
+                                tool_call.get("function_name", ""),
+                                thread_id,
+                                saved_tool_result_object.get("message_id"),
+                            )
+
+                        # Yield completed/failed status
                         completed_msg_obj = await self._yield_and_save_tool_completed(
                             context,
                             saved_tool_result_object['message_id'] if saved_tool_result_object else None,
                             thread_id, thread_run_id
                         )
                         if completed_msg_obj: yield format_for_yield(completed_msg_obj)
-                        # Don't add to yielded_tool_indices here, completion status is separate yield
 
                         # Yield the saved tool result object
                         if saved_tool_result_object:
@@ -1318,6 +1467,9 @@ class ResponseProcessor:
         assistant_message_object = None
         tool_result_message_objects = {}
         finish_reason = None
+
+        # Resolve account_id once for tool credit pre-checks
+        account_id = await self._resolve_account_id(thread_id)
         native_tool_calls_for_message = []
 
         try:
@@ -1435,7 +1587,7 @@ class ResponseProcessor:
                 self.trace.event(name="executing_tools_with_strategy", level="DEFAULT", status_message=(f"Executing {len(tool_calls_to_execute)} tools with strategy: {config.tool_execution_strategy}"))
 
                 try:
-                    tool_results = await self._execute_tools(tool_calls_to_execute, config.tool_execution_strategy)
+                    tool_results = await self._execute_tools(tool_calls_to_execute, config.tool_execution_strategy, account_id=account_id)
                     logger.debug(f"✅ NON-STREAMING: Tool execution completed, got {len(tool_results)} results")
                 except Exception as exec_error:
                     logger.error(f"❌ NON-STREAMING: Tool execution failed: {str(exec_error)}")
@@ -1462,6 +1614,15 @@ class ResponseProcessor:
                         thread_id, tool_call_from_data, result,
                         current_assistant_id
                     )
+
+                    # Deduct credits for successful tool execution
+                    if saved_tool_result_object and result and getattr(result, "success", False):
+                        await self._deduct_tool_credits(
+                            account_id,
+                            tool_call_from_data.get("function_name", ""),
+                            thread_id,
+                            saved_tool_result_object.get("message_id"),
+                        )
 
                     # Save and Yield completed/failed status
                     completed_msg_obj = await self._yield_and_save_tool_completed(
@@ -1662,7 +1823,8 @@ class ResponseProcessor:
     async def _execute_tools(
         self,
         tool_calls: List[Dict[str, Any]],
-        execution_strategy: ToolExecutionStrategy = "sequential"
+        execution_strategy: ToolExecutionStrategy = "sequential",
+        account_id: Optional[str] = None,
     ) -> List[Tuple[Dict[str, Any], ToolResult]]:
         """Execute tool calls with the specified strategy.
 
@@ -1674,6 +1836,10 @@ class ResponseProcessor:
             execution_strategy: Strategy for executing tools:
                 - "sequential": Execute tools one after another, waiting for each to complete
                 - "parallel": Execute all tools simultaneously for better performance
+            account_id: Optional account ID for credit pre-checks.  When
+                provided, a batch credit check runs before any tool is
+                executed.  If the user cannot afford the batch, every tool
+                receives an error ``ToolResult`` and nothing is executed.
 
         Returns:
             List of tuples containing the original tool call and its result
@@ -1694,6 +1860,20 @@ class ResponseProcessor:
                 logger.warning(f"⚠️ Tool call {i} missing 'function_name': {tool_call}")
             if 'arguments' not in tool_call:
                 logger.warning(f"⚠️ Tool call {i} missing 'arguments': {tool_call}")
+
+        # ----- Batch credit pre-check -----
+        credit_check = await self._check_tool_credits_batch(account_id, tool_calls)
+        if credit_check is not None:
+            # User cannot afford this batch -- return error results for every tool
+            logger.warning(f"❌ Batch credit check failed, skipping execution of {len(tool_calls)} tools")
+            self.trace.event(
+                name="tool_credit_check_failed", level="WARNING",
+                status_message=f"Insufficient credits for {len(tool_calls)} tools (total_cost={credit_check.get('total_cost')})"
+            )
+            return [
+                (tc, ToolResult(success=False, output="Insufficient credits to execute this tool."))
+                for tc in tool_calls
+            ]
 
         self.trace.event(name="executing_tools_with_strategy", level="DEFAULT", status_message=(f"Executing {len(tool_calls)} tools with strategy: {execution_strategy}"))
 
