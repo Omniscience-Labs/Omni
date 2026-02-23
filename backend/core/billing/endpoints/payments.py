@@ -188,6 +188,217 @@ async def get_credit_usage(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/credit-usage-detail")
+async def get_credit_usage_detail(
+    account_id: str = Depends(verify_and_get_user_id_from_jwt),
+    days: Optional[int] = Query(None, ge=1, le=100, description="Number of days to look back"),
+    start_date: Optional[str] = Query(None, description="Start date in ISO format"),
+    end_date: Optional[str] = Query(None, description="End date in ISO format")
+) -> Dict:
+    """
+    Returns daily usage logs with per-thread breakdown of prompt vs tool usage.
+    Used for the "Daily Usage Logs" UI - grouped by date, then by project/thread,
+    with expandable rows showing Time, Type (Prompt/Tool), Prompt tokens, Completion,
+    Tool cost, Total Cost, Credits.
+    """
+    from core.utils.config import config
+
+    try:
+        db = DBConnection()
+        client = await db.client
+
+        if start_date and end_date:
+            try:
+                start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid date format: {e}")
+        elif days:
+            end_dt = datetime.now(timezone.utc)
+            start_dt = end_dt - timedelta(days=days)
+        else:
+            end_dt = datetime.now(timezone.utc)
+            start_dt = end_dt - timedelta(days=30)
+
+        if config.ENTERPRISE_MODE:
+            usage_result = await client.from_('enterprise_usage').select(
+                'id, thread_id, message_id, cost, model_name, tokens_used, '
+                'prompt_tokens, completion_tokens, tool_name, tool_cost, usage_type, created_at'
+            ).eq('account_id', account_id).gte(
+                'created_at', start_dt.isoformat()
+            ).lte('created_at', end_dt.isoformat()).order('created_at', desc=True).execute()
+
+            records = usage_result.data or []
+            usage_rows = []
+            for r in records:
+                thread_id = r.get('thread_id')
+                if not thread_id:
+                    continue
+                cost = abs(float(r.get('cost', 0)))
+                credits = cost * CREDITS_PER_DOLLAR
+                usage_type = r.get('usage_type') or 'token'
+                tool_name = r.get('tool_name')
+                if usage_type == 'tool':
+                    type_display = f"Tool - {tool_name}" if tool_name else "Tool"
+                    prompt_tokens = 0
+                    completion_tokens = 0
+                    tool_cost = cost
+                else:
+                    type_display = "Prompt"
+                    prompt_tokens = r.get('prompt_tokens') or 0
+                    completion_tokens = r.get('completion_tokens') or 0
+                    tool_cost = 0
+                usage_rows.append({
+                    'thread_id': thread_id,
+                    'created_at': r['created_at'],
+                    'type': usage_type,
+                    'type_display': type_display,
+                    'prompt_tokens': prompt_tokens,
+                    'completion_tokens': completion_tokens,
+                    'tool_cost': tool_cost,
+                    'total_cost': cost,
+                    'credits': round(credits),
+                    'model_name': r.get('model_name'),
+                    'tool_name': tool_name,
+                })
+        else:
+            usage_result = await client.from_('credit_ledger').select(
+                'id, amount, description, created_at, metadata'
+            ).eq('account_id', account_id).eq('type', 'usage').gte(
+                'created_at', start_dt.isoformat()
+            ).lte('created_at', end_dt.isoformat()).order('created_at', desc=True).execute()
+
+            records = usage_result.data or []
+            usage_rows = []
+            for r in records:
+                metadata = r.get('metadata') or {}
+                thread_id = metadata.get('thread_id') or r.get('thread_id')
+                if not thread_id:
+                    continue
+                amount = abs(float(r.get('amount', 0)))
+                cost = amount
+                credits = amount * CREDITS_PER_DOLLAR
+                desc = (r.get('description') or '')
+                if desc.startswith('Tool usage: '):
+                    tool_name = desc.replace('Tool usage: ', '', 1)
+                    type_display = f"Tool - {tool_name}"
+                    prompt_tokens = 0
+                    completion_tokens = 0
+                    tool_cost = cost
+                    row_type = 'tool'
+                else:
+                    tool_name = None
+                    type_display = "Prompt"
+                    prompt_tokens = 0
+                    completion_tokens = 0
+                    tool_cost = 0
+                    row_type = 'token'
+                usage_rows.append({
+                    'thread_id': thread_id,
+                    'created_at': r['created_at'],
+                    'type': row_type,
+                    'type_display': type_display,
+                    'prompt_tokens': prompt_tokens,
+                    'completion_tokens': completion_tokens,
+                    'tool_cost': tool_cost,
+                    'total_cost': cost,
+                    'credits': round(credits),
+                    'model_name': None,
+                    'tool_name': tool_name,
+                })
+
+        thread_ids = list({r['thread_id'] for r in usage_rows})
+        thread_details = {}
+        if thread_ids:
+            threads_result = await client.from_('threads').select(
+                'thread_id, project_id, created_at'
+            ).in_('thread_id', thread_ids).execute()
+            if threads_result.data:
+                project_ids = [t['project_id'] for t in threads_result.data if t.get('project_id')]
+                project_names = {}
+                if project_ids:
+                    proj_result = await client.from_('projects').select(
+                        'project_id, name'
+                    ).in_('project_id', project_ids).execute()
+                    if proj_result.data:
+                        project_names = {p['project_id']: p.get('name', '') for p in proj_result.data}
+                for t in threads_result.data:
+                    thread_details[t['thread_id']] = {
+                        'project_id': t.get('project_id'),
+                        'project_name': project_names.get(t.get('project_id'), ''),
+                        'created_at': t.get('created_at'),
+                    }
+
+        from collections import defaultdict
+        by_date_thread = defaultdict(lambda: defaultdict(list))
+        for row in usage_rows:
+            dt = datetime.fromisoformat(row['created_at'].replace('Z', '+00:00'))
+            date_key = dt.strftime('%Y-%m-%d')
+            thread_id = row['thread_id']
+            by_date_thread[date_key][thread_id].append(row)
+
+        daily_usage = []
+        for date_key in sorted(by_date_thread.keys(), reverse=True):
+            day_data = by_date_thread[date_key]
+            dt_first = datetime.strptime(date_key, '%Y-%m-%d')
+            date_display = dt_first.strftime('%A, %B %d, %Y')
+            threads_list = []
+            day_credits = 0
+            day_cost = 0
+            for thread_id, recs in day_data.items():
+                details = thread_details.get(thread_id, {})
+                project_name = details.get('project_name', '') or 'Unknown Project'
+                total_credits = sum(r['credits'] for r in recs)
+                total_cost = sum(r['total_cost'] for r in recs)
+                day_credits += total_credits
+                day_cost += total_cost
+                threads_list.append({
+                    'thread_id': thread_id,
+                    'project_id': details.get('project_id'),
+                    'project_name': project_name,
+                    'total_requests': len(recs),
+                    'total_credits': total_credits,
+                    'total_cost': round(total_cost, 2),
+                    'usage_records': [
+                        {
+                            'time': datetime.fromisoformat(r['created_at'].replace('Z', '+00:00')).strftime('%I:%M:%S %p'),
+                            'type_display': r['type_display'],
+                            'prompt_tokens': r['prompt_tokens'],
+                            'completion_tokens': r['completion_tokens'],
+                            'tool_cost': r['tool_cost'],
+                            'total_cost': r['total_cost'],
+                            'credits': r['credits'],
+                        }
+                        for r in sorted(recs, key=lambda x: x['created_at'])
+                    ],
+                })
+            daily_usage.append({
+                'date': date_key,
+                'date_display': date_display,
+                'total_credits': day_credits,
+                'total_cost': round(day_cost, 2),
+                'threads': threads_list,
+            })
+
+        total_credits = sum(d['total_credits'] for d in daily_usage)
+        total_cost = sum(d['total_cost'] for d in daily_usage)
+
+        return {
+            'daily_usage': daily_usage,
+            'summary': {
+                'total_credits_used': total_credits,
+                'total_cost': round(total_cost, 2),
+                'start_date': start_dt.isoformat(),
+                'end_date': end_dt.isoformat(),
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[BILLING] Error getting credit usage detail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/credit-usage-by-thread")
 async def get_credit_usage_by_thread(
     account_id: str = Depends(verify_and_get_user_id_from_jwt),

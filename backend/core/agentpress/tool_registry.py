@@ -1,7 +1,8 @@
+import copy
 from typing import Dict, Type, Any, List, Optional, Callable
+
 from core.agentpress.tool import Tool, SchemaType
 from core.utils.logger import logger
-import json
 
 
 class ToolRegistry:
@@ -115,17 +116,30 @@ class ToolRegistry:
             logger.warning(f"Tool not found: {tool_name}")
         return tool
 
-    def get_openapi_schemas(self) -> List[Dict[str, Any]]:
+    def get_openapi_schemas(
+        self, cost_map: Optional[Dict[str, float]] = None
+    ) -> List[Dict[str, Any]]:
         """Get OpenAPI schemas for function calling.
-        
+
+        When cost_map is provided and a tool has cost > 0, appends
+        "(Cost: $X.XX per use)" to the description so agents see it.
+
         Returns:
             List of OpenAPI-compatible schema definitions
         """
-        schemas = [
-            tool_info['schema'].schema 
-            for tool_info in self.tools.values()
-            if tool_info['schema'].schema_type == SchemaType.OPENAPI
-        ]
-        # logger.debug(f"Retrieved {len(schemas)} OpenAPI schemas")
-        return schemas
+        result = []
+        for tool_info in self.tools.values():
+            if tool_info["schema"].schema_type != SchemaType.OPENAPI:
+                continue
+            schema = copy.deepcopy(tool_info["schema"].schema)
+            func = schema.get("function") or {}
+            name = func.get("name", "")
+            if cost_map and name and cost_map.get(name, 0) > 0:
+                desc = func.get("description", "")
+                cost_str = f" (Cost: ${cost_map[name]:.4f} per use)"
+                if desc and not desc.endswith(cost_str):
+                    func["description"] = desc.rstrip() + cost_str
+                    schema["function"] = func
+            result.append(schema)
+        return result
 
