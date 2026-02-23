@@ -6,12 +6,17 @@ from core.utils.config import config
 
 logger = logging.getLogger(__name__)
 
+
 class EmailService:
     def __init__(self):
-        self.api_token = os.getenv('MAILTRAP_API_TOKEN')
-        self.sender_email = os.getenv('MAILTRAP_SENDER_EMAIL', 'hey@omnisciencelabs.com')
-        self.sender_name = os.getenv('MAILTRAP_SENDER_NAME', 'Omni Team')
-        self.hello_email = os.getenv('MAILTRAP_SENDER_EMAIL', 'hello@omnisciencelabs.com')
+        self.api_token = os.getenv("MAILTRAP_API_TOKEN")
+        self.sender_email = os.getenv(
+            "MAILTRAP_SENDER_EMAIL", "hey@omnisciencelabs.com"
+        )
+        self.sender_name = os.getenv("MAILTRAP_SENDER_NAME", "Omni Team")
+        self.hello_email = os.getenv(
+            "MAILTRAP_SENDER_EMAIL", "hello@omnisciencelabs.com"
+        )
 
         if not self.api_token:
             logger.warning("MAILTRAP_API_TOKEN not found in environment variables")
@@ -19,13 +24,15 @@ class EmailService:
         else:
             self.client = mt.MailtrapClient(token=self.api_token)
 
-    def send_welcome_email(self, user_email: str, user_name: Optional[str] = None) -> bool:
+    def send_welcome_email(
+        self, user_email: str, user_name: Optional[str] = None
+    ) -> bool:
         if not self.client:
             logger.error("Cannot send email: MAILTRAP_API_TOKEN not configured")
             return False
 
         if not user_name:
-            user_name = user_email.split('@')[0].title()
+            user_name = user_email.split("@")[0].title()
 
         subject = "🎉 Welcome to Omni — Let's Get Started"
         html_content = self._get_welcome_email_template(user_name)
@@ -36,7 +43,7 @@ class EmailService:
             to_name=user_name,
             subject=subject,
             html_content=html_content,
-            text_content=text_content
+            text_content=text_content,
         )
 
     def send_referral_email(
@@ -44,46 +51,62 @@ class EmailService:
         recipient_email: str,
         recipient_name: str,
         sender_name: str,
-        referral_url: str
+        referral_url: str,
     ) -> bool:
         if not self.client:
             logger.error("Cannot send email: MAILTRAP_API_TOKEN not configured")
             return False
 
         subject = "🎉 You're invited!"
-        html_content = self._get_referral_email_template(recipient_name, sender_name, referral_url)
-        text_content = self._get_referral_email_text(recipient_name, sender_name, referral_url)
+        html_content = self._get_referral_email_template(
+            recipient_name, sender_name, referral_url
+        )
+        text_content = self._get_referral_email_text(
+            recipient_name, sender_name, referral_url
+        )
 
         try:
             sender_email_to_use = self.hello_email
 
-            logger.info(f"Attempting to send referral email from {sender_email_to_use} to {recipient_email}")
+            logger.info(
+                f"Attempting to send referral email from {sender_email_to_use} to {recipient_email}"
+            )
 
             mail = mt.Mail(
-                sender=mt.Address(email=sender_email_to_use, name='Omni'),
+                sender=mt.Address(email=sender_email_to_use, name="Omni"),
                 to=[mt.Address(email=recipient_email, name=recipient_name)],
                 subject=subject,
                 text=text_content,
                 html=html_content,
-                category="referral"
+                category="referral",
             )
 
             response = self.client.send(mail)
 
-            logger.info(f"Referral email sent to {recipient_email} from {sender_name}. Response: {response}")
+            logger.info(
+                f"Referral email sent to {recipient_email} from {sender_name}. Response: {response}"
+            )
             return True
 
         except Exception as e:
             error_type = type(e).__name__
             error_details = str(e)
-            logger.error(f"Error sending referral email to {recipient_email}: {error_details}")
+            logger.error(
+                f"Error sending referral email to {recipient_email}: {error_details}"
+            )
             logger.error(f"Error type: {error_type}")
-            logger.error(f"Mailtrap API Token present: {bool(self.api_token)}, Token prefix: {self.api_token[:8] if self.api_token else 'None'}...")
+            logger.error(
+                f"Mailtrap API Token present: {bool(self.api_token)}, Token prefix: {self.api_token[:8] if self.api_token else 'None'}..."
+            )
             logger.error(f"Sender email: {sender_email_to_use}")
 
-            if hasattr(e, 'response'):
-                logger.error(f"Response status: {e.response.status_code if hasattr(e.response, 'status_code') else 'unknown'}")
-                logger.error(f"Response body: {e.response.text if hasattr(e.response, 'text') else 'unknown'}")
+            if hasattr(e, "response"):
+                logger.error(
+                    f"Response status: {e.response.status_code if hasattr(e.response, 'status_code') else 'unknown'}"
+                )
+                logger.error(
+                    f"Response body: {e.response.text if hasattr(e.response, 'text') else 'unknown'}"
+                )
 
             return False
 
@@ -93,7 +116,7 @@ class EmailService:
         to_name: str,
         subject: str,
         html_content: str,
-        text_content: str
+        text_content: str,
     ) -> bool:
         try:
             mail = mt.Mail(
@@ -102,7 +125,7 @@ class EmailService:
                 subject=subject,
                 text=text_content,
                 html=html_content,
-                category="welcome"
+                category="welcome",
             )
 
             response = self.client.send(mail)
@@ -214,7 +237,9 @@ Thanks again, and welcome to the Omni community!
 © 2025 Omniscience Labs. All rights reserved.
 You received this email because you signed up for an Omni account."""
 
-    def _get_referral_email_template(self, recipient_name: str, sender_name: str, referral_url: str) -> str:
+    def _get_referral_email_template(
+        self, recipient_name: str, sender_name: str, referral_url: str
+    ) -> str:
         content = f"""<table cellpadding="0" cellspacing="0" border="0" style="padding:30px 15px; font-family:Inter, Arial, sans-serif; color:#000000;">
   <tr>
     <td>
@@ -279,7 +304,9 @@ You received this email because you signed up for an Omni account."""
 </body>
 </html>"""
 
-    def _get_referral_email_text(self, recipient_name: str, sender_name: str, referral_url: str) -> str:
+    def _get_referral_email_text(
+        self, recipient_name: str, sender_name: str, referral_url: str
+    ) -> str:
         return f"""Hi {recipient_name},
 
 {sender_name} has invited you to join Omni using a personal referral code.
@@ -295,17 +322,14 @@ Claim your invite: {referral_url}
 © Omniscience Labs. All rights reserved."""
 
     def send_low_credit_alert_email(
-        self,
-        user_email: str,
-        user_name: Optional[str] = None,
-        balance: float = 0.0
+        self, user_email: str, user_name: Optional[str] = None, balance: float = 0.0
     ) -> bool:
         if not self.client:
             logger.error("Cannot send email: MAILTRAP_API_TOKEN not configured")
             return False
 
         if not user_name:
-            user_name = user_email.split('@')[0].title()
+            user_name = user_email.split("@")[0].title()
 
         subject = "⚠️ Your Omni credits are running low"
         html_content = self._get_low_credit_alert_template(user_name, balance)
@@ -318,15 +342,19 @@ Claim your invite: {referral_url}
                 subject=subject,
                 text=text_content,
                 html=html_content,
-                category="low_credit_alert"
+                category="low_credit_alert",
             )
 
             response = self.client.send(mail)
-            logger.info(f"Low credit alert email sent to {user_email} (balance: ${balance:.2f}). Response: {response}")
+            logger.info(
+                f"Low credit alert email sent to {user_email} (balance: ${balance:.2f}). Response: {response}"
+            )
             return True
 
         except Exception as e:
-            logger.error(f"Error sending low credit alert email to {user_email}: {str(e)}")
+            logger.error(
+                f"Error sending low credit alert email to {user_email}: {str(e)}"
+            )
             return False
 
     def _get_low_credit_alert_template(self, user_name: str, balance: float) -> str:
@@ -351,14 +379,15 @@ Claim your invite: {referral_url}
             Hi <strong>{user_name}</strong>,
           </p>
           <p style="margin:0 0 20px 0; font-size:15px; line-height:1.6; color:#374151;">
-            Your Omni credit balance has dropped to <strong style="color:#DC2626;">${balance:.2f}</strong>.
-            To avoid any interruption to your agents and workflows, please top up your credits.
+            We wanted to give you a quick update that your Omni credit balance has dropped to <strong style="color:#DC2626;">${balance:.2f}</strong>.
+          </p>
+          <p style="margin:0 0 20px 0; font-size:15px; line-height:1.6; color:#374151;">
+            To keep your workflows running smoothly and ensure no interruptions to your active agents, we kindly request that you add some more credits to your account.
           </p>
           <table cellpadding="0" cellspacing="0" border="0" style="background:#fef3c7; border:1px solid #fcd34d; border-radius:12px; padding:16px; margin:0 0 24px 0; width:100%;">
             <tr>
               <td style="font-size:14px; line-height:1.6; color:#92400e;">
-                <strong>Current balance:</strong> ${balance:.2f}<br/>
-                <strong>Minimum to run agents:</strong> $0.01
+                <strong>Current balance:</strong> ${balance:.2f}
               </td>
             </tr>
           </table>
@@ -366,11 +395,15 @@ Claim your invite: {referral_url}
             <tr>
               <td>
                 <a href="https://becomeomni.com/" style="background:#000000; color:#ffffff; padding:12px 28px; text-decoration:none; font-size:15px; font-weight:600; border-radius:12px; display:inline-block;">
-                  Top Up Credits →
+                  Add Credits
                 </a>
               </td>
             </tr>
           </table>
+          <p style="margin:0 0 20px 0; font-size:15px; line-height:1.6; color:#374151;">
+            Best,<br/>
+            <strong>The Omni Team</strong>
+          </p>
           <p style="margin:0; font-size:13px; line-height:1.6; color:#9ca3af;">
             You can also set up auto top-up in your billing settings so this never happens again.
           </p>
@@ -392,12 +425,14 @@ Claim your invite: {referral_url}
 
 Your Omni credit balance has dropped to ${balance:.2f}.
 
-To avoid any interruption to your agents and workflows, please top up your credits.
+To keep your workflows running smoothly and ensure no interruptions to your active agents, we kindly request that you add some more credits to your account.
 
 Current balance: ${balance:.2f}
-Minimum to run agents: $0.01
 
-Top up your credits here: https://becomeomni.com/
+Add credits here: https://becomeomni.com/
+
+Best,
+The Omni Team
 
 You can also set up auto top-up in your billing settings so this never happens again.
 

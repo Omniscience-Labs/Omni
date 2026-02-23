@@ -25,6 +25,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 import mailtrap as mt
@@ -54,22 +55,17 @@ def send_alert(
 ) -> bool:
     client = _get_client(sandbox, inbox_id)
 
+    from core.services.email import email_service
+
+    html_content = email_service._get_low_credit_alert_template(to_name, balance)
+    text_content = email_service._get_low_credit_alert_text(to_name, balance)
+
     mail = mt.Mail(
         sender=mt.Address(email=sender_email, name=sender_name),
         to=[mt.Address(email=to_email, name=to_name)],
         subject="⚠️ Your Omni credits are running low",
-        html=f"""
-        <p>Hi <strong>{to_name}</strong>,</p>
-        <p>Your Omni credit balance has dropped to
-           <strong style="color:#DC2626;">${balance:.2f}</strong>.</p>
-        <p>Please <a href="https://becomeomni.com/">top up your credits</a>
-           to avoid any interruption to your agents.</p>
-        """,
-        text=(
-            f"Hi {to_name},\n\n"
-            f"Your Omni credit balance has dropped to ${balance:.2f}.\n\n"
-            "Top up here: https://becomeomni.com/"
-        ),
+        html=html_content,
+        text=text_content,
         category="low_credit_alert",
     )
 
@@ -78,6 +74,7 @@ def send_alert(
             # Sandbox endpoint embeds inbox_id in the URL; the library doesn't
             # support this, so we call the API directly.
             import requests
+
             token = os.getenv("MAILTRAP_API_TOKEN")
             url = f"https://sandbox.api.mailtrap.io/api/send/{inbox_id}"
             headers = {
@@ -99,12 +96,25 @@ def send_alert(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Send a test low-credit alert email via MailTrap")
+    parser = argparse.ArgumentParser(
+        description="Send a test low-credit alert email via MailTrap"
+    )
     parser.add_argument("--email", required=True, help="Recipient email address")
     parser.add_argument("--name", default=None, help="Recipient display name")
-    parser.add_argument("--balance", type=float, default=0.50, help="Simulated balance (default: 0.50)")
-    parser.add_argument("--sandbox", action="store_true", help="Use MailTrap sandbox (no domain verification)")
-    parser.add_argument("--inbox-id", type=int, default=None, help="MailTrap inbox ID (required for --sandbox)")
+    parser.add_argument(
+        "--balance", type=float, default=0.50, help="Simulated balance (default: 0.50)"
+    )
+    parser.add_argument(
+        "--sandbox",
+        action="store_true",
+        help="Use MailTrap sandbox (no domain verification)",
+    )
+    parser.add_argument(
+        "--inbox-id",
+        type=int,
+        default=None,
+        help="MailTrap inbox ID (required for --sandbox)",
+    )
     args = parser.parse_args()
 
     if args.sandbox and not args.inbox_id:
@@ -113,7 +123,7 @@ def main():
         sys.exit(1)
 
     sender_email = os.getenv("MAILTRAP_SENDER_EMAIL", "support@omnisciencelabs.com")
-    sender_name  = os.getenv("MAILTRAP_SENDER_NAME",  "Omni Team")
+    sender_name = os.getenv("MAILTRAP_SENDER_NAME", "Omni Team")
     to_name = args.name or args.email.split("@")[0].replace(".", " ").title()
     mode = "SANDBOX" if args.sandbox else "PRODUCTION"
 
