@@ -133,124 +133,30 @@ CREATE TABLE tool_costs (
 );
 
 -- Seed default tool costs (by tool function name)
--- Billing keys off tool_name from LLM tool calls
+-- Only these 21 tools are billed; all other tools are treated as free (not in table = cost 0).
 INSERT INTO tool_costs (tool_name, cost, description, is_active)
 VALUES
-    -- ExpandMessageTool
-    ('expand_message', 0.0005, 'View full truncated message (ExpandMessageTool)', TRUE),
-    -- MessageTool
-    ('ask', 0.0005, 'Ask user question, wait response (MessageTool)', TRUE),
-    ('complete', 0.0005, 'Signal task completion to user (MessageTool)', TRUE),
-    ('wait', 0.0005, 'Pause execution for N seconds (MessageTool)', TRUE),
-    -- TaskListTool
-    ('view_tasks', 0.0010, 'View current task list (TaskListTool)', TRUE),
-    ('create_tasks', 0.0020, 'Create new tasks and sections (TaskListTool)', TRUE),
-    ('update_tasks', 0.0015, 'Update existing task content (TaskListTool)', TRUE),
-    ('delete_tasks', 0.0010, 'Delete tasks or sections (TaskListTool)', TRUE),
-    ('clear_all', 0.0010, 'Clear all tasks from list (TaskListTool)', TRUE),
-    -- SandboxShellTool
-    ('execute_command', 0.0100, 'Run shell command in workspace (SandboxShellTool)', TRUE),
-    ('check_command_output', 0.0020, 'Poll running command output (SandboxShellTool)', TRUE),
-    ('terminate_command', 0.0010, 'Kill running command session (SandboxShellTool)', TRUE),
-    ('list_commands', 0.0010, 'List active command sessions (SandboxShellTool)', TRUE),
-    -- SandboxFilesTool
-    ('create_file', 0.0050, 'Create new file with content (SandboxFilesTool)', TRUE),
-    ('str_replace', 0.0030, 'Find and replace in file (SandboxFilesTool)', TRUE),
-    ('full_file_rewrite', 0.0050, 'Overwrite entire file contents (SandboxFilesTool)', TRUE),
-    ('delete_file', 0.0020, 'Delete file from workspace (SandboxFilesTool)', TRUE),
-    ('edit_file', 0.0200, 'AI-assisted code edit via Morph (SandboxFilesTool)', TRUE),
-    -- SandboxExposeTool
-    ('expose_port', 0.0050, 'Share local port with preview URL (SandboxExposeTool)', TRUE),
-    -- SandboxVisionTool
-    ('load_image', 0.0300, 'Load image for vision context (SandboxVisionTool)', TRUE),
-    ('clear_images_from_context', 0.0010, 'Clear image context (SandboxVisionTool)', TRUE),
-    -- SandboxImageEditTool
-    ('image_edit_or_generate', 0.0800, 'Generate or edit images with AI (SandboxImageEditTool)', TRUE),
-    -- SandboxKbTool
-    ('init_kb', 0.0100, 'Initialize knowledge base (SandboxKbTool)', TRUE),
-    ('search_files', 0.0200, 'Semantic search in KB (SandboxKbTool)', TRUE),
-    ('cleanup_kb', 0.0050, 'Clean knowledge base data (SandboxKbTool)', TRUE),
-    ('ls_kb', 0.0020, 'List KB files and folders (SandboxKbTool)', TRUE),
-    ('global_kb_sync', 0.0150, 'Sync global KB to workspace (SandboxKbTool)', TRUE),
-    ('global_kb_create_folder', 0.0050, 'Create folder in global KB (SandboxKbTool)', TRUE),
-    ('global_kb_upload_file', 0.0150, 'Upload file to global KB (SandboxKbTool)', TRUE),
-    ('global_kb_delete_item', 0.0050, 'Delete item from global KB (SandboxKbTool)', TRUE),
-    ('global_kb_enable_item', 0.0030, 'Enable or disable KB item (SandboxKbTool)', TRUE),
-    ('global_kb_list_contents', 0.0050, 'List global KB contents (SandboxKbTool)', TRUE),
-    -- SandboxPresentationTool
-    ('list_templates', 0.0020, 'List presentation templates (SandboxPresentationTool)', TRUE),
-    ('load_template_design', 0.0100, 'Load template into presentation (SandboxPresentationTool)', TRUE),
-    ('create_slide', 0.0080, 'Create new presentation slide (SandboxPresentationTool)', TRUE),
-    ('list_slides', 0.0020, 'List slides in presentation (SandboxPresentationTool)', TRUE),
-    ('delete_slide', 0.0020, 'Delete slide from presentation (SandboxPresentationTool)', TRUE),
-    ('list_presentations', 0.0020, 'List all presentations (SandboxPresentationTool)', TRUE),
-    ('delete_presentation', 0.0030, 'Delete presentation (SandboxPresentationTool)', TRUE),
-    ('validate_slide', 0.0050, 'Validate slide content (SandboxPresentationTool)', TRUE),
-    ('export_to_pptx', 0.0200, 'Export presentation to PowerPoint (SandboxPresentationTool)', TRUE),
-    ('export_to_pdf', 0.0200, 'Export presentation to PDF (SandboxPresentationTool)', TRUE),
-    -- SandboxUploadFileTool
-    ('upload_file', 0.0200, 'Upload file to cloud storage (SandboxUploadFileTool)', TRUE),
-    -- SandboxWebSearchTool
-    ('web_search', 0.0300, 'Search web for information (SandboxWebSearchTool)', TRUE),
-    ('scrape_webpage', 0.0200, 'Scrape webpage content (SandboxWebSearchTool)', TRUE),
-    -- SandboxImageSearchTool
-    ('image_search', 0.0200, 'Search images on internet (SandboxImageSearchTool)', TRUE),
-    -- PeopleSearchTool
-    ('people_search', 0.0400, 'Search people professional info (PeopleSearchTool)', TRUE),
-    -- CompanySearchTool
-    ('company_search', 0.0400, 'Search companies business info (CompanySearchTool)', TRUE),
-    -- PaperSearchTool
-    ('paper_search', 0.0400, 'Search academic papers (PaperSearchTool)', TRUE),
-    ('get_paper_details', 0.0200, 'Get paper details by ID (PaperSearchTool)', TRUE),
-    ('search_authors', 0.0300, 'Search academic authors (PaperSearchTool)', TRUE),
-    ('get_author_details', 0.0200, 'Get author profile details (PaperSearchTool)', TRUE),
-    ('get_author_papers', 0.0300, 'Get papers by author (PaperSearchTool)', TRUE),
-    -- DataProvidersTool
-    ('get_data_provider_endpoints', 0.0010, 'List data provider endpoints (DataProvidersTool)', TRUE),
-    ('execute_data_provider_call', 0.0400, 'Call LinkedIn, Yahoo, etc (DataProvidersTool)', TRUE),
-    -- BrowserTool
-    ('browser_navigate_to', 0.0200, 'Navigate browser to URL (BrowserTool)', TRUE),
-    ('browser_act', 0.0250, 'Click, type, interact page (BrowserTool)', TRUE),
-    ('browser_extract_content', 0.0150, 'Extract content from page (BrowserTool)', TRUE),
-    ('browser_screenshot', 0.0300, 'Capture browser screenshot (BrowserTool)', TRUE),
-    -- VapiVoiceTool
-    ('make_phone_call', 0.1500, 'Initiate voice phone call (VapiVoiceTool)', TRUE),
-    ('end_call', 0.0100, 'End active phone call (VapiVoiceTool)', TRUE),
-    ('get_call_details', 0.0050, 'Get call status details (VapiVoiceTool)', TRUE),
-    ('wait_for_call_completion', 0.0200, 'Wait until call finishes (VapiVoiceTool)', TRUE),
-    ('list_calls', 0.0050, 'List recent voice calls (VapiVoiceTool)', TRUE),
-    -- AgentConfigTool
-    ('update_agent', 0.0100, 'Update agent config and tools (AgentConfigTool)', TRUE),
-    ('get_current_agent_config', 0.0020, 'Get current agent config (AgentConfigTool)', TRUE),
-    -- AgentCreationTool
-    ('create_new_agent', 0.0600, 'Create new AI agent (AgentCreationTool)', TRUE),
-    ('search_mcp_servers_for_agent', 0.0200, 'Search MCP servers for agent (AgentCreationTool)', TRUE),
-    ('get_mcp_server_details', 0.0100, 'Get MCP server details (AgentCreationTool)', TRUE),
-    ('create_credential_profile_for_agent', 0.0150, 'Create agent credential profile (AgentCreationTool)', TRUE),
-    ('discover_mcp_tools_for_agent', 0.0300, 'Discover tools from MCP (AgentCreationTool)', TRUE),
-    ('configure_agent_integration', 0.0200, 'Configure MCP integration (AgentCreationTool)', TRUE),
-    ('create_agent_scheduled_trigger', 0.0100, 'Create agent scheduled trigger (AgentCreationTool)', TRUE),
-    ('list_agent_scheduled_triggers', 0.0050, 'List agent triggers (AgentCreationTool)', TRUE),
-    ('toggle_agent_scheduled_trigger', 0.0050, 'Toggle agent trigger on/off (AgentCreationTool)', TRUE),
-    ('delete_agent_scheduled_trigger', 0.0050, 'Delete agent trigger (AgentCreationTool)', TRUE),
-    ('update_agent_config', 0.0150, 'Update agent configuration (AgentCreationTool)', TRUE),
-    -- MCPSearchTool
-    ('search_mcp_servers', 0.0200, 'Search MCP server catalog (MCPSearchTool)', TRUE),
-    ('get_app_details', 0.0100, 'Get MCP app details (MCPSearchTool)', TRUE),
-    ('discover_user_mcp_servers', 0.0300, 'Discover user MCP servers (MCPSearchTool)', TRUE),
-    -- CredentialProfileTool
-    ('get_credential_profiles', 0.0020, 'List credential profiles (CredentialProfileTool)', TRUE),
-    ('create_credential_profile', 0.0050, 'Create new credential profile (CredentialProfileTool)', TRUE),
-    ('configure_profile_for_agent', 0.0050, 'Link profile to agent (CredentialProfileTool)', TRUE),
-    ('delete_credential_profile', 0.0030, 'Delete credential profile (CredentialProfileTool)', TRUE),
-    -- TriggerTool
-    ('get_scheduled_triggers', 0.0050, 'List scheduled triggers (TriggerTool)', TRUE),
-    ('create_scheduled_trigger', 0.0100, 'Create scheduled trigger (TriggerTool)', TRUE),
-    ('delete_scheduled_trigger', 0.0050, 'Delete scheduled trigger (TriggerTool)', TRUE),
-    ('toggle_scheduled_trigger', 0.0050, 'Toggle trigger active state (TriggerTool)', TRUE),
-    ('list_event_trigger_apps', 0.0050, 'List event trigger apps (TriggerTool)', TRUE),
-    ('list_app_event_triggers', 0.0050, 'List app event triggers (TriggerTool)', TRUE),
-    ('create_event_trigger', 0.0100, 'Create event-based trigger (TriggerTool)', TRUE)
+    ('browser_act', 0.025000, 'Click, type, interact page (BrowserTool)', TRUE),
+    ('browser_extract_content', 0.025000, 'Extract content from page (BrowserTool)', TRUE),
+    ('browser_navigate_to', 0.020000, 'Navigate browser to URL (BrowserTool)', TRUE),
+    ('browser_screenshot', 0.030000, 'Capture browser screenshot (BrowserTool)', TRUE),
+    ('company_search', 0.100000, 'Search companies business info (CompanySearchTool)', TRUE),
+    ('complete', 0.000500, 'Signal task completion to user (MessageTool)', TRUE),
+    ('create_slide', 0.100000, 'Create new presentation slide (SandboxPresentationTool)', TRUE),
+    ('edit_file', 0.020000, 'AI-assisted code edit via Morph (SandboxFilesTool)', TRUE),
+    ('execute_data_provider_call', 0.040000, 'Call LinkedIn, Yahoo, etc (DataProvidersTool)', TRUE),
+    ('get_author_papers', 0.200000, 'Get papers by author (PaperSearchTool)', TRUE),
+    ('get_call_details', 0.100000, 'Get call status details (VapiVoiceTool)', TRUE),
+    ('get_paper_details', 0.200000, 'Get paper details by ID (PaperSearchTool)', TRUE),
+    ('image_edit_or_generate', 0.200000, 'Generate or edit images with AI (SandboxImageEditTool)', TRUE),
+    ('image_search', 0.200000, 'Search images on internet (SandboxImageSearchTool)', TRUE),
+    ('make_phone_call', 0.150000, 'Initiate voice phone call (VapiVoiceTool)', TRUE),
+    ('paper_search', 0.100000, 'Search academic papers (PaperSearchTool)', TRUE),
+    ('people_search', 0.100000, 'Search people professional info (PeopleSearchTool)', TRUE),
+    ('scrape_webpage', 0.100000, 'Scrape webpage content (SandboxWebSearchTool)', TRUE),
+    ('search_authors', 0.100000, 'Search academic authors (PaperSearchTool)', TRUE),
+    ('search_files', 0.020000, 'Semantic search in KB (SandboxKbTool)', TRUE),
+    ('web_search', 0.050000, 'Search web for information (SandboxWebSearchTool)', TRUE)
 ON CONFLICT (tool_name) DO UPDATE SET
     cost = EXCLUDED.cost,
     description = EXCLUDED.description,
