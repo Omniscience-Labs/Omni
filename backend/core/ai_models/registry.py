@@ -3,10 +3,9 @@ from .ai_models import Model, ModelProvider, ModelCapability, ModelPricing, Mode
 from core.utils.config import config, EnvMode
 from core.utils.logger import logger
 
-# SHOULD_USE_ANTHROPIC = False
 # CRITICAL: Production and Staging must ALWAYS use Bedrock, never Anthropic API directly
-# Disabled: No longer using Anthropic API directly, only Bedrock
-# SHOULD_USE_ANTHROPIC = config.ENV_MODE == EnvMode.LOCAL and bool(config.ANTHROPIC_API_KEY)
+# Use Anthropic API directly only for local development when ANTHROPIC_API_KEY is set
+SHOULD_USE_ANTHROPIC = config.ENV_MODE == EnvMode.LOCAL and bool(getattr(config, "ANTHROPIC_API_KEY", None))
 
 # # Actual model IDs for LiteLLM
 # Use Anthropic API directly for local development, Bedrock for production/staging
@@ -26,20 +25,28 @@ def _format_bedrock_arn(arn: str) -> str:
 
 def _get_basic_model_id() -> str:
     """Resolve Basic (Haiku) model ID from config at use-time so backend .env is always used."""
+    if SHOULD_USE_ANTHROPIC:
+        return _ANTHROPIC_HAIKU_ID
     arn = getattr(config, "BEDROCK_HAIKU_ARN", None) if config else None
     return _format_bedrock_arn(arn) if arn else "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 
 def _get_power_model_id() -> str:
     """Resolve Power (Sonnet 4.6) model ID from config at use-time so backend .env is always used."""
+    if SHOULD_USE_ANTHROPIC:
+        return _ANTHROPIC_SONNET_4_6_ID
     arn = getattr(config, "BEDROCK_SONNET_ARN", None) if config else None
     return _format_bedrock_arn(arn) if arn else "bedrock/us.anthropic.claude-sonnet-4-6"
 
 
 def _get_fallback_model_id() -> str:
     """Resolve fallback (Sonnet 4.5) model ID from config at use-time. Used when Haiku or Sonnet 4.6 fails."""
+    if SHOULD_USE_ANTHROPIC:
+        return _ANTHROPIC_SONNET_4_5_ID
     arn = getattr(config, "BEDROCK_FALLBACK_ARN", None) if config else None
     return _format_bedrock_arn(arn) if arn else "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+
 # Anthropic API model IDs (for fallback chain; LiteLLM uses anthropic/<model-id>)
 _ANTHROPIC_HAIKU_ID = "anthropic/claude-haiku-4-5-20251001"
 _ANTHROPIC_SONNET_4_6_ID = "anthropic/claude-sonnet-4-6"
