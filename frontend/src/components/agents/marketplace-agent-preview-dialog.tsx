@@ -5,15 +5,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Bot, Download, Wrench, Plug, Tag, User, Calendar, Loader2, Share, Cpu, Eye, Zap, MessageSquare, ArrowRight, Sparkles, FileText } from 'lucide-react';
+import { Bot, Download, Plug, Tag, Calendar, Loader2, Share, Cpu, Eye, Zap, Sparkles, FileText } from 'lucide-react';
 import { DynamicIcon } from 'lucide-react/dynamic';
 import { toast } from 'sonner';
-import type { MarketplaceTemplate, UsageExampleMessage } from '@/components/agents/installation/types';
+import type { MarketplaceTemplate } from '@/components/agents/installation/types';
 import { useComposioToolkitIcon } from '@/hooks/composio/use-composio';
 import { useRouter } from 'next/navigation';
 import { backendApi } from '@/lib/api-client';
 import { AgentAvatar } from '@/components/thread/content/agent-avatar';
-import { useTheme } from 'next-themes';
 import { Markdown } from '@/components/ui/markdown';
 
 interface MarketplaceAgentPreviewDialogProps {
@@ -104,12 +103,12 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
   isInstalling = false
 }) => {
   const router = useRouter();
-  const { theme } = useTheme();
+
   const [isGeneratingShareLink, setIsGeneratingShareLink] = React.useState(false);
   
   if (!agent) return null;
 
-  const isOmniAgent = agent.is_omni_team || false;
+  const isOmniAgent = agent.is_kortix_team || false;
   
   const tools = agent.mcp_requirements || [];
   
@@ -159,16 +158,14 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
     return qualifiedName.replace(/\b\w/g, l => l.toUpperCase());
   };
 
-  const hasUsageExamples = agent.usage_examples && agent.usage_examples.length > 0;
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={`${hasUsageExamples ? 'max-w-6xl' : 'max-w-2xl'} h-[85vh] p-0 overflow-hidden flex flex-col`}>
+      <DialogContent className="max-w-2xl h-[85vh] p-0 overflow-hidden flex flex-col">
         <DialogHeader className='sr-only'>
           <DialogTitle>Agent Preview</DialogTitle>
         </DialogHeader>
-        <div className={`flex ${hasUsageExamples ? 'flex-row' : 'flex-col'} flex-1 min-h-0`}>
-          <div className={`${hasUsageExamples ? 'w-1/2' : 'w-full'} flex flex-col min-h-0`}>
+        <div className="flex flex-col flex-1 min-h-0">
+          <div className="w-full flex flex-col min-h-0">
             <div className="flex-shrink-0 p-8 pb-6">
               <div className="flex items-center gap-4">
                 <div className="flex-shrink-0 relative">
@@ -310,97 +307,6 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
             </div>
           </div>
 
-          {hasUsageExamples && (
-            <div className="w-1/2 flex flex-col p-4 overflow-hidden">
-              <div className="px-0 py-4 flex-shrink-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="text-sm font-medium text-muted-foreground">Usage</h3>
-                </div>
-              </div>
-              <div className="bg-white dark:bg-black p-3 rounded-xl flex-1 overflow-y-auto space-y-4 min-h-0">
-                <div 
-                  className="p-3 rounded-xl flex-1 overflow-y-auto space-y-4 h-full"
-                  style={{
-                    background: theme === 'dark' 
-                      ? `linear-gradient(to bottom right, ${agent.icon_background}14, ${agent.icon_background}0A)`
-                      : `linear-gradient(to bottom right, ${agent.icon_background}33, ${agent.icon_background}60)`
-                  }}
-                >
-                  {(() => {
-                    const messages = agent.usage_examples || [];
-                    const groupedMessages: Array<{ role: string; messages: UsageExampleMessage[] }> = [];
-                    
-                    messages.forEach((message) => {
-                      const lastGroup = groupedMessages[groupedMessages.length - 1];
-                      if (lastGroup && lastGroup.role === message.role) {
-                        lastGroup.messages.push(message);
-                      } else {
-                        groupedMessages.push({ role: message.role, messages: [message] });
-                      }
-                    });
-
-                    return groupedMessages.map((group, groupIndex) => {
-                      const isUser = group.role === 'user';
-                      return (
-                        <div key={groupIndex} className='flex'>
-                          <div className={`group relative max-w-[85%]`}>
-                            <div className="flex items-start gap-3">
-                              {!isUser && (
-                                <div className="flex-shrink-0 mt-1">
-                                  <AgentAvatar
-                                    iconName={agent.icon_name}
-                                    iconColor={agent.icon_color}
-                                    backgroundColor={agent.icon_background}
-                                    agentName={agent.name}
-                                    size={32}
-                                  />
-                                </div>
-                              )}
-                              {isUser && (
-                                <div className="flex-shrink-0 mt-1">
-                                  <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                                    <User className="h-4 w-4 text-muted" />
-                                  </div>
-                                </div>
-                              )}
-                              <div className='rounded-xl space-y-3'>
-                                {group.messages.map((message, msgIndex) => (
-                                  <div key={msgIndex}>
-                                    <p className="text-sm mt-1 font-medium leading-relaxed whitespace-pre-wrap">{message.content}</p>
-                                    {message.tool_calls && message.tool_calls.length > 0 && (
-                                      <div className="mt-2 space-y-1.5">
-                                        {message.tool_calls.map((tool, toolIndex) => (
-                                          <div key={toolIndex} className="flex items-center gap-2 p-1 bg-white dark:bg-muted border rounded-md">
-                                            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-muted-foreground/10 to-muted-foreground/5 border-2 flex items-center justify-center">
-                                              <Wrench className="h-3 w-3" />
-                                            </div>
-                                            <span className="text-xs">{tool.name}</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-                {!agent.usage_examples && (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center space-y-3">
-                      <MessageSquare className="h-12 w-12 text-muted-foreground/30 mx-auto" />
-                      <p className="text-sm text-muted-foreground">No example conversations available</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </DialogContent>
     </Dialog>

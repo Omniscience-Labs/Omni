@@ -74,7 +74,7 @@ export function AgentCreationModal({ open, onOpenChange, onSuccess }: AgentCreat
       system_prompt: template.system_prompt,
       tags: template.tags || [],
       download_count: template.download_count || 0,
-      is_omni_team: template.is_omni_team || false,
+      is_kortix_team: template.is_kortix_team || false,
       creator_name: template.creator_name,
       created_at: template.created_at,
       icon_name: template.icon_name,
@@ -84,7 +84,6 @@ export function AgentCreationModal({ open, onOpenChange, onSuccess }: AgentCreat
       agentpress_tools: template.agentpress_tools || {},
       model: template.metadata?.model,
       marketplace_published_at: template.marketplace_published_at,
-      usage_examples: template.usage_examples,
       config: template.config,
     };
 
@@ -104,7 +103,7 @@ export function AgentCreationModal({ open, onOpenChange, onSuccess }: AgentCreat
     icon_background: template.icon_background,
     creator_id: template.creator_id,
     creator_name: template.creator_name,
-    is_omni_team: template.is_omni_team || false,
+    is_omni_team: template.is_kortix_team || false,
     download_count: template.download_count || 0,
     marketplace_published_at: template.marketplace_published_at,
     mcp_requirements: template.mcp_requirements || [],

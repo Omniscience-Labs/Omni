@@ -1,12 +1,3 @@
-export interface UsageExampleMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  tool_calls?: Array<{
-    name: string;
-    arguments?: Record<string, any>;
-  }>;
-}
-
 export interface MarketplaceTemplate {
   id: string;
   creator_id: string;
@@ -18,11 +9,12 @@ export interface MarketplaceTemplate {
   creator_name: string;
   created_at: string;
   marketplace_published_at?: string;
+  profile_image_url?: string;
   icon_name?: string;
   icon_color?: string;
   icon_background?: string;
   template_id: string;
-  is_omni_team?: boolean;
+  is_kortix_team?: boolean;
   model?: string;
   agentpress_tools?: Record<string, any>;
   mcp_requirements?: Array<{
@@ -36,7 +28,14 @@ export interface MarketplaceTemplate {
     source?: 'trigger' | 'tool';
     trigger_index?: number;
   }>;
-  usage_examples?: UsageExampleMessage[];
+  sharing_preferences?: {
+    include_system_prompt: boolean;
+    include_default_tools: boolean;
+    include_integrations: boolean;
+    include_knowledge_bases: boolean;
+    include_triggers: boolean;
+    include_default_files: boolean;
+  };
   metadata?: {
     source_agent_id?: string;
     source_version_id?: string;

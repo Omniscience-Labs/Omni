@@ -110,14 +110,11 @@ def is_suna_default_agent(agent_data: Dict[str, Any]) -> bool:
 
 
 def format_template_for_response(template: AgentTemplate) -> Dict[str, Any]:
-    from core.utils.logger import logger
-    
-    # logger.debug(f"Formatting template {template.template_id}: usage_examples = {template.usage_examples}")
-    
-    response = {
+    return {
         'template_id': template.template_id,
         'creator_id': template.creator_id,
         'name': template.name,
+        'description': template.description,
         'system_prompt': template.system_prompt,
         'model': template.config.get('model'),
         'mcp_requirements': format_mcp_requirements_for_response(template.mcp_requirements),
@@ -130,18 +127,15 @@ def format_template_for_response(template: AgentTemplate) -> Dict[str, Any]:
         'download_count': template.download_count,
         'created_at': template.created_at.isoformat(),
         'updated_at': template.updated_at.isoformat(),
+        'profile_image_url': template.profile_image_url,
         'icon_name': template.icon_name,
         'icon_color': template.icon_color,
         'icon_background': template.icon_background,
         'metadata': template.metadata,
         'creator_name': template.creator_name,
-        'usage_examples': template.usage_examples,
+        'sharing_preferences': template.sharing_preferences,
         'config': template.config,
     }
-    
-    # logger.debug(f"Response for {template.template_id} includes usage_examples: {response.get('usage_examples')}")
-    
-    return response
 
 
 def format_mcp_requirements_for_response(requirements: List[MCPRequirementValue]) -> List[Dict[str, Any]]:
