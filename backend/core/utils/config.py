@@ -383,7 +383,14 @@ class Configuration:
     FIRECRAWL_URL: Optional[str] = "https://api.firecrawl.dev"
     EXA_API_KEY: Optional[str] = None
     SEMANTIC_SCHOLAR_API_KEY: Optional[str] = None
-    
+
+    # Memory service (Supermemory) configuration
+    SUPERMEMORY_API_KEY: Optional[str] = None
+    SUPERMEMORY_REQUEST_TIMEOUT: float = 20.0
+    SUPERMEMORY_MAX_RETRIES: int = 4
+    SUPERMEMORY_RETRY_DELAY: float = 1.0
+    SUPERMEMORY_CACHE_TTL: int = 45  # Redis cache TTL in seconds for memory retrievals
+
     VAPI_PRIVATE_KEY: Optional[str] = None
     VAPI_PHONE_NUMBER_ID: Optional[str] = None
     VAPI_SERVER_URL: Optional[str] = None
@@ -605,6 +612,12 @@ class Configuration:
                     # Handle integer conversion
                     try:
                         setattr(self, key, int(env_val))
+                    except ValueError:
+                        logger.warning(f"Invalid value for {key}: {env_val}, using default")
+                elif expected_type == float:
+                    # Handle float conversion
+                    try:
+                        setattr(self, key, float(env_val))
                     except ValueError:
                         logger.warning(f"Invalid value for {key}: {env_val}, using default")
                 else:

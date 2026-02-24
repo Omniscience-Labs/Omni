@@ -16,6 +16,7 @@ from typing import Optional, Dict, Any, Tuple
 from core.services import redis_worker as redis
 from core.run import run_agent
 from core.utils.logger import logger, structlog
+from core.services.memory_integration import store_conversation_memory
 from core.utils.tool_discovery import warm_up_tools_cache
 import dramatiq
 import uuid
@@ -96,6 +97,13 @@ async def initialize():
     logger.info(f"Initializing worker async resources with Redis at {redis_host}:{redis_port}")
     await retry(lambda: redis.initialize_async())
     await db.initialize()
+
+    # Initialize main Redis so memory_integration cache works in worker
+    try:
+        from core.services import redis as main_redis
+        await main_redis.initialize_async()
+    except Exception as redis_err:
+        logger.warning(f"Failed to initialize main Redis in worker (memory cache may be skipped): {redis_err}")
     
     from core.utils.tool_discovery import warm_up_tools_cache
     warm_up_tools_cache()
@@ -113,6 +121,42 @@ async def initialize():
 async def check_health(key: str):
     structlog.contextvars.clear_contextvars()
     await redis.set(key, "healthy", ex=redis.REDIS_KEY_TTL)
+
+
+@dramatiq.actor
+async def store_conversation_memory_background(
+    thread_id: str,
+    additional_context: Optional[str] = None,
+    agent_run_id: Optional[str] = None,
+):
+    """
+    Store conversation memory in the background using Dramatiq.
+
+    This actor handles memory storage asynchronously to avoid blocking
+    the main agent run completion process.
+    """
+    structlog.contextvars.clear_contextvars()
+    structlog.contextvars.bind_contextvars(
+        thread_id=thread_id,
+        agent_run_id=agent_run_id,
+    )
+    try:
+        await initialize()
+        success = await store_conversation_memory(
+            db=db,
+            thread_id=thread_id,
+            additional_context=additional_context,
+            agent_run_id=agent_run_id,
+        )
+        if success:
+            logger.info(f"Successfully stored conversation memory for thread {thread_id}")
+        else:
+            logger.warning(f"Failed to store conversation memory for thread {thread_id}")
+    except Exception as e:
+        logger.error(
+            f"Error in background memory storage for thread {thread_id}: {str(e)}",
+            exc_info=True,
+        )
 
 
 async def acquire_run_lock(agent_run_id: str, instance_id: str, client) -> bool:
@@ -601,6 +645,18 @@ async def run_agent_background(
             if not complete_tool_called:
                 logger.info(f"Agent run {agent_run_id} completed without explicit complete tool call - skipping notification")
 
+            # Store conversation memory asynchronously on successful completion
+            try:
+                duration = (datetime.now(timezone.utc) - start_time).total_seconds()
+                store_conversation_memory_background.send(
+                    thread_id=thread_id,
+                    additional_context=f"Agent run {agent_run_id} completed successfully after {duration:.2f}s with {total_responses} responses",
+                    agent_run_id=agent_run_id,
+                )
+                logger.info(f"Enqueued conversation memory storage for thread {thread_id} (run {agent_run_id})")
+            except Exception as mem_err:
+                logger.warning(f"Failed to dispatch conversation memory storage on completion: {mem_err}")
+
         all_responses_json = await redis.lrange(redis_keys['response_list'], 0, -1)
         all_responses = [json.loads(r) for r in all_responses_json]
 
@@ -608,6 +664,19 @@ async def run_agent_background(
 
         if final_status == "failed" and error_message:
             await send_failure_notification(client, thread_id, error_message)
+
+        # Store conversation memory for failed/stopped runs if there was meaningful conversation
+        if final_status in ["failed", "stopped"] and total_responses > 0:
+            try:
+                duration = (datetime.now(timezone.utc) - start_time).total_seconds()
+                store_conversation_memory_background.send(
+                    thread_id=thread_id,
+                    additional_context=f"Agent run {agent_run_id} {final_status} after {duration:.2f}s with {total_responses} responses. Error: {error_message or 'None'}",
+                    agent_run_id=agent_run_id,
+                )
+                logger.info(f"Enqueued conversation memory storage for {final_status} run thread {thread_id} (run {agent_run_id})")
+            except Exception as mem_err:
+                logger.warning(f"Failed to dispatch conversation memory storage for {final_status} run: {mem_err}")
 
         stop_reason = stop_signal_checker_state.get('stop_reason')
         await publish_final_control_signal(final_status, redis_keys['global_control_channel'], stop_reason=stop_reason)
@@ -630,6 +699,19 @@ async def run_agent_background(
             logger.error(f"Failed to push error response to Redis for {agent_run_id}: {redis_err}")
 
         await update_agent_run_status(client, agent_run_id, "failed", error=f"{error_message}\n{traceback_str}", account_id=account_id)
+
+        # Store conversation memory if there was meaningful conversation before the error
+        try:
+            response_list = await redis.lrange(redis_keys["response_list"], 0, -1)
+            if len(response_list) > 0:
+                store_conversation_memory_background.send(
+                    thread_id=thread_id,
+                    additional_context=f"Agent run {agent_run_id} failed with exception after {duration:.2f}s with {len(response_list)} responses. Error: {error_message}",
+                    agent_run_id=agent_run_id,
+                )
+                logger.info(f"Enqueued conversation memory storage for failed run thread {thread_id} (run {agent_run_id})")
+        except Exception as mem_err:
+            logger.warning(f"Failed to dispatch conversation memory storage for failed run: {mem_err}")
 
         try:
             await redis.publish(redis_keys['global_control_channel'], "ERROR")
