@@ -6,94 +6,117 @@ from core.utils.config import config
 
 logger = logging.getLogger(__name__)
 
+
 class EmailService:
     def __init__(self):
-        self.api_token = os.getenv('MAILTRAP_API_TOKEN')
-        self.sender_email = os.getenv('MAILTRAP_SENDER_EMAIL', 'hey@kortix.com')
-        self.sender_name = os.getenv('MAILTRAP_SENDER_NAME', 'Kortix Team')
-        self.hello_email = 'hello@kortix.com'
-        
+        self.api_token = os.getenv("MAILTRAP_API_TOKEN")
+        self.sender_email = os.getenv(
+            "MAILTRAP_SENDER_EMAIL", "hey@omnisciencelabs.com"
+        )
+        self.sender_name = os.getenv("MAILTRAP_SENDER_NAME", "Omni Team")
+        self.hello_email = os.getenv(
+            "MAILTRAP_SENDER_EMAIL", "hello@omnisciencelabs.com"
+        )
+
         if not self.api_token:
             logger.warning("MAILTRAP_API_TOKEN not found in environment variables")
             self.client = None
         else:
             self.client = mt.MailtrapClient(token=self.api_token)
-    
-    def send_welcome_email(self, user_email: str, user_name: Optional[str] = None) -> bool:
+
+    def send_welcome_email(
+        self, user_email: str, user_name: Optional[str] = None
+    ) -> bool:
         if not self.client:
             logger.error("Cannot send email: MAILTRAP_API_TOKEN not configured")
             return False
-    
+
         if not user_name:
-            user_name = user_email.split('@')[0].title()
-        
-        subject = "🎉 Welcome to Kortix — Let's Get Started "
+            user_name = user_email.split("@")[0].title()
+
+        subject = "🎉 Welcome to Omni — Let's Get Started"
         html_content = self._get_welcome_email_template(user_name)
         text_content = self._get_welcome_email_text(user_name)
-        
+
         return self._send_email(
             to_email=user_email,
             to_name=user_name,
             subject=subject,
             html_content=html_content,
-            text_content=text_content
+            text_content=text_content,
         )
-    
+
     def send_referral_email(
-        self, 
-        recipient_email: str, 
+        self,
+        recipient_email: str,
         recipient_name: str,
-        sender_name: str, 
-        referral_url: str
+        sender_name: str,
+        referral_url: str,
     ) -> bool:
         if not self.client:
             logger.error("Cannot send email: MAILTRAP_API_TOKEN not configured")
             return False
-        
-        subject = f"🎉 You're invited!"
-        html_content = self._get_referral_email_template(recipient_name, sender_name, referral_url)
-        text_content = self._get_referral_email_text(recipient_name, sender_name, referral_url)
-        
+
+        subject = "🎉 You're invited!"
+        html_content = self._get_referral_email_template(
+            recipient_name, sender_name, referral_url
+        )
+        text_content = self._get_referral_email_text(
+            recipient_name, sender_name, referral_url
+        )
+
         try:
             sender_email_to_use = self.hello_email
-            
-            logger.info(f"Attempting to send referral email from {sender_email_to_use} to {recipient_email}")
-            
+
+            logger.info(
+                f"Attempting to send referral email from {sender_email_to_use} to {recipient_email}"
+            )
+
             mail = mt.Mail(
-                sender=mt.Address(email=sender_email_to_use, name='Kortix'),
+                sender=mt.Address(email=sender_email_to_use, name="Omni"),
                 to=[mt.Address(email=recipient_email, name=recipient_name)],
                 subject=subject,
                 text=text_content,
                 html=html_content,
-                category="referral"
+                category="referral",
             )
-            
+
             response = self.client.send(mail)
-            
-            logger.info(f"Referral email sent to {recipient_email} from {sender_name}. Response: {response}")
+
+            logger.info(
+                f"Referral email sent to {recipient_email} from {sender_name}. Response: {response}"
+            )
             return True
-                
+
         except Exception as e:
             error_type = type(e).__name__
             error_details = str(e)
-            logger.error(f"Error sending referral email to {recipient_email}: {error_details}")
+            logger.error(
+                f"Error sending referral email to {recipient_email}: {error_details}"
+            )
             logger.error(f"Error type: {error_type}")
-            logger.error(f"Mailtrap API Token present: {bool(self.api_token)}, Token prefix: {self.api_token[:8] if self.api_token else 'None'}...")
+            logger.error(
+                f"Mailtrap API Token present: {bool(self.api_token)}, Token prefix: {self.api_token[:8] if self.api_token else 'None'}..."
+            )
             logger.error(f"Sender email: {sender_email_to_use}")
-            
-            if hasattr(e, 'response'):
-                logger.error(f"Response status: {e.response.status_code if hasattr(e.response, 'status_code') else 'unknown'}")
-                logger.error(f"Response body: {e.response.text if hasattr(e.response, 'text') else 'unknown'}")
-            
+
+            if hasattr(e, "response"):
+                logger.error(
+                    f"Response status: {e.response.status_code if hasattr(e.response, 'status_code') else 'unknown'}"
+                )
+                logger.error(
+                    f"Response body: {e.response.text if hasattr(e.response, 'text') else 'unknown'}"
+                )
+
             return False
-    
+
     def _send_email(
-        self, 
-        to_email: str, 
-        to_name: str, 
-        subject: str, 
-        html_content: str, 
-        text_content: str
+        self,
+        to_email: str,
+        to_name: str,
+        subject: str,
+        html_content: str,
+        text_content: str,
     ) -> bool:
         try:
             mail = mt.Mail(
@@ -102,25 +125,25 @@ class EmailService:
                 subject=subject,
                 text=text_content,
                 html=html_content,
-                category="welcome"
+                category="welcome",
             )
-            
+
             response = self.client.send(mail)
-            
+
             logger.debug(f"Welcome email sent to {to_email}. Response: {response}")
             return True
-                
+
         except Exception as e:
             logger.error(f"Error sending email to {to_email}: {str(e)}")
             return False
-    
+
     def _get_welcome_email_template(self, user_name: str) -> str:
         return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome to Kortix</title>
+  <title>Welcome to Omni</title>
   <style>
     body {{
       font-family: Arial, sans-serif;
@@ -186,45 +209,37 @@ class EmailService:
 <body>
   <div class="container">
     <div class="logo-container">
-      <img src="https://heprlhlltebrxydgtsjs.supabase.co/storage/v1/object/public/image-uploads/loaded_images/Profile%20Picture%20Black.png" alt="Kortix Logo" class="logo">
+      <img src="https://becomeomni.com/favicon.ico" alt="Omni Logo" class="logo">
     </div>
 
     <p>Hi {user_name},</p>
 
-    <p><em><strong>Welcome to <a href="https://www.kortix.com/">Kortix.com</a> — we're excited to have you on board!</strong></em></p>
+    <p><em><strong>Welcome to <a href="https://becomeomni.com/">Omni</a> — we're excited to have you on board!</strong></em></p>
 
-    <p>To get started, we'd like to get to know you better: fill out this short <a href="https://docs.google.com/forms/d/e/1FAIpQLSef1EHuqmIh_iQz-kwhjnzSC3Ml-V_5wIySDpMoMU9W_j24JQ/viewform">form</a>!</p>
 
-    <p>To celebrate your arrival, here's a <strong>15% discount</strong> for your first month:</p>
-    <p>🎁 Use code <strong>WELCOME15</strong> at checkout.</p>
+    <p>Let us know if you need help getting started or have questions — we're always here.
 
-    <p>Let us know if you need help getting started or have questions — we're always here, and join our <a href="https://discord.com/invite/RvFhXUdZ9H">Discord community</a>.</p>
-
-    <p>Thanks again, and welcome to the Kortix community!</p>
+    <p>Thanks again, and welcome to the Omni community!</p>
   </div>
 </body>
 </html>"""
-    
+
     def _get_welcome_email_text(self, user_name: str) -> str:
         return f"""Hi {user_name},
 
-Welcome to https://www.kortix.com/ — we're excited to have you on board!
+Welcome to https://becomeomni.com/ — we're excited to have you on board!
 
-To get started, we'd like to get to know you better: fill out this short form!
-https://docs.google.com/forms/d/e/1FAIpQLSef1EHuqmIh_iQz-kwhjnzSC3Ml-V_5wIySDpMoMU9W_j24JQ/viewform
+Let us know if you need help getting started or have questions — we're always here.
 
-To celebrate your arrival, here's a 15% discount for your first month:
-🎁 Use code WELCOME15 at checkout.
-
-Let us know if you need help getting started or have questions — we're always here, and join our Discord community: https://discord.com/invite/RvFhXUdZ9H
-
-Thanks again, and welcome to the Kortix community!
+Thanks again, and welcome to the Omni community!
 
 ---
-© 2025 Kortix. All rights reserved.
-You received this email because you signed up for a Kortix account."""
-    
-    def _get_referral_email_template(self, recipient_name: str, sender_name: str, referral_url: str) -> str:
+© 2025 Omniscience Labs. All rights reserved.
+You received this email because you signed up for an Omni account."""
+
+    def _get_referral_email_template(
+        self, recipient_name: str, sender_name: str, referral_url: str
+    ) -> str:
         content = f"""<table cellpadding="0" cellspacing="0" border="0" style="padding:30px 15px; font-family:Inter, Arial, sans-serif; color:#000000;">
   <tr>
     <td>
@@ -232,7 +247,7 @@ You received this email because you signed up for a Kortix account."""
         Hi <strong>{recipient_name}</strong>,  👋
       </p>
       <p style="margin:0 0 20px 0; font-size:15px; line-height:1.6;">
-        <strong>{sender_name}</strong> has invited you to join Kortix using a personal referral code.
+        <strong>{sender_name}</strong> has invited you to join Omni using a personal referral code.
         When you sign up using this link, both you and {sender_name} will receive 100 in non-expiring credits 🎁
       </p>
       <p style="margin:0 0 10px 0; font-weight:600;">
@@ -260,27 +275,27 @@ You received this email because you signed up for a Kortix account."""
     </td>
   </tr>
 </table>"""
-        
+
         return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kortix</title>
+  <title>Omni</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #fafafa; color: #1a1a1a;">
   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 520px; margin: 0 auto; padding: 40px 20px;">
     <tr>
       <td>
         <div style="text-align: center; margin-bottom: 40px;">
-          <img src="https://kortix.com/Logomark.svg" alt="Kortix" style="height: 24px; width: auto; display: inline-block;" />
+          <img src="https://becomeomni.com/favicon.ico" alt="Omni" style="height: 24px; width: auto; display: inline-block;" />
         </div>
         <div style="background-color: #ffffff; border-radius: 16px; padding: 40px 32px;">
           {content}
         </div>
         <div style="text-align: center; margin-top: 32px;">
           <p style="font-size: 12px; color: #999; margin: 0;">
-            &copy; Kortix AI Corp. All rights reserved.
+            &copy; Omniscience Labs. All rights reserved.
           </p>
         </div>
       </td>
@@ -288,11 +303,13 @@ You received this email because you signed up for a Kortix account."""
   </table>
 </body>
 </html>"""
-    
-    def _get_referral_email_text(self, recipient_name: str, sender_name: str, referral_url: str) -> str:
+
+    def _get_referral_email_text(
+        self, recipient_name: str, sender_name: str, referral_url: str
+    ) -> str:
         return f"""Hi {recipient_name},
 
-{sender_name} has invited you to join Kortix using a personal referral code.
+{sender_name} has invited you to join Omni using a personal referral code.
 
 When you sign up using this link, both you and {sender_name} will receive 100 in non-expiring credits 🎁
 
@@ -302,6 +319,126 @@ What You Both Get:
 Claim your invite: {referral_url}
 
 ---
-© Kortix AI Corp. All rights reserved."""
+© Omniscience Labs. All rights reserved."""
 
-email_service = EmailService() 
+    def send_low_credit_alert_email(
+        self, user_email: str, user_name: Optional[str] = None, balance: float = 0.0
+    ) -> bool:
+        if not self.client:
+            logger.error("Cannot send email: MAILTRAP_API_TOKEN not configured")
+            return False
+
+        if not user_name:
+            user_name = user_email.split("@")[0].title()
+
+        subject = "⚠️ Your Omni credits are running low"
+        html_content = self._get_low_credit_alert_template(user_name, balance)
+        text_content = self._get_low_credit_alert_text(user_name, balance)
+
+        try:
+            mail = mt.Mail(
+                sender=mt.Address(email=self.sender_email, name=self.sender_name),
+                to=[mt.Address(email=user_email, name=user_name)],
+                subject=subject,
+                text=text_content,
+                html=html_content,
+                category="low_credit_alert",
+            )
+
+            response = self.client.send(mail)
+            logger.info(
+                f"Low credit alert email sent to {user_email} (balance: ${balance:.2f}). Response: {response}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(
+                f"Error sending low credit alert email to {user_email}: {str(e)}"
+            )
+            return False
+
+    def _get_low_credit_alert_template(self, user_name: str, balance: float) -> str:
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your credits are running low</title>
+</head>
+<body style="margin:0; padding:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color:#fafafa; color:#1a1a1a;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:520px; margin:0 auto; padding:40px 20px;">
+    <tr>
+      <td>
+        <div style="text-align:center; margin-bottom:32px;">
+          <img src="https://becomeomni.com/favicon.ico" alt="Omni" style="height:32px; width:auto; display:inline-block;" />
+        </div>
+        <div style="background-color:#ffffff; border-radius:16px; padding:40px 32px; border:1px solid #e5e7eb;">
+          <p style="margin:0 0 8px 0; font-size:24px;">⚠️</p>
+          <h1 style="margin:0 0 16px 0; font-size:20px; font-weight:700; color:#111827;">Your credits are running low</h1>
+          <p style="margin:0 0 20px 0; font-size:15px; line-height:1.6; color:#374151;">
+            Hi <strong>{user_name}</strong>,
+          </p>
+          <p style="margin:0 0 20px 0; font-size:15px; line-height:1.6; color:#374151;">
+            We wanted to give you a quick update that your Omni credit balance has dropped to <strong style="color:#DC2626;">${balance:.2f}</strong>.
+          </p>
+          <p style="margin:0 0 20px 0; font-size:15px; line-height:1.6; color:#374151;">
+            To keep your workflows running smoothly and ensure no interruptions to your active agents, we kindly request that you add some more credits to your account.
+          </p>
+          <table cellpadding="0" cellspacing="0" border="0" style="background:#fef3c7; border:1px solid #fcd34d; border-radius:12px; padding:16px; margin:0 0 24px 0; width:100%;">
+            <tr>
+              <td style="font-size:14px; line-height:1.6; color:#92400e;">
+                <strong>Current balance:</strong> ${balance:.2f}
+              </td>
+            </tr>
+          </table>
+          <table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px 0;">
+            <tr>
+              <td>
+                <a href="https://becomeomni.com/" style="background:#000000; color:#ffffff; padding:12px 28px; text-decoration:none; font-size:15px; font-weight:600; border-radius:12px; display:inline-block;">
+                  Add Credits
+                </a>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:0 0 20px 0; font-size:15px; line-height:1.6; color:#374151;">
+            Best,<br/>
+            <strong>The Omni Team</strong>
+          </p>
+          <p style="margin:0; font-size:13px; line-height:1.6; color:#9ca3af;">
+            You can also set up auto top-up in your billing settings so this never happens again.
+          </p>
+        </div>
+        <div style="text-align:center; margin-top:32px;">
+          <p style="font-size:12px; color:#9ca3af; margin:0;">
+            &copy; Omniscience Labs. All rights reserved.<br/>
+            You received this because your Omni credit balance fell below $1.00.
+          </p>
+        </div>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    def _get_low_credit_alert_text(self, user_name: str, balance: float) -> str:
+        return f"""Hi {user_name},
+
+Your Omni credit balance has dropped to ${balance:.2f}.
+
+To keep your workflows running smoothly and ensure no interruptions to your active agents, we kindly request that you add some more credits to your account.
+
+Current balance: ${balance:.2f}
+
+Add credits here: https://becomeomni.com/
+
+Best,
+The Omni Team
+
+You can also set up auto top-up in your billing settings so this never happens again.
+
+---
+© Omniscience Labs. All rights reserved.
+You received this because your Omni credit balance fell below $1.00."""
+
+
+email_service = EmailService()

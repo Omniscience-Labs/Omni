@@ -188,6 +188,41 @@ class CreditService:
         
         return balance
     
+    LOW_CREDIT_THRESHOLD = Decimal('1.00')
+
+    async def _maybe_send_low_credit_alert(self, user_id: str, new_balance: Decimal) -> None:
+        """Send a low-credit alert email when balance drops below the threshold.
+
+        A Redis cache key with a 24-hour TTL prevents the user from receiving
+        more than one alert per day. All exceptions are caught so a cache or
+        email failure never surfaces as an unhandled task exception.
+        """
+        try:
+            if new_balance >= self.LOW_CREDIT_THRESHOLD:
+                return
+
+            alert_cache_key = f"low_credit_alert_sent:{user_id}"
+            if self.cache:
+                try:
+                    already_sent = await self.cache.get(alert_cache_key)
+                    if already_sent:
+                        return
+                    # Mark as sent for 24 hours before firing so parallel calls don't race
+                    await self.cache.set(alert_cache_key, "1", ttl=86400)
+                except Exception as cache_err:
+                    logger.warning(
+                        f"[LOW_CREDIT_ALERT] Cache unavailable for user {user_id}, "
+                        f"proceeding without deduplication guard: {cache_err}"
+                    )
+
+            from core.notifications.notification_service import notification_service
+            await notification_service.send_low_credit_alert_email(
+                account_id=user_id,
+                balance=float(new_balance)
+            )
+        except Exception as e:
+            logger.error(f"[LOW_CREDIT_ALERT] Failed to send alert for user {user_id}: {e}")
+
     async def deduct_credits(self, user_id: str, amount: Decimal, description: str = None, reference_id: str = None, reference_type: str = None) -> Dict:
         try:
             client = await self._get_client()
@@ -209,6 +244,7 @@ class CreditService:
                 transaction_id = row.get('transaction_id')
                 
                 if success:
+                    asyncio.create_task(self._maybe_send_low_credit_alert(user_id, new_balance))
                     return {
                         'success': True,
                         'new_balance': new_balance,

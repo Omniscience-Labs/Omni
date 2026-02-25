@@ -433,6 +433,40 @@ class NotificationService:
         
         return json.loads(template_str)
     
+    async def send_low_credit_alert_email(
+        self,
+        account_id: str,
+        balance: float
+    ) -> Dict[str, Any]:
+        try:
+            account_info = await self._get_account_info(account_id)
+
+            if not account_info or not account_info.get("email"):
+                logger.warning(f"[LOW_CREDIT_ALERT] No email found for user {account_id}")
+                return {"success": False, "error": "No email found for user"}
+
+            email = account_info.get("email")
+            name = account_info.get("name")
+
+            logger.info(f"[LOW_CREDIT_ALERT] Sending low credit alert to {email} (balance: ${balance:.2f})")
+
+            success = email_service.send_low_credit_alert_email(
+                user_email=email,
+                user_name=name,
+                balance=balance
+            )
+
+            if success:
+                logger.info(f"[LOW_CREDIT_ALERT] Alert sent to {email} for account {account_id}")
+                return {"success": True}
+            else:
+                logger.error(f"[LOW_CREDIT_ALERT] Failed to send alert to {email}")
+                return {"success": False, "error": "Failed to send email"}
+
+        except Exception as e:
+            logger.error(f"[LOW_CREDIT_ALERT] Error sending alert for account {account_id}: {str(e)}")
+            return {"success": False, "error": str(e)}
+
     async def send_welcome_email(self, account_id: str) -> Dict[str, Any]:
         try:
             logger.info(f"[WELCOME_EMAIL] ENV_MODE={config.ENV_MODE.value if config.ENV_MODE else 'None'}, Novu enabled={self.novu.enabled}, API key configured={bool(self.novu.api_key)}")
