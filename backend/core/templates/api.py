@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from core.utils.logger import logger
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt
@@ -28,17 +28,20 @@ router = APIRouter(tags=["templates"])
 db: Optional[DBConnection] = None
 
 
-class UsageExampleMessage(BaseModel):
-    role: str
-    content: str
-    tool_calls: Optional[List[Dict[str, Any]]] = None
+class SharingPreferences(BaseModel):
+    include_system_prompt: bool = True
+    include_default_tools: bool = True
+    include_integrations: bool = True
+    include_knowledge_bases: bool = True
+    include_triggers: bool = True
+    include_default_files: bool = True
 
 
 class CreateTemplateRequest(BaseModel):
     agent_id: str
     make_public: bool = False
     tags: Optional[List[str]] = None
-    usage_examples: Optional[List[UsageExampleMessage]] = None
+    sharing_preferences: Optional[SharingPreferences] = Field(default_factory=SharingPreferences)
 
 
 class InstallTemplateRequest(BaseModel):
@@ -53,13 +56,14 @@ class InstallTemplateRequest(BaseModel):
 
 class PublishTemplateRequest(BaseModel):
     tags: Optional[List[str]] = None
-    usage_examples: Optional[List[UsageExampleMessage]] = None
+    sharing_preferences: Optional[SharingPreferences] = Field(default_factory=SharingPreferences)
 
 
 class TemplateResponse(BaseModel):
     template_id: str
     creator_id: str
     name: str
+    description: Optional[str] = None
     system_prompt: str
     mcp_requirements: List[Dict[str, Any]]
     agentpress_tools: Dict[str, Any]
@@ -71,12 +75,13 @@ class TemplateResponse(BaseModel):
     download_count: int
     created_at: str
     updated_at: str
+    profile_image_url: Optional[str] = None
     icon_name: Optional[str] = None
     icon_color: Optional[str] = None
     icon_background: Optional[str] = None
     metadata: Dict[str, Any]
     creator_name: Optional[str] = None
-    usage_examples: Optional[List[UsageExampleMessage]] = None
+    sharing_preferences: Optional[Dict[str, bool]] = None
     config: Optional[Dict[str, Any]] = None
 
 class InstallationResponse(BaseModel):
@@ -151,16 +156,12 @@ async def create_template_from_agent(
         
         template_service = get_template_service(db)
         
-        usage_examples = None
-        if request.usage_examples:
-            usage_examples = [msg.dict() for msg in request.usage_examples]
-        
         template_id = await template_service.create_from_agent(
             agent_id=request.agent_id,
             creator_id=user_id,
             make_public=request.make_public,
             tags=request.tags,
-            usage_examples=usage_examples
+            sharing_preferences=request.sharing_preferences.model_dump() if request.sharing_preferences else None
         )
         
         logger.debug(f"Successfully created template {template_id} from agent {request.agent_id}")
@@ -199,14 +200,10 @@ async def publish_template(
         
         template_service = get_template_service(db)
         
-        usage_examples = None
-        if request.usage_examples:
-            usage_examples = [msg.dict() for msg in request.usage_examples]
-        
         success = await template_service.publish_template(
             template_id, 
             user_id,
-            usage_examples=usage_examples
+            sharing_preferences=request.sharing_preferences.model_dump() if request.sharing_preferences else None
         )
         
         if not success:

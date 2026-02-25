@@ -13,8 +13,8 @@ import type { MarketplaceTemplate } from '@/components/agents/installation/types
 interface MarketplaceTabProps {
   marketplaceSearchQuery: string;
   setMarketplaceSearchQuery: (value: string) => void;
-  marketplaceFilter: 'all' | 'kortix' | 'community' | 'mine';
-  setMarketplaceFilter: (value: 'all' | 'kortix' | 'community' | 'mine') => void;
+  marketplaceFilter: 'all' | 'omni' | 'community' | 'mine';
+  setMarketplaceFilter: (value: 'all' | 'omni' | 'community' | 'mine') => void;
   marketplaceLoading: boolean;
   allMarketplaceItems: MarketplaceTemplate[];
   mineItems: MarketplaceTemplate[];
@@ -74,14 +74,14 @@ export const MarketplaceTab = ({
           onChange={setMarketplaceSearchQuery}
         />
         <div className="flex items-center gap-3">
-          <Select value={marketplaceFilter} onValueChange={(value: 'all' | 'kortix' | 'community' | 'mine') => setMarketplaceFilter(value)}>
+          <Select value={marketplaceFilter} onValueChange={(value: 'all' | 'omni' | 'community' | 'mine') => setMarketplaceFilter(value)}>
             <SelectTrigger className="w-[180px] h-12 rounded-xl">
               <SelectValue placeholder="Filter agents" />
             </SelectTrigger>
             <SelectContent className='rounded-xl'>
               <SelectItem className='rounded-xl' value="all">All Agents</SelectItem>
               <SelectItem className='rounded-xl' value="mine">Mine</SelectItem>
-              <SelectItem className='rounded-xl' value="kortix">Omni Verified</SelectItem>
+              <SelectItem className='rounded-xl' value="omni">Omni Verified</SelectItem>
               <SelectItem className='rounded-xl' value="community">Community</SelectItem>
             </SelectContent>
           </Select>
@@ -133,7 +133,7 @@ export const MarketplaceTab = ({
                         created_at: item.created_at,
                         creator_id: item.creator_id,
                         creator_name: item.creator_name,
-                        is_omni_team: item.is_omni_team,
+                        is_omni_team: item.is_kortix_team,
                         download_count: item.download_count,
                         marketplace_published_at: item.marketplace_published_at,
                         icon_name: item.icon_name,
@@ -166,7 +166,7 @@ export const MarketplaceTab = ({
                       created_at: item.created_at,
                       creator_id: item.creator_id,
                       creator_name: item.creator_name,
-                      is_omni_team: item.is_omni_team,
+                      is_omni_team: item.is_kortix_team,
                       download_count: item.download_count,
                       marketplace_published_at: item.marketplace_published_at,
                       icon_name: item.icon_name,

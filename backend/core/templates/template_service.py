@@ -37,6 +37,7 @@ class AgentTemplate:
     creator_id: str
     name: str
     config: ConfigType
+    description: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     categories: List[str] = field(default_factory=list)
     is_public: bool = False
@@ -45,12 +46,13 @@ class AgentTemplate:
     download_count: int = 0
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    profile_image_url: Optional[str] = None
     icon_name: Optional[str] = None
     icon_color: Optional[str] = None
     icon_background: Optional[str] = None
     metadata: ConfigType = field(default_factory=dict)
     creator_name: Optional[str] = None
-    usage_examples: List[Dict[str, Any]] = field(default_factory=list)
+    sharing_preferences: Optional[Dict[str, bool]] = None
     
     def with_public_status(self, is_public: bool, published_at: Optional[datetime] = None) -> 'AgentTemplate':
         return AgentTemplate(
@@ -88,7 +90,7 @@ class AgentTemplate:
         custom_mcps = self.config.get('tools', {}).get('custom_mcp', [])
         for mcp in custom_mcps:
             if isinstance(mcp, dict) and mcp.get('name'):
-                mcp_type = mcp.get('type', 'sse')
+                mcp_type = mcp.get('type') or mcp.get('customType') or 'sse'
                 mcp_name = mcp['name']
                 
                 qualified_name = mcp.get('mcp_qualified_name') or mcp.get('qualifiedName')
@@ -184,7 +186,7 @@ class TemplateService:
         creator_id: str,
         make_public: bool = False,
         tags: Optional[List[str]] = None,
-        usage_examples: Optional[List[Dict[str, Any]]] = None
+        sharing_preferences: Optional[Dict[str, bool]] = None,
     ) -> str:
         logger.debug(f"Creating template from agent {agent_id} for user {creator_id}")
         
@@ -198,26 +200,50 @@ class TemplateService:
         if self._is_suna_default_agent(agent):
             raise SunaDefaultAgentTemplateError("Cannot create template from Suna default agent")
         
+        if sharing_preferences is None:
+            sharing_preferences = {
+                "include_system_prompt": True,
+                "include_default_tools": True,
+                "include_integrations": True,
+                "include_knowledge_bases": True,
+                "include_triggers": True,
+                "include_default_files": True,
+            }
+        elif "include_default_files" not in sharing_preferences:
+            sharing_preferences["include_default_files"] = True
+        
         version_config = await self._get_agent_version_config(agent)
         if not version_config:
             raise TemplateNotFoundError("Agent has no version configuration")
         
         sanitized_config = await self._sanitize_config_for_template(version_config)
+        sanitized_config = await self._apply_sharing_preferences(sanitized_config, sharing_preferences, agent_id)
+        
+        kb_references = []
+        if sharing_preferences.get('include_knowledge_bases', True):
+            kb_references = await self._extract_llamacloud_kb_references(agent_id)
+            logger.debug(f"Extracted {len(kb_references)} LlamaCloud KB references from agent {agent_id}")
         
         template = AgentTemplate(
             template_id=str(uuid4()),
             creator_id=creator_id,
             name=agent['name'],
+            description=agent.get('description'),
             config=sanitized_config,
             tags=tags or [],
             categories=[],
             is_public=make_public,
             marketplace_published_at=datetime.now(timezone.utc) if make_public else None,
+            profile_image_url=agent.get('profile_image_url'),
             icon_name=agent.get('icon_name'),
             icon_color=agent.get('icon_color'),
             icon_background=agent.get('icon_background'),
-            metadata=agent.get('metadata', {}),
-            usage_examples=usage_examples or []
+            metadata={
+                **agent.get('metadata', {}),
+                'source_agent_id': agent_id,
+                'llamacloud_knowledge_bases': kb_references
+            },
+            sharing_preferences=sharing_preferences
         )
         
         await self._save_template(template)
@@ -356,22 +382,29 @@ class TemplateService:
         self, 
         template_id: str, 
         creator_id: str,
-        usage_examples: Optional[List[Dict[str, Any]]] = None
+        sharing_preferences: Optional[Dict[str, bool]] = None,
     ) -> bool:
         logger.debug(f"Publishing template {template_id}")
         
+        if sharing_preferences is None:
+            sharing_preferences = {
+                "include_system_prompt": True,
+                "include_default_tools": True,
+                "include_integrations": True,
+                "include_knowledge_bases": True,
+                "include_triggers": True,
+                "include_default_files": True,
+            }
+        elif "include_default_files" not in sharing_preferences:
+            sharing_preferences["include_default_files"] = True
+        
         client = await self._db.client
-        update_data = {
+        result = await client.table('agent_templates').update({
             'is_public': True,
             'marketplace_published_at': datetime.now(timezone.utc).isoformat(),
-            'updated_at': datetime.now(timezone.utc).isoformat()
-        }
-        
-        if usage_examples is not None:
-            update_data['usage_examples'] = usage_examples
-        
-        result = await client.table('agent_templates').update(update_data)\
-          .eq('template_id', template_id)\
+            'updated_at': datetime.now(timezone.utc).isoformat(),
+            'sharing_preferences': sharing_preferences
+        }).eq('template_id', template_id)\
           .eq('creator_id', creator_id)\
           .execute()
         
@@ -468,6 +501,84 @@ class TemplateService:
     async def _sanitize_config_for_template(self, config: Dict[str, Any]) -> Dict[str, Any]:
         return self._fallback_sanitize_config(config)
     
+    async def _apply_sharing_preferences(
+        self, 
+        config: Dict[str, Any], 
+        sharing_preferences: Dict[str, bool], 
+        agent_id: str
+    ) -> Dict[str, Any]:
+        filtered_config = config.copy()
+        
+        if not sharing_preferences.get('include_system_prompt', True):
+            filtered_config['system_prompt'] = ''
+            logger.info(f"Removed system prompt from template for agent {agent_id}")
+        
+        if not sharing_preferences.get('include_default_tools', True):
+            if 'tools' in filtered_config:
+                filtered_config['tools']['agentpress'] = {}
+            logger.info(f"Removed default tools from template for agent {agent_id}")
+        
+        if not sharing_preferences.get('include_integrations', True):
+            if 'tools' in filtered_config:
+                filtered_config['tools']['mcp'] = []
+                filtered_config['tools']['custom_mcp'] = []
+            logger.info(f"Removed integrations from template for agent {agent_id}")
+        
+        if not sharing_preferences.get('include_triggers', True):
+            filtered_config['triggers'] = []
+            logger.info(f"Removed triggers from template for agent {agent_id}")
+        
+        return filtered_config
+    
+    async def _extract_llamacloud_kb_references(self, agent_id: str) -> List[Dict[str, Any]]:
+        try:
+            client = await self._db.client
+            kb_references = []
+            
+            assignments_result = await client.from_('agent_llamacloud_kb_assignments').select('''
+                kb_id,
+                enabled,
+                llamacloud_knowledge_bases (
+                    name,
+                    index_name,
+                    description
+                )
+            ''').eq('agent_id', agent_id).eq('enabled', True).execute()
+            
+            if assignments_result.data:
+                for assignment in assignments_result.data:
+                    kb_data = assignment.get('llamacloud_knowledge_bases')
+                    if kb_data:
+                        kb_references.append({
+                            'name': kb_data['name'],
+                            'index_name': kb_data['index_name'],
+                            'description': kb_data.get('description', '')
+                        })
+            
+            try:
+                legacy_result = await client.from_('agent_llamacloud_knowledge_bases').select(
+                    'name, index_name, description'
+                ).eq('agent_id', agent_id).eq('is_active', True).execute()
+                
+                if legacy_result.data:
+                    existing_indices = {kb['index_name'] for kb in kb_references}
+                    for kb_data in legacy_result.data:
+                        if kb_data['index_name'] not in existing_indices:
+                            kb_references.append({
+                                'name': kb_data['name'],
+                                'index_name': kb_data['index_name'],
+                                'description': kb_data.get('description', '')
+                            })
+            except Exception:
+                pass
+            
+            logger.info(f"Extracted {len(kb_references)} total LlamaCloud KB references for agent {agent_id}")
+            return kb_references
+            
+        except Exception as e:
+            logger.error(f"Failed to extract LlamaCloud KB references for agent {agent_id}: {e}")
+            return []
+    
     def _fallback_sanitize_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         agentpress_tools = config.get('tools', {}).get('agentpress', {})
         sanitized_agentpress = {}
@@ -561,8 +672,7 @@ class TemplateService:
         for mcp in custom_mcps:
             if isinstance(mcp, dict):
                 mcp_name = mcp.get('name', '')
-                mcp_type = mcp.get('type', 'sse')
-                
+                mcp_type = mcp.get('type') or mcp.get('customType') or 'sse'
                 sanitized_mcp = {
                     'name': mcp_name,
                     'type': mcp_type,
@@ -613,7 +723,7 @@ class TemplateService:
     
     def _is_suna_default_agent(self, agent: Dict[str, Any]) -> bool:
         metadata = agent.get('metadata', {})
-        return metadata.get('is_suna_default', False)
+        return metadata.get('is_suna_default', False) or metadata.get('is_omni_default', False)
     
     async def _save_template(self, template: AgentTemplate) -> None:
         client = await self._db.client
@@ -622,6 +732,7 @@ class TemplateService:
             'template_id': template.template_id,
             'creator_id': template.creator_id,
             'name': template.name,
+            'description': template.description,
             'config': template.config,
             'tags': template.tags,
             'categories': template.categories,
@@ -630,11 +741,12 @@ class TemplateService:
             'download_count': template.download_count,
             'created_at': template.created_at.isoformat(),
             'updated_at': template.updated_at.isoformat(),
+            'profile_image_url': template.profile_image_url,
             'icon_name': template.icon_name,
             'icon_color': template.icon_color,
             'icon_background': template.icon_background,
             'metadata': template.metadata,
-            'usage_examples': template.usage_examples
+            'sharing_preferences': template.sharing_preferences,
         }
         
         await client.table('agent_templates').insert(template_data).execute()
@@ -642,14 +754,11 @@ class TemplateService:
     def _map_to_template(self, data: Dict[str, Any]) -> AgentTemplate:
         creator_name = data.get('creator_name')
         
-        usage_examples = data.get('usage_examples', [])
-        logger.debug(f"Mapping template {data.get('template_id')}: usage_examples from DB = {usage_examples}")
-        logger.debug(f"Raw data keys: {list(data.keys())}")
-        
         return AgentTemplate(
             template_id=data['template_id'],
             creator_id=data['creator_id'],
             name=data['name'],
+            description=data.get('description'),
             config=data.get('config', {}),
             tags=data.get('tags', []),
             categories=data.get('categories', []),
@@ -659,12 +768,13 @@ class TemplateService:
             download_count=data.get('download_count', 0),
             created_at=datetime.fromisoformat(data['created_at'].replace('Z', '+00:00')),
             updated_at=datetime.fromisoformat(data['updated_at'].replace('Z', '+00:00')),
+            profile_image_url=data.get('profile_image_url'),
             icon_name=data.get('icon_name'),
             icon_color=data.get('icon_color'),
             icon_background=data.get('icon_background'),
             metadata=data.get('metadata', {}),
             creator_name=creator_name,
-            usage_examples=usage_examples
+            sharing_preferences=data.get('sharing_preferences'),
         )
     
     # Share link functionality removed - now using direct template ID URLs for simplicity
