@@ -24,6 +24,7 @@ class WebhookService:
         try:
             payload = await request.body()
             sig_header = request.headers.get('stripe-signature')
+            logger.info(f"[WEBHOOK] Received Stripe webhook request - has_signature: {bool(sig_header)}, payload_size: {len(payload)} bytes")
             
             if not config.STRIPE_WEBHOOK_SECRET:
                 raise HTTPException(status_code=500, detail="Webhook secret not configured")
