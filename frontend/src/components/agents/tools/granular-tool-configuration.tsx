@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -298,10 +298,11 @@ export const GranularToolConfiguration = ({
                     </div>
 
                     <div className="flex items-center gap-2 ml-4 flex-shrink-0">
-                      <Checkbox
+                      <Switch
                         checked={isGroupEnabled}
                         onCheckedChange={(enabled) => handleToolGroupToggle(toolGroup.name, enabled === true)}
                         disabled={disabled || isLoading}
+                        className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                       />
                     </div>
                   </div>
@@ -334,12 +335,13 @@ export const GranularToolConfiguration = ({
                                   </div>
 
                                   <div className="flex items-center gap-2 ml-4 flex-shrink-0">
-                                    <Checkbox
+                                    <Switch
                                       checked={isMethodEnabledState}
                                       onCheckedChange={(enabled) =>
                                         handleMethodToggle(toolGroup.name, method.name, enabled === true)
                                       }
                                       disabled={disabled || isLoading}
+                                      className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                                     />
                                   </div>
                                 </div>
