@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Bot, ShoppingBag, FileText, Plus } from 'lucide-react';
+import { Bot, Store, Plus } from 'lucide-react';
 import { FancyTabs, TabConfig } from '@/components/ui/fancy-tabs';
 
 interface TabsNavigationProps {
@@ -16,7 +16,12 @@ const agentTabs: TabConfig[] = [
     icon: Bot,
     label: 'My Agents',
   },
-]; 
+  {
+    value: 'marketplace',
+    icon: Store,
+    label: 'Marketplace',
+  },
+];
 
 export const TabsNavigation = ({ activeTab, onTabChange, onCreateAgent }: TabsNavigationProps) => {
   const tabs = React.useMemo(() => {

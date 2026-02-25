@@ -126,6 +126,7 @@ class SubscriptionCheckoutHandler:
             success_url=success_url,
             cancel_url=cancel_url or success_url,
             allow_promotion_codes=True,
+            metadata=metadata,
             subscription_data={'metadata': metadata},
             idempotency_key=idempotency_key
         )

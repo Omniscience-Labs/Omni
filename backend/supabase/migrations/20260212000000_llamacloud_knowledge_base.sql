@@ -93,14 +93,15 @@ DO $$ BEGIN
 END $$;
 
 -- Functions (drop first so return types can change vs existing definitions)
-DROP FUNCTION IF EXISTS get_agent_assigned_llamacloud_kbs(UUID, BOOLEAN);
-DROP FUNCTION IF EXISTS get_account_llamacloud_kbs(UUID, BOOLEAN);
-DROP FUNCTION IF EXISTS get_folder_unified_entries(UUID, UUID, BOOLEAN);
-DROP FUNCTION IF EXISTS get_folder_unified_entries(UUID, BOOLEAN);
-DROP FUNCTION IF EXISTS get_root_llamacloud_kbs(UUID, BOOLEAN);
+-- Use schema-qualified name and CASCADE so DROP succeeds and return type can change.
+DROP FUNCTION IF EXISTS public.get_agent_assigned_llamacloud_kbs(uuid, boolean) CASCADE;
+DROP FUNCTION IF EXISTS public.get_account_llamacloud_kbs(uuid, boolean) CASCADE;
+DROP FUNCTION IF EXISTS public.get_folder_unified_entries(uuid, uuid, boolean) CASCADE;
+DROP FUNCTION IF EXISTS public.get_folder_unified_entries(uuid, boolean) CASCADE;
+DROP FUNCTION IF EXISTS public.get_root_llamacloud_kbs(uuid, boolean) CASCADE;
 
 -- Get agent's assigned LlamaCloud knowledge bases
-CREATE OR REPLACE FUNCTION get_agent_assigned_llamacloud_kbs(
+CREATE OR REPLACE FUNCTION public.get_agent_assigned_llamacloud_kbs(
     p_agent_id UUID,
     p_include_inactive BOOLEAN DEFAULT FALSE
 )
@@ -113,9 +114,9 @@ RETURNS TABLE (
     usage_context VARCHAR(100),
     is_active BOOLEAN,
     enabled BOOLEAN,
-    assigned_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ
+    updated_at TIMESTAMPTZ,
+    assigned_at TIMESTAMPTZ
 )
 SECURITY DEFINER
 LANGUAGE plpgsql
@@ -131,15 +132,14 @@ BEGIN
         COALESCE(lkb.usage_context, 'always'::VARCHAR(100)) as usage_context,
         lkb.is_active,
         akla.enabled,
-        akla.assigned_at,
         lkb.created_at,
-        lkb.updated_at
+        lkb.updated_at,
+        akla.assigned_at
     FROM llamacloud_knowledge_bases lkb
     JOIN agent_llamacloud_kb_assignments akla ON lkb.kb_id = akla.kb_id
     WHERE akla.agent_id = p_agent_id
-    AND akla.enabled = TRUE
-    AND (p_include_inactive OR lkb.is_active = TRUE)
-    ORDER BY lkb.created_at DESC;
+    AND (p_include_inactive OR (lkb.is_active = TRUE AND akla.enabled = TRUE))
+    ORDER BY akla.assigned_at DESC;
 END;
 $$;
 
@@ -318,12 +318,25 @@ BEGIN
 END;
 $$;
 
+
+
 -- Permissions
 GRANT ALL ON llamacloud_knowledge_bases TO authenticated, service_role;
 GRANT ALL ON agent_llamacloud_kb_assignments TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION get_agent_assigned_llamacloud_kbs(UUID, BOOLEAN) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION get_account_llamacloud_kbs(UUID, BOOLEAN) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION get_folder_unified_entries(UUID, UUID, BOOLEAN) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION get_root_llamacloud_kbs(UUID, BOOLEAN) TO authenticated, service_role;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'get_agent_assigned_llamacloud_kbs') THEN
+        GRANT EXECUTE ON FUNCTION public.get_agent_assigned_llamacloud_kbs(uuid, boolean) TO authenticated, service_role;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'get_account_llamacloud_kbs') THEN
+        GRANT EXECUTE ON FUNCTION public.get_account_llamacloud_kbs(uuid, boolean) TO authenticated, service_role;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'get_folder_unified_entries') THEN
+        GRANT EXECUTE ON FUNCTION public.get_folder_unified_entries(uuid, uuid, boolean) TO authenticated, service_role;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'get_root_llamacloud_kbs') THEN
+        GRANT EXECUTE ON FUNCTION public.get_root_llamacloud_kbs(uuid, boolean) TO authenticated, service_role;
+    END IF;
+END $$;
 
 COMMIT;

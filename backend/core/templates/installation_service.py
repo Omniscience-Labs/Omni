@@ -180,6 +180,20 @@ class InstallationService:
         
         await self._restore_triggers(agent_id, request.account_id, template.config, request.profile_mappings, request.trigger_configs, request.trigger_variables)
         
+        if template.sharing_preferences and template.sharing_preferences.get('include_default_files'):
+            try:
+                from core.agent_default_files import AgentDefaultFilesService
+                files_service = AgentDefaultFilesService()
+                source_agent_id = template.metadata.get('source_agent_id', template.template_id)
+                result = await files_service.copy_files_for_agent_copy(
+                    source_agent_id=source_agent_id,
+                    dest_agent_id=agent_id,
+                    dest_account_id=request.account_id,
+                )
+                logger.debug(f"Copied {result['copied']} default files for agent {agent_id} (failed: {result['failed']})")
+            except Exception as e:
+                logger.error(f"Failed to copy default files: {e}")
+        
         await self._increment_download_count(template.template_id)
         
         agent_name = request.instance_name or f"{template.name} (from marketplace)"
@@ -526,7 +540,7 @@ class InstallationService:
                     account_id=account_id,
                     trigger_name=trigger.get('name', 'Unnamed Trigger'),
                     trigger_description=trigger.get('description'),
-                    is_active=trigger.get('is_active', True),
+                    is_active=False,
                     trigger_slug=trigger_config.get('trigger_slug', ''),
                     qualified_name=qualified_name,
                     agent_prompt=agent_prompt,  # Use the potentially modified agent_prompt
@@ -552,7 +566,7 @@ class InstallationService:
                     'trigger_type': trigger.get('trigger_type', 'webhook'),
                     'name': trigger.get('name', 'Unnamed Trigger'),
                     'description': trigger.get('description'),
-                    'is_active': trigger.get('is_active', True),
+                    'is_active': False,
                     'config': clean_config,
                     'created_at': datetime.now(timezone.utc).isoformat(),
                     'updated_at': datetime.now(timezone.utc).isoformat()

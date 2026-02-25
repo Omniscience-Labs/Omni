@@ -17,7 +17,8 @@ import { AgentsPageHeader } from '@/components/agents/custom-agents-page/header'
 import { TabsNavigation } from '@/components/agents/custom-agents-page/tabs-navigation';
 import { MyAgentsTab } from '@/components/agents/custom-agents-page/my-agents-tab';
 import { MarketplaceTab } from '@/components/agents/custom-agents-page/marketplace-tab';
-import { PublishDialog } from '@/components/agents/custom-agents-page/publish-dialog';
+import { EnhancedPublishDialog } from '@/components/agents/custom-agents-page/enhanced-publish-dialog';
+import type { SharingPreferences } from '@/components/agents/custom-agents-page/enhanced-publish-dialog';
 import { LoadingSkeleton } from '@/components/agents/custom-agents-page/loading-skeleton';
 import { NewAgentDialog } from '@/components/agents/new-agent-dialog';
 import { MarketplaceAgentPreviewDialog } from '@/components/agents/marketplace-agent-preview-dialog';
@@ -87,19 +88,8 @@ export default function AgentsPage() {
 
   const activeTab = useMemo(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'marketplace') {
-      return 'my-agents';
-    }
     return tab || 'my-agents';
   }, [searchParams]);
-
-  useEffect(() => {
-    if (searchParams.get('tab') === 'marketplace') {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set('tab', 'my-agents');
-      router.replace(`${pathname}?${params.toString()}`);
-    }
-  }, [searchParams, pathname, router]);
 
   const agentsQueryParams: AgentsParams = useMemo(() => {
     const params: AgentsParams = {
@@ -193,7 +183,7 @@ export default function AgentsPage() {
           id: template.template_id,
           creator_id: template.creator_id,
           name: template.name,
-          description: template.description,
+          description: template.description || '',
           system_prompt: template.system_prompt,
           tags: template.tags || [],
           download_count: template.download_count || 0,
@@ -204,10 +194,11 @@ export default function AgentsPage() {
           icon_color: template.icon_color,
           icon_background: template.icon_background,
           template_id: template.template_id,
-          is_omni_team: template.is_omni_team,
+          is_kortix_team: template.is_kortix_team,
+          profile_image_url: template.profile_image_url,
           mcp_requirements: template.mcp_requirements,
           metadata: template.metadata,
-          usage_examples: template.usage_examples,
+          sharing_preferences: template.sharing_preferences,
           config: template.config,
         };
 
@@ -318,10 +309,9 @@ export default function AgentsPage() {
     setSelectedItem(agent);
     setShowPreviewDialog(true);
     
-    // Update URL with agent parameter for sharing
+    // Update URL with agent parameter for sharing (preserve current tab)
     const currentUrl = new URL(window.location.href);
     currentUrl.searchParams.set('agent', agent.id);
-    currentUrl.searchParams.set('tab', 'my-agents');
     router.replace(currentUrl.toString(), { scroll: false });
   };
 
@@ -530,7 +520,7 @@ export default function AgentsPage() {
     });
   };
 
-  const handlePublish = async (usageExamples: any[]) => {
+  const handlePublish = async (preferences: SharingPreferences) => {
     if (!publishDialog) return;
 
     try {
@@ -539,10 +529,10 @@ export default function AgentsPage() {
       if (isAgent) {
         setPublishingAgentId(publishDialog.templateId);
         
-        const result = await createTemplateMutation.mutateAsync({
+        await createTemplateMutation.mutateAsync({
           agent_id: publishDialog.templateId,
           make_public: true,
-          usage_examples: usageExamples
+          sharing_preferences: preferences
         });
         
         toast.success(`${publishDialog.templateName} has been published to the marketplace`);
@@ -551,7 +541,7 @@ export default function AgentsPage() {
         
         await publishMutation.mutateAsync({
           template_id: publishDialog.templateId,
-          usage_examples: usageExamples
+          sharing_preferences: preferences
         });
         
         toast.success(`${publishDialog.templateName} has been published to the marketplace`);
@@ -626,7 +616,6 @@ export default function AgentsPage() {
             />
           )}
 
-          {/* Marketplace tab is disabled
           {activeTab === "marketplace" && (
             <MarketplaceTab
               marketplaceSearchQuery={marketplaceSearchQuery}
@@ -648,10 +637,10 @@ export default function AgentsPage() {
               onMarketplacePageSizeChange={handleMarketplacePageSizeChange}
               marketplacePagination={marketplaceTemplates?.pagination}
             />
-          )} */}
+          )}
         </div>
 
-        <PublishDialog
+        <EnhancedPublishDialog
           publishDialog={publishDialog}
           templatesActioningId={templatesActioningId}
           onClose={() => setPublishDialog(null)}

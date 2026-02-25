@@ -50,11 +50,12 @@ export interface AgentTemplate {
   marketplace_published_at?: string;
   created_at: string;
   creator_name?: string;
+  profile_image_url?: string;
   icon_name?: string;
   icon_color?: string;
   icon_background?: string;
-  is_omni_team?: boolean;
-  usage_examples?: UsageExampleMessage[];
+  is_kortix_team?: boolean;
+  sharing_preferences?: SharingPreferences;
   metadata?: {
     source_agent_id?: string;
     source_version_id?: string;
@@ -119,11 +120,20 @@ export interface InstallationResponse {
   };
 }
 
+export interface SharingPreferences {
+  include_system_prompt: boolean;
+  include_default_tools: boolean;
+  include_integrations: boolean;
+  include_knowledge_bases: boolean;
+  include_triggers: boolean;
+  include_default_files: boolean;
+}
+
 export interface CreateTemplateRequest {
   agent_id: string;
   make_public?: boolean;
   tags?: string[];
-  usage_examples?: UsageExampleMessage[];
+  sharing_preferences?: SharingPreferences;
 }
 
 export function useUserCredentials() {
@@ -256,7 +266,7 @@ export function useMarketplaceTemplates(params?: {
       if (params?.limit) searchParams.set('limit', params.limit.toString());
       if (params?.search) searchParams.set('search', params.search);
       if (params?.tags) searchParams.set('tags', params.tags);
-      if (params?.is_omni_team !== undefined) searchParams.set('is_omni_team', params.is_omni_team.toString());
+      if (params?.is_omni_team !== undefined) searchParams.set('is_kortix_team', params.is_omni_team.toString());
       if (params?.mine !== undefined) searchParams.set('mine', params.mine.toString());
       if (params?.sort_by) searchParams.set('sort_by', params.sort_by);
       if (params?.sort_order) searchParams.set('sort_order', params.sort_order);
@@ -386,11 +396,11 @@ export function usePublishTemplate() {
     mutationFn: async ({ 
       template_id, 
       tags,
-      usage_examples 
+      sharing_preferences 
     }: { 
       template_id: string; 
       tags?: string[];
-      usage_examples?: UsageExampleMessage[];
+      sharing_preferences?: SharingPreferences;
     }): Promise<{ message: string }> => {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
@@ -405,7 +415,7 @@ export function usePublishTemplate() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ tags, usage_examples }),
+        body: JSON.stringify({ tags, sharing_preferences }),
       });
 
       if (!response.ok) {

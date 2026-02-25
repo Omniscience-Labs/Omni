@@ -168,7 +168,8 @@ class VersionService:
                 
             mcp_copy = mcp.copy()
             config = mcp_copy.get('config', {})
-            mcp_type = mcp_copy.get('type', 'sse')
+            mcp_type = mcp_copy.get('type') or mcp_copy.get('customType') or 'sse'
+            mcp_copy['type'] = mcp_type
             mcp_name = mcp_copy.get('name', '')
             
             if mcp_type == 'composio':
