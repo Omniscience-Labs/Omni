@@ -343,36 +343,18 @@ class SandboxFilesTool(SandboxToolsBase):
     async def _call_morph_api(self, file_content: str, code_edit: str, instructions: str, file_path: str) -> tuple[Optional[str], Optional[str]]:
         """
         Call Morph API to apply edits to file content.
-        Falls back to Anthropic Claude or OpenAI GPT if no Morph key is configured.
         Returns a tuple (new_content, error_message).
         On success, error_message is None.
         On failure, new_content is None.
         """
         try:
             morph_api_key = getattr(config, 'MORPH_API_KEY', None) or os.getenv('MORPH_API_KEY')
-            anthropic_key = getattr(config, 'ANTHROPIC_API_KEY', None) or os.getenv('ANTHROPIC_API_KEY')
-            openai_key = getattr(config, 'OPENAI_API_KEY', None) or os.getenv('OPENAI_API_KEY')
+            openrouter_key = getattr(config, 'OPENROUTER_API_KEY', None) or os.getenv('OPENROUTER_API_KEY')
 
-            morph_messages = [{
+            messages = [{
                 "role": "user", 
                 "content": f"<instruction>{instructions}</instruction>\n<code>{file_content}</code>\n<update>{code_edit}</update>"
             }]
-
-            APPLY_SYSTEM_PROMPT = (
-                "You are a code editing assistant. You will be given a file's current content and an update snippet. "
-                "Apply the update to the file and return ONLY the complete updated file content — no explanation, "
-                "no markdown fences, no commentary. Output the raw file content exactly as it should be saved."
-            )
-
-            generic_messages = [
-                {"role": "user", "content": (
-                    f"Apply the following edit to the file below.\n\n"
-                    f"Instructions: {instructions}\n\n"
-                    f"Current file content:\n```\n{file_content}\n```\n\n"
-                    f"Edit to apply (use `// ... existing code ...` markers to indicate unchanged sections):\n```\n{code_edit}\n```\n\n"
-                    f"Return ONLY the complete updated file content with no explanation or markdown fences."
-                )}
-            ]
 
             response = None
             if morph_api_key:
@@ -383,33 +365,22 @@ class SandboxFilesTool(SandboxToolsBase):
                 )
                 response = await client.chat.completions.create(
                     model="morph-v3-large",
-                    messages=morph_messages,
+                    messages=messages,
                     temperature=0.0,
                     timeout=30.0
                 )
-            elif anthropic_key:
-                logger.debug("Morph API key not set, falling back to Anthropic Claude for file editing.")
+            elif openrouter_key:
+                logger.debug("Morph API key not set, falling back to OpenRouter for file editing via litellm.")
                 response = await litellm.acompletion(
-                    model="claude-haiku-4-5-20250714",
-                    messages=generic_messages,
-                    api_key=anthropic_key,
-                    system=APPLY_SYSTEM_PROMPT,
+                    model="openrouter/morph/morph-v3-large",
+                    messages=messages,
+                    api_key=openrouter_key,
+                    api_base="https://openrouter.ai/api/v1",
                     temperature=0.0,
-                    max_tokens=8192,
-                    timeout=60.0
-                )
-            elif openai_key:
-                logger.debug("No Morph or Anthropic key set, falling back to OpenAI GPT for file editing.")
-                response = await litellm.acompletion(
-                    model="gpt-4o-mini",
-                    messages=[{"role": "system", "content": APPLY_SYSTEM_PROMPT}] + generic_messages,
-                    api_key=openai_key,
-                    temperature=0.0,
-                    max_tokens=8192,
-                    timeout=60.0
+                    timeout=30.0
                 )
             else:
-                error_msg = "No Morph, Anthropic, or OpenAI API key found, cannot perform AI edit."
+                error_msg = "No Morph or OpenRouter API key found, cannot perform AI edit."
                 logger.warning(error_msg)
                 return None, error_msg
             
