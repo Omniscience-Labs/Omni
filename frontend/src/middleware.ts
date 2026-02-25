@@ -300,10 +300,12 @@ export async function middleware(request: NextRequest) {
       const trialExpired = creditAccount.trial_status === 'expired' || creditAccount.trial_status === 'cancelled';
       const trialConverted = creditAccount.trial_status === 'converted';
       
-      // If user is coming from Stripe checkout with subscription=success, allow access to dashboard
-      // The webhook might not have processed yet, but we should still allow them to see the success page
+      // If user is coming from Stripe checkout with subscription=success, allow through.
+      // The webhook may not have processed yet — the frontend will call sync-subscription
+      // to recover directly from Stripe. Apply to all protected routes so navigating from
+      // /dashboard to /agents etc. doesn't redirect mid-sync.
       const subscriptionSuccess = request.nextUrl.searchParams.get('subscription') === 'success';
-      if (subscriptionSuccess && pathname === '/dashboard') {
+      if (subscriptionSuccess) {
         return supabaseResponse;
       }
       

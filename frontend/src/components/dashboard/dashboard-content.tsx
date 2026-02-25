@@ -23,6 +23,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { config, isLocalMode, isStagingMode } from '@/lib/config';
 import { useInitiateAgentWithInvalidation } from '@/hooks/dashboard/use-initiate-agent';
 import { useAccountState, accountStateSelectors, invalidateAccountState } from '@/hooks/billing';
+import { syncSubscription } from '@/lib/api/billing';
 import { getPlanName } from '@/components/billing/plan-utils';
 import { useAgents } from '@/hooks/agents/use-agents';
 import { usePricingModalStore } from '@/stores/pricing-modal-store';
@@ -215,29 +216,43 @@ export function DashboardContent() {
     
     // If we have checkout/subscription success indicators
     if (subscriptionSuccess === 'success' || checkoutSuccess === 'success' || sessionId || clientSecret) {
-      console.log('🎉 Subscription success detected! Showing celebration...');
+      console.log('🎉 Subscription success detected! Syncing subscription from Stripe...');
       celebrationTriggeredRef.current = true;
-      
-      // Invalidate and force refetch billing queries to refresh data immediately
-      // This ensures fresh data after checkout, bypassing staleTime
-      // Use invalidateAccountState helper which includes debouncing
-      invalidateAccountState(queryClient, true, true); // skipCache=true to bypass backend cache after checkout
-      
-      // Close sidebar for cleaner celebration view
-      setSidebarOpen(false);
-      
-      // Show celebration immediately
-      setShowUpgradeCelebration(true);
-      
-      // Clean up URL params after a short delay
-      setTimeout(() => {
+
+      const cleanUrl = () => {
         const url = new URL(window.location.href);
         url.searchParams.delete('subscription');
         url.searchParams.delete('checkout');
         url.searchParams.delete('session_id');
         url.searchParams.delete('client_secret');
         router.replace(url.pathname + url.search, { scroll: false });
-      }, 100);
+      };
+
+      // Sync subscription from Stripe first — this handles cases where the Stripe
+      // webhook hasn't processed yet. The backend recovery path looks up the customer's
+      // active subscription directly from Stripe and writes it to the DB.
+      syncSubscription()
+        .then(() => {
+          console.log('✅ Subscription synced from Stripe successfully');
+        })
+        .catch((err) => {
+          console.warn('⚠️ Subscription sync failed (will still refresh):', err);
+        })
+        .finally(() => {
+          // Force a fresh fetch from DB (now updated by sync above)
+          invalidateAccountState(queryClient, true, true);
+
+          // Close sidebar for cleaner celebration view
+          setSidebarOpen(false);
+
+          // Show celebration
+          setShowUpgradeCelebration(true);
+
+          // Clean up URL params after the refetch has had time to complete.
+          // Keeping params alive briefly ensures the middleware bypass on /dashboard
+          // stays active while the DB update propagates.
+          setTimeout(cleanUrl, 2000);
+        });
     }
   }, [searchParams, queryClient, router, setSidebarOpen]);
 
@@ -452,7 +467,7 @@ export function DashboardContent() {
                     onClick={() => {
                       setViewMode('worker-templates');
                       setSelectedMode(null);
-                      router.push('/dashboard?tab=worker-templates');
+                      router.push('/agents?tab=marketplace');
                     }}
                     className={cn(
                       "px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200",
