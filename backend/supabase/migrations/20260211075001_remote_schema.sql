@@ -215,6 +215,11 @@ ALTER TABLE "public"."llamacloud_knowledge_bases" VALIDATE CONSTRAINT "llamaclou
 
 set check_function_bodies = off;
 
+-- Drop first so return type can change (remote may have different version from prior migration)
+DROP FUNCTION IF EXISTS public.get_account_llamacloud_kbs(uuid, boolean) CASCADE;
+DROP FUNCTION IF EXISTS public.get_agent_assigned_llamacloud_kbs(uuid, boolean) CASCADE;
+
+
 CREATE OR REPLACE FUNCTION public.get_account_llamacloud_kbs(p_account_id uuid, p_include_inactive boolean DEFAULT false)
  RETURNS TABLE(kb_id uuid, name character varying, index_name character varying, description text, summary text, usage_context character varying, folder_id uuid, is_active boolean, created_at timestamp with time zone, updated_at timestamp with time zone)
  LANGUAGE plpgsql
