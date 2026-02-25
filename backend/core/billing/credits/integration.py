@@ -6,7 +6,7 @@ from core.billing.tool_billing import tool_billing_service
 from core.utils.config import config, EnvMode
 from core.utils.logger import logger
 from core.services.supabase import DBConnection
-from ..shared.config import is_model_allowed
+from ..shared.config import is_model_allowed, MINIMUM_CREDIT_FOR_RUN
 from ..shared.cache_utils import invalidate_account_state_cache
 
 class BillingIntegration:
@@ -36,7 +36,7 @@ class BillingIntegration:
         else:
             balance = Decimal(str(balance_info or 0))
         
-        if balance < 0:
+        if balance < MINIMUM_CREDIT_FOR_RUN:
             return False, f"Insufficient credits. Your balance is {int(balance * 100)} credits. Please add credits to continue.", None
         
         return True, f"Credits available: {int(balance * 100)} credits", None

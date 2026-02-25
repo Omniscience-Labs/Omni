@@ -16,6 +16,7 @@ from typing import Dict, Optional, Tuple
 from core.utils.config import config
 from core.utils.logger import logger
 from core.services.supabase import DBConnection
+from core.billing.shared.config import MINIMUM_CREDIT_FOR_RUN
 from core.billing.credits.calculator import (
     calculate_token_cost,
     calculate_cached_token_cost,
@@ -35,7 +36,7 @@ class EnterpriseBillingService:
     async def check_billing_status(
         self, 
         account_id: str,
-        estimated_cost: Decimal = Decimal('0.01')
+        estimated_cost: Decimal = MINIMUM_CREDIT_FOR_RUN
     ) -> Tuple[bool, str, Optional[str]]:
         """
         Check if a user can spend credits in enterprise mode.
@@ -47,7 +48,7 @@ class EnterpriseBillingService:
         
         Args:
             account_id: The user's account ID
-            estimated_cost: Minimum cost to check for (default $0.01)
+            estimated_cost: Minimum cost to check for (from MINIMUM_CREDIT_FOR_RUN)
             
         Returns:
             Tuple of (can_spend: bool, message: str, reservation_id: Optional[str])
