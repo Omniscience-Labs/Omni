@@ -9,7 +9,7 @@ from typing import List, Dict, Optional, Any, Tuple
 from datetime import datetime
 import re
 import io
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.styles.colors import Color
 from openpyxl.utils import column_index_from_string
@@ -20,11 +20,23 @@ from openpyxl.utils import column_index_from_string
 # ---------------------------------------------------------------------------
 
 _VALID_ALIGNMENTS = {"left", "center", "right", "top", "bottom", "middle"}
+_VALID_BORDER_STYLES = {"thin", "medium", "thick"}
 
 
 # ---------------------------------------------------------------------------
 # Color helper
 # ---------------------------------------------------------------------------
+
+def _normalize_border(border: Any) -> Any:
+    """Normalize border to False (no border) or a valid style string ('thin', 'medium', 'thick')."""
+    if not border:
+        return False
+    if border is True:
+        return "thin"
+    if isinstance(border, str) and border.lower() in _VALID_BORDER_STYLES:
+        return border.lower()
+    return "thin"
+
 
 def _normalize_color(color: Any) -> Optional[str]:
     """Normalize color to RRGGBB (strip '#' prefix if present)."""
@@ -69,6 +81,11 @@ def _parse_range_ref(range_ref: str) -> Tuple[int, int, int, int]:
     sr, sc = _parse_cell_ref(start_cell)
     er, ec = _parse_cell_ref(end_cell)
     return sr, sc, er, ec
+
+
+def _validate_column_letter(col: str) -> bool:
+    """Validate Excel column letter(s), e.g. A, B, Z, AA, AB."""
+    return bool(re.match(r'^[A-Z]+$', str(col).upper()))
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +133,7 @@ def _build_format(fmt: Any, defaults: Dict[str, Any], fill_missing: bool = True)
         fmt["alignment"] = align
         fmt.setdefault("wrap_text", defaults.get("wrap_text", False))
         fmt.setdefault("border", defaults.get("border", False))
+        fmt["border"] = _normalize_border(fmt["border"])
     else:
         # Only normalize keys that are present so we don't overwrite e.g. number_format with "General"
         if "font_color" in fmt:
@@ -125,6 +143,8 @@ def _build_format(fmt: Any, defaults: Dict[str, Any], fill_missing: bool = True)
         if "alignment" in fmt:
             if fmt["alignment"] not in _VALID_ALIGNMENTS:
                 fmt["alignment"] = "left"
+        if "border" in fmt:
+            fmt["border"] = _normalize_border(fmt["border"])
 
     return fmt
 
@@ -247,6 +267,34 @@ def _build_sheet(sheet: Any, defaults: Dict[str, Any]) -> Dict[str, Any]:
 
     raw_formats = s.get("formats") or []
     s["formats"] = [_build_format_entry(f, defaults) for f in raw_formats if isinstance(f, dict)]
+
+    # Merges: list of A1:B2-style range refs to merge
+    raw_merges = s.get("merges") or []
+    merges: List[str] = []
+    for m in raw_merges:
+        if isinstance(m, str) and _validate_range_ref(m):
+            merges.append(str(m).upper())
+    s["merges"] = merges
+
+    # Unmerges: list of A1:B2-style range refs to unmerge (no-op on fresh sheet)
+    raw_unmerges = s.get("unmerges") or []
+    unmerges: List[str] = []
+    for u in raw_unmerges:
+        if isinstance(u, str) and _validate_range_ref(u):
+            unmerges.append(str(u).upper())
+    s["unmerges"] = unmerges
+
+    # Column widths: dict of column letter -> width (number, Excel character units)
+    raw_cw = s.get("column_widths")
+    if isinstance(raw_cw, dict):
+        column_widths: Dict[str, float] = {}
+        for k, v in raw_cw.items():
+            col = str(k).upper()
+            if _validate_column_letter(col) and isinstance(v, (int, float)) and v > 0:
+                column_widths[col] = float(v)
+        s["column_widths"] = column_widths
+    else:
+        s["column_widths"] = {}
 
     return s
 
@@ -375,13 +423,16 @@ def _apply_format(
                 )
                 applied_keys.append("wrap_text")
 
-            # Border
+            # Border (style: thin, medium, or thick)
             if "border" in fmt and fmt["border"]:
+                style = fmt["border"] if isinstance(fmt["border"], str) else "thin"
+                if style not in _VALID_BORDER_STYLES:
+                    style = "thin"
                 cell.border = Border(
-                    left=Side(style='thin'),
-                    right=Side(style='thin'),
-                    top=Side(style='thin'),
-                    bottom=Side(style='thin'),
+                    left=Side(style=style),
+                    right=Side(style=style),
+                    top=Side(style=style),
+                    bottom=Side(style=style),
                 )
                 applied_keys.append("border")
 
@@ -534,15 +585,27 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
         except Exception as e:
             raise Exception(f"Failed to save workbook to {file_path}: {str(e)}")
     
-    # (All other spreadsheet operations are intentionally removed.
-    # This tool now operates strictly via standardized JSON assembly + render_spreadsheet.)
+    async def _load_workbook_from_sandbox(self, full_path: str) -> Workbook:
+        """Download an existing .xlsx from the sandbox and return an openpyxl Workbook.
+        Formulas are preserved (data_only=False)."""
+        try:
+            file_bytes = await self.sandbox.fs.download_file(full_path)
+        except Exception as e:
+            raise ValueError(
+                f"Could not read file at {full_path}. "
+                f"Ensure the file exists and is a valid .xlsx: {e}"
+            )
+        try:
+            return load_workbook(io.BytesIO(file_bytes), data_only=False)
+        except Exception as e:
+            raise ValueError(f"File at {full_path} is not a valid .xlsx workbook: {e}")
 
     # ==================== FUNCTION 11: render_spreadsheet ====================
     @openapi_schema({
         "type": "function",
         "function": {
             "name": "render_spreadsheet",
-            "description": "Create a complete spreadsheet from a standardized spec. The full standardized JSON is built by the backend only; the LLM must not build structure—it supplies only content and optional overrides (e.g. sheet name, table values, format keys). Backend fills all missing format keys from workbook defaults (except in formats[] where only provided keys are applied). Supports tables (2D values at anchor), cells (value or formula), and format entries. Colors: font_color and fill_color, hex RRGGBB or #RRGGBB. Operations per sheet: tables → cells → formats.",
+            "description": "Create a complete spreadsheet from a standardized spec. The full standardized JSON is built by the backend only; the LLM must not build structure—it supplies only content and optional overrides (e.g. sheet name, table values, format keys). Backend fills all missing format keys from workbook defaults (except in formats[] where only provided keys are applied). Supports tables (2D values at anchor), cells (value or formula), format entries, merge/unmerge ranges, and column widths. Colors: font_color and fill_color, hex RRGGBB or #RRGGBB. Operations per sheet: tables → cells → formats → unmerges → merges → column_widths.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -578,7 +641,7 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
                                                     "fill_color": {"type": "string", "description": "Cell background color: hex RRGGBB or #RRGGBB. Backend normalizes to RRGGBB."},
                                                     "alignment": {"type": "string", "enum": ["left", "center", "right", "top", "bottom", "middle"], "description": "Text alignment."},
                                                     "wrap_text": {"type": "boolean", "description": "Wrap text in cells."},
-                                                    "border": {"type": "boolean", "description": "Draw border around cells."}
+                                                    "border": {"oneOf": [{"type": "boolean"}, {"type": "string", "enum": ["thin", "medium", "thick"]}], "description": "Draw border: true or 'thin' for thin, 'medium' or 'thick' for thicker borders."}
                                                 }
                                             }
                                         },
@@ -606,7 +669,7 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
                                                     "fill_color": {"type": "string", "description": "Cell background color: hex RRGGBB or #RRGGBB. Backend normalizes to RRGGBB."},
                                                     "alignment": {"type": "string", "enum": ["left", "center", "right", "top", "bottom", "middle"], "description": "Text alignment."},
                                                     "wrap_text": {"type": "boolean", "description": "Wrap text in cells."},
-                                                    "border": {"type": "boolean", "description": "Draw border around cells."}
+                                                    "border": {"oneOf": [{"type": "boolean"}, {"type": "string", "enum": ["thin", "medium", "thick"]}], "description": "Draw border: true or 'thin' for thin, 'medium' or 'thick' for thicker borders."}
                                                 }
                                             }
                                         },
@@ -632,12 +695,27 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
                                                     "fill_color": {"type": "string", "description": "Cell background color: hex RRGGBB or #RRGGBB. Backend normalizes to RRGGBB."},
                                                     "alignment": {"type": "string", "enum": ["left", "center", "right", "top", "bottom", "middle"], "description": "Text alignment."},
                                                     "wrap_text": {"type": "boolean", "description": "Wrap text in cells."},
-                                                    "border": {"type": "boolean", "description": "Draw border around cells."}
+                                                    "border": {"oneOf": [{"type": "boolean"}, {"type": "string", "enum": ["thin", "medium", "thick"]}], "description": "Draw border: true or 'thin' for thin, 'medium' or 'thick' for thicker borders."}
                                                 }
                                             }
                                         },
                                         "required": ["target", "format"]
                                     }
+                                },
+                                "merges": {
+                                    "type": "array",
+                                    "description": "Cell ranges to merge (e.g. ['A1:C1', 'A2:A5']). Each item is an A1:B2-style range.",
+                                    "items": {"type": "string"}
+                                },
+                                "unmerges": {
+                                    "type": "array",
+                                    "description": "Cell ranges to unmerge. Use when editing an existing sheet; no-op when creating from scratch.",
+                                    "items": {"type": "string"}
+                                },
+                                "column_widths": {
+                                    "type": "object",
+                                    "description": "Column letter to width in character units (e.g. {\"A\": 15, \"B\": 20, \"C\": 10}).",
+                                    "additionalProperties": {"type": "number"}
                                 }
                             },
                             "required": ["name"]
@@ -701,7 +779,7 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
             # Remove the default sheet created by openpyxl
             workbook.remove(workbook.active)
 
-            ops_summary = {"tables": 0, "cells": 0, "formats": 0}
+            ops_summary = {"tables": 0, "cells": 0, "formats": 0, "merges": 0, "unmerges": 0, "column_widths": 0}
 
             for sheet_spec in assembled_sheets:
                 ws = workbook.create_sheet(title=sheet_spec["name"])
@@ -775,6 +853,24 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
                     _apply_format(ws, sr, sc, er, ec, fmt)
                     ops_summary["formats"] += 1
 
+                # 4. Unmerge ranges (no-op on fresh sheet; avoids errors if range not merged)
+                for range_str in sheet_spec.get("unmerges", []):
+                    try:
+                        ws.unmerge_cells(range_str)
+                        ops_summary["unmerges"] += 1
+                    except Exception:
+                        pass
+
+                # 5. Merge ranges
+                for range_str in sheet_spec.get("merges", []):
+                    ws.merge_cells(range_str)
+                    ops_summary["merges"] += 1
+
+                # 6. Column widths
+                for col_letter, width in sheet_spec.get("column_widths", {}).items():
+                    ws.column_dimensions[col_letter].width = width
+                    ops_summary["column_widths"] += 1
+
             # --- Save to sandbox ---
             safe_name = _sanitize_xlsx_filename(output_filename)
             relative_path = f"{self.spreadsheets_dir}/{safe_name}"
@@ -806,3 +902,308 @@ class SandboxSpreadsheetTool(SandboxToolsBase):
         except Exception as e:
             logger.exception("sb_spreadsheet_tool render_spreadsheet failed")
             return self.fail_response(f"Failed to render spreadsheet: {str(e)}")
+
+    # ==================== FUNCTION 12: update_spreadsheet ====================
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "update_spreadsheet",
+            "description": "Update an existing .xlsx spreadsheet: append content, modify cell values/formulas, apply formatting, merge/unmerge cells, or set column widths—without recreating the file from scratch. Loads the workbook from the sandbox, applies the requested operations to the named sheets, and saves back. Uses the same sheet spec shape as render_spreadsheet; only the operations you provide are applied. Operations per sheet: tables → cells → formats → unmerges → merges → column_widths.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the existing .xlsx file in the workspace (e.g. 'spreadsheets/report.xlsx' or '/workspace/spreadsheets/report.xlsx')."
+                    },
+                    "sheets": {
+                        "type": "array",
+                        "description": "Array of sheet update specs. Each must reference an existing sheet by name. Only the operations provided (tables, cells, formats, merges, unmerges, column_widths) are applied.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string", "description": "Name of an existing sheet to update."},
+                                "tables": {
+                                    "type": "array",
+                                    "description": "Tables to write/overwrite. Each table has an anchor cell and 2D values array.",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "anchor": {"type": "string", "description": "Top-left cell for the table (e.g. 'A1').", "default": "A1"},
+                                            "values": {
+                                                "type": "array",
+                                                "description": "2D array of values (rows x cols).",
+                                                "items": {"type": "array", "items": {"type": ["string", "number", "boolean", "null"]}}
+                                            },
+                                            "header": {"type": "boolean", "description": "If true, first row is treated as header (auto bold + border).", "default": False},
+                                            "format": {
+                                                "type": "object",
+                                                "description": "Optional format applied to entire table range.",
+                                                "properties": {
+                                                    "number_format": {"type": "string"},
+                                                    "bold": {"type": "boolean"},
+                                                    "italic": {"type": "boolean"},
+                                                    "font_size": {"type": "number"},
+                                                    "font_color": {"type": "string"},
+                                                    "fill_color": {"type": "string"},
+                                                    "alignment": {"type": "string", "enum": ["left", "center", "right", "top", "bottom", "middle"]},
+                                                    "wrap_text": {"type": "boolean"},
+                                                    "border": {"oneOf": [{"type": "boolean"}, {"type": "string", "enum": ["thin", "medium", "thick"]}]}
+                                                }
+                                            }
+                                        },
+                                        "required": ["values"]
+                                    }
+                                },
+                                "cells": {
+                                    "type": "array",
+                                    "description": "Individual cell values or formulas to write/overwrite.",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "cell": {"type": "string", "description": "Cell reference in A1 format."},
+                                            "value": {"type": ["string", "number", "boolean", "null"]},
+                                            "formula": {"type": "string", "description": "Formula starting with '='."},
+                                            "format": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "number_format": {"type": "string"},
+                                                    "bold": {"type": "boolean"},
+                                                    "italic": {"type": "boolean"},
+                                                    "font_size": {"type": "number"},
+                                                    "font_color": {"type": "string"},
+                                                    "fill_color": {"type": "string"},
+                                                    "alignment": {"type": "string", "enum": ["left", "center", "right", "top", "bottom", "middle"]},
+                                                    "wrap_text": {"type": "boolean"},
+                                                    "border": {"oneOf": [{"type": "boolean"}, {"type": "string", "enum": ["thin", "medium", "thick"]}]}
+                                                }
+                                            }
+                                        },
+                                        "required": ["cell"]
+                                    }
+                                },
+                                "formats": {
+                                    "type": "array",
+                                    "description": "Formatting-only entries (no value changes). Only provided keys are applied.",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "target": {"type": "string", "description": "Cell (A1) or range (A1:C3) to format."},
+                                            "format": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "number_format": {"type": "string"},
+                                                    "bold": {"type": "boolean"},
+                                                    "italic": {"type": "boolean"},
+                                                    "font_size": {"type": "number"},
+                                                    "font_color": {"type": "string"},
+                                                    "fill_color": {"type": "string"},
+                                                    "alignment": {"type": "string", "enum": ["left", "center", "right", "top", "bottom", "middle"]},
+                                                    "wrap_text": {"type": "boolean"},
+                                                    "border": {"oneOf": [{"type": "boolean"}, {"type": "string", "enum": ["thin", "medium", "thick"]}]}
+                                                }
+                                            }
+                                        },
+                                        "required": ["target", "format"]
+                                    }
+                                },
+                                "merges": {
+                                    "type": "array",
+                                    "description": "Cell ranges to merge (e.g. ['A1:C1']).",
+                                    "items": {"type": "string"}
+                                },
+                                "unmerges": {
+                                    "type": "array",
+                                    "description": "Cell ranges to unmerge.",
+                                    "items": {"type": "string"}
+                                },
+                                "column_widths": {
+                                    "type": "object",
+                                    "description": "Column letter to width in character units (e.g. {\"A\": 15}).",
+                                    "additionalProperties": {"type": "number"}
+                                }
+                            },
+                            "required": ["name"]
+                        }
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "Optional output path. If set, saves to this path instead of overwriting the original file."
+                    },
+                    "default_font_name": {"type": "string", "default": "Calibri"},
+                    "default_font_size": {"type": "number", "default": 11},
+                    "default_font_color": {"type": "string", "default": "000000"},
+                    "default_number_format": {"type": "string", "default": "General"},
+                    "default_alignment": {"type": "string", "enum": ["left", "center", "right", "top", "bottom", "middle"], "default": "left"},
+                    "default_wrap_text": {"type": "boolean", "default": False},
+                    "default_border": {"type": "boolean", "default": False},
+                },
+                "required": ["file_path", "sheets"],
+            },
+        },
+    })
+    async def update_spreadsheet(
+        self,
+        file_path: str,
+        sheets: List[Dict[str, Any]],
+        output_path: Optional[str] = None,
+        default_font_name: str = "Calibri",
+        default_font_size: float = 11,
+        default_font_color: str = "000000",
+        default_number_format: str = "General",
+        default_alignment: str = "left",
+        default_wrap_text: bool = False,
+        default_border: bool = False,
+    ) -> ToolResult:
+        """Update an existing .xlsx: append content, modify cells, apply formatting,
+        merge/unmerge, or set column widths without recreating from scratch."""
+        try:
+            await self._ensure_sandbox()
+
+            if not sheets or not isinstance(sheets, list):
+                return self.fail_response("'sheets' must be a non-empty array of sheet objects.")
+
+            # --- Validate and load ---
+            cleaned_input, full_input_path = self._validate_and_normalize_path(file_path)
+            workbook = await self._load_workbook_from_sandbox(full_input_path)
+
+            # --- Assemble (normalize / validate all inputs) ---
+            assembled = _assemble_workbook(
+                sheets=sheets,
+                default_font_name=default_font_name,
+                default_font_size=default_font_size,
+                default_font_color=default_font_color,
+                default_number_format=default_number_format,
+                default_alignment=default_alignment,
+                default_wrap_text=default_wrap_text,
+                default_border=default_border,
+            )
+
+            assembled_sheets = assembled["sheets"]
+            workbook_defaults = assembled["workbook"]["defaults"]
+
+            if not assembled_sheets:
+                return self.fail_response("No valid sheet update specs found.")
+
+            existing_names = workbook.sheetnames
+            ops_summary = {"tables": 0, "cells": 0, "formats": 0, "merges": 0, "unmerges": 0, "column_widths": 0}
+
+            for sheet_spec in assembled_sheets:
+                sheet_name = sheet_spec["name"]
+                if sheet_name not in existing_names:
+                    return self.fail_response(
+                        f"Sheet '{sheet_name}' not found in workbook. "
+                        f"Existing sheets: {existing_names}"
+                    )
+                ws = workbook[sheet_name]
+
+                # 1. Write tables
+                for table in sheet_spec["tables"]:
+                    anchor_row, anchor_col = _parse_cell_ref(table["anchor"])
+                    values = table["values"]
+
+                    for row_idx, row_data in enumerate(values):
+                        for col_idx, val in enumerate(row_data):
+                            cell = ws.cell(
+                                row=anchor_row + row_idx,
+                                column=anchor_col + col_idx,
+                            )
+                            cell.value = self._parse_cell_value(val)
+
+                    num_rows = len(values)
+                    num_cols = len(values[0]) if values else 0
+                    end_row = anchor_row + num_rows - 1
+                    end_col = anchor_col + num_cols - 1
+
+                    if table["format"]:
+                        table_fmt = dict(table["format"])
+                        table_fmt["font_name"] = workbook_defaults["font_name"]
+                        _apply_format(ws, anchor_row, anchor_col, end_row, end_col, table_fmt)
+
+                    if table["header"] and values:
+                        header_fmt: Dict[str, Any] = {
+                            "bold": True,
+                            "border": True,
+                            "font_name": workbook_defaults["font_name"],
+                        }
+                        _apply_format(ws, anchor_row, anchor_col, anchor_row, end_col, header_fmt)
+
+                    ops_summary["tables"] += 1
+
+                # 2. Write individual cells
+                for cell_spec in sheet_spec["cells"]:
+                    cell_ref = cell_spec["cell"]
+                    cell_obj = ws[cell_ref]
+
+                    if cell_spec["formula"]:
+                        cell_obj.value = cell_spec["formula"]
+                    else:
+                        cell_obj.value = self._parse_cell_value(cell_spec["value"])
+
+                    if cell_spec["format"]:
+                        row, col = _parse_cell_ref(cell_ref)
+                        cell_fmt = dict(cell_spec["format"])
+                        cell_fmt["font_name"] = workbook_defaults["font_name"]
+                        _apply_format(ws, row, col, row, col, cell_fmt)
+
+                    ops_summary["cells"] += 1
+
+                # 3. Apply standalone formats
+                for fmt_entry in sheet_spec["formats"]:
+                    target = fmt_entry["target"]
+                    fmt = dict(fmt_entry["format"])
+                    fmt["font_name"] = workbook_defaults["font_name"]
+
+                    if ':' in target:
+                        sr, sc, er, ec = _parse_range_ref(target)
+                    else:
+                        r, c = _parse_cell_ref(target)
+                        sr, sc, er, ec = r, c, r, c
+
+                    _apply_format(ws, sr, sc, er, ec, fmt)
+                    ops_summary["formats"] += 1
+
+                # 4. Unmerge ranges
+                for range_str in sheet_spec.get("unmerges", []):
+                    try:
+                        ws.unmerge_cells(range_str)
+                        ops_summary["unmerges"] += 1
+                    except Exception:
+                        pass
+
+                # 5. Merge ranges
+                for range_str in sheet_spec.get("merges", []):
+                    ws.merge_cells(range_str)
+                    ops_summary["merges"] += 1
+
+                # 6. Column widths
+                for col_letter, width in sheet_spec.get("column_widths", {}).items():
+                    ws.column_dimensions[col_letter].width = width
+                    ops_summary["column_widths"] += 1
+
+            # --- Determine save path ---
+            if output_path:
+                cleaned_out, full_out_path = self._validate_and_normalize_path(output_path)
+                await self._ensure_directory_exists(full_out_path)
+            else:
+                cleaned_out, full_out_path = cleaned_input, full_input_path
+
+            await self._save_workbook_to_sandbox(workbook, full_out_path)
+
+            logger.info(
+                "sb_spreadsheet_tool update_spreadsheet: sheets_updated=%s path=%s",
+                len(assembled_sheets), full_out_path,
+            )
+            return self.success_response({
+                "saved_path": full_out_path,
+                "relative_path": f"/workspace/{cleaned_out}",
+                "sheet_names": workbook.sheetnames,
+                "sheets_updated": [s["name"] for s in assembled_sheets],
+                "ops_applied": ops_summary,
+            })
+
+        except ValueError as e:
+            return self.fail_response(str(e))
+        except Exception as e:
+            logger.exception("sb_spreadsheet_tool update_spreadsheet failed")
+            return self.fail_response(f"Failed to update spreadsheet: {str(e)}")
