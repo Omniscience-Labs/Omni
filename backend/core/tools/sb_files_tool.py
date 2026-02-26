@@ -350,7 +350,7 @@ class SandboxFilesTool(SandboxToolsBase):
         try:
             morph_api_key = getattr(config, 'MORPH_API_KEY', None) or os.getenv('MORPH_API_KEY')
             openrouter_key = getattr(config, 'OPENROUTER_API_KEY', None) or os.getenv('OPENROUTER_API_KEY')
-            
+
             messages = [{
                 "role": "user", 
                 "content": f"<instruction>{instructions}</instruction>\n<code>{file_content}</code>\n<update>{code_edit}</update>"
