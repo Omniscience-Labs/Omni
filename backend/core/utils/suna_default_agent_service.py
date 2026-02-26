@@ -5,20 +5,20 @@ from datetime import datetime, timezone
 
 
 class SunaDefaultAgentService:
-    """Simplified Suna agent management service."""
+    """Simplified OMNI agent management service."""
     
     def __init__(self, db: DBConnection = None):
         self._db = db or DBConnection()
         logger.debug("🔄 SunaDefaultAgentService initialized (simplified)")
     
     async def get_suna_default_config(self) -> Dict[str, Any]:
-        """Get the current Suna configuration."""
+        """Get the current OMNI configuration."""
         from core.suna_config import SUNA_CONFIG
         return SUNA_CONFIG.copy()
     
     async def install_for_all_users(self) -> Dict[str, Any]:
-        """Install Suna agent for all users who don't have one."""
-        logger.debug("🚀 Installing Suna agents for users who don't have them")
+        """Install OMNI agent for all users who don't have one."""
+        logger.debug("🚀 Installing OMNI agents for users who don't have them")
         
         try:
             client = await self._db.client
@@ -38,10 +38,10 @@ class SunaDefaultAgentService:
                 return {
                     "installed_count": 0,
                     "failed_count": 0,
-                    "details": ["All users already have Suna agents"]
+                    "details": ["All users already have OMNI agents"]
                 }
             
-            logger.debug(f"📦 Installing Suna for {len(missing_accounts)} users")
+            logger.debug(f"📦 Installing OMNI for {len(missing_accounts)} users")
             
             success_count = 0
             failed_count = 0
@@ -51,7 +51,7 @@ class SunaDefaultAgentService:
                 try:
                     await self._create_suna_agent_for_user(account_id)
                     success_count += 1
-                    logger.debug(f"✅ Installed Suna for user {account_id}")
+                    logger.debug(f"✅ Installed OMNI for user {account_id}")
                 except Exception as e:
                     failed_count += 1
                     error_msg = f"Failed to install for user {account_id}: {str(e)}"
@@ -74,8 +74,8 @@ class SunaDefaultAgentService:
             }
     
     async def install_suna_agent_for_user(self, account_id: str, replace_existing: bool = False) -> Optional[str]:
-        """Install Suna agent for a specific user."""
-        logger.debug(f"🔄 Installing Suna agent for user: {account_id}")
+        """Install OMNI agent for a specific user."""
+        logger.debug(f"🔄 Installing OMNI agent for user: {account_id}")
         
         try:
             client = await self._db.client
@@ -89,14 +89,14 @@ class SunaDefaultAgentService:
                 if replace_existing:
                     # Delete existing agent
                     await self._delete_agent(existing_agent_id)
-                    logger.debug(f"Deleted existing Suna agent for replacement")
+                    logger.debug(f"Deleted existing OMNI agent for replacement")
                 else:
-                    logger.debug(f"User {account_id} already has Suna agent: {existing_agent_id}")
+                    logger.debug(f"User {account_id} already has OMNI agent: {existing_agent_id}")
                     return existing_agent_id
 
             # Create new agent
             agent_id = await self._create_suna_agent_for_user(account_id)
-            logger.debug(f"Successfully installed Suna agent {agent_id} for user {account_id}")
+            logger.debug(f"Successfully installed OMNI agent {agent_id} for user {account_id}")
             return agent_id
                 
         except Exception as e:
@@ -104,7 +104,7 @@ class SunaDefaultAgentService:
             return None
     
     async def get_suna_agent_stats(self) -> Dict[str, Any]:
-        """Get statistics about Suna agents."""
+        """Get statistics about OMNI agents."""
         try:
             client = await self._db.client
             
@@ -129,7 +129,7 @@ class SunaDefaultAgentService:
             return {"error": str(e)}
     
     async def _create_suna_agent_for_user(self, account_id: str) -> str:
-        """Create a Suna agent for a user."""
+        """Create a OMNI agent for a user."""
         from core.suna_config import SUNA_CONFIG
         
         client = await self._db.client
