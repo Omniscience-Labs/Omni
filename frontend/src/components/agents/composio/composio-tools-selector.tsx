@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -89,9 +90,10 @@ const ToolCard = ({ tool, isSelected, onToggle, searchTerm }: {
           </div>
 
           <div className="flex-shrink-0 ml-2">
-            <Checkbox
+            <Switch
               checked={isSelected}
               onCheckedChange={onToggle}
+              className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
             />
           </div>
         </div>

@@ -6,19 +6,19 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogDescription,
   DialogFooter
 } from '@/components/ui/dialog';
-import { 
-  Loader2, 
-  CheckCircle2, 
-  XCircle, 
-  Zap, 
+import {
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Zap,
   Info,
   RefreshCw,
   Save
@@ -54,14 +54,14 @@ type ToolsManagerProps = CustomToolsManagerProps;
 
 export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
   const { agentId, open, onOpenChange, onToolsUpdate, mode, versionData, saveMode = 'direct', versionId, initialEnabledTools } = props;
-  
+
   const customResult = useCustomMCPToolsData(
     agentId,
     (props as CustomToolsManagerProps).mcpConfig
   );
 
   const { data, isLoading, error, updateMutation, isUpdating, refetch } = customResult;
-  
+
   const [localTools, setLocalTools] = useState<Record<string, boolean>>({});
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -76,7 +76,7 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
       data.tools.forEach((tool: { name: string; enabled: boolean }) => {
         toolsMap[tool.name] = tool.enabled;
       });
-      
+
       setLocalTools(toolsMap);
       setHasChanges(false);
     }
@@ -87,7 +87,7 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
   }, [localTools]);
 
   const totalCount = data?.tools?.length || 0;
-  
+
   const displayName = (props as CustomToolsManagerProps).mcpName;
   const contextName = 'Server';
 
@@ -124,7 +124,7 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
     const enabledTools = Object.entries(localTools)
       .filter(([_, enabled]) => enabled)
       .map(([name]) => name);
-    
+
     if (saveMode === 'callback') {
       if (onToolsUpdate) {
         onToolsUpdate(enabledTools);
@@ -172,14 +172,14 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
               Failed to load {displayName} tools
             </DialogDescription>
           </DialogHeader>
-          
+
           <Alert variant="destructive">
             <XCircle className="h-4 w-4" />
             <AlertDescription>
               {error?.message || 'An unexpected error occurred while loading tools.'}
             </AlertDescription>
           </Alert>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Close
@@ -249,7 +249,7 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
                     </p>
                   </div>
                 </div>
-                
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -262,7 +262,7 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
 
               <div className="flex-1 overflow-y-auto space-y-3">
                 {data.tools.map((tool: any) => (
-                  <Card 
+                  <Card
                     key={tool.name}
                     className={cn(
                       "transition-colors cursor-pointer",
@@ -285,6 +285,7 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
                           onCheckedChange={() => handleToolToggle(tool.name)}
                           onClick={(e) => e.stopPropagation()}
                           disabled={isUpdating}
+                          className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                         />
                       </div>
                     </CardContent>
@@ -315,7 +316,7 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
               >
                 {hasChanges ? 'Cancel' : 'Close'}
               </Button>
-              
+
               {hasChanges && (
                 <Button
                   onClick={handleSave}
