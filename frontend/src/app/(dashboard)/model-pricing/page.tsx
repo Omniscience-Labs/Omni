@@ -31,7 +31,7 @@ const exampleTasks = [
     inputTokens: 3410337,
     outputTokens: 93616,
     duration: '35 minutes',
-    originalModel: 'claude-sonnet-4',
+    originalModel: 'claude-sonnet-4.6',
   },
   {
     name: 'Content Marketing Strategy',
@@ -40,7 +40,7 @@ const exampleTasks = [
     inputTokens: 212312,
     outputTokens: 3378,
     duration: '11 minutes',
-    originalModel: 'claude-sonnet-4',
+    originalModel: 'claude-sonnet-4.6',
   },
   {
     name: 'Go-to-Market Strategy',
@@ -49,7 +49,7 @@ const exampleTasks = [
     inputTokens: 307719,
     outputTokens: 24033,
     duration: '16 minutes',
-    originalModel: 'claude-sonnet-4',
+    originalModel: 'claude-sonnet-4.6',
   },
   {
     name: 'Learning Path Generator',
@@ -58,7 +58,7 @@ const exampleTasks = [
     inputTokens: 90953,
     outputTokens: 17472,
     duration: '5 minutes',
-    originalModel: 'claude-sonnet-4',
+    originalModel: 'claude-sonnet-4.6',
   },
   {
     name: 'Customer Journey Mapping',
@@ -67,7 +67,7 @@ const exampleTasks = [
     inputTokens: 360013,
     outputTokens: 17287,
     duration: '20 minutes',
-    originalModel: 'claude-sonnet-4',
+    originalModel: 'claude-sonnet-4.6',
   },
   {
     name: 'Sales Funnel Optimization',
@@ -76,7 +76,7 @@ const exampleTasks = [
     inputTokens: 559918,
     outputTokens: 33392,
     duration: '14 minutes',
-    originalModel: 'claude-sonnet-4',
+    originalModel: 'claude-sonnet-4.6',
   },
   {
     name: 'Startup Pitch Deck',
@@ -85,7 +85,7 @@ const exampleTasks = [
     inputTokens: 169175,
     outputTokens: 10263,
     duration: '5 minutes',
-    originalModel: 'claude-sonnet-4',
+    originalModel: 'claude-sonnet-4.6',
   },
   {
     name: 'Health Tracking Dashboard',
@@ -94,7 +94,7 @@ const exampleTasks = [
     inputTokens: 110952,
     outputTokens: 5639,
     duration: '3 minutes',
-    originalModel: 'claude-sonnet-4',
+    originalModel: 'claude-sonnet-4.6',
   },
   {
     name: 'Recommendation Engine',
@@ -103,7 +103,7 @@ const exampleTasks = [
     inputTokens: 4220364,
     outputTokens: 21733,
     duration: '25 minutes',
-    originalModel: 'claude-sonnet-4',
+    originalModel: 'claude-sonnet-4.6',
   },
   {
     name: 'Automated ETL Pipeline',
@@ -112,7 +112,7 @@ const exampleTasks = [
     inputTokens: 2513197,
     outputTokens: 78438,
     duration: '32 minutes',
-    originalModel: 'claude-sonnet-4',
+    originalModel: 'claude-sonnet-4.6',
   },
   {
     name: 'Automated Code Reviewer',
@@ -121,7 +121,7 @@ const exampleTasks = [
     inputTokens: 1707944,
     outputTokens: 79117,
     duration: '29 minutes',
-    originalModel: 'claude-sonnet-4',
+    originalModel: 'claude-sonnet-4.6',
   },
   {
     name: 'Risk Assessment',
@@ -130,7 +130,7 @@ const exampleTasks = [
     inputTokens: 693487,
     outputTokens: 43371,
     duration: '15 minutes',
-    originalModel: 'claude-sonnet-4',
+    originalModel: 'claude-sonnet-4.6',
   },
 ];
 
@@ -144,7 +144,7 @@ export default function PricingPage() {
   } = useModelSelection();
 
   const [selectedModelId, setSelectedModelId] = useState<string>(
-    'anthropic/claude-sonnet-4-20250514',
+    'anthropic/claude-sonnet-4-6',
   );
   const [showAllTasks, setShowAllTasks] = useState<boolean>(false);
 

@@ -1,8 +1,8 @@
 from typing import Dict, List, Optional, Set
 from .ai_models import Model, ModelProvider, ModelCapability, ModelPricing
 
-DEFAULT_FREE_MODEL = "Claude Sonnet 4"
-DEFAULT_PREMIUM_MODEL = "Claude Sonnet 4"
+DEFAULT_FREE_MODEL = "Claude Sonnet 4.6"
+DEFAULT_PREMIUM_MODEL = "Claude Sonnet 4.6"
 
 class ModelRegistry:
     def __init__(self):
@@ -12,10 +12,10 @@ class ModelRegistry:
     
     def _initialize_models(self):
         self.register(Model(
-            id="anthropic/claude-sonnet-4-20250514",
-            name="Claude Sonnet 4",
+            id="anthropic/claude-sonnet-4-6",
+            name="Claude Sonnet 4.6",
             provider=ModelProvider.ANTHROPIC,
-            aliases=["claude-sonnet-4", "anthropic/claude-sonnet-4", "Claude Sonnet 4", "claude-sonnet-4-20250514"],
+            aliases=["claude-sonnet-4.6", "anthropic/claude-sonnet-4-6", "Claude Sonnet 4.6", "claude-sonnet-4-6"],
             context_window=1_000_000,
             capabilities=[
                 ModelCapability.CHAT,
