@@ -1,15 +1,11 @@
-# Kortix Robots.txt
+# OMNI Robots.txt
 User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://kortix.com/sitemap.xml
+# Sitemap: https://kortix.com/sitemap.xml
 
 # Disallow sensitive routes
 Disallow: /api/
 Disallow: /_next/
 Disallow: /admin/
-
-# Allow crawling of public pages
-Allow: /suna/
-
