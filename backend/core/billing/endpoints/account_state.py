@@ -27,6 +27,7 @@ from core.ai_models import model_manager
 from core.credits import credit_service
 from ..shared.config import (
     CREDITS_PER_DOLLAR,
+    MINIMUM_CREDIT_FOR_RUN,
     get_tier_by_name,
     is_model_allowed,
     get_tier_limits,
@@ -59,29 +60,50 @@ async def _build_account_state(account_id: str, client) -> Dict:
     if not tier_info:
         tier_info = TIERS['none']
     
-    # Trial status
-    trial_status = credit_account.get('trial_status')
-    trial_ends_at = credit_account.get('trial_ends_at')
-    is_trial = trial_status == 'active'
-    
-    # Balance calculations (stored in dollars, convert to credits)
-    balance_dollars = float(credit_account.get('balance', 0) or 0)
-    daily_dollars = float(credit_account.get('daily_credits_balance', 0) or 0)
-    monthly_dollars = float(credit_account.get('expiring_credits', 0) or 0)
-    extra_dollars = float(credit_account.get('non_expiring_credits', 0) or 0)
-    last_daily_refresh = credit_account.get('last_daily_refresh')
-    
-    # Convert to credits
-    daily_credits = daily_dollars * CREDITS_PER_DOLLAR
-    monthly_credits = monthly_dollars * CREDITS_PER_DOLLAR
-    extra_credits = extra_dollars * CREDITS_PER_DOLLAR
-    # Total = sum of all credit types (daily + monthly + extra)
-    total_credits = daily_credits + monthly_credits + extra_credits
-    
-    # Daily credits refresh info
-    daily_credits_info = None
-    has_daily_credits = tier_info.daily_credit_config and tier_info.daily_credit_config.get('enabled')
-    
+    # Enterprise mode: use enterprise_* tables for credits, not credit_accounts
+    if config.ENTERPRISE_MODE:
+        from core.billing.enterprise.service import enterprise_billing_service
+        can_run, _msg, _ = await enterprise_billing_service.check_billing_status(account_id)
+        user_status = await enterprise_billing_service.get_user_status(account_id)
+        remaining = float(user_status.get('remaining', 0))  # from enterprise_user_limits
+        total_credits = remaining * CREDITS_PER_DOLLAR
+        daily_credits = 0
+        monthly_credits = remaining * CREDITS_PER_DOLLAR
+        extra_credits = 0
+        daily_credits_info = None
+        tier_name = 'enterprise'
+        tier_info = get_tier_by_name('enterprise') or TIERS['tier_25_200']
+        trial_status = None
+        trial_ends_at = None
+        is_trial = False
+        has_daily_credits = False
+    else:
+        # Trial status
+        trial_status = credit_account.get('trial_status')
+        trial_ends_at = credit_account.get('trial_ends_at')
+        is_trial = trial_status == 'active'
+        
+        # Balance calculations (stored in dollars, convert to credits)
+        balance_dollars = float(credit_account.get('balance', 0) or 0)
+        daily_dollars = float(credit_account.get('daily_credits_balance', 0) or 0)
+        monthly_dollars = float(credit_account.get('expiring_credits', 0) or 0)
+        extra_dollars = float(credit_account.get('non_expiring_credits', 0) or 0)
+        last_daily_refresh = credit_account.get('last_daily_refresh')
+        
+        # Convert to credits
+        daily_credits = daily_dollars * CREDITS_PER_DOLLAR
+        monthly_credits = monthly_dollars * CREDITS_PER_DOLLAR
+        extra_credits = extra_dollars * CREDITS_PER_DOLLAR
+        # Total = sum of all credit types (daily + monthly + extra)
+        total_credits = daily_credits + monthly_credits + extra_credits
+        
+        # can_run from minimum threshold
+        can_run = total_credits >= float(MINIMUM_CREDIT_FOR_RUN) * CREDITS_PER_DOLLAR
+        
+        # Daily credits refresh info
+        daily_credits_info = None
+        has_daily_credits = tier_info.daily_credit_config and tier_info.daily_credit_config.get('enabled')
+
     if has_daily_credits:
         refresh_interval_hours = tier_info.daily_credit_config.get('refresh_interval_hours', 24)
         daily_amount = float(tier_info.daily_credit_config.get('amount', 0)) * CREDITS_PER_DOLLAR
@@ -190,18 +212,9 @@ async def _build_account_state(account_id: str, client) -> Dict:
             if revenuecat_cancel_at_period_end:
                 cancellation_effective_date = revenuecat_cancel_at_period_end
     
-    # Get scheduled changes
-    try:
-        scheduled_changes = await subscription_service.get_scheduled_changes(account_id)
-    except Exception as e:
-        logger.warning(f"[ACCOUNT_STATE] Failed to get scheduled changes: {e}")
+    # Get scheduled changes and commitment status (SaaS only; enterprise has no Stripe subscriptions)
+    if config.ENTERPRISE_MODE:
         scheduled_changes = {'has_scheduled_change': False, 'scheduled_change': None}
-    
-    # Get commitment status
-    try:
-        commitment_info = await subscription_service.get_commitment_status(account_id)
-    except Exception as e:
-        logger.warning(f"[ACCOUNT_STATE] Failed to get commitment status: {e}")
         commitment_info = {
             'has_commitment': False,
             'can_cancel': True,
@@ -209,6 +222,23 @@ async def _build_account_state(account_id: str, client) -> Dict:
             'months_remaining': None,
             'commitment_end_date': None
         }
+    else:
+        try:
+            scheduled_changes = await subscription_service.get_scheduled_changes(account_id)
+        except Exception as e:
+            logger.warning(f"[ACCOUNT_STATE] Failed to get scheduled changes: {e}")
+            scheduled_changes = {'has_scheduled_change': False, 'scheduled_change': None}
+        try:
+            commitment_info = await subscription_service.get_commitment_status(account_id)
+        except Exception as e:
+            logger.warning(f"[ACCOUNT_STATE] Failed to get commitment status: {e}")
+            commitment_info = {
+                'has_commitment': False,
+                'can_cancel': True,
+                'commitment_type': None,
+                'months_remaining': None,
+                'commitment_end_date': None
+            }
     
     # Get available models
     # Note: list_available_models already returns pricing with margin applied
@@ -264,7 +294,7 @@ async def _build_account_state(account_id: str, client) -> Dict:
             'daily': daily_credits,
             'monthly': monthly_credits,
             'extra': extra_credits,
-            'can_run': total_credits >= 1,  # 1 credit = $0.01
+            'can_run': can_run,
             'daily_refresh': daily_credits_info
         },
         

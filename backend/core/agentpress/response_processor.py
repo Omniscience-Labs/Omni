@@ -521,6 +521,28 @@ class ResponseProcessor:
                             logger.info(f"🛑 Stop sequence triggered after function call")
                         else:
                             logger.debug(f"Natural completion at chunk #{chunk_count}")
+                    if finish_reason == "length" or finish_reason == "stop":
+                        if account_id:
+                            try:
+                                can_run, msg, _ = await billing_integration.check_and_reserve_credits(account_id)
+                                if not can_run:
+                                    logger.warning(f"Stopping stream - insufficient credits: {msg}")
+                                    stopped_content = {"status_type": "stopped", "message": f"Insufficient credits: {msg}"}
+                                    stopped_msg_obj = await self.add_message(
+                                        thread_id=thread_id, type="status", content=stopped_content,
+                                        is_llm_message=False, metadata={"thread_run_id": thread_run_id}
+                                    )
+                                    if stopped_msg_obj:
+                                        yield_obj = format_for_yield(stopped_msg_obj)
+                                        yield_obj["status"] = "stopped"
+                                        yield_obj["message"] = f"Insufficient credits: {msg}"
+                                        yield yield_obj
+                                    else:
+                                        yield {"type": "status", "status": "stopped", "message": f"Insufficient credits: {msg}"}
+                                    break
+                            except Exception as e:
+                                logger.error(f"Credit check error at end of message: {e}")
+                        
                         
                 if hasattr(chunk, 'choices') and chunk.choices:
                     delta = chunk.choices[0].delta if hasattr(chunk.choices[0], 'delta') else None
