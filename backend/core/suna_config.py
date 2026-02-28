@@ -2,8 +2,8 @@ from core.prompts.prompt import SYSTEM_PROMPT
 
 # Suna default configuration - simplified and centralized
 SUNA_CONFIG = {
-    "name": "Suna",
-    "description": "Suna is your AI assistant with access to various tools and integrations to help you with tasks across domains.",
+    "name": "OMNI",
+    "description": "OMNI is your AI assistant with access to various tools and integrations to help you with tasks across domains.",
     "model": "omni/basic",
     "system_prompt": SYSTEM_PROMPT,
     "configured_mcps": [],

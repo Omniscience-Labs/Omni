@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
-import { AnimatedBg } from '@/components/ui/animated-bg';
+import { Ripple } from '@/components/ui/ripple';
 
 interface PageHeaderProps {
   icon: LucideIcon;
@@ -12,7 +12,7 @@ interface PageHeaderProps {
 export const PageHeader: React.FC<PageHeaderProps> = ({ icon: Icon, children }) => {
   return (
     <div className="relative overflow-hidden rounded-3xl flex items-center justify-center border bg-background/80 backdrop-blur-sm">
-      <AnimatedBg variant="header" blurMultiplier={1.3} sizeMultiplier={1.1} />
+      <Ripple />
       <div className="relative px-8 py-16 text-center z-20">
         <div className="mx-auto max-w-3xl space-y-6">
           <div className="inline-flex items-center justify-center rounded-full bg-muted/80 backdrop-blur-sm p-3 border border-border/50">

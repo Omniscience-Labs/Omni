@@ -38,8 +38,8 @@ class SunaAgentManager:
         self.service = SunaDefaultAgentService()
     
     async def install_all_users(self):
-        """Install Suna agent for all users who don't have it"""
-        print("🚀 Installing Suna default agent for all users who don't have it...")
+        """Install OMNI agent for all users who don't have it"""
+        print("🚀 Installing OMNI default agent for all users who don't have it...")
         
         result = await self.service.install_for_all_users()
         
@@ -54,20 +54,20 @@ class SunaAgentManager:
                     print(f"   - User {detail['account_id']}: {detail.get('error', 'Unknown error')}")
         
         if result['installed_count'] > 0:
-            print(f"\n✅ Successfully installed Suna for {result['installed_count']} users")
+            print(f"\n✅ Successfully installed OMNI for {result['installed_count']} users")
             
     async def update_config_info(self):
-        """Show information about Suna configuration (no sync needed)"""
-        print("ℹ️  Suna Configuration Information")
+        """Show information about OMNI configuration (no sync needed)"""
+        print("ℹ️  OMNI Configuration Information")
         print("=" * 50)
-        print("🔧 Suna agents automatically use the current configuration from config.py")
+        print("🔧 OMNI agents automatically use the current configuration from config.py")
         print("📝 No sync needed - changes are applied immediately when agents run")
-        print("💡 To update Suna behavior, simply modify backend/agent/suna/config.py")
-        print("\n✅ All Suna agents are always up-to-date with your latest configuration!")
+        print("💡 To update OMNI behavior, simply modify backend/agent/suna/config.py")
+        print("\n✅ All OMNI agents are always up-to-date with your latest configuration!")
     
     async def install_user(self, account_id):
-        """Install Suna agent for specific user"""
-        print(f"🚀 Installing Suna default agent for user {account_id}...")
+        """Install OMNI agent for specific user"""
+        print(f"🚀 Installing OMNI default agent for user {account_id}...")
         
         agent_id = await self.service.install_suna_agent_for_user(account_id)
         
@@ -77,8 +77,8 @@ class SunaAgentManager:
             print(f"❌ Failed to install Suna agent for user {account_id}")
     
     async def replace_user_agent(self, account_id):
-        """Replace Suna agent for specific user (in case of corruption)"""
-        print(f"🔄 Replacing Suna agent for user {account_id}...")
+        """Replace OMNI agent for specific user (in case of corruption)"""
+        print(f"🔄 Replacing OMNI agent for user {account_id}...")
         
         # Install/replace the agent with latest config
         agent_id = await self.service.install_suna_agent_for_user(account_id, replace_existing=True)

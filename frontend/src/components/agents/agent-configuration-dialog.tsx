@@ -247,7 +247,7 @@ export function AgentConfigurationDialog({
     if (!isNameEditable) {
       if (isOmniAgent) {
         toast.error("Name cannot be edited", {
-          description: "Suna's name is managed centrally and cannot be changed.",
+          description: "OMNI's name is managed centrally and cannot be changed.",
         });
       }
       setEditName(formData.name);
@@ -263,7 +263,7 @@ export function AgentConfigurationDialog({
     if (!isSystemPromptEditable) {
       if (isOmniAgent) {
         toast.error("System prompt cannot be edited", {
-          description: "Suna's system prompt is managed centrally.",
+          description: "OMNI's system prompt is managed centrally.",
         });
       }
       return;
@@ -280,7 +280,7 @@ export function AgentConfigurationDialog({
     if (!areToolsEditable) {
       if (isOmniAgent) {
         toast.error("Tools cannot be edited", {
-          description: "Suna's tools are managed centrally.",
+          description: "OMNI's tools are managed centrally.",
         });
       }
       return;

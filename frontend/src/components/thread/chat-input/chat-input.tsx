@@ -18,10 +18,9 @@ import { handleFiles, FileUploadHandler } from './file-upload-handler';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowUp, X, Image as ImageIcon, Presentation, BarChart3, FileText, Search, Users, Code2, Sparkles, Brain as BrainIcon, MessageSquare, CornerDownLeft, Plug, Lock } from 'lucide-react';
+import { ArrowUp, X, Image as ImageIcon, Presentation, BarChart3, FileText, Search, Users, Code2, Sparkles, Brain as BrainIcon, MessageSquare, CornerDownLeft, Plug, Lock, Loader2 } from 'lucide-react';
 import { OmniLoader } from '@/components/ui/kortix-loader';
 import { VoiceRecorder } from './voice-recorder';
-import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { UnifiedConfigMenu } from './unified-config-menu';
 import { AttachmentGroup } from '../attachment-group';
@@ -79,7 +78,6 @@ interface SubmitButtonProps {
   isUploading: boolean;
   onStopAgent?: () => void;
   onSubmit: (e: React.FormEvent) => void;
-  buttonLoaderVariant: 'black' | 'white';
   pendingFilesCount: number;
 }
 
@@ -92,7 +90,6 @@ const SubmitButton = memo(function SubmitButton({
   isUploading,
   onStopAgent,
   onSubmit,
-  buttonLoaderVariant,
   pendingFilesCount,
 }: SubmitButtonProps) {
   const isDisabled = 
@@ -117,7 +114,7 @@ const SubmitButton = memo(function SubmitButton({
               disabled={isDisabled}
             >
               {((loading || isUploading) && !isAgentRunning) ? (
-                <OmniLoader size="small" customSize={20} variant={buttonLoaderVariant} />
+                <Loader2 className="h-5 w-5 animate-spin" />
               ) : isAgentRunning ? (
                 <div className="min-h-[14px] min-w-[14px] w-[14px] h-[14px] rounded-sm bg-current" />
               ) : (
@@ -359,12 +356,6 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
       !accountState.subscription.tier_key
     );
     
-    // Chat input button has inverted background from theme
-    // Dark theme → light button → needs black loader
-    // Light theme → dark button → needs white loader
-    const { resolvedTheme } = useTheme();
-    const buttonLoaderVariant = (resolvedTheme === 'dark' ? 'black' : 'white') as 'black' | 'white';
-
     // Define quick integrations
     const quickIntegrations = useMemo(() => [
       { id: 'googledrive', name: 'Google Drive', slug: 'googledrive' },
@@ -1027,12 +1018,11 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
             isUploading={isUploading}
             onStopAgent={onStopAgent}
             onSubmit={handleSubmit}
-            buttonLoaderVariant={buttonLoaderVariant}
             pendingFilesCount={pendingFilesCount}
           />
         </div>
       </div>
-    ), [hideAttachments, loading, disabled, isAgentRunning, isUploading, sandboxId, projectId, messages, isLoggedIn, renderConfigDropdown, planModalOpen, setPlanSelectionModalOpen, handleTranscription, onStopAgent, handleSubmit, hasContent, hasFiles, selectedMode, onModeDeselect, handleModeDeselect, isModeDismissing, isOmniAgent, sunaAgentModes, pendingFilesCount, googleDriveIcon, slackIcon, notionIcon, buttonLoaderVariant, isFreeTier, subscriptionData]);
+    ), [hideAttachments, loading, disabled, isAgentRunning, isUploading, sandboxId, projectId, messages, isLoggedIn, renderConfigDropdown, planModalOpen, setPlanSelectionModalOpen, handleTranscription, onStopAgent, handleSubmit, hasContent, hasFiles, selectedMode, onModeDeselect, handleModeDeselect, isModeDismissing, isOmniAgent, sunaAgentModes, pendingFilesCount, googleDriveIcon, slackIcon, notionIcon, isFreeTier, subscriptionData]);
 
     const isSnackVisible = showToolPreview || !!showSnackbar || (isFreeTier && subscriptionData && !isLocalMode());
 

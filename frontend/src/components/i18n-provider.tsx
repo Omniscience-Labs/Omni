@@ -72,10 +72,10 @@ async function getStoredLocale(): Promise<Locale> {
 const LOCALE_CHANGE_EVENT = 'locale-change';
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocale] = useState<Locale>(defaultLocale);
+  const [locale] = useState<Locale>(defaultLocale);
   // Initialize with preloaded English translations to prevent blocking FCP
-  const [messages, setMessages] = useState<any>(defaultTranslations);
-  const [isLoading, setIsLoading] = useState(false);
+  const [messages] = useState<any>(defaultTranslations);
+  // const [isLoading, setIsLoading] = useState(false);
   const localeRef = useRef(locale);
 
   // Update ref when locale changes
@@ -84,127 +84,127 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [locale]);
 
   // Load translations for a given locale - memoized to avoid stale closures
-  const loadTranslations = useCallback(async (targetLocale: Locale) => {
-    setIsLoading(true);
-    try {
-      const translations = await getTranslations(targetLocale);
-      // Verify critical sections exist
-      if (!translations || typeof translations !== 'object') {
-        throw new Error(`Invalid translations object for locale ${targetLocale}`);
-      }
-      if (!translations.common || !translations.suna) {
-        console.warn(`Missing sections in ${targetLocale}:`, {
-          hasCommon: !!translations.common,
-          hasSuna: !!translations.suna,
-          keys: Object.keys(translations).slice(0, 10)
-        });
-      }
-      setMessages(translations);
-      setLocale(targetLocale);
-      localeRef.current = targetLocale;
-    } catch (error) {
-      console.error(`Failed to load translations for ${targetLocale}:`, error);
-      // Fallback to default locale
-      try {
-        const defaultTranslations = await getTranslations(defaultLocale);
-        setMessages(defaultTranslations);
-        setLocale(defaultLocale);
-        localeRef.current = defaultLocale;
-      } catch (fallbackError) {
-        console.error('Failed to load default locale translations:', fallbackError);
-        // Last resort: empty translations object
-        setMessages({});
-        setLocale(defaultLocale);
-        localeRef.current = defaultLocale;
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  // const loadTranslations = useCallback(async (targetLocale: Locale) => {
+  //   setIsLoading(true);
+  //   try {
+  //     const translations = await getTranslations(targetLocale);
+  //     // Verify critical sections exist
+  //     if (!translations || typeof translations !== 'object') {
+  //       throw new Error(`Invalid translations object for locale ${targetLocale}`);
+  //     }
+  //     if (!translations.common || !translations.suna) {
+  //       console.warn(`Missing sections in ${targetLocale}:`, {
+  //         hasCommon: !!translations.common,
+  //         hasSuna: !!translations.suna,
+  //         keys: Object.keys(translations).slice(0, 10)
+  //       });
+  //     }
+  //     setMessages(translations);
+  //     setLocale(targetLocale);
+  //     localeRef.current = targetLocale;
+  //   } catch (error) {
+  //     console.error(`Failed to load translations for ${targetLocale}:`, error);
+  //     // Fallback to default locale
+  //     try {
+  //       const defaultTranslations = await getTranslations(defaultLocale);
+  //       setMessages(defaultTranslations);
+  //       setLocale(defaultLocale);
+  //       localeRef.current = defaultLocale;
+  //     } catch (fallbackError) {
+  //       console.error('Failed to load default locale translations:', fallbackError);
+  //       // Last resort: empty translations object
+  //       setMessages({});
+  //       setLocale(defaultLocale);
+  //       localeRef.current = defaultLocale;
+  //     }
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // }, []);
 
-  // Initial load - check user metadata, then cookie/localStorage, then geo-detect
-  useEffect(() => {
-    let mounted = true;
+  // // Initial load - check user metadata, then cookie/localStorage, then geo-detect
+  // useEffect(() => {
+  //   let mounted = true;
     
-    async function initializeLocale() {
-      const currentLocale = await getStoredLocale();
+  //   async function initializeLocale() {
+  //     const currentLocale = await getStoredLocale();
       
-      if (!mounted) return;
+  //     if (!mounted) return;
       
-      // Check if user has explicitly set a preference (metadata, cookie, or localStorage)
-      const supabase = createClient();
-      let hasExplicitPreference = false;
+  //     // Check if user has explicitly set a preference (metadata, cookie, or localStorage)
+  //     const supabase = createClient();
+  //     let hasExplicitPreference = false;
       
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.user_metadata?.locale) {
-          hasExplicitPreference = true;
-        }
-      } catch (error) {
-        // User might not be authenticated
-      }
+  //     try {
+  //       const { data: { user } } = await supabase.auth.getUser();
+  //       if (user?.user_metadata?.locale) {
+  //         hasExplicitPreference = true;
+  //       }
+  //     } catch (error) {
+  //       // User might not be authenticated
+  //     }
       
-      const cookies = document.cookie.split(';');
-      const hasLocaleCookie = cookies.some(c => c.trim().startsWith('locale='));
-      const hasLocalStorage = localStorage.getItem('locale');
+  //     const cookies = document.cookie.split(';');
+  //     const hasLocaleCookie = cookies.some(c => c.trim().startsWith('locale='));
+  //     const hasLocalStorage = localStorage.getItem('locale');
       
-      hasExplicitPreference = hasExplicitPreference || hasLocaleCookie || !!hasLocalStorage;
+  //     hasExplicitPreference = hasExplicitPreference || hasLocaleCookie || !!hasLocalStorage;
       
-      // Only auto-save geo-detected locale if:
-      // 1. User has NO explicit preference (no metadata, cookie, or localStorage)
-      // 2. Geo-detected locale is different from default
-      // 3. User is NOT authenticated OR authenticated but has no locale in metadata
-      if (!hasExplicitPreference && currentLocale !== defaultLocale) {
-        // Save geo-detected locale to cookie and localStorage for persistence
-        const cookieValue = `locale=${currentLocale}; path=/; max-age=31536000; SameSite=Lax`;
-        document.cookie = cookieValue;
-        localStorage.setItem('locale', currentLocale);
-      }
+  //     // Only auto-save geo-detected locale if:
+  //     // 1. User has NO explicit preference (no metadata, cookie, or localStorage)
+  //     // 2. Geo-detected locale is different from default
+  //     // 3. User is NOT authenticated OR authenticated but has no locale in metadata
+  //     if (!hasExplicitPreference && currentLocale !== defaultLocale) {
+  //       // Save geo-detected locale to cookie and localStorage for persistence
+  //       const cookieValue = `locale=${currentLocale}; path=/; max-age=31536000; SameSite=Lax`;
+  //       document.cookie = cookieValue;
+  //       localStorage.setItem('locale', currentLocale);
+  //     }
       
-      if (mounted) {
-        setLocale(currentLocale);
-        loadTranslations(currentLocale);
-      }
-    }
+  //     if (mounted) {
+  //       setLocale(currentLocale);
+  //       loadTranslations(currentLocale);
+  //     }
+  //   }
     
-    initializeLocale();
+  //   initializeLocale();
     
-    return () => {
-      mounted = false;
-    };
-  }, [loadTranslations]);
+  //   return () => {
+  //     mounted = false;
+  //   };
+  // }, [loadTranslations]);
 
-  // Listen for locale change events from useLanguage hook
-  useEffect(() => {
-    const handleLocaleChange = (e: CustomEvent<Locale>) => {
-      const newLocale = e.detail;
-      // Use ref to check current locale to avoid stale closure
-      if (newLocale !== localeRef.current && locales.includes(newLocale)) {
-        loadTranslations(newLocale);
-      }
-    };
+  // // Listen for locale change events from useLanguage hook
+  // useEffect(() => {
+  //   const handleLocaleChange = (e: CustomEvent<Locale>) => {
+  //     const newLocale = e.detail;
+  //     // Use ref to check current locale to avoid stale closure
+  //     if (newLocale !== localeRef.current && locales.includes(newLocale)) {
+  //       loadTranslations(newLocale);
+  //     }
+  //   };
 
-    window.addEventListener(LOCALE_CHANGE_EVENT as any, handleLocaleChange as EventListener);
+  //   window.addEventListener(LOCALE_CHANGE_EVENT as any, handleLocaleChange as EventListener);
 
-    return () => {
-      window.removeEventListener(LOCALE_CHANGE_EVENT as any, handleLocaleChange as EventListener);
-    };
-  }, [loadTranslations]);
+  //   return () => {
+  //     window.removeEventListener(LOCALE_CHANGE_EVENT as any, handleLocaleChange as EventListener);
+  //   };
+  // }, [loadTranslations]);
 
   // Listen for storage changes (when language is changed in another tab/window)
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'locale' && e.newValue && locales.includes(e.newValue as Locale)) {
-        loadTranslations(e.newValue as Locale);
-      }
-    };
+  // useEffect(() => {
+  //   const handleStorageChange = (e: StorageEvent) => {
+  //     if (e.key === 'locale' && e.newValue && locales.includes(e.newValue as Locale)) {
+  //       loadTranslations(e.newValue as Locale);
+  //     }
+  //   };
 
-    window.addEventListener('storage', handleStorageChange);
+  //   window.addEventListener('storage', handleStorageChange);
 
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [loadTranslations]);
+  //   return () => {
+  //     window.removeEventListener('storage', handleStorageChange);
+  //   };
+  // }, [loadTranslations]);
 
   // Memoize messages to prevent unnecessary re-renders
   const safeMessages = useMemo(() => messages || defaultTranslations, [messages]);
