@@ -134,7 +134,7 @@ async def run_agent_background(
     thread_id: str,
     instance_id: str,
     project_id: str,
-    model_name: str = "Claude Sonnet 4.6",
+    model_name: str = "Claude Sonnet 4",
     enable_thinking: Optional[bool] = False,
     reasoning_effort: Optional[str] = 'low',
     stream: bool = True,
