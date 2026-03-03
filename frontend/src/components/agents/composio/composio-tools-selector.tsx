@@ -93,7 +93,7 @@ const ToolCard = ({ tool, isSelected, onToggle, searchTerm }: {
             <Switch
               checked={isSelected}
               onCheckedChange={onToggle}
-              className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+              className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500 dark:data-[state=checked]:bg-green-500 dark:data-[state=unchecked]:bg-red-500"
             />
           </div>
         </div>

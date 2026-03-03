@@ -285,7 +285,7 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
                           onCheckedChange={() => handleToolToggle(tool.name)}
                           onClick={(e) => e.stopPropagation()}
                           disabled={isUpdating}
-                          className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+                          className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500 dark:data-[state=checked]:bg-green-500 dark:data-[state=unchecked]:bg-red-500"
                         />
                       </div>
                     </CardContent>

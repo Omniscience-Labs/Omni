@@ -302,7 +302,7 @@ export const GranularToolConfiguration = ({
                         checked={isGroupEnabled}
                         onCheckedChange={(enabled) => handleToolGroupToggle(toolGroup.name, enabled === true)}
                         disabled={disabled || isLoading}
-                        className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+                        className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500 dark:data-[state=checked]:bg-green-500 dark:data-[state=unchecked]:bg-red-500"
                       />
                     </div>
                   </div>
@@ -341,7 +341,7 @@ export const GranularToolConfiguration = ({
                                         handleMethodToggle(toolGroup.name, method.name, enabled === true)
                                       }
                                       disabled={disabled || isLoading}
-                                      className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+                                      className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500 dark:data-[state=checked]:bg-green-500 dark:data-[state=unchecked]:bg-red-500"
                                     />
                                   </div>
                                 </div>
