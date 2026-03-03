@@ -13,6 +13,7 @@ from core.agentpress.context_manager import ContextManager
 from core.agentpress.response_processor import ResponseProcessor, ProcessorConfig
 from core.agentpress.error_processor import ErrorProcessor
 from core.services.supabase import DBConnection
+from core.services.memory_integration import retrieve_relevant_memories
 from core.utils.logger import logger
 from langfuse.client import StatefulGenerationClient, StatefulTraceClient
 from core.services.langfuse import langfuse
@@ -518,6 +519,37 @@ class ThreadManager:
                     )
                     logger.debug(f"⏱️ [TIMING] Compression check: {(time.time() - compress_start) * 1000:.1f}ms")
                     messages = compressed_messages
+
+            # inject relevant memories into system prompt for context-aware responses
+            try:
+                query = latest_user_message_content
+                if not query and messages:
+                    for m in reversed(messages):
+                        if isinstance(m, dict) and m.get("role") == "user":
+                            query = m.get("content", "")
+                            if isinstance(query, list):
+                                query = " ".join(
+                                    (c.get("text", "") if isinstance(c, dict) else str(c) for c in query)
+                                )
+                            else:
+                                query = str(query)
+                            break
+                if query:
+                    memory_context = await retrieve_relevant_memories(
+                        self.db, thread_id, query, limit=8
+                    )
+                    if memory_context:
+                        if isinstance(system_prompt, dict):
+                            system_prompt = dict(system_prompt)
+                            system_prompt["content"] = memory_context + "\n\n" + (system_prompt.get("content") or "")
+                        else:
+                            system_prompt = memory_context + "\n\n" + str(system_prompt)
+                        logger.info(
+                            "Injected relevant memories into system prompt for cross-thread context",
+                            extra={"thread_id": thread_id, "query_preview": query[:60]},
+                        )
+            except Exception as mem_err:
+                logger.debug(f"Memory retrieval skipped: {mem_err}")
 
             # Check if cache needs rebuild due to compression
             force_rebuild = False
