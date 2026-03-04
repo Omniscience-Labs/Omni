@@ -561,7 +561,7 @@ class ThreadManager:
             except Exception as e:
                 if "AnthropicException - Overloaded" in str(e):
                     logger.error(f"Anthropic overloaded, falling back to OpenRouter")
-                    llm_model = f"openrouter/{llm_model.replace('-20260217', '')}"
+                    llm_model = f"openrouter/{llm_model}"
                     auto_continue_state['active'] = True
                     continue
                 else:
