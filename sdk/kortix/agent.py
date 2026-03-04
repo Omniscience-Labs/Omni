@@ -16,7 +16,7 @@ class Agent:
         self,
         client: AgentsClient,
         agent_id: str,
-        model: str = "anthropic/claude-sonnet-4-6",
+        model: str = "anthropic/claude-sonnet-4-6-20260217",
     ):
         self._client = client
         self._agent_id = agent_id
