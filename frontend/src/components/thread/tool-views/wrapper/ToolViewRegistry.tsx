@@ -142,6 +142,12 @@ const defaultRegistry: ToolViewRegistryType = {
   'visualize-sheet': SheetsToolView,
   'format-sheet': SheetsToolView,
 
+  // Spreadsheet tools (sb_spreadsheet_tool)
+  'render-spreadsheet': SheetsToolView,
+  'render_spreadsheet': SheetsToolView,
+  'update-spreadsheet': SheetsToolView,
+  'update_spreadsheet': SheetsToolView,
+
   'get-project-structure': GetProjectStructureView,
   'list-web-projects': GenericToolView,
 
@@ -171,6 +177,14 @@ const defaultRegistry: ToolViewRegistryType = {
   'global-kb-delete-item': KbToolView,
   'global_kb_enable_item': KbToolView,
   'global-kb-enable-item': KbToolView,
+
+  // Docx tools (sb_docx_tool)
+  'render-docx': DocsToolView,
+  'render_docx': DocsToolView,
+  'upload-template': GenericToolView,
+  'upload_template': GenericToolView,
+  'list-templates': GenericToolView,
+  'list_templates': GenericToolView,
 
   // Document operations - using specific views for different operations
   'create-document': DocsToolView,
