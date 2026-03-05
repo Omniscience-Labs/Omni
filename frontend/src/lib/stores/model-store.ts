@@ -7,8 +7,8 @@ interface ModelStore {
 }
 
 // Default models matching PRODUCTION branch
-const DEFAULT_FREE_MODEL_ID = 'claude-sonnet-4-6';
-const DEFAULT_PREMIUM_MODEL_ID = 'claude-sonnet-4-6';
+const DEFAULT_FREE_MODEL_ID = 'claude-sonnet-4.6';
+const DEFAULT_PREMIUM_MODEL_ID = 'claude-sonnet-4.6';
 
 export const useModelStore = create<ModelStore>()(
   persist(
@@ -31,7 +31,7 @@ export const useModelStore = create<ModelStore>()(
 // Utility functions for compatibility
 export const formatModelName = (name: string): string => {
   // Special case for Claude Sonnet 4.6 to display as "Omni 4.6"
-  if (name === 'Claude Sonnet 4.6' || name === 'claude-sonnet-4-6' || name === 'anthropic/claude-sonnet-4-6-20260217') {
+  if (name === 'Claude Sonnet 4.6' || name === 'claude-sonnet-4.6' || name === 'anthropic/claude-sonnet-4-6') {
     return 'Omni 4.6';
   }
   

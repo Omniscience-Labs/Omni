@@ -238,7 +238,7 @@ class OmniDefaultAgentService:
                 "name": config.get("name", "Omni"),
                 "description": config.get("description", ""),
                 "system_prompt": config.get("system_prompt", ""),
-                "model": config.get("model", "openrouter/anthropic/claude-sonnet-4-6"),
+                "model": config.get("model", "openrouter/anthropic/claude-sonnet-4.6"),
                 "tools": {
                     "agentpress": config.get("agentpress_tools", {}),
                     "mcp": config.get("configured_mcps", []),
