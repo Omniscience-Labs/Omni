@@ -134,6 +134,21 @@ def usage_example(example: str):
         ))
     return decorator
 
+def tool_metadata(display_name: str = "", description: str = "", icon: str = "",
+                  color: str = "", weight: int = 0, visible: bool = True):
+    """Class decorator that attaches display metadata to a Tool class."""
+    def decorator(cls):
+        cls._tool_metadata = {
+            "display_name": display_name,
+            "description": description,
+            "icon": icon,
+            "color": color,
+            "weight": weight,
+            "visible": visible,
+        }
+        return cls
+    return decorator
+
 # def xml_schema(**kwargs):
 #     """Deprecated decorator - does nothing, kept for compatibility."""
 #     def decorator(func):
