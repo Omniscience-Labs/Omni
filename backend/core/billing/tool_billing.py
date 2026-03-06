@@ -133,8 +133,8 @@ class ToolBillingService:
         -------
         dict
             Always contains ``success: bool`` and ``cost: float``.
-            Enterprise responses additionally include ``new_balance``
-            and ``user_remaining``.
+            Enterprise responses additionally include ``pool_balance``,
+            ``user_monthly_limit``, ``user_current_usage``, ``user_remaining``.
         """
         if config.ENV_MODE == EnvMode.LOCAL:
             return {"success": True, "cost": 0, "reason": "local_mode"}
@@ -169,14 +169,22 @@ class ToolBillingService:
             logger.error(f"[TOOL_BILLING] Empty response from enterprise_can_use_tool for {account_id}/{tool_name}")
             return {"can_use": True, "required_cost": 0, "reason": "empty_response"}
 
-        # The RPC returns a single-row table
-        row = result.data[0] if isinstance(result.data, list) else result.data
-        return {
-            "can_use": bool(row.get("can_use", True)),
-            "required_cost": float(row.get("required_cost", 0)),
-            "current_balance": float(row.get("current_balance", 0)),
-            "user_remaining": float(row.get("user_remaining", 0)),
+        data = result.data[0] if isinstance(result.data, list) else result.data
+        can_spend = bool(data.get("can_spend", True))
+        out = {
+            "can_use": can_spend,
+            "required_cost": float(data.get("total_cost", 0)),
+            "total_cost": float(data.get("total_cost", 0)),
+            "pool_balance": float(data.get("pool_balance", 0)),
+            "user_monthly_limit": float(data.get("user_monthly_limit", 0)),
+            "user_current_usage": float(data.get("user_current_usage", 0)),
+            "user_remaining": float(data.get("user_remaining", 0)),
+            "current_balance": float(data.get("pool_balance", 0)),
         }
+        if not can_spend:
+            out["error_code"] = data.get("error_code")
+            out["error"] = data.get("error")
+        return out
 
     async def _enterprise_can_use_tools_batch(
         self, account_id: str, tool_names: List[str]
@@ -196,13 +204,21 @@ class ToolBillingService:
             )
             return {"can_use": True, "total_cost": 0, "reason": "empty_response"}
 
-        row = result.data[0] if isinstance(result.data, list) else result.data
-        return {
-            "can_use": bool(row.get("can_use", True)),
-            "total_cost": float(row.get("total_cost", 0)),
-            "current_balance": float(row.get("current_balance", 0)),
-            "user_remaining": float(row.get("user_remaining", 0)),
+        data = result.data[0] if isinstance(result.data, list) else result.data
+        can_spend = bool(data.get("can_spend", True))
+        out = {
+            "can_use": can_spend,
+            "total_cost": float(data.get("total_cost", 0)),
+            "pool_balance": float(data.get("pool_balance", 0)),
+            "user_monthly_limit": float(data.get("user_monthly_limit", 0)),
+            "user_current_usage": float(data.get("user_current_usage", 0)),
+            "user_remaining": float(data.get("user_remaining", 0)),
+            "current_balance": float(data.get("pool_balance", 0)),
         }
+        if not can_spend:
+            out["error_code"] = data.get("error_code")
+            out["error"] = data.get("error")
+        return out
 
     async def _enterprise_deduct_tool(
         self,
@@ -228,27 +244,34 @@ class ToolBillingService:
             logger.error(f"[TOOL_BILLING] Empty response from enterprise_use_tool_credits for {account_id}/{tool_name}")
             return {"success": False, "cost": 0, "error": "empty_response"}
 
-        row = result.data[0] if isinstance(result.data, list) else result.data
-        success = bool(row.get("success", False))
-        cost = float(row.get("cost_charged", 0))
+        data = result.data[0] if isinstance(result.data, list) else result.data
+        success = bool(data.get("success", False))
+        cost = float(data.get("total_cost", data.get("cost", 0)))
 
         if success:
             logger.info(
                 f"[TOOL_BILLING] Enterprise deducted ${cost:.4f} for tool '{tool_name}' "
-                f"(user={account_id}, balance=${row.get('new_balance', 0):.2f})"
+                f"(user={account_id}, balance=${data.get('pool_balance', 0):.2f})"
             )
         else:
+            error_code = data.get("error_code", "UNKNOWN")
             logger.warning(
                 f"[TOOL_BILLING] Enterprise deduction failed for tool '{tool_name}' "
-                f"(user={account_id})"
+                f"(user={account_id}, error_code={error_code})"
             )
 
-        return {
+        out = {
             "success": success,
             "cost": cost,
-            "new_balance": float(row.get("new_balance", 0)),
-            "user_remaining": float(row.get("user_remaining", 0)),
+            "pool_balance": float(data.get("pool_balance", 0)),
+            "user_monthly_limit": float(data.get("user_monthly_limit", 0)),
+            "user_current_usage": float(data.get("user_current_usage", 0)),
+            "user_remaining": float(data.get("user_remaining", 0)),
         }
+        if not success:
+            out["error_code"] = data.get("error_code")
+            out["error"] = data.get("error")
+        return out
 
     # ================================================================== #
     #  SaaS implementation
@@ -272,11 +295,14 @@ class ToolBillingService:
             balance = Decimal(str(balance_info or 0))
 
         can_use = balance >= cost
-        return {
+        out = {
             "can_use": can_use,
             "required_cost": float(cost),
             "current_balance": float(balance),
         }
+        if not can_use:
+            out["error_code"] = "INSUFFICIENT_CREDITS"
+        return out
 
     async def _saas_deduct_tool(
         self,
@@ -316,12 +342,15 @@ class ToolBillingService:
                 f"(user={account_id}): {result.get('error')}"
             )
 
-        return {
+        out = {
             "success": success,
             "cost": float(cost),
             "new_balance": result.get("new_total", result.get("new_balance", 0)),
             "transaction_id": result.get("transaction_id", result.get("ledger_id")),
         }
+        if not success:
+            out["error_code"] = "INSUFFICIENT_CREDITS"
+        return out
 
     async def _saas_can_use_tools_batch(
         self, account_id: str, tool_names: List[str]
@@ -344,11 +373,14 @@ class ToolBillingService:
             balance = Decimal(str(balance_info or 0))
 
         can_use = balance >= total
-        return {
+        out = {
             "can_use": can_use,
             "total_cost": float(total),
             "current_balance": float(balance),
         }
+        if not can_use:
+            out["error_code"] = "INSUFFICIENT_CREDITS"
+        return out
 
     # ================================================================== #
     #  Cost lookup (for agent awareness)

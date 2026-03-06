@@ -11,35 +11,37 @@ from ..shared.cache_utils import invalidate_account_state_cache
 
 class BillingIntegration:
     @staticmethod
-    async def check_and_reserve_credits(account_id: str, estimated_tokens: int = 10000) -> Tuple[bool, str, Optional[str]]:
+    async def check_and_reserve_credits(account_id: str, estimated_tokens: int = 10000) -> Tuple[bool, str, Optional[str], Optional[str]]:
+        """
+        Returns (can_run, message, reservation_id, error_code).
+        error_code is None on success. On failure: MONTHLY_LIMIT_EXCEEDED (SaaS) or
+        INSUFFICIENT_POOL_BALANCE / MONTHLY_LIMIT_EXCEEDED (Enterprise).
+        """
         if config.ENV_MODE == EnvMode.LOCAL:
-            return True, "Local mode", None
-        
-        # ===== ENTERPRISE MODE FORK =====
+            return True, "Local mode", None, None
+
         if config.ENTERPRISE_MODE:
-            # Use enterprise billing - check shared pool and user limits
             from core.billing.enterprise.service import enterprise_billing_service
             return await enterprise_billing_service.check_billing_status(account_id)
-        # ================================
-        
-        # Standard SaaS mode - check and refresh daily credits
+
         try:
             from core.credits import credit_service
             await credit_service.check_and_refresh_daily_credits(account_id)
         except Exception as e:
             logger.warning(f"[DAILY_CREDITS] Failed to check/refresh daily credits for {account_id}: {e}")
-        
+
         balance_info = await credit_manager.get_balance(account_id)
-        
+
         if isinstance(balance_info, dict):
             balance = Decimal(str(balance_info.get('total', 0)))
         else:
             balance = Decimal(str(balance_info or 0))
-        
-        if balance < 0:
-            return False, f"Insufficient credits. Your balance is {int(balance * 100)} credits. Please add credits to continue.", None
-        
-        return True, f"Credits available: {int(balance * 100)} credits", None
+
+        from ..shared.config import MINIMUM_CREDIT_FOR_RUN, CREDITS_PER_DOLLAR
+        if balance < MINIMUM_CREDIT_FOR_RUN:
+            return False, f"Insufficient credits. Your balance is {int(balance * CREDITS_PER_DOLLAR)} credits. Minimum ${MINIMUM_CREDIT_FOR_RUN} required.", None, "INSUFFICIENT_CREDITS"
+
+        return True, f"Credits available: {int(balance * 100)} credits", None, None
     
     @staticmethod
     async def check_model_and_billing_access(
@@ -69,12 +71,12 @@ class BillingIntegration:
                     'limits': ENTERPRISE_TIER_LIMITS
                 }
                 
-                # All models allowed in enterprise mode
-                can_run, message, reservation_id = await BillingIntegration.check_and_reserve_credits(account_id)
+                can_run, message, reservation_id, error_code = await BillingIntegration.check_and_reserve_credits(account_id)
                 if not can_run:
                     return False, f"Enterprise billing check failed: {message}", {
                         "tier_info": tier_info,
                         "error_type": "insufficient_credits",
+                        "error_code": error_code or "MONTHLY_LIMIT_EXCEEDED",
                         "enterprise_mode": True
                     }
                 
@@ -100,11 +102,12 @@ class BillingIntegration:
                     "error_code": "MODEL_ACCESS_DENIED"
                 }
             
-            can_run, message, reservation_id = await BillingIntegration.check_and_reserve_credits(account_id)
+            can_run, message, reservation_id, error_code = await BillingIntegration.check_and_reserve_credits(account_id)
             if not can_run:
                 return False, f"Billing check failed: {message}", {
                     "tier_info": tier_info,
-                    "error_type": "insufficient_credits"
+                    "error_type": "insufficient_credits",
+                    "error_code": error_code or "INSUFFICIENT_CREDITS"
                 }
             
             # All checks passed
@@ -131,9 +134,7 @@ class BillingIntegration:
         if config.ENV_MODE == EnvMode.LOCAL:
             return {'success': True, 'cost': 0, 'new_balance': 999999}
 
-        # ===== ENTERPRISE MODE FORK =====
         if config.ENTERPRISE_MODE:
-            # Use enterprise billing - deduct from shared pool
             from core.billing.enterprise.service import enterprise_billing_service
             return await enterprise_billing_service.deduct_credits(
                 account_id=account_id,
@@ -145,7 +146,6 @@ class BillingIntegration:
                 cache_read_tokens=cache_read_tokens,
                 cache_creation_tokens=cache_creation_tokens
             )
-        # ================================
 
         # Standard SaaS mode - deduct from individual credit account
         # Handle cache reads and writes separately with actual pricing
@@ -201,7 +201,7 @@ class BillingIntegration:
         else:
             logger.error(f"[BILLING] Failed to deduct credits for user {account_id}: {result.get('error')}")
         
-        return {
+        out = {
             'success': result.get('success', False),
             'cost': float(cost),
             'new_balance': result.get('new_total', result.get('new_balance', 0)),
@@ -209,6 +209,9 @@ class BillingIntegration:
             'from_non_expiring': result.get('from_non_expiring', 0),
             'transaction_id': result.get('transaction_id', result.get('ledger_id'))
         }
+        if not out['success']:
+            out['error_code'] = 'INSUFFICIENT_CREDITS'
+        return out
     
     @staticmethod 
     async def get_credit_summary(account_id: str) -> Dict:

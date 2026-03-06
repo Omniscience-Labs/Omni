@@ -21,6 +21,7 @@ from core.billing.credits.calculator import (
     calculate_cached_token_cost,
     calculate_cache_write_cost
 )
+from core.billing.shared.config import MINIMUM_CREDIT_FOR_RUN
 
 
 class EnterpriseBillingService:
@@ -35,27 +36,26 @@ class EnterpriseBillingService:
     async def check_billing_status(
         self, 
         account_id: str,
-        estimated_cost: Decimal = Decimal('0.01')
-    ) -> Tuple[bool, str, Optional[str]]:
+        estimated_cost: Decimal = MINIMUM_CREDIT_FOR_RUN
+    ) -> Tuple[bool, str, Optional[str], Optional[str]]:
         """
         Check if a user can spend credits in enterprise mode.
-        
+
         This checks:
         1. Enterprise pool has sufficient balance
         2. User hasn't exceeded their monthly limit
         3. User is active
-        
+
         Args:
             account_id: The user's account ID
-            estimated_cost: Minimum cost to check for (default $0.01)
-            
+            estimated_cost: Minimum cost to check for (default $0.5)
+
         Returns:
-            Tuple of (can_spend: bool, message: str, reservation_id: Optional[str])
+            Tuple of (can_spend: bool, message: str, reservation_id: Optional[str], error_code: Optional[str])
         """
         try:
             db = DBConnection()
             client = await db.client
-            # Call the check_enterprise_billing_status function
             result = await client.rpc(
                 'check_enterprise_billing_status',
                 {
@@ -63,36 +63,37 @@ class EnterpriseBillingService:
                     'p_estimated_cost': float(estimated_cost)
                 }
             ).execute()
-            
+
             if result.data:
                 status = result.data
-                
+
                 if status.get('can_spend'):
                     remaining = status.get('user_remaining', 0)
-                    return True, f"Enterprise credits available. Remaining this month: ${remaining:.2f}", None
+                    return True, f"Enterprise credits available. Remaining this month: ${remaining:.2f}", None, None
                 else:
                     error_code = status.get('error_code', 'UNKNOWN')
                     error_msg = status.get('error', 'Cannot spend credits')
-                    
-                    if error_code == 'INSUFFICIENT_POOL_BALANCE':
-                        return False, "Enterprise credit pool is empty. Please contact your administrator.", None
-                    elif error_code == 'MONTHLY_LIMIT_EXCEEDED':
-                        remaining = status.get('remaining', 0)
-                        limit = status.get('monthly_limit', 100)
-                        return False, f"Monthly spending limit of ${limit:.2f} exceeded. Remaining: ${remaining:.2f}", None
-                    elif error_code == 'USER_DEACTIVATED':
-                        return False, "Your account has been deactivated. Please contact your administrator.", None
-                    elif error_code == 'ENTERPRISE_NOT_INITIALIZED':
-                        return False, "Enterprise billing not configured. Please contact your administrator.", None
-                    else:
-                        return False, error_msg, None
+
+                    match error_code:
+                        case 'INSUFFICIENT_POOL_BALANCE':
+                            return False, "Enterprise credit pool is empty. Please contact your administrator.", None, error_code
+                        case 'MONTHLY_LIMIT_EXCEEDED':
+                            remaining = status.get('user_remaining', 0)
+                            limit = status.get('user_monthly_limit', 100)
+                            return False, f"Monthly spending limit of ${limit:.2f} exceeded. Remaining: ${remaining:.2f}", None, error_code
+                        case 'USER_DEACTIVATED':
+                            return False, "Your account has been deactivated. Please contact your administrator.", None, error_code
+                        case 'ENTERPRISE_NOT_INITIALIZED':
+                            return False, "Enterprise billing not configured. Please contact your administrator.", None, error_code
+                        case _:
+                            return False, error_msg, None, error_code
             else:
                 logger.error(f"[ENTERPRISE] Empty response from check_enterprise_billing_status for {account_id}")
-                return False, "Unable to verify enterprise billing status", None
-                    
+                return False, "Unable to verify enterprise billing status", None, None
+
         except Exception as e:
             logger.error(f"[ENTERPRISE] Error checking billing status for {account_id}: {e}")
-            return False, f"Error checking enterprise billing: {str(e)}", None
+            return False, f"Error checking enterprise billing: {str(e)}", None, None
 
     async def deduct_credits(
         self,
@@ -183,14 +184,14 @@ class EnterpriseBillingService:
                 if response.get('success'):
                     logger.info(
                         f"[ENTERPRISE] Deducted ${cost:.6f} from pool for user {account_id}. "
-                        f"Pool balance: ${response.get('new_pool_balance', 0):.2f}, "
-                        f"User usage: ${response.get('new_user_usage', 0):.2f}/{response.get('user_monthly_limit', 100):.2f}"
+                        f"Pool balance: ${response.get('pool_balance', 0):.2f}, "
+                        f"User usage: ${response.get('user_current_usage', 0):.2f}/{response.get('user_monthly_limit', 100):.2f}"
                     )
                     return {
                         'success': True,
                         'cost': float(cost),
-                        'new_balance': response.get('new_pool_balance', 0),
-                        'user_usage': response.get('new_user_usage', 0),
+                        'new_balance': response.get('pool_balance', 0),
+                        'user_usage': response.get('user_current_usage', 0),
                         'user_limit': response.get('user_monthly_limit', 100),
                         'user_remaining': response.get('user_remaining', 0),
                         'usage_id': response.get('usage_id')

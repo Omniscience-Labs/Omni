@@ -8,6 +8,8 @@ import React, {
 } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AgentRunLimitError, ProjectLimitError, BillingError } from '@/lib/api/errors';
+import { getBillingErrorAlert, parseBillingBalance, parseBillingErrorCode } from '@/lib/billing-error-messages';
+import { isEnterpriseMode } from '@/lib/config';
 import { toast } from 'sonner';
 import { ChatInput } from '@/components/thread/chat-input/chat-input';
 import { useSidebar, SidebarContext } from '@/components/ui/sidebar';
@@ -471,11 +473,15 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
 
     if (isBillingError) {
       console.error(`[PAGE] Agent stopped due to billing error: ${errorMessage}`);
-      // Create a BillingError to pass to the modal
-      const billingError = new BillingError(402, {
-        message: errorMessage,
-      });
-      openBillingModal(billingError);
+      if (isEnterpriseMode()) {
+        const errorCode = parseBillingErrorCode(errorMessage);
+        const balance = parseBillingBalance(errorMessage);
+        const { toastMessage } = getBillingErrorAlert(errorCode, balance);
+        toast.error(toastMessage, { duration: 6000 });
+      } else {
+        const billingError = new BillingError(402, { message: errorMessage });
+        openBillingModal(billingError);
+      }
       pendingMessageRef.current = null;
       return;
     }
@@ -563,7 +569,15 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
           pendingMessageRef.current = null;
 
           if (error instanceof BillingError) {
-            openBillingModal(error);
+            if (isEnterpriseMode()) {
+              const message = error.detail?.message || 'Billing check failed';
+              const errorCode = error.detail?.error_code;
+              const balance = parseBillingBalance(message);
+              const { toastMessage } = getBillingErrorAlert(errorCode, balance);
+              toast.error(toastMessage, { duration: 6000 });
+            } else {
+              openBillingModal(error);
+            }
             return;
           }
 

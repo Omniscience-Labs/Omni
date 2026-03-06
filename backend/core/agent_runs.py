@@ -248,7 +248,7 @@ async def _check_billing_and_limits(client, account_id: str, model_name: Optiona
         elif context.get("error_type") == "insufficient_credits":
             raise HTTPException(status_code=402, detail={
                 "message": error_message,
-                "error_code": "INSUFFICIENT_CREDITS"
+                "error_code": context.get("error_code", "INSUFFICIENT_CREDITS")
             })
         else:
             raise HTTPException(status_code=500, detail={"message": error_message})
