@@ -713,14 +713,17 @@ class ThreadManager:
                 if account_id:
                     try:
                         from core.billing.credits.integration import billing_integration
-                        can_run, message, _ = await billing_integration.check_and_reserve_credits(account_id)
+                        can_run, message, _, error_code = await billing_integration.check_and_reserve_credits(account_id)
                         if not can_run:
                             logger.warning(f"Stopping auto-continue - insufficient credits: {message}")
-                            yield {
+                            chunk = {
                                 "type": "status",
                                 "status": "stopped",
                                 "message": f"Insufficient credits: {message}"
                             }
+                            if error_code:
+                                chunk["error_code"] = error_code
+                            yield chunk
                             break
                     except Exception as e:
                         logger.error(f"Error checking credits in auto-continue: {e}")

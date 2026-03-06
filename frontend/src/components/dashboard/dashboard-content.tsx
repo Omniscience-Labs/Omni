@@ -8,9 +8,9 @@ import {
   ChatInput,
   ChatInputHandles,
 } from '@/components/thread/chat-input/chat-input';
-import { 
-  AgentRunLimitError, 
-  ProjectLimitError, 
+import {
+  AgentRunLimitError,
+  ProjectLimitError,
   BillingError,
   ThreadLimitError,
   AgentCountLimitError,
@@ -18,6 +18,8 @@ import {
   CustomWorkerLimitError,
   ModelAccessDeniedError
 } from '@/lib/api/errors';
+import { getBillingErrorAlert, parseBillingBalance } from '@/lib/billing-error-messages';
+import { isEnterpriseMode } from '@/lib/config';
 import { useIsMobile } from '@/hooks/utils';
 import { useAuth } from '@/components/AuthProvider';
 import { config, isLocalMode, isStagingMode } from '@/lib/config';
@@ -90,7 +92,7 @@ export function DashboardContent() {
   } = useOmniModePersistence();
   
   const [viewMode, setViewMode] = useState<'super-worker' | 'worker-templates'>('super-worker');
-  
+
   const {
     selectedAgentId,
     setSelectedAgent,
@@ -350,34 +352,21 @@ export function DashboardContent() {
           alertTitle: `${tBilling('reachedLimit')} ${tBilling('threadLimit', { current: error.detail.current_count, limit: error.detail.limit })}` 
         });
       } else if (error instanceof BillingError) {
-        const message = error.detail?.message?.toLowerCase() || '';
-        const originalMessage = error.detail?.message || '';
-        const isCreditsExhausted = 
-          message.includes('credit') ||
-          message.includes('balance') ||
-          message.includes('insufficient') ||
-          message.includes('out of credits') ||
-          message.includes('no credits');
-        
-        // Extract balance from message if present
-        const balanceMatch = originalMessage.match(/balance is (-?\d+)\s*credits/i);
-        const balance = balanceMatch ? balanceMatch[1] : null;
-        
-        const alertTitle = isCreditsExhausted 
-          ? 'You ran out of credits'
-          : 'Pick the plan that works for you';
-        
-        const alertSubtitle = balance 
-          ? `Your current balance is ${balance} credits. Upgrade your plan to continue.`
-          : isCreditsExhausted 
-            ? 'Upgrade your plan to get more credits and continue using the AI assistant.'
-            : undefined;
-        
-        pricingModalStore.openPricingModal({ 
-          isAlert: true,
-          alertTitle,
-          alertSubtitle
-        });
+        const message = error.detail?.message || 'Billing check failed';
+        const errorCode = error.detail?.error_code;
+        const balance = parseBillingBalance(message);
+        if (isEnterpriseMode()) {
+          const { toastMessage } = getBillingErrorAlert(errorCode, balance);
+          toast.error(toastMessage, { duration: 6000 });
+        } else {
+          const { alertTitle, alertSubtitle, toastMessage } = getBillingErrorAlert(errorCode, balance);
+          toast.error(toastMessage, { duration: 6000 });
+          pricingModalStore.openPricingModal({
+            isAlert: true,
+            alertTitle,
+            alertSubtitle,
+          });
+        }
       } else if (error instanceof AgentRunLimitError) {
         // Skip agent run limit errors in local mode
         if (isLocal) {

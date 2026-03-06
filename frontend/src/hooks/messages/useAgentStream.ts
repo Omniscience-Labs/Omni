@@ -18,6 +18,8 @@ import { knowledgeBaseKeys } from '@/hooks/knowledge-base/keys';
 import { fileQueryKeys } from '@/hooks/files/use-file-queries';
 import { usePricingModalStore } from '@/stores/pricing-modal-store';
 import { accountStateKeys } from '@/hooks/billing';
+import { getBillingErrorAlert, parseBillingBalance, parseBillingErrorCode } from '@/lib/billing-error-messages';
+import { isEnterpriseMode } from '@/lib/config';
 
 // Define the structure returned by the hook
 export interface UseAgentStreamResult {
@@ -370,31 +372,21 @@ export function useAgentStream(
               setError(errorMessage);
             });
             callbacks.onError?.(errorMessage);
-            
-            const isCreditsExhausted = 
-              messageLower.includes('insufficient credits') ||
-              messageLower.includes('out of credits') ||
-              messageLower.includes('no credits') ||
-              messageLower.includes('balance');
-            
-            // Extract balance from message if present
-            const balanceMatch = errorMessage.match(/balance is (-?\d+)\s*credits/i);
-            const balance = balanceMatch ? balanceMatch[1] : null;
-            
-            const alertTitle = isCreditsExhausted 
-              ? 'You ran out of credits'
-              : 'Billing check failed';
-            
-            const alertSubtitle = balance 
-              ? `Your current balance is ${balance} credits. Upgrade your plan to continue.`
-              : isCreditsExhausted 
-                ? 'Upgrade your plan to get more credits and continue using the AI assistant.'
-                : 'Please upgrade to continue.';
-            
-            usePricingModalStore.getState().openPricingModal({ 
-              isAlert: true, 
+            if (isEnterpriseMode()) {
+              const errorCode = jsonData.error_code;
+              const balance = parseBillingBalance(errorMessage);
+              const { toastMessage } = getBillingErrorAlert(errorCode, balance);
+              toast.error(toastMessage, { duration: 6000 });
+              return;
+            }
+            const errorCode = jsonData.error_code;
+const balance = parseBillingBalance(errorMessage);
+            const { alertTitle, alertSubtitle, toastMessage } = getBillingErrorAlert(errorCode, balance);
+            toast.error(toastMessage, { duration: 6000 });
+            usePricingModalStore.getState().openPricingModal({
+              isAlert: true,
               alertTitle,
-              alertSubtitle
+              alertSubtitle,
             });
             return;
           }
@@ -427,33 +419,23 @@ export function useAgentStream(
               setError(jsonData.message);
             });
             callbacks.onError?.(jsonData.message);
-            
-            const isCreditsExhausted = 
-              message.includes('insufficient credits') ||
-              message.includes('out of credits') ||
-              message.includes('no credits') ||
-              message.includes('balance');
-            
-            // Extract balance from message if present
-            const balanceMatch = originalMessage.match(/balance is (-?\d+)\s*credits/i);
-            const balance = balanceMatch ? balanceMatch[1] : null;
-            
-            const alertTitle = isCreditsExhausted 
-              ? 'You ran out of credits'
-              : 'Billing check failed';
-            
-            const alertSubtitle = balance 
-              ? `Your current balance is ${balance} credits. Upgrade your plan to continue.`
-              : isCreditsExhausted 
-                ? 'Upgrade your plan to get more credits and continue using the AI assistant.'
-                : 'Please upgrade to continue.';
-            
-            usePricingModalStore.getState().openPricingModal({ 
-              isAlert: true, 
+            if (isEnterpriseMode()) {
+              const errorCode = jsonData.error_code;
+              const balance = parseBillingBalance(originalMessage);
+              const { toastMessage } = getBillingErrorAlert(errorCode, balance);
+              toast.error(toastMessage, { duration: 6000 });
+              finalizeStream('stopped', currentRunIdRef.current);
+              return;
+            }
+            const errorCode = jsonData.error_code;
+            const balance = parseBillingBalance(originalMessage);
+            const { alertTitle, alertSubtitle, toastMessage } = getBillingErrorAlert(errorCode, balance);
+            toast.error(toastMessage, { duration: 6000 });
+            usePricingModalStore.getState().openPricingModal({
+              isAlert: true,
               alertTitle,
-              alertSubtitle
+              alertSubtitle,
             });
-            
             finalizeStream('stopped', currentRunIdRef.current);
             return;
           }
@@ -649,49 +631,38 @@ export function useAgentStream(
           finalizeStream('error', runId);
           toast.warning('Stream disconnected. Agent might still be running.');
         } else if (agentStatus.status === 'stopped') {
-          // Check if agent stopped due to billing error
           const errorMessage = agentStatus.error || '';
           const lower = errorMessage.toLowerCase();
-          const isBillingError = 
+          const isBillingError =
             lower.includes('insufficient credits') ||
             lower.includes('credit') ||
             lower.includes('balance') ||
             lower.includes('out of credits') ||
             lower.includes('no credits') ||
             lower.includes('billing check failed');
-          
+
           if (isBillingError && errorMessage) {
             console.error(
               `[useAgentStream] Agent stopped due to billing error: ${errorMessage}`,
             );
             setError(errorMessage);
             callbacks.onError?.(errorMessage);
-            
-            const isCreditsExhausted = 
-              lower.includes('insufficient credits') ||
-              lower.includes('out of credits') ||
-              lower.includes('no credits') ||
-              lower.includes('balance');
-            
-            // Extract balance from message if present
-            const balanceMatch = errorMessage.match(/balance is (-?\d+)\s*credits/i);
-            const balance = balanceMatch ? balanceMatch[1] : null;
-            
-            const alertTitle = isCreditsExhausted 
-              ? 'You ran out of credits'
-              : 'Billing check failed';
-            
-            const alertSubtitle = balance 
-              ? `Your current balance is ${balance} credits. Upgrade your plan to continue.`
-              : isCreditsExhausted 
-                ? 'Upgrade your plan to get more credits and continue using the AI assistant.'
-                : 'Please upgrade to continue.';
-            
-            usePricingModalStore.getState().openPricingModal({ 
-              isAlert: true, 
-              alertTitle,
-              alertSubtitle
-            });
+            if (isEnterpriseMode()) {
+              const errorCode = parseBillingErrorCode(errorMessage);
+              const balance = parseBillingBalance(errorMessage);
+              const { toastMessage } = getBillingErrorAlert(errorCode, balance);
+              toast.error(toastMessage, { duration: 6000 });
+            } else {
+              const errorCode = parseBillingErrorCode(errorMessage);
+              const balance = parseBillingBalance(errorMessage);
+              const { alertTitle, alertSubtitle, toastMessage } = getBillingErrorAlert(errorCode, balance);
+              toast.error(toastMessage, { duration: 6000 });
+              usePricingModalStore.getState().openPricingModal({
+                isAlert: true,
+                alertTitle,
+                alertSubtitle,
+              });
+            }
           }
           
           const finalStatus = mapAgentStatus(agentStatus.status);
