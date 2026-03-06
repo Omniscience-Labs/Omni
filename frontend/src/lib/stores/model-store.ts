@@ -31,7 +31,7 @@ export const useModelStore = create<ModelStore>()(
 // Utility functions for compatibility
 export const formatModelName = (name: string): string => {
   // Special case for Claude Sonnet 4.6 to display as "Omni 4"
-  if (name === 'Claude Sonnet 4.6' || name === 'claude-sonnet-4-6' || name === 'anthropic/claude-sonnet-4-6-20250514') {
+  if (name === 'Claude Sonnet 4.6' || name === 'claude-sonnet-4-6' || name === 'anthropic/claude-sonnet-4-6') {
     return 'Omni 4';
   }
   
