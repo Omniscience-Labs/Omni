@@ -17,15 +17,32 @@ DEFAULT_TOKEN_THRESHOLD = 120000
 
 class ContextManager:
     """Manages thread context including token counting and summarization."""
-    
+
     def __init__(self, token_threshold: int = DEFAULT_TOKEN_THRESHOLD):
         """Initialize the ContextManager.
-        
+
         Args:
             token_threshold: Token count threshold to trigger summarization
         """
         self.db = DBConnection()
         self.token_threshold = token_threshold
+
+    def _count_message_tokens(self, msg: Dict[str, Any], model: str) -> int:
+        """Get token count for a single message, using cached value if available."""
+        cached = msg.get('_tokens')
+        if cached is not None:
+            return cached
+        count = token_counter(messages=[msg], model=model)
+        msg['_tokens'] = count
+        return count
+
+    def _count_total_tokens(self, messages: List[Dict[str, Any]], model: str) -> int:
+        """Get total token count for messages using per-message cache."""
+        return sum(self._count_message_tokens(msg, model) for msg in messages if isinstance(msg, dict))
+
+    def _invalidate_token_cache(self, msg: Dict[str, Any]) -> None:
+        """Clear cached token count after message content changes."""
+        msg.pop('_tokens', None)
 
     def is_tool_result_message(self, msg: Dict[str, Any]) -> bool:
         """Check if a message is a tool result message."""
@@ -90,75 +107,81 @@ class ContextManager:
   
     def compress_tool_result_messages(self, messages: List[Dict[str, Any]], llm_model: str, max_tokens: Optional[int], token_threshold: int = 1000) -> List[Dict[str, Any]]:
         """Compress the tool result messages except the most recent one."""
-        uncompressed_total_token_count = token_counter(model=llm_model, messages=messages)
+        total_tokens = self._count_total_tokens(messages, llm_model)
         max_tokens_value = max_tokens or (100 * 1000)
 
-        if uncompressed_total_token_count > max_tokens_value:
-            _i = 0  # Count the number of ToolResult messages
-            for msg in reversed(messages):  # Start from the end and work backwards
+        if total_tokens > max_tokens_value:
+            _i = 0
+            for msg in reversed(messages):
                 if not isinstance(msg, dict):
-                    continue  # Skip non-dict messages
-                if self.is_tool_result_message(msg):  # Only compress ToolResult messages
-                    _i += 1  # Count the number of ToolResult messages
-                    msg_token_count = token_counter(messages=[msg])  # Count the number of tokens in the message
-                    if msg_token_count > token_threshold:  # If the message is too long
-                        if _i > 1:  # If this is not the most recent ToolResult message
-                            message_id = msg.get('message_id')  # Get the message_id
+                    continue
+                if self.is_tool_result_message(msg):
+                    _i += 1
+                    msg_token_count = self._count_message_tokens(msg, llm_model)
+                    if msg_token_count > token_threshold:
+                        if _i > 1:
+                            message_id = msg.get('message_id')
                             if message_id:
                                 msg["content"] = self.compress_message(msg["content"], message_id, token_threshold * 3)
+                                self._invalidate_token_cache(msg)
                             else:
                                 logger.warning(f"UNEXPECTED: Message has no message_id {str(msg)[:100]}")
                         else:
                             msg["content"] = self.safe_truncate(msg["content"], int(max_tokens_value * 2))
+                            self._invalidate_token_cache(msg)
         return messages
 
     def compress_user_messages(self, messages: List[Dict[str, Any]], llm_model: str, max_tokens: Optional[int], token_threshold: int = 1000) -> List[Dict[str, Any]]:
         """Compress the user messages except the most recent one."""
-        uncompressed_total_token_count = token_counter(model=llm_model, messages=messages)
+        total_tokens = self._count_total_tokens(messages, llm_model)
         max_tokens_value = max_tokens or (100 * 1000)
 
-        if uncompressed_total_token_count > max_tokens_value:
-            _i = 0  # Count the number of User messages
-            for msg in reversed(messages):  # Start from the end and work backwards
+        if total_tokens > max_tokens_value:
+            _i = 0
+            for msg in reversed(messages):
                 if not isinstance(msg, dict):
-                    continue  # Skip non-dict messages
-                if msg.get('role') == 'user':  # Only compress User messages
-                    _i += 1  # Count the number of User messages
-                    msg_token_count = token_counter(messages=[msg])  # Count the number of tokens in the message
-                    if msg_token_count > token_threshold:  # If the message is too long
-                        if _i > 1:  # If this is not the most recent User message
-                            message_id = msg.get('message_id')  # Get the message_id
+                    continue
+                if msg.get('role') == 'user':
+                    _i += 1
+                    msg_token_count = self._count_message_tokens(msg, llm_model)
+                    if msg_token_count > token_threshold:
+                        if _i > 1:
+                            message_id = msg.get('message_id')
                             if message_id:
                                 msg["content"] = self.compress_message(msg["content"], message_id, token_threshold * 3)
+                                self._invalidate_token_cache(msg)
                             else:
                                 logger.warning(f"UNEXPECTED: Message has no message_id {str(msg)[:100]}")
                         else:
                             msg["content"] = self.safe_truncate(msg["content"], int(max_tokens_value * 2))
+                            self._invalidate_token_cache(msg)
         return messages
 
     def compress_assistant_messages(self, messages: List[Dict[str, Any]], llm_model: str, max_tokens: Optional[int], token_threshold: int = 1000) -> List[Dict[str, Any]]:
         """Compress the assistant messages except the most recent one."""
-        uncompressed_total_token_count = token_counter(model=llm_model, messages=messages)
+        total_tokens = self._count_total_tokens(messages, llm_model)
         max_tokens_value = max_tokens or (100 * 1000)
-        
-        if uncompressed_total_token_count > max_tokens_value:
-            _i = 0  # Count the number of Assistant messages
-            for msg in reversed(messages):  # Start from the end and work backwards
+
+        if total_tokens > max_tokens_value:
+            _i = 0
+            for msg in reversed(messages):
                 if not isinstance(msg, dict):
-                    continue  # Skip non-dict messages
-                if msg.get('role') == 'assistant':  # Only compress Assistant messages
-                    _i += 1  # Count the number of Assistant messages
-                    msg_token_count = token_counter(messages=[msg])  # Count the number of tokens in the message
-                    if msg_token_count > token_threshold:  # If the message is too long
-                        if _i > 1:  # If this is not the most recent Assistant message
-                            message_id = msg.get('message_id')  # Get the message_id
+                    continue
+                if msg.get('role') == 'assistant':
+                    _i += 1
+                    msg_token_count = self._count_message_tokens(msg, llm_model)
+                    if msg_token_count > token_threshold:
+                        if _i > 1:
+                            message_id = msg.get('message_id')
                             if message_id:
                                 msg["content"] = self.compress_message(msg["content"], message_id, token_threshold * 3)
+                                self._invalidate_token_cache(msg)
                             else:
                                 logger.warning(f"UNEXPECTED: Message has no message_id {str(msg)[:100]}")
                         else:
                             msg["content"] = self.safe_truncate(msg["content"], int(max_tokens_value * 2))
-                            
+                            self._invalidate_token_cache(msg)
+
         return messages
 
     def remove_meta_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -218,13 +241,13 @@ class ContextManager:
         result = messages
         result = self.remove_meta_messages(result)
 
-        uncompressed_total_token_count = token_counter(model=llm_model, messages=result)
+        uncompressed_total_token_count = self._count_total_tokens(result, llm_model)
 
         result = self.compress_tool_result_messages(result, llm_model, max_tokens, token_threshold)
         result = self.compress_user_messages(result, llm_model, max_tokens, token_threshold)
         result = self.compress_assistant_messages(result, llm_model, max_tokens, token_threshold)
 
-        compressed_token_count = token_counter(model=llm_model, messages=result)
+        compressed_token_count = self._count_total_tokens(result, llm_model)
 
         logger.info(f"Context compression: {uncompressed_total_token_count} -> {compressed_token_count} tokens")
 
@@ -263,9 +286,9 @@ class ContextManager:
         result = self.remove_meta_messages(result)
 
         # Early exit if no compression needed
-        initial_token_count = token_counter(model=llm_model, messages=result)
+        initial_token_count = self._count_total_tokens(result, llm_model)
         max_allowed_tokens = max_tokens or (100 * 1000)
-        
+
         if initial_token_count <= max_allowed_tokens:
             return result
 
@@ -300,12 +323,12 @@ class ContextManager:
 
             # Recalculate token count
             messages_to_count = ([system_message] + conversation_messages) if system_message else conversation_messages
-            current_token_count = token_counter(model=llm_model, messages=messages_to_count)
+            current_token_count = self._count_total_tokens(messages_to_count, llm_model)
 
         # Prepare final result and sanitize orphaned tool pairs
         final_messages = ([system_message] + conversation_messages) if system_message else conversation_messages
         final_messages = self._sanitize_tool_pairs(final_messages)
-        final_token_count = token_counter(model=llm_model, messages=final_messages)
+        final_token_count = self._count_total_tokens(final_messages, llm_model)
 
         logger.info(f"Context compression (omit): {initial_token_count} -> {final_token_count} tokens ({len(messages)} -> {len(final_messages)} messages)")
 
