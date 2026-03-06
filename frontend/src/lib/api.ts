@@ -755,7 +755,7 @@ export const startAgent = async (
     }
 
     const defaultOptions = {
-      model_name: 'claude-3-7-sonnet-latest',
+      model_name: 'claude-sonnet-4-6',
       enable_thinking: false,
       reasoning_effort: 'low',
       stream: true,

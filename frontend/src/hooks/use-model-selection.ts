@@ -57,7 +57,7 @@ export const useModelSelection = () => {
       // Fallback models when API fails (matching PRODUCTION pattern)
       models = [
         { 
-          id: 'claude-sonnet-4', 
+          id: 'claude-sonnet-4-6',
           label: 'Omni 4', 
           requiresSubscription: false,
           priority: 100,
@@ -74,9 +74,9 @@ export const useModelSelection = () => {
         .map(model => {
           let label = model.display_name || model.short_name || model.id;
           
-          // Transform Claude Sonnet 4 to Omni 4
-          if (label === 'Claude Sonnet 4' || label === 'claude-sonnet-4' || 
-              (model.short_name || model.id) === 'anthropic/claude-sonnet-4-20250514') {
+          // Transform Claude Sonnet 4.6 to Omni 4
+          if (label === 'Claude Sonnet 4.6' || label === 'claude-sonnet-4-6' ||
+              (model.short_name || model.id) === 'anthropic/claude-sonnet-4-6-20250514') {
             label = 'Omni 4';
           }
           
