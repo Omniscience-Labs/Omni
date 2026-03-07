@@ -76,7 +76,7 @@ export const useModelSelection = () => {
           
           // Transform Claude Sonnet 4.6 to Omni 4
           if (label === 'Claude Sonnet 4.6' || label === 'claude-sonnet-4-6' ||
-              (model.short_name || model.id) === 'anthropic/claude-sonnet-4-6') {
+              (model.short_name || model.id) === 'anthropic/claude-sonnet-4-6-20250514') {
             label = 'Omni 4';
           }
           
