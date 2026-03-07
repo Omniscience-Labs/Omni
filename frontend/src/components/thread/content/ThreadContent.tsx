@@ -793,7 +793,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                 {renderStandaloneAttachments(attachments as string[], handleOpenFileViewer, sandboxId, project, true)}
                                                 
                                                 <div className="flex justify-end relative">
-                                                    <div className="group flex max-w-[85%] rounded-3xl rounded-br-lg bg-card border px-4 py-3 break-words overflow-hidden relative">
+                                                    <div className="group flex flex-col max-w-[85%] rounded-3xl rounded-br-lg bg-card border px-4 py-3 break-words overflow-hidden">
                                                         <div className="space-y-3 min-w-0 flex-1">
                                                             {cleanContent && (
                                                                 <ComposioUrlDetector content={cleanContent} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere" />
@@ -802,7 +802,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                             {/* Use the helper function to render regular (non-spreadsheet) attachments */}
                                                             {renderAttachments(attachments as string[], handleOpenFileViewer, sandboxId, project)}
                                                         </div>
-                                                        <div className="absolute bottom-2 left-2">
+                                                        <div className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <CopyMessageButton content={cleanContent} />
                                                         </div>
                                                     </div>
@@ -922,11 +922,11 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                     </div>
                                                                                 )}
                                                                                 {/* Main content */}
-                                                                                <div className="group relative">
+                                                                                <div className="group">
                                                                                     <div className="prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-hidden">
                                                                                         {renderedContent}
                                                                                     </div>
-                                                                                    <div className="absolute bottom-2 left-2">
+                                                                                    <div className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                                         <CopyMessageButton content={mainContent} />
                                                                                     </div>
                                                                                 </div>
