@@ -2,13 +2,16 @@
 
 import { useRef, useSyncExternalStore, useEffect, useLayoutEffect } from 'react';
 
-const CHARS_PER_SECOND = 300;
-const MS_PER_CHAR = 1000 / CHARS_PER_SECOND;
+// Reveal speed adapts based on how far behind the display is
+const BASE_CHARS_PER_SECOND = 250;
+const MAX_CHARS_PER_SECOND = 1200;
+const CATCH_UP_THRESHOLD = 80; // buffer (chars) before we start accelerating
 
 class SmoothStreamStore {
   private targetText = '';
-  private revealedLen = 0;
-  private lastUpdateTime = 0;
+  private revealedPos = 0;    // fractional character position (internal timer)
+  private displayedLen = 0;   // word-boundary-snapped length (what React sees)
+  private lastTickTime = 0;
   private animationId: number | null = null;
   private listeners = new Set<() => void>();
   private enabled = true;
@@ -18,10 +21,48 @@ class SmoothStreamStore {
     return () => this.listeners.delete(listener);
   };
 
-  getSnapshot = () => this.revealedLen;
+  getSnapshot = () => this.displayedLen;
 
   private notify() {
     this.listeners.forEach(l => l());
+  }
+
+  /**
+   * Snap a fractional position to the last clean word boundary.
+   * A "word boundary" is any position where the character is whitespace,
+   * so complete words (including trailing punctuation) appear as a unit.
+   * Never regresses behind what's already displayed.
+   */
+  private snapToWordBoundary(pos: number): number {
+    const text = this.targetText;
+    const len = text.length;
+    const intPos = Math.min(Math.floor(pos), len);
+
+    if (intPos >= len) return len;
+    if (intPos <= 0) return 0;
+
+    // If sitting on whitespace, this is already a clean break
+    const ch = text[intPos];
+    if (ch === ' ' || ch === '\n' || ch === '\r' || ch === '\t') {
+      return intPos;
+    }
+
+    // Walk backward to find the last whitespace
+    let p = intPos;
+    while (p > 0) {
+      const prev = text[p - 1];
+      if (prev === ' ' || prev === '\n' || prev === '\r' || prev === '\t') {
+        break;
+      }
+      p--;
+    }
+
+    // Never regress behind already-displayed text
+    if (p < this.displayedLen) {
+      return this.displayedLen;
+    }
+
+    return p;
   }
 
   private tick = () => {
@@ -30,25 +71,47 @@ class SmoothStreamStore {
     const now = performance.now();
     const targetLen = this.targetText.length;
 
-    if (this.revealedLen >= targetLen) {
+    // If internal counter has caught up, finalize display
+    if (this.revealedPos >= targetLen) {
+      if (this.displayedLen < targetLen) {
+        this.displayedLen = targetLen;
+        this.notify();
+      }
       this.animationId = null;
       return;
     }
 
-    if (this.lastUpdateTime === 0) {
-      this.lastUpdateTime = now;
+    // First tick: just record time, don't jump
+    if (this.lastTickTime === 0) {
+      this.lastTickTime = now;
+      this.animationId = requestAnimationFrame(this.tick);
+      return;
     }
 
-    const elapsed = now - this.lastUpdateTime;
-    const charsToReveal = Math.floor(elapsed / MS_PER_CHAR);
+    const dt = (now - this.lastTickTime) / 1000; // seconds
+    this.lastTickTime = now;
 
-    if (charsToReveal > 0) {
-      this.revealedLen = Math.min(this.revealedLen + charsToReveal, targetLen);
-      this.lastUpdateTime = now - (elapsed % MS_PER_CHAR);
+    // Adaptive speed: ramp up smoothly when buffer grows
+    const buffer = targetLen - this.revealedPos;
+    let speed = BASE_CHARS_PER_SECOND;
+    if (buffer > CATCH_UP_THRESHOLD) {
+      const excess = buffer - CATCH_UP_THRESHOLD;
+      speed = Math.min(
+        MAX_CHARS_PER_SECOND,
+        BASE_CHARS_PER_SECOND + excess * 3
+      );
+    }
+
+    this.revealedPos = Math.min(this.revealedPos + speed * dt, targetLen);
+
+    // Snap to word boundary — only notify React when display actually changes
+    const newDisplayLen = this.snapToWordBoundary(this.revealedPos);
+    if (newDisplayLen !== this.displayedLen) {
+      this.displayedLen = newDisplayLen;
       this.notify();
     }
 
-    if (this.revealedLen < targetLen) {
+    if (this.revealedPos < targetLen || this.displayedLen < targetLen) {
       this.animationId = requestAnimationFrame(this.tick);
     } else {
       this.animationId = null;
@@ -57,7 +120,7 @@ class SmoothStreamStore {
 
   private startAnimation() {
     if (this.animationId !== null) return;
-    this.lastUpdateTime = 0;
+    this.lastTickTime = 0;
     this.animationId = requestAnimationFrame(this.tick);
   }
 
@@ -74,8 +137,9 @@ class SmoothStreamStore {
     if (!newText) {
       this.stopAnimation();
       this.targetText = '';
-      this.revealedLen = 0;
-      this.lastUpdateTime = 0;
+      this.revealedPos = 0;
+      this.displayedLen = 0;
+      this.lastTickTime = 0;
       this.notify();
       return;
     }
@@ -83,7 +147,8 @@ class SmoothStreamStore {
     if (!isEnabled) {
       this.stopAnimation();
       this.targetText = newText;
-      this.revealedLen = newText.length;
+      this.revealedPos = newText.length;
+      this.displayedLen = newText.length;
       this.notify();
       return;
     }
@@ -92,19 +157,20 @@ class SmoothStreamStore {
 
     if (!isContinuation) {
       this.stopAnimation();
-      this.revealedLen = 0;
-      this.lastUpdateTime = 0;
+      this.revealedPos = 0;
+      this.displayedLen = 0;
+      this.lastTickTime = 0;
     }
 
     this.targetText = newText;
 
-    if (this.revealedLen < newText.length) {
+    if (this.revealedPos < newText.length) {
       this.startAnimation();
     }
   }
 
   getText() {
-    return this.targetText.slice(0, Math.min(this.revealedLen, this.targetText.length));
+    return this.targetText.slice(0, this.displayedLen);
   }
 
   destroy() {
