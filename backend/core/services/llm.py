@@ -308,12 +308,7 @@ async def make_llm_api_call(
 ) -> Union[Dict[str, Any], AsyncGenerator, ModelResponse]:
     """Make an API call to a language model using LiteLLM."""
     logger.info(f"Making LLM API call to model: {model_name} with {len(messages)} messages")
-
-    # Strip internal metadata before sending to API
-    for msg in messages:
-        msg.pop('_tokens', None)
-        msg.pop('message_id', None)
-
+    
     # DEBUG: Log if any messages have cache_control
     cache_messages = [i for i, msg in enumerate(messages) if 
                      isinstance(msg.get('content'), list) and 

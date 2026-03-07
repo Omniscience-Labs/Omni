@@ -80,21 +80,15 @@ def estimate_token_count(text: str, model: str = "claude-3-5-sonnet-20240620") -
         return int(word_count * 1.3)
 
 def get_message_token_count(message: Dict[str, Any], model: str = "claude-3-5-sonnet-20240620") -> int:
-    """Get estimated token count for a message, using cached value if available."""
-    cached = message.get('_tokens')
-    if cached is not None:
-        return cached
+    """Get estimated token count for a message."""
     content = message.get('content', '')
     if isinstance(content, list):
         total_tokens = 0
         for item in content:
             if isinstance(item, dict) and item.get('type') == 'text':
                 total_tokens += estimate_token_count(item.get('text', ''), model)
-        message['_tokens'] = total_tokens
         return total_tokens
-    count = estimate_token_count(str(content), model)
-    message['_tokens'] = count
-    return count
+    return estimate_token_count(str(content), model)
 
 def get_messages_token_count(messages: List[Dict[str, Any]], model: str = "claude-3-5-sonnet-20240620") -> int:
     """Get total token count for a list of messages."""
