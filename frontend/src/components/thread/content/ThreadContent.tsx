@@ -21,6 +21,7 @@ import { ComposioUrlDetector } from './composio-url-detector';
 import { StreamingText } from './StreamingText';
 import { HIDE_STREAMING_XML_TAGS } from '@/components/thread/utils';
 import { CopyMessageButton } from '@/components/thread/copy-message-button';
+import { useSmoothStream } from '@/hooks/utils/useSmoothStream';
 
 
 // Helper function to render all attachments as standalone messages
@@ -394,6 +395,20 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     const contentRef = useRef<HTMLDivElement>(null);
     const [shouldJustifyToTop, setShouldJustifyToTop] = useState(false);
     const { session } = useAuth();
+
+    // Apply smooth typing effect to streaming text
+    const isStreaming = (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && !readOnly;
+    const smoothStreamingText = useSmoothStream(streamingTextContent, isStreaming);
+
+    // Helper: check if the last assistant message in the thread already has content
+    // Prevents AgentLoader flash after streaming ends but before status updates
+    const isLastAssistantMessageComplete = useCallback(() => {
+        if (messages.length === 0) return false;
+        const lastMsg = messages[messages.length - 1];
+        if (lastMsg.type !== 'assistant') return false;
+        const parsed = safeJsonParse<ParsedContent>(lastMsg.content, {});
+        return !!(parsed.content && parsed.content.trim().length > 0);
+    }, [messages]);
 
     // React Query file preloader
     const { preloadFiles } = useFilePreloader();
@@ -936,14 +951,16 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                             );
                                                                         }
 
-                                                                        // Preprocess content first to remove text-only tool tags
-                                                                        const textToRender = preprocessTextOnlyTools(streamingTextContent || '');
-                                                                        
+                                                                        // Use smooth streaming text for typing effect
+                                                                        const smoothText = preprocessTextOnlyTools(smoothStreamingText || '');
+
+                                                                        // Detect XML tags using original content (not smooth) for accurate detection
+                                                                        const fullText = preprocessTextOnlyTools(streamingTextContent || '');
                                                                         let detectedTag: string | null = null;
                                                                         let tagStartIndex = -1;
-                                                                        if (textToRender) {
+                                                                        if (fullText) {
                                                                             // First check for new format
-                                                                            const functionCallsIndex = textToRender.indexOf('<function_calls>');
+                                                                            const functionCallsIndex = fullText.indexOf('<function_calls>');
                                                                             if (functionCallsIndex !== -1) {
                                                                                 detectedTag = 'function_calls';
                                                                                 tagStartIndex = functionCallsIndex;
@@ -951,7 +968,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                 // Fall back to old format detection
                                                                                 for (const tag of HIDE_STREAMING_XML_TAGS) {
                                                                                     const openingTagPattern = `<${tag}`;
-                                                                                    const index = textToRender.indexOf(openingTagPattern);
+                                                                                    const index = fullText.indexOf(openingTagPattern);
                                                                                     if (index !== -1) {
                                                                                         detectedTag = tag;
                                                                                         tagStartIndex = index;
@@ -960,7 +977,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                 }
                                                                             }
                                                                         }
-                                                                        const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
+                                                                        const textBeforeTag = detectedTag ? smoothText.substring(0, Math.min(tagStartIndex, smoothText.length)) : smoothText;
                                                                         const showCursor =
                                                                           (streamHookStatus ===
                                                                             'streaming' ||
@@ -969,7 +986,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                           !detectedTag;
 
                                                                         // Show minimal processing indicator when agent is active but no streaming text after preprocessing
-                                                                        if (!textToRender && (streamHookStatus === 'streaming' || streamHookStatus === 'connecting')) {
+                                                                        if (!fullText && (streamHookStatus === 'streaming' || streamHookStatus === 'connecting')) {
                                                                             return (
                                                                                 <div className="flex items-center gap-1 py-1 ">
                                                                                     <div className="h-1 w-1 rounded-full bg-primary/40 animate-pulse duration-1000" />
@@ -986,13 +1003,20 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                     className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere"
                                                                                 />
 
-                                                                                {detectedTag && (
+                                                                                {detectedTag && fullText.length > tagStartIndex && (
                                                                                     <ShowToolStream
-                                                                                        content={textToRender.substring(tagStartIndex)}
+                                                                                        content={fullText.substring(tagStartIndex)}
                                                                                         messageId={visibleMessages && visibleMessages.length > 0 ? visibleMessages[visibleMessages.length - 1].message_id : "playback-streaming"}
                                                                                         onToolClick={handleToolClick}
                                                                                         showExpanded={true}
                                                                                         startTime={Date.now()}
+                                                                                    />
+                                                                                )}
+
+                                                                                {detectedTag && fullText.length > tagStartIndex && (
+                                                                                    <ComposioUrlDetector
+                                                                                        content={fullText.substring(tagStartIndex)}
+                                                                                        className=""
                                                                                     />
                                                                                 )}
                                                                             </>
@@ -1075,7 +1099,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 });
                             })()}
                             {((agentStatus === 'running' || agentStatus === 'connecting') && !streamingTextContent &&
-                                !readOnly &&
+                                !readOnly && !isLastAssistantMessageComplete() &&
                                 (messages.length === 0 || messages[messages.length - 1].type === 'user')) && (
                                     <div ref={latestMessageRef} className='w-full h-22 rounded'>
                                         <div className="flex flex-col gap-2">
