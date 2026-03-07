@@ -361,10 +361,6 @@ class ThreadManager:
             else:
                 logger.debug("Context manager disabled, using raw messages")
 
-            # Sanitize orphaned tool_result messages before sending to API
-            sanitizer = ContextManager()
-            messages = sanitizer._sanitize_tool_pairs(messages)
-
             # Apply caching if enabled
             if enable_prompt_caching:
                 prepared_messages = apply_anthropic_caching_strategy(system_prompt, messages, llm_model)
