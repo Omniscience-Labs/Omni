@@ -15,7 +15,7 @@ class ModelRegistry:
             id="anthropic/claude-sonnet-4-6",
             name="Claude Sonnet 4.6",
             provider=ModelProvider.ANTHROPIC,
-            aliases=["claude-sonnet-4-6", "Claude Sonnet 4.6", "anthropic/claude-sonnet-4-6-20250514", "claude-sonnet-4-6-20250514", "claude-sonnet-4", "anthropic/claude-sonnet-4", "Claude Sonnet 4", "anthropic/claude-sonnet-4-20250514", "claude-sonnet-4-20250514"],
+            aliases=["claude-sonnet-4-6", "Claude Sonnet 4.6"],
             context_window=1_000_000,
             capabilities=[
                 ModelCapability.CHAT,
