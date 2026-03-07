@@ -81,13 +81,6 @@ async def initialize():
     await retry(lambda: redis.initialize_async())
     await db.initialize()
 
-    # Pre-load static configs into memory for fast path
-    try:
-        from core.runtime_cache import warm_up_static_configs
-        await warm_up_static_configs()
-    except Exception as e:
-        logger.warning(f"Failed to pre-cache static configs (non-fatal): {e}")
-
     _initialized = True
     logger.debug(f"Initialized agent API with instance ID: {instance_id}")
 

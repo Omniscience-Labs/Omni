@@ -159,12 +159,6 @@ async def keys(pattern: str) -> List[str]:
     return await redis_client.keys(pattern)
 
 
-async def incr(key: str):
-    """Increment a Redis key."""
-    redis_client = await get_client()
-    return await redis_client.incr(key)
-
-
 async def expire(key: str, seconds: int):
     redis_client = await get_client()
     return await redis_client.expire(key, seconds)

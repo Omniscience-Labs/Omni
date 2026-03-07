@@ -25,7 +25,7 @@ from core.tools.data_providers_tool import DataProvidersTool
 from core.tools.expand_msg_tool import ExpandMessageTool
 from core.prompts.prompt import get_system_prompt
 
-from core.utils.logger import logger, safe_fire_and_forget
+from core.utils.logger import logger
 
 from core.billing.billing_integration import billing_integration
 from core.tools.sb_vision_tool import SandboxVisionTool
@@ -571,24 +571,12 @@ class AgentRunner:
         if not self.account_id:
             raise ValueError(f"Thread {self.config.thread_id} has no associated account")
 
-        # Try L2 cache for project metadata first
-        from core.runtime_cache import get_cached_project_metadata, set_cached_project_metadata
-        cached_project = await get_cached_project_metadata(self.config.project_id)
+        project = await self.client.table('projects').select('*').eq('project_id', self.config.project_id).execute()
+        if not project.data or len(project.data) == 0:
+            raise ValueError(f"Project {self.config.project_id} not found")
 
-        if cached_project:
-            sandbox_info = cached_project.get('sandbox', {})
-            logger.debug(f"Project metadata loaded from cache for {self.config.project_id}")
-        else:
-            project = await self.client.table('projects').select('*').eq('project_id', self.config.project_id).execute()
-            if not project.data or len(project.data) == 0:
-                raise ValueError(f"Project {self.config.project_id} not found")
-
-            project_data = project.data[0]
-            sandbox_info = project_data.get('sandbox', {})
-
-            # Cache for subsequent requests
-            await set_cached_project_metadata(self.config.project_id, sandbox_info)
-
+        project_data = project.data[0]
+        sandbox_info = project_data.get('sandbox', {})
         if not sandbox_info.get('id'):
             logger.debug(f"No sandbox found for project {self.config.project_id}; will create lazily when needed")
     
@@ -895,7 +883,7 @@ class AgentRunner:
                 generation.end()
 
         try:
-            safe_fire_and_forget(asyncio.to_thread(lambda: langfuse.flush()), "langfuse_flush")
+            asyncio.create_task(asyncio.to_thread(lambda: langfuse.flush()))
         except Exception as e:
             logger.warning(f"Failed to flush Langfuse: {e}")
 

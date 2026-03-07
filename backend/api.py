@@ -57,11 +57,6 @@ async def lifespan(app: FastAPI):
     try:
         await db.initialize()
         
-        # Pre-load static Suna/Omni configs for fast path in API requests
-        from core.runtime_cache import load_static_suna_config, load_static_omni_config
-        load_static_suna_config()
-        load_static_omni_config()
-
         core_api.initialize(
             db,
             instance_id

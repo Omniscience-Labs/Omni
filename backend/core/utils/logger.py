@@ -1,4 +1,3 @@
-import asyncio
 import structlog, logging, os
 
 ENV_MODE = os.getenv("ENV_MODE", "LOCAL")
@@ -42,19 +41,3 @@ structlog.configure(
 )
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
-
-
-def safe_fire_and_forget(coro, name: str = "background_task"):
-    """Create an asyncio task that logs exceptions instead of silently dropping them."""
-    task = asyncio.create_task(coro, name=name)
-    task.add_done_callback(lambda t: _handle_task_result(t, name))
-    return task
-
-
-def _handle_task_result(task: asyncio.Task, name: str):
-    try:
-        task.result()
-    except asyncio.CancelledError:
-        pass
-    except Exception:
-        logger.warning(f"Background task '{name}' failed", exc_info=task.exception())

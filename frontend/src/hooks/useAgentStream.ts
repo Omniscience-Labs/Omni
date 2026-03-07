@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   streamAgent,
@@ -86,30 +86,36 @@ export function useAgentStream(
   const queryClient = useQueryClient();
 
   const [status, setStatus] = useState<string>('idle');
-  const [textContent, setTextContent] = useState<string>('');
-
-  // RAF-based batching for smooth streaming at display refresh rate
-  const rafRef = useRef<number | null>(null);
-  const pendingContentRef = useRef<string>('');
-
-  // Flush all pending content in a single state update per animation frame
+  const [textContent, setTextContent] = useState<
+    { content: string; sequence?: number }[]
+  >([]);
+  
+  // Add throttled state updates for smoother streaming
+  const throttleRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingContentRef = useRef<{ content: string; sequence?: number }[]>([]);
+  
+  // Throttled content update function for smoother streaming
   const flushPendingContent = useCallback(() => {
-    rafRef.current = null;
     if (pendingContentRef.current.length > 0) {
-      const batch = pendingContentRef.current;
-      pendingContentRef.current = '';
-      setTextContent((prev) => prev + batch);
+      const newContent = [...pendingContentRef.current];
+      pendingContentRef.current = [];
+      
+      React.startTransition(() => {
+        setTextContent((prev) => [...prev, ...newContent]);
+      });
     }
   }, []);
-
-  // Accumulate chunks and schedule a single flush per frame
-  const addContentThrottled = useCallback((content: string) => {
-    pendingContentRef.current += content;
-
-    // Only schedule one RAF — subsequent chunks within the same frame just append to the buffer
-    if (rafRef.current === null) {
-      rafRef.current = requestAnimationFrame(flushPendingContent);
+  
+  const addContentThrottled = useCallback((content: { content: string; sequence?: number }) => {
+    pendingContentRef.current.push(content);
+    
+    // Clear existing throttle
+    if (throttleRef.current) {
+      clearTimeout(throttleRef.current);
     }
+    
+          // Set new throttle for smooth updates (16ms ≈ 60fps)
+    throttleRef.current = setTimeout(flushPendingContent, 16);
   }, [flushPendingContent]);
   const [toolCall, setToolCall] = useState<ParsedContent | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -121,12 +127,23 @@ export function useAgentStream(
   const threadIdRef = useRef(threadId); // Ref to hold the current threadId
   const setMessagesRef = useRef(setMessages); // Ref to hold the setMessages function
 
-  // textContent is already a concatenated string — no sorting needed
+  const orderedTextContent = useMemo(() => {
+    // Use a more efficient approach for streaming performance
+    if (textContent.length === 0) return '';
+    
+    // Sort once and concatenate efficiently
+    const sorted = textContent.slice().sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    let result = '';
+    for (let i = 0; i < sorted.length; i++) {
+      result += sorted[i].content;
+    }
+    return result;
+  }, [textContent]);
 
   // Refs to capture current state for persistence
   const statusRef = useRef(status);
   const agentRunIdRef = useRef(agentRunId);
-  // textContentRef removed — no longer needed with string-based textContent
+  const textContentRef = useRef(textContent);
 
   // Update refs whenever state changes
   useEffect(() => {
@@ -137,7 +154,9 @@ export function useAgentStream(
     agentRunIdRef.current = agentRunId;
   }, [agentRunId]);
 
-  // textContentRef no longer needed — textContent is a simple string
+  useEffect(() => {
+    textContentRef.current = textContent;
+  }, [textContent]);
 
   // On thread change, ensure any existing stream is cleaned up to avoid stale subscriptions
   useEffect(() => {
@@ -151,7 +170,7 @@ export function useAgentStream(
       streamCleanupRef.current();
       streamCleanupRef.current = null;
       setStatus('idle');
-      setTextContent('');
+      setTextContent([]);
       setToolCall(null);
       setAgentRunId(null);
       currentRunIdRef.current = null;
@@ -232,7 +251,7 @@ export function useAgentStream(
       }
 
       // Reset streaming-specific state
-      setTextContent('');
+      setTextContent([]);
       setToolCall(null);
 
       // Update status and clear run ID
@@ -371,14 +390,17 @@ export function useAgentStream(
             parsedMetadata.stream_status === 'chunk' &&
             parsedContent.content
           ) {
-            // Batch content into RAF-synced buffer for smooth streaming
-            addContentThrottled(parsedContent.content);
+            // Use throttled approach for smoother streaming
+            addContentThrottled({
+              sequence: message.sequence,
+              content: parsedContent.content,
+            });
             callbacks.onAssistantChunk?.({ content: parsedContent.content });
           } else if (parsedMetadata.stream_status === 'complete') {
             // Flush any pending content before completing
             flushPendingContent();
             
-            setTextContent('');
+            setTextContent([]);
             setToolCall(null);
             if (message.message_id) callbacks.onMessage(message);
           } else if (!parsedMetadata.stream_status) {
@@ -584,12 +606,12 @@ export function useAgentStream(
     return () => {
       isMountedRef.current = false;
 
-      // Cancel any pending animation frame
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
+      // Clean up throttle timeout
+      if (throttleRef.current) {
+        clearTimeout(throttleRef.current);
+        throttleRef.current = null;
       }
-
+      
       // Flush any remaining pending content
       flushPendingContent();
 
@@ -649,7 +671,7 @@ export function useAgentStream(
         }
 
         // Reset state for the new stream
-        setTextContent('');
+        setTextContent([]);
         setToolCall(null);
         setError(null);
         updateStatus('connecting');
@@ -787,7 +809,7 @@ export function useAgentStream(
 
   return {
     status,
-    textContent,
+    textContent: orderedTextContent,
     toolCall,
     error,
     agentRunId,
