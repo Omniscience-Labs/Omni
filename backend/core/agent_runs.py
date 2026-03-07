@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request, Body, File, Uplo
 from fastapi.responses import StreamingResponse
 
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt, get_user_id_from_stream_auth, verify_and_authorize_thread_access
-from core.utils.logger import logger, structlog
+from core.utils.logger import logger, structlog, safe_fire_and_forget
 # Billing checks now handled by billing_integration.check_model_and_billing_access
 from core.billing.billing_integration import billing_integration
 from core.utils.config import config, EnvMode
@@ -988,7 +988,7 @@ async def initiate_agent_with_files(
         logger.debug(f"Created new thread: {thread_id}")
 
         # Trigger Background Naming Task
-        asyncio.create_task(generate_and_update_project_name(project_id=project_id, prompt=prompt))
+        safe_fire_and_forget(generate_and_update_project_name(project_id=project_id, prompt=prompt), "generate_project_name")
 
         # 4. Upload Files to Sandbox (if any)
         message_content = prompt

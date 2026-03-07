@@ -25,7 +25,7 @@ from core.tools.data_providers_tool import DataProvidersTool
 from core.tools.expand_msg_tool import ExpandMessageTool
 from core.prompts.prompt import get_system_prompt
 
-from core.utils.logger import logger
+from core.utils.logger import logger, safe_fire_and_forget
 
 from core.billing.billing_integration import billing_integration
 from core.tools.sb_vision_tool import SandboxVisionTool
@@ -895,7 +895,7 @@ class AgentRunner:
                 generation.end()
 
         try:
-            asyncio.create_task(asyncio.to_thread(lambda: langfuse.flush()))
+            safe_fire_and_forget(asyncio.to_thread(lambda: langfuse.flush()), "langfuse_flush")
         except Exception as e:
             logger.warning(f"Failed to flush Langfuse: {e}")
 
