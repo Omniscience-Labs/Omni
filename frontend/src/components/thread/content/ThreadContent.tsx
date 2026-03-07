@@ -19,6 +19,7 @@ import { parseXmlToolCalls, isNewXmlFormat } from '@/components/thread/tool-view
 import { ShowToolStream } from './ShowToolStream';
 import { ComposioUrlDetector } from './composio-url-detector';
 import { StreamingText } from './StreamingText';
+import { FadeInText } from './FadeInText';
 import { HIDE_STREAMING_XML_TAGS } from '@/components/thread/utils';
 import { CopyMessageButton } from '@/components/thread/copy-message-button';
 import { useSmoothStream } from '@/hooks/utils/useSmoothStream';
@@ -998,9 +999,9 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                                                         return (
                                                                             <>
-                                                                                <StreamingText 
-                                                                                    content={textBeforeTag} 
-                                                                                    className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere"
+                                                                                <FadeInText
+                                                                                    content={textBeforeTag}
+                                                                                    className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere whitespace-pre-wrap"
                                                                                 />
 
                                                                                 {detectedTag && fullText.length > tagStartIndex && (
