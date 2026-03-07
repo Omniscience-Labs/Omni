@@ -571,12 +571,24 @@ class AgentRunner:
         if not self.account_id:
             raise ValueError(f"Thread {self.config.thread_id} has no associated account")
 
-        project = await self.client.table('projects').select('*').eq('project_id', self.config.project_id).execute()
-        if not project.data or len(project.data) == 0:
-            raise ValueError(f"Project {self.config.project_id} not found")
+        # Try L2 cache for project metadata first
+        from core.runtime_cache import get_cached_project_metadata, set_cached_project_metadata
+        cached_project = await get_cached_project_metadata(self.config.project_id)
 
-        project_data = project.data[0]
-        sandbox_info = project_data.get('sandbox', {})
+        if cached_project:
+            sandbox_info = cached_project.get('sandbox', {})
+            logger.debug(f"Project metadata loaded from cache for {self.config.project_id}")
+        else:
+            project = await self.client.table('projects').select('*').eq('project_id', self.config.project_id).execute()
+            if not project.data or len(project.data) == 0:
+                raise ValueError(f"Project {self.config.project_id} not found")
+
+            project_data = project.data[0]
+            sandbox_info = project_data.get('sandbox', {})
+
+            # Cache for subsequent requests
+            await set_cached_project_metadata(self.config.project_id, sandbox_info)
+
         if not sandbox_info.get('id'):
             logger.debug(f"No sandbox found for project {self.config.project_id}; will create lazily when needed")
     
