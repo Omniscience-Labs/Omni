@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request, Body, File, Uplo
 from fastapi.responses import StreamingResponse
 
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt, get_user_id_from_stream_auth, verify_and_authorize_thread_access
-from core.utils.logger import logger, structlog
+from core.utils.logger import logger, structlog, safe_fire_and_forget
 # Billing checks now handled by billing_integration.check_model_and_billing_access
 from core.billing.billing_integration import billing_integration
 from core.utils.config import config, EnvMode
@@ -46,6 +46,158 @@ async def check_billing_status(client, user_id: str) -> Tuple[bool, str, Optiona
     }
     
     return can_run, message, subscription_info
+
+
+async def _load_agent_config_cached(client, agent_id: str, account_id: str, user_id: str) -> dict:
+    """
+    Load agent config using 3-tier cache strategy:
+      L1: In-memory static config (Suna/Omni) - ~0ms
+      L2: Redis cached MCPs/config - ~10-50ms
+      L3: Full DB query - ~500-1000ms (only on cache miss)
+
+    On cache miss, result is stored in L2 for next time.
+    """
+    import time as _time
+    t_start = _time.time()
+
+    from core.runtime_cache import (
+        get_static_suna_config, get_static_omni_config,
+        get_cached_user_mcps, get_cached_agent_config,
+        set_cached_agent_config
+    )
+
+    effective_agent_id = agent_id
+
+    if effective_agent_id:
+        # --- FAST PATH: Try L1 (memory) + L2 (Redis) for Suna/Omni default agents ---
+        suna_config = get_static_suna_config()
+        omni_config = get_static_omni_config()
+        cached_mcps = await get_cached_user_mcps(effective_agent_id)
+
+        if cached_mcps is not None:
+            agent_type = cached_mcps.get('agent_type', 'suna')
+
+            if agent_type == 'suna' and suna_config:
+                # Suna fast path: zero DB calls
+                config = {
+                    'agent_id': effective_agent_id,
+                    'name': 'Suna',
+                    'system_prompt': suna_config['system_prompt'],
+                    'model': suna_config['model'],
+                    'agentpress_tools': suna_config['agentpress_tools'],
+                    'centrally_managed': True,
+                    'is_default': True,
+                    'is_suna_default': True,
+                    'is_omni_default': False,
+                    'account_id': account_id,
+                    'restrictions': suna_config['restrictions'],
+                    'configured_mcps': cached_mcps.get('configured_mcps', []),
+                    'custom_mcps': cached_mcps.get('custom_mcps', []),
+                    'triggers': cached_mcps.get('triggers', []),
+                    'workflows': cached_mcps.get('workflows', []),
+                    'version_name': 'v1',
+                }
+                logger.info(f"[FAST PATH] Suna config from memory + Redis MCPs: {(_time.time() - t_start)*1000:.1f}ms (zero DB calls)")
+                return config
+
+            elif agent_type == 'omni' and omni_config:
+                # Omni fast path: zero DB calls
+                config = {
+                    'agent_id': effective_agent_id,
+                    'name': 'Omni',
+                    'system_prompt': omni_config['system_prompt'],
+                    'model': omni_config['model'],
+                    'agentpress_tools': omni_config['agentpress_tools'],
+                    'avatar': omni_config.get('avatar', ''),
+                    'avatar_color': omni_config.get('avatar_color', ''),
+                    'centrally_managed': True,
+                    'is_default': True,
+                    'is_suna_default': False,
+                    'is_omni_default': True,
+                    'account_id': account_id,
+                    'restrictions': omni_config['restrictions'],
+                    'configured_mcps': cached_mcps.get('configured_mcps', []),
+                    'custom_mcps': cached_mcps.get('custom_mcps', []),
+                    'triggers': cached_mcps.get('triggers', []),
+                    'workflows': cached_mcps.get('workflows', []),
+                    'version_name': 'v1',
+                }
+                logger.info(f"[FAST PATH] Omni config from memory + Redis MCPs: {(_time.time() - t_start)*1000:.1f}ms (zero DB calls)")
+                return config
+
+        # --- MEDIUM PATH: Try L2 Redis cache for custom agents ---
+        cached_config = await get_cached_agent_config(effective_agent_id)
+        if cached_config:
+            logger.info(f"[CACHE HIT] Custom agent config from Redis: {(_time.time() - t_start)*1000:.1f}ms")
+            return cached_config
+
+        # --- SLOW PATH: Full DB query (L3) ---
+        logger.debug(f"[CACHE MISS] Loading agent {effective_agent_id} from DB")
+        agent_result = await client.table('agents').select('*').eq('agent_id', effective_agent_id).eq('account_id', account_id).execute()
+
+        if not agent_result.data:
+            if agent_id:
+                raise HTTPException(status_code=404, detail="Agent not found or access denied")
+            effective_agent_id = None
+        else:
+            agent_data = agent_result.data[0]
+            version_data = None
+            if agent_data.get('current_version_id'):
+                try:
+                    version_service = await _get_version_service()
+                    version_obj = await version_service.get_version(
+                        agent_id=effective_agent_id,
+                        version_id=agent_data['current_version_id'],
+                        user_id=user_id
+                    )
+                    version_data = version_obj.to_dict()
+                except Exception as e:
+                    logger.warning(f"Failed to get version data: {e}")
+
+            agent_config = extract_agent_config(agent_data, version_data)
+
+            # Cache the result in L2 for next time
+            is_default = agent_config.get('is_suna_default', False) or agent_config.get('is_omni_default', False)
+            await set_cached_agent_config(
+                effective_agent_id, agent_config,
+                is_default_agent=is_default
+            )
+            logger.info(f"[DB PATH] Agent config loaded and cached: {(_time.time() - t_start)*1000:.1f}ms")
+            return agent_config
+
+    # No agent_id provided or agent not found — try default agent
+    if not effective_agent_id:
+        default_agent_result = await client.table('agents').select('*').eq('account_id', account_id).eq('is_default', True).execute()
+
+        if default_agent_result.data:
+            agent_data = default_agent_result.data[0]
+            version_data = None
+            if agent_data.get('current_version_id'):
+                try:
+                    version_service = await _get_version_service()
+                    version_obj = await version_service.get_version(
+                        agent_id=agent_data['agent_id'],
+                        version_id=agent_data['current_version_id'],
+                        user_id=user_id
+                    )
+                    version_data = version_obj.to_dict()
+                except Exception as e:
+                    logger.warning(f"Failed to get default agent version data: {e}")
+
+            agent_config = extract_agent_config(agent_data, version_data)
+
+            # Cache default agent too
+            is_default = agent_config.get('is_suna_default', False) or agent_config.get('is_omni_default', False)
+            await set_cached_agent_config(
+                agent_data['agent_id'], agent_config,
+                is_default_agent=is_default
+            )
+            logger.info(f"[DB PATH] Default agent config loaded and cached: {(_time.time() - t_start)*1000:.1f}ms")
+            return agent_config
+        else:
+            logger.warning(f"No default agent found for account {account_id}")
+
+    return None
 
 
 @router.post("/thread/{thread_id}/agent/start")
@@ -95,93 +247,14 @@ async def start_agent(
         thread_metadata=thread_metadata,
     )
     
-    # Load agent configuration with version support
-    agent_config = None
-    effective_agent_id = body.agent_id  # Optional agent ID from request
-    
-    logger.debug(f"[AGENT LOAD] Agent loading flow:")
-    logger.debug(f"  - body.agent_id: {body.agent_id}")
-    logger.debug(f"  - effective_agent_id: {effective_agent_id}")
+    # Load agent configuration with 3-tier cache (memory -> Redis -> DB)
+    import time as _time
+    _t_config_start = _time.time()
+    agent_config = await _load_agent_config_cached(client, body.agent_id, account_id, user_id)
+    logger.info(f"[TIMING] Agent config loaded in {(_time.time() - _t_config_start) * 1000:.1f}ms")
 
-    if effective_agent_id:
-        logger.debug(f"[AGENT LOAD] Querying for agent: {effective_agent_id}")
-        # Get agent
-        agent_result = await client.table('agents').select('*').eq('agent_id', effective_agent_id).eq('account_id', account_id).execute()
-        logger.debug(f"[AGENT LOAD] Query result: found {len(agent_result.data) if agent_result.data else 0} agents")
-        
-        if not agent_result.data:
-            if body.agent_id:
-                raise HTTPException(status_code=404, detail="Agent not found or access denied")
-            else:
-                logger.warning(f"Stored agent_id {effective_agent_id} not found, falling back to default")
-                effective_agent_id = None
-        else:
-            agent_data = agent_result.data[0]
-            version_data = None
-            if agent_data.get('current_version_id'):
-                try:
-                    version_service = await _get_version_service()
-                    version_obj = await version_service.get_version(
-                        agent_id=effective_agent_id,
-                        version_id=agent_data['current_version_id'],
-                        user_id=user_id
-                    )
-                    version_data = version_obj.to_dict()
-                    logger.debug(f"[AGENT LOAD] Got version data from version manager: {version_data.get('version_name')}")
-                except Exception as e:
-                    logger.warning(f"[AGENT LOAD] Failed to get version data: {e}")
-            
-            logger.debug(f"[AGENT LOAD] About to call extract_agent_config with agent_data keys: {list(agent_data.keys())}")
-            # logger.debug(f"[AGENT LOAD] version_data type: {type(version_data)}, has data: {version_data is not None}")
-            
-            agent_config = extract_agent_config(agent_data, version_data)
-            
-            if version_data:
-                logger.debug(f"Using agent {agent_config['name']} ({effective_agent_id}) version {agent_config.get('version_name', 'v1')}")
-            else:
-                logger.debug(f"Using agent {agent_config['name']} ({effective_agent_id}) - no version data")
-            source = "request" if body.agent_id else "fallback"
-    else:
-        logger.debug(f"[AGENT LOAD] No effective_agent_id, will try default agent")
-
-    if not agent_config:
-        logger.debug(f"[AGENT LOAD] No agent config yet, querying for default agent")
-        default_agent_result = await client.table('agents').select('*').eq('account_id', account_id).eq('is_default', True).execute()
-        logger.debug(f"[AGENT LOAD] Default agent query result: found {len(default_agent_result.data) if default_agent_result.data else 0} default agents")
-        
-        if default_agent_result.data:
-            agent_data = default_agent_result.data[0]
-            
-            # Use versioning system to get current version
-            version_data = None
-            if agent_data.get('current_version_id'):
-                try:
-                    version_service = await _get_version_service()
-                    version_obj = await version_service.get_version(
-                        agent_id=agent_data['agent_id'],
-                        version_id=agent_data['current_version_id'],
-                        user_id=user_id
-                    )
-                    version_data = version_obj.to_dict()
-                    logger.debug(f"[AGENT LOAD] Got default agent version from version manager: {version_data.get('version_name')}")
-                except Exception as e:
-                    logger.warning(f"[AGENT LOAD] Failed to get default agent version data: {e}")
-            
-            logger.debug(f"[AGENT LOAD] About to call extract_agent_config for DEFAULT agent with version data: {version_data is not None}")
-            
-            agent_config = extract_agent_config(agent_data, version_data)
-            
-            if version_data:
-                logger.debug(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) version {agent_config.get('version_name', 'v1')}")
-            else:
-                logger.debug(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) - no version data")
-        else:
-            logger.warning(f"[AGENT LOAD] No default agent found for account {account_id}")
-
-    logger.debug(f"[AGENT LOAD] Final agent_config: {agent_config is not None}")
     if agent_config:
-        logger.debug(f"[AGENT LOAD] Agent config keys: {list(agent_config.keys())}")
-        logger.debug(f"Using agent {agent_config['agent_id']} for this agent run (thread remains agent-agnostic)")
+        logger.debug(f"Using agent {agent_config['agent_id']} for this agent run")
 
     # Unified billing and model access check
     can_proceed, error_message, context = await billing_integration.check_model_and_billing_access(
@@ -915,7 +988,7 @@ async def initiate_agent_with_files(
         logger.debug(f"Created new thread: {thread_id}")
 
         # Trigger Background Naming Task
-        asyncio.create_task(generate_and_update_project_name(project_id=project_id, prompt=prompt))
+        safe_fire_and_forget(generate_and_update_project_name(project_id=project_id, prompt=prompt), "generate_project_name")
 
         # 4. Upload Files to Sandbox (if any)
         message_content = prompt

@@ -19,7 +19,7 @@ import hashlib
 import time
 from pydantic import BaseModel, Field, field_validator
 from fastapi import HTTPException
-from core.utils.logger import logger
+from core.utils.logger import logger, safe_fire_and_forget
 from core.services.supabase import DBConnection
 from core.services import redis
 from core.utils.config import config
@@ -443,7 +443,7 @@ class APIKeyService:
 
             # Update last used timestamp with throttling to prevent DB spam
             # (max once per 15 minutes per key, configurable via config.API_KEY_LAST_USED_THROTTLE_SECONDS)
-            asyncio.create_task(self._update_last_used_throttled(key_data["key_id"]))
+            safe_fire_and_forget(self._update_last_used_throttled(key_data["key_id"]), "update_api_key_last_used")
 
             return validation_result
 

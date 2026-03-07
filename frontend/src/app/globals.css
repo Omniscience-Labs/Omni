@@ -977,3 +977,21 @@
     }
   }
 }
+
+/* Per-word fade-in for streaming text */
+@keyframes wordFadeIn {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+    transform: translateY(1px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.word-fade-in {
+  animation: wordFadeIn 180ms ease-out both;
+}
