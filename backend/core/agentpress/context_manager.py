@@ -302,81 +302,21 @@ class ContextManager:
             messages_to_count = ([system_message] + conversation_messages) if system_message else conversation_messages
             current_token_count = token_counter(model=llm_model, messages=messages_to_count)
 
-        # Prepare final result and sanitize orphaned tool pairs
+        # Prepare final result
         final_messages = ([system_message] + conversation_messages) if system_message else conversation_messages
-        final_messages = self._sanitize_tool_pairs(final_messages)
         final_token_count = token_counter(model=llm_model, messages=final_messages)
-
+        
         logger.info(f"Context compression (omit): {initial_token_count} -> {final_token_count} tokens ({len(messages)} -> {len(final_messages)} messages)")
-
+            
         return final_messages
     
-    def _collect_tool_use_ids(self, msg: Dict[str, Any]) -> set:
-        """Extract tool_use IDs from an assistant message's content/tool_calls."""
-        ids = set()
-        # Anthropic format: content blocks with type=tool_use
-        content = msg.get('content')
-        if isinstance(content, list):
-            for block in content:
-                if isinstance(block, dict) and block.get('type') == 'tool_use' and 'id' in block:
-                    ids.add(block['id'])
-        # OpenAI format: tool_calls array
-        tool_calls = msg.get('tool_calls')
-        if isinstance(tool_calls, list):
-            for tc in tool_calls:
-                if isinstance(tc, dict) and 'id' in tc:
-                    ids.add(tc['id'])
-        return ids
-
-    def _get_tool_call_id(self, msg: Dict[str, Any]) -> Optional[str]:
-        """Get the tool_call_id from a tool role message."""
-        if msg.get('role') == 'tool':
-            return msg.get('tool_call_id')
-        # Also check content blocks for tool_result type
-        content = msg.get('content')
-        if isinstance(content, list):
-            for block in content:
-                if isinstance(block, dict) and block.get('type') == 'tool_result':
-                    return block.get('tool_use_id')
-        return None
-
-    def _sanitize_tool_pairs(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Remove orphaned tool_result messages that have no matching tool_use in the preceding assistant message.
-
-        This ensures the Anthropic API constraint is satisfied: each tool_result must
-        have a corresponding tool_use block in the previous assistant message.
-        """
-        if not messages:
-            return messages
-
-        # Collect all tool_use IDs from assistant messages
-        available_tool_use_ids = set()
-        for msg in messages:
-            if msg.get('role') == 'assistant':
-                available_tool_use_ids.update(self._collect_tool_use_ids(msg))
-
-        # Filter out tool messages whose tool_call_id is not in available_tool_use_ids
-        result = []
-        for msg in messages:
-            tool_call_id = self._get_tool_call_id(msg)
-            if tool_call_id and tool_call_id not in available_tool_use_ids:
-                logger.debug(f"Removing orphaned tool result with tool_call_id={tool_call_id}")
-                continue
-            result.append(msg)
-
-        return result
-
     def middle_out_messages(self, messages: List[Dict[str, Any]], max_messages: int = 320) -> List[Dict[str, Any]]:
-        """Remove messages from the middle of the list, keeping max_messages total.
-
-        After removal, sanitizes orphaned tool_result messages to prevent API errors.
-        """
+        """Remove messages from the middle of the list, keeping max_messages total."""
         if len(messages) <= max_messages:
             return messages
-
+        
         # Keep half from the beginning and half from the end
         keep_start = max_messages // 2
         keep_end = max_messages - keep_start
-
-        result = messages[:keep_start] + messages[-keep_end:]
-        return self._sanitize_tool_pairs(result) 
+        
+        return messages[:keep_start] + messages[-keep_end:] 
