@@ -238,7 +238,7 @@ class OmniDefaultAgentService:
                 "name": config.get("name", "Omni"),
                 "description": config.get("description", ""),
                 "system_prompt": config.get("system_prompt", ""),
-                "model": config.get("model", "openrouter/anthropic/claude-sonnet-4-6"),
+                "model": config.get("model", "openrouter/anthropic/sonnet-4"),
                 "tools": {
                     "agentpress": config.get("agentpress_tools", {}),
                     "mcp": config.get("configured_mcps", []),
@@ -415,7 +415,7 @@ class OmniDefaultAgentService:
                 configured_mcps=config.get("tools", {}).get("mcp", []),
                 custom_mcps=config.get("tools", {}).get("custom_mcp", []),
                 agentpress_tools=config.get("tools", {}).get("agentpress", {}),
-                model=config.get("model", "claude-sonnet-4-6"),
+                model=config.get("model", "claude-3-5-sonnet-20241022"),
                 version_name="v1",
                 change_description="Initial Omni agent installation"
             )
