@@ -375,6 +375,7 @@ async def _trigger_agent_background(
     account_id: Optional[str] = None,
     enable_thinking: bool = False,
     reasoning_effort: str = "low",
+    create_worker_chat: bool = False,
 ):
     """
     Trigger the background agent execution.
@@ -388,10 +389,11 @@ async def _trigger_agent_background(
         account_id: Account ID for authorization in worker
         enable_thinking: Enable extended thinking/reasoning
         reasoning_effort: Reasoning effort level (low/medium/high)
+        create_worker_chat: If True, prepend agent-creator session prompt for "Start a chat to customise worker"
     """
     request_id = structlog.contextvars.get_contextvars().get('request_id')
 
-    logger.info(f"🚀 Sending agent run {agent_run_id} to Dramatiq queue (thread: {thread_id}, model: {effective_model}, thinking: {enable_thinking})")
+    logger.info(f"🚀 Sending agent run {agent_run_id} to Dramatiq queue (thread: {thread_id}, model: {effective_model}, thinking: {enable_thinking}, create_worker_chat: {create_worker_chat})")
     
     try:
         message = run_agent_background.send(
@@ -405,6 +407,7 @@ async def _trigger_agent_background(
             request_id=request_id,
             enable_thinking=enable_thinking,
             reasoning_effort=reasoning_effort,
+            create_worker_chat=create_worker_chat,
         )
         message_id = message.message_id if hasattr(message, 'message_id') else 'N/A'
         logger.info(f"✅ Successfully enqueued agent run {agent_run_id} to Dramatiq (message_id: {message_id})")
@@ -624,6 +627,7 @@ async def start_agent_run(
     skip_limits_check: bool = False,  # For triggers that have their own limits
     enable_thinking: bool = False,
     reasoning_effort: str = "low",
+    create_worker_chat: bool = False,
 ) -> Dict[str, Any]:
     """
     Core function to start an agent run.
@@ -786,7 +790,7 @@ async def start_agent_run(
     
     # Trigger background execution
     t_dispatch = time.time()
-    await _trigger_agent_background(agent_run_id, thread_id, project_id, effective_model, agent_id, account_id, enable_thinking, reasoning_effort)
+    await _trigger_agent_background(agent_run_id, thread_id, project_id, effective_model, agent_id, account_id, enable_thinking, reasoning_effort, create_worker_chat)
     logger.debug(f"⏱️ [TIMING] Worker dispatch: {(time.time() - t_dispatch) * 1000:.1f}ms")
     
     logger.info(f"⏱️ [TIMING] start_agent_run total: {(time.time() - t_start) * 1000:.1f}ms")
@@ -812,6 +816,7 @@ async def unified_agent_start(
     agent_id: Optional[str] = Form(None),
     enable_thinking: Optional[bool] = Form(False),
     reasoning_effort: Optional[str] = Form("low"),
+    create_worker_chat: Optional[bool] = Form(False),
     files: List[UploadFile] = File(default=[]),
     user_id: str = Depends(verify_and_get_user_id_from_jwt)
 ):
@@ -933,11 +938,17 @@ async def unified_agent_start(
             message_content=message_content,  # Includes file references if any
             enable_thinking=enable_thinking,
             reasoning_effort=reasoning_effort,
+            create_worker_chat=bool(create_worker_chat),
         )
         
         logger.info(f"⏱️ [TIMING] 🎯 API Request Total: {(time.time() - api_request_start) * 1000:.1f}ms")
         
-        return {"thread_id": result["thread_id"], "agent_run_id": result["agent_run_id"], "status": "running"}
+        return {
+            "thread_id": result["thread_id"],
+            "agent_run_id": result["agent_run_id"],
+            "project_id": result.get("project_id"),
+            "status": "running",
+        }
     
     except HTTPException:
         raise

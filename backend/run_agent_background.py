@@ -456,6 +456,7 @@ async def run_agent_background(
     request_id: Optional[str] = None,
     enable_thinking: bool = False,
     reasoning_effort: str = "low",
+    create_worker_chat: bool = False,
 ):
     worker_start = time.time()
     timings = {}
@@ -583,6 +584,7 @@ async def run_agent_background(
             account_id=account_id,
             enable_thinking=enable_thinking,
             reasoning_effort=reasoning_effort,
+            create_worker_chat=create_worker_chat,
         )
         
         total_to_ready = (time.time() - worker_start) * 1000

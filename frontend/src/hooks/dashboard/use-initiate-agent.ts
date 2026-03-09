@@ -38,6 +38,7 @@ export const useInitiateAgentMutation = () => {
       const model_name = model_name_raw && model_name_raw.trim() ? model_name_raw.trim() : undefined;
       const agent_id = formData.get('agent_id') as string | undefined;
       const files = formData.getAll('files') as File[];
+      const create_worker_chat = formData.get('create_worker_chat') === 'true';
       
       // Debug logging
       console.log('[useInitiateAgent] Extracted from FormData:', {
@@ -47,6 +48,7 @@ export const useInitiateAgentMutation = () => {
         model_name,
         agent_id,
         filesCount: files.length,
+        create_worker_chat,
       });
       
       return await unifiedAgentStart({
@@ -54,6 +56,7 @@ export const useInitiateAgentMutation = () => {
         model_name,
         agent_id,
         files: files.length > 0 ? files : undefined,
+        create_worker_chat: create_worker_chat || undefined,
       });
     },
     onSuccess: (data) => {
