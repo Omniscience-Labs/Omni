@@ -25,6 +25,7 @@ export type ToolCall = {
 export interface UnifiedAgentStartResponse {
   thread_id: string;
   agent_run_id: string;
+  project_id?: string | null;
   status: string;
 }
 
@@ -65,6 +66,7 @@ export const unifiedAgentStart = async (options: {
   files?: File[];
   model_name?: string;
   agent_id?: string;
+  create_worker_chat?: boolean;
 }): Promise<{ thread_id: string; agent_run_id: string; status: string }> => {
   try {
     if (!API_URL) {
@@ -92,6 +94,10 @@ export const unifiedAgentStart = async (options: {
     
     if (options.agent_id) {
       formData.append('agent_id', options.agent_id);
+    }
+    
+    if (options.create_worker_chat) {
+      formData.append('create_worker_chat', 'true');
     }
     
     if (options.files && options.files.length > 0) {

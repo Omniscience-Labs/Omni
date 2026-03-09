@@ -8,6 +8,7 @@ class UnifiedAgentStartResponse(BaseModel):
     """Unified response model for agent start (both new and existing threads)."""
     thread_id: str
     agent_run_id: str
+    project_id: Optional[str] = None  # Present for new threads; used for redirect
     status: str = "running"
 
 

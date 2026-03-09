@@ -10,7 +10,7 @@ from core.tools.web_search_tool import SandboxWebSearchTool
 from core.tools.image_search_tool import SandboxImageSearchTool
 from dotenv import load_dotenv
 from core.utils.config import config, EnvMode
-from core.prompts.agent_builder_prompt import get_agent_builder_prompt
+from core.prompts.agent_builder_prompt import get_agent_builder_prompt, get_agent_creator_session_prompt
 from core.agentpress.thread_manager import ThreadManager
 from core.agentpress.response_processor import ProcessorConfig
 from core.agentpress.error_processor import ErrorProcessor
@@ -49,6 +49,7 @@ class AgentConfig:
     account_id: Optional[str] = None  # If provided, skip thread query in setup()
     enable_thinking: bool = False
     reasoning_effort: str = "low"
+    create_worker_chat: bool = False  # When True, prepend agent-creator session prompt
 
 class ToolManager:
     def __init__(self, thread_manager: ThreadManager, project_id: str, thread_id: str, agent_config: Optional[dict] = None):
@@ -351,7 +352,8 @@ class PromptManager:
                                   client=None,
                                   tool_registry=None,
                                   xml_tool_calling: bool = False,
-                                  user_id: Optional[str] = None) -> dict:
+                                  user_id: Optional[str] = None,
+                                  create_worker_chat: bool = False) -> dict:
         
         default_system_content = get_system_prompt()
         
@@ -366,6 +368,10 @@ class PromptManager:
             system_content = agent_config['system_prompt'].strip()
         else:
             system_content = default_system_content
+        
+        # When this chat is for creating one custom worker, prepend the agent-creator session prompt
+        if create_worker_chat:
+            system_content = get_agent_creator_session_prompt().strip() + "\n\n" + system_content
         
         # Check if agent has builder tools enabled - append the full builder prompt
         if agent_config:
@@ -921,7 +927,8 @@ class AgentRunner:
             mcp_wrapper_instance, self.client,
             tool_registry=self.thread_manager.tool_registry,
             xml_tool_calling=config.AGENT_XML_TOOL_CALLING,
-            user_id=self.account_id
+            user_id=self.account_id,
+            create_worker_chat=self.config.create_worker_chat,
         )
         logger.info(f"⏱️ [TIMING] build_system_prompt() in {(time.time() - prompt_start) * 1000:.1f}ms ({len(str(system_message.get('content', '')))} chars)")
         logger.debug(f"model_name received: {self.config.model_name}")
@@ -1147,6 +1154,7 @@ async def run_agent(
     account_id: Optional[str] = None,  # If provided, skips thread query in setup()
     enable_thinking: bool = False,
     reasoning_effort: str = "low",
+    create_worker_chat: bool = False,
 ):
     effective_model = model_name
     
@@ -1161,6 +1169,7 @@ async def run_agent(
         account_id=account_id,
         enable_thinking=enable_thinking,
         reasoning_effort=reasoning_effort,
+        create_worker_chat=create_worker_chat,
     )
     
     runner = AgentRunner(config)

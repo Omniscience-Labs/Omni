@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useCreateNewAgent } from '@/hooks/agents/use-agents';
+import { useInitiateAgentWithInvalidation } from '@/hooks/dashboard/use-initiate-agent';
 import { useKortixTeamTemplates } from '@/hooks/secure-mcp/use-secure-mcp';
 import { AgentCountLimitError } from '@/lib/api/errors';
 import { toast } from 'sonner';
@@ -56,8 +57,10 @@ export function AgentCreationModal({ open, onOpenChange, onSuccess }: AgentCreat
   const [chatDescription, setChatDescription] = useState('');
 
   const createNewAgentMutation = useCreateNewAgent();
+  const initiateAgentMutation = useInitiateAgentWithInvalidation();
   // Only fetch templates when modal is open to avoid unnecessary API calls
   const { data: templates } = useKortixTeamTemplates({ enabled: open });
+  const isCreating = createNewAgentMutation.isPending || initiateAgentMutation.isPending;
 
   const handleExploreTemplates = () => {
     onOpenChange(false);
@@ -142,7 +145,7 @@ export function AgentCreationModal({ open, onOpenChange, onSuccess }: AgentCreat
     }
   };
 
-  const handleChatContinue = async () => {
+  const handleCreateWorker = async () => {
     if (!chatDescription.trim()) {
       toast.error('Please describe what your Worker should be able to do');
       return;
@@ -167,6 +170,31 @@ export function AgentCreationModal({ open, onOpenChange, onSuccess }: AgentCreat
         onOpenChange(false);
       } else {
         console.error('Error creating agent from chat:', error);
+      }
+    }
+  };
+
+  const handleStartChatToCreateWorker = async () => {
+    if (!chatDescription.trim()) {
+      toast.error('Please describe what your Worker should be able to do');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('prompt', chatDescription.trim());
+    formData.append('create_worker_chat', 'true');
+
+    try {
+      const data = await initiateAgentMutation.mutateAsync(formData);
+      if (data.project_id) {
+        router.push(`/projects/${data.project_id}/thread/${data.thread_id}`);
+      } else {
+        router.push(`/agents/${data.thread_id}`);
+      }
+      onOpenChange(false);
+    } catch (error) {
+      if (error instanceof AgentCountLimitError) {
+        onOpenChange(false);
       }
     }
   };
@@ -298,17 +326,28 @@ export function AgentCreationModal({ open, onOpenChange, onSuccess }: AgentCreat
 
               {/* Actions */}
               <div className="flex flex-col gap-2 sm:gap-3">
-                <Button
-                  onClick={handleChatContinue}
-                  disabled={!chatDescription.trim() || createNewAgentMutation.isPending}
-                  className="w-full h-9 sm:h-10 text-sm"
-                >
-                  {createNewAgentMutation.isPending ? 'Creating...' : 'Create Worker'}
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={handleCreateWorker}
+                    disabled={!chatDescription.trim() || isCreating}
+                    className="w-full sm:flex-1 h-9 sm:h-10 text-sm bg-white text-foreground hover:bg-white/90 dark:bg-white dark:text-black"
+                  >
+                    {createNewAgentMutation.isPending ? 'Creating...' : 'Create worker'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleStartChatToCreateWorker}
+                    disabled={!chatDescription.trim() || isCreating}
+                    className="w-full sm:flex-1 h-9 sm:h-10 text-sm bg-white text-foreground hover:bg-white/90 dark:bg-white dark:text-black"
+                  >
+                    {initiateAgentMutation.isPending ? 'Starting chat...' : 'Start a chat to customise worker'}
+                  </Button>
+                </div>
                 <Button 
                   variant="ghost" 
                   onClick={handleBack} 
-                  disabled={createNewAgentMutation.isPending}
+                  disabled={isCreating}
                   className="w-full h-9 sm:h-10 text-sm text-muted-foreground"
                 >
                   <ChevronLeft className="w-4 h-4 mr-1" />
