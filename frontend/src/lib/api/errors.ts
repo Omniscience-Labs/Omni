@@ -264,8 +264,10 @@ export function parseTierRestrictionError(error: any): Error {
       return new ThreadLimitError(status, detail);
     
     case 'INSUFFICIENT_CREDITS':
+    case 'MONTHLY_LIMIT_EXCEEDED':
+    case 'INSUFFICIENT_POOL_BALANCE':
       return new BillingError(status, detail);
-    
+
     default:
       // For 402 errors without a specific code, treat as billing error
       if (status === 402) {

@@ -27,6 +27,7 @@ from core.ai_models import model_manager
 from core.credits import credit_service
 from ..shared.config import (
     CREDITS_PER_DOLLAR,
+    MINIMUM_CREDIT_FOR_RUN,
     get_tier_by_name,
     is_model_allowed,
     get_tier_limits,
@@ -264,7 +265,7 @@ async def _build_account_state(account_id: str, client) -> Dict:
             'daily': daily_credits,
             'monthly': monthly_credits,
             'extra': extra_credits,
-            'can_run': total_credits >= 1,  # 1 credit = $0.01
+            'can_run': total_credits >= (MINIMUM_CREDIT_FOR_RUN * CREDITS_PER_DOLLAR),
             'daily_refresh': daily_credits_info
         },
         
