@@ -991,6 +991,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                                         onCheckedChange={(checked) =>
                                           handleInitiationFieldChange(field.name, checked ? 'true' : 'false')
                                         }
+                                        className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500 dark:data-[state=checked]:bg-green-500 dark:data-[state=unchecked]:bg-red-500"
                                       />
                                       <Label htmlFor={field.name} className="text-xs font-normal">
                                         {field.description || 'Enable'}
@@ -1064,6 +1065,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                                   setCustomAuthConfig(prev => ({ ...prev, ...defaults }));
                                 }
                               }}
+                              className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500 dark:data-[state=checked]:bg-green-500 dark:data-[state=unchecked]:bg-red-500"
                             />
                           </div>
                           <AnimatePresence>
